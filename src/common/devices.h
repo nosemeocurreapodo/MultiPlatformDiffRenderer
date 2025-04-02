@@ -1,0 +1,1 @@
+typedef devices enum {CPU, OpenGL};
