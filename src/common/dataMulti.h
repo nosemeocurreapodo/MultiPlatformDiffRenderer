@@ -4,27 +4,26 @@
 #include "src/common/types.h"
 
 template <typename Type>
-class data
+class dataMulti
 {
 public:
 
-    data(int _width, int _height, Type _nodata_value)
+    dataMulti(int _width, int _height, int _channels, Type _nodata_value)
     {
         nodata = _nodata_value;
         width = _width;
         height = _height;
-        currentDevice = devices.CPU;
+        channels = _channels;
 
-        m_data = new Type[width * height];
-        /*
-        if (m_data == nullptr)
-        {
-            throw std::bad_alloc();
-        }
-        */
+        // by default, data is in CPU
+        currentDevice = devices["CPU"];
+
+        // by default, cpu memory buffer is always present
+        cpu_data = std::make_unique<Type>(Type[channels * width * height]);
+        if (cpu_data == nullptr)
+            throw std::bad_alloc("Failed creating data");
+
         set(_nodata_value);
-
-        glGenTextures(1, &textureID);
     }
 
     data(const data &other)
@@ -32,36 +31,64 @@ public:
         nodata = other.nodata;
         width = other.width;
         height = other.height;
-        m_data = new Type[width * height];
-        std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+        channels = other.channels;
+        currentDevice = other.currentDevice;
+        cpu_data = std::make_unique<Type>(Type[channels * width * height]);
+        
+        if(currentDevice == devices["CPU"])
+            std::memcpy(cpu_data, other.cpu_data, sizeof(Type) * channels * width * height);
     }
 
     data &operator=(const data &other)
     {
         if (this != &other)
         {
-            delete m_data;
+            delete cpu_data;
 
             nodata = other.nodata;
             width = other.width;
             height = other.height;
-            m_data = new Type[width * height];
+            channels = other.channels;
+            cpu_data = new Type[channels * width * height];
 
-            std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+            std::memcpy(cpu_data, other.cpu_data, sizeof(Type) * channels * width * height);
         }
         return *this;
     }
 
+    /*
     ~data()
     {
         delete[] m_data;
         // m_data = nullptr;
     }
+    */
 
-    void toDevice(int deviceId)
+    void toDevice(std:string device_name)
     {
-        if(deviceId)
+        if(devices.count(device_name) == 0)
+            throw std::runtime_error("Invalid device name");
 
+        if(devices[device_name] == currentDevice)
+            return;
+
+        currentDevice = devices[device_name];
+
+        if(currentDevice == devices["OpenGL"])
+        {
+            glGenTextures(1, &textureID);
+            glBindTexture(GL_TEXTURE_2D, textureID);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            GLint internalFormat = GL_R32F;
+            GLenum openglImageType = GL_FLOAT;
+
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, image.width, image.height, 0, GL_RED, openglImageType, image.get());
+            glGenerateMipmap(GL_TEXTURE_2D);
+        }
     }
 
     void setTexel(const Type value, int y, int x)
@@ -119,19 +146,6 @@ public:
         return m_data;
     }
 
-    void invert()
-    {
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                assert(d != 0);
-                setTexel(1.0 / d, y, x);
-            }
-        }
-    }
-
     float getPercentNoData()
     {
         int nodatacount = 0;
@@ -162,131 +176,6 @@ public:
         return mipmap;
     }
 
-    const data<vec2f> computeFrameDerivative()
-    {
-        data<vec2f> dIdpix_image(width, height, vec2f(0.0, 0.0));
-
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
-                {
-                    // dx.set(0.0, y, x, lvl);
-                    // dy.set(0.0, y, x, lvl);
-                    dIdpix_image.setTexel(vec2f(0.0f, 0.0f), y, x);
-                    continue;
-                }
-
-                float _dx = (float(getTexel(y, x + 1)) - float(getTexel(y, x - 1))) * width / 2.0;
-                float _dy = (float(getTexel(y + 1, x)) - float(getTexel(y - 1, x))) * height / 2.0;
-
-                dIdpix_image.setTexel(vec2f(_dx, _dy), y, x);
-            }
-        return dIdpix_image;
-    }
-
-    vec2f getMinMax()
-    {
-        Type min = nodata;
-        Type max = nodata;
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                if (d == nodata)
-                    continue;
-                if (min == nodata || d < min)
-                    min = d;
-                if (max == nodata || d > max)
-                    max = d;
-            }
-        }
-        return {min, max};
-    }
-
-    vec2f getMeanStd()
-    {
-        int n = 0;
-        float old_m = 0.0;
-        float new_m = 0.0;
-        float old_s = 0.0;
-        float new_s = 0.0;
-
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                if (d == nodata)
-                    continue;
-
-                n += 1;
-
-                if (n == 1)
-                {
-                    old_m = x;
-                    new_m = x;
-                    old_s = 0;
-                }
-                else
-                {
-                    new_m = old_m + (x - old_m) / n;
-                    new_s = old_s + (x - old_m) * (x - new_m);
-
-                    old_m = new_m;
-                    old_s = new_s;
-                }
-            }
-        }
-        return {new_m, sqrt(new_s / (n - 1))};
-    }
-
-    template <typename type2>
-    data<Type> operator*(type2 c)
-    {
-        dataCPU<Type> result(width, height, nodata);
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                if (d == nodata)
-                    continue;
-                Type res = d * c;
-                result.setTexel(res, y, x);
-            }
-        return result;
-    }
-
-    template <typename type2>
-    data<Type> operator+(type2 c)
-    {
-        data<Type> result(width, height, nodata);
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                if (d == nodata)
-                    continue;
-                Type res = d + c;
-                result.setTexel(res, y, x);
-            }
-        return result;
-    }
-
-    void normalize(float min, float max)
-    {
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                Type d = getTexel(y, x);
-                if (d == nodata)
-                    continue;
-                Type res = (d - min) / (max - min);
-                setTexel(res, y, x);
-            }
-    }
-
     template <typename type2>
     data<type2> convert()
     {
@@ -303,44 +192,10 @@ public:
         return result;
     }
 
-    /*
-    dataCPU add(dataCPU &other, int lvl)
-    {
-        dataCPU<Type> result(lvlWidths[lvl], lvlHeights[lvl], nodata);
-        for (int y = 0; y < sizes[lvl][1]; y++)
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                Type p1 = get(y, x, lvl);
-                Type p2 = other.get(y, x, lvl);
-                if (p1 == nodata || p2 == other.nodata)
-                    continue;
-                Type res = p1 + p2;
-                result.set(res, y, x, lvl);
-            }
-        return result;
-    }
-
-    dataCPU sub(dataCPU &other, int lvl)
-    {
-        dataCPU<Type> result(sizes[0][0], sizes[0][1], nodata);
-        for (int y = 0; y < sizes[lvl][1]; y++)
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                Type p1 = get(y, x, lvl);
-                Type p2 = other.get(y, x, lvl);
-                if (p1 == nodata || p2 == other.nodata)
-                    continue;
-                Type res = p1 - p2;
-                result.set(res, y, x, lvl);
-            }
-        return result;
-    }
-    */
-
     Type nodata;
     int width;
     int height;
-    std::string currentDevice;
+    int currentDevice;
 
 private:
     Type bilinear(float y, float x) const
@@ -398,8 +253,8 @@ private:
         return pix;
     }
 
-    Type *m_data;
-    GLuint textureID;
+    std::unique_ptr<Type> cpu_data;
+    GLuint opengl_data;
 };
 
 template <typename Type>

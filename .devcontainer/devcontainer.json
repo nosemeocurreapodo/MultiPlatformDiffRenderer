@@ -1,12 +1,12 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
     // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
     {
-        "name": "MultiPlataformRenderer",
-        "build": {
-        	"dockerfile": "Dockerfile",
-        	"context": "."
-        },
-        //"image": "vivado:2023.2",
+        //"name": "MultiPlataformRenderer",
+        //"build": {
+        //	"dockerfile": "Dockerfile",
+        //	"context": "."
+        //},
+        "image": "vivado:2023.2",
         "customizations":
             {
               "vscode": {
@@ -18,8 +18,9 @@
                   "donjayamanne.python-extension-pack"
                 ]
               }
-            }
+            },
         //"postCreateCommand": "cmake -S . -B build && cmake --build build",
+        "postCreateCommand": "apt-get update && apt-get install -y build-essential && apt-get install cmake"
         //"remoteUser": "vscode"
   
         // Features to add to the dev container. More info: https://containers.dev/features.

@@ -106,7 +106,7 @@ public:
         mvpLoc = glGetUniformLocation(shaderProgram, "MVP");
     }
 
-    void render(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraType cam, int lvl)
+    void render(keyFrameCPU &kframe, SE3f localPose, dataMipMap<float> &buffer, cameraType cam, int lvl)
     {
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.get(lvl), lvl);
 
