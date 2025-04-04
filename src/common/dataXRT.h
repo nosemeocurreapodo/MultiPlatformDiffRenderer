@@ -17,7 +17,6 @@ public:
         channels = _channels;
 
         xrt::device device(0);
-
         buffer = xrt::bo(device, sizeof(Type) * channels * height * width);
     }
 
@@ -27,8 +26,9 @@ public:
         width = other.width;
         height = other.height;
         channels = other.channels;
-        currentDevice = other.currentDevice;
-        cpu_data = std::make_unique<Type>(Type[channels * width * height]);
+        
+        xrt::device device(0);
+        buffer = xrt::bo(device, sizeof(Type) * channels * height * width);
         
         if(currentDevice == devices["CPU"])
             std::memcpy(cpu_data, other.cpu_data, sizeof(Type) * channels * width * height);

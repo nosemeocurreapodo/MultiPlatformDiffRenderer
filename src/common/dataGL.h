@@ -10,6 +10,9 @@ public:
 
     dataGL(int _width, int _height, int _channels, Type _nodata_value)
     {
+        if(_channels > 4)
+            throw std::runtime_error("Too many channels in dataGL")
+
         nodata = _nodata_value;
         width = _width;
         height = _height;
