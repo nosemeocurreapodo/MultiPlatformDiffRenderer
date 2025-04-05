@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include <vector>
-#include "src/common/types.h"
+#include "common/types.h"
 
 class pinholeCamera
 {

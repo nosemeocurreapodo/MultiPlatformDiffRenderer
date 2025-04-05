@@ -7,9 +7,8 @@
 #include <iostream>
 #include <chrono>
 
-#include "src/common/data.h"
-#include "src/common/types.h"
-#include "src/common/camera.h"
+#include "common/types.h"
+#include "common/camera.h"
 
 inline std::string &ltrim(std::string &s)
 {
@@ -126,24 +125,22 @@ inline std::array<float, 2> computeSE3Error(const SE3f &pose_est, const SE3f &po
     // return error_vector.norm();
 }
 
-// Function to compute error between two SE3 poses
-inline float computeImageError(const dataCPU<float> &image_est, const dataCPU<float> &image_gt)
+template <typename Type>
+inline float computeImageError(const cv::Mat &image_est, const cv::Mat &image_gt)
 {
-    assert(image_est.width == image_gt.width && image_est.height == image_gt.height);
+    assert(image_est.cols == image_gt.cols && image_est.rows == image_gt.rows);
 
     float error = 0.0;
     int count = 0;
-    for (int y = 0; y < image_est.height; y++)
+    for (int y = 0; y < image_est.rows; y++)
     {
-        for (int x = 0; x < image_est.width; x++)
+        for (int x = 0; x < image_est.cols; x++)
         {
-            float est = image_est.getTexel(y, x);
-            float gt = image_gt.getTexel(y, x);
-            if (est != image_est.nodata && gt != image_gt.nodata)
-            {
-                error += (est - gt) * (est - gt);
-                count += 1;
-            }
+            float est = image_est.at<Type>(y, x);
+            float gt = image_gt.at<Type>(y, x);
+
+            error += (est - gt) * (est - gt);
+            count += 1;
         }
     }
     return error / count;

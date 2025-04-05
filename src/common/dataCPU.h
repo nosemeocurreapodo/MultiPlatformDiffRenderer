@@ -11,11 +11,9 @@ public:
         height = _height;
         channels = _channels;
 
-        data = std::make_unique<Type>(Type[channels * width * height]);
-        if (data == nullptr)
-            throw std::bad_alloc("Failed creating data");
+        m_data = std::make_unique<Type[]>(channels * width * height);
 
-        set(_nodata_value);
+        //set(_nodata_value);
     }
 
     dataCPU(const dataCPU &other)
@@ -24,31 +22,34 @@ public:
         width = other.width;
         height = other.height;
         channels = other.channels;
-        data = std::make_unique<Type>(Type[channels * width * height]);
+        m_data = std::make_unique<Type[]>(channels * width * height);
 
-        std::memcpy(data, other.cpu_data, sizeof(Type) * channels * width * height);
+        std::copy(other.m_data.get(), other.m_data.get() + channels * width * height, m_data.get());
     }
 
     dataCPU &operator=(const dataCPU &other)
     {
         if (this != &other)
         {
-            delete data;
-
             nodata = other.nodata;
             width = other.width;
             height = other.height;
             channels = other.channels;
-            data = new Type[channels * width * height];
 
-            std::memcpy(data, other.cpu_data, sizeof(Type) * channels * width * height);
+            m_data = std::make_unique<Type[]>(channels * width * height);
+            std::copy(other.m_data.get(), other.m_data.get() + channels * width * height, m_data.get());
         }
         return *this;
     }
 
     void set(Type *data)
     {
-        std::memcpy(m_data, data, sizeof(Type) * channels * width * height);
+        std::copy(data, data + channels * width * height, m_data.get());
+    }
+
+    void toCPU(Type *data)
+    {
+        std::copy(m_data.get(), m_data.get() + channels * width * height, data);
     }
 
     /*
@@ -67,10 +68,12 @@ public:
 private:
     friend class RendererCPU;
 
+    /*
     void set(const Type value)
     {
         std::fill_n(m_data, width * height, value);
     }
+    */
 
     void setToNoData()
     {
@@ -112,14 +115,9 @@ private:
         return bilinear(y, x);
     }
 
-    Type *get()
+    dataCPU<Type> generateMipmap()
     {
-        return m_data;
-    }
-
-    data<Type> generateMipmap()
-    {
-        data<Type> mipmap(width / 2, height / 2, nodata);
+        dataCPU<Type> mipmap(width / 2, height / 2, nodata);
 
         for (int y = 0; y < height / 2; y++)
         {
@@ -133,7 +131,7 @@ private:
     }
 
     template <typename type2>
-    data<type2> convert()
+    dataCPU<type2> convert()
     {
         dataCPU<type2> result(width, height, type2(nodata));
         for (int y = 0; y < height; y++)
@@ -203,7 +201,7 @@ private:
         return pix;
     }
 
-    std::unique_ptr<Type> m_data;
+    std::unique_ptr<Type[]> m_data;
 };
 
 template <typename Type>
@@ -277,16 +275,11 @@ public:
         data[lvl].set(nodata);
     }
 
-    data<Type> &get(int lvl)
-    {
-        return data[lvl];
-    }
-
     void generateMipmaps(int baselvl = 0)
     {
         for (size_t lvl = baselvl + 1; lvl < data.size(); lvl++)
         {
-            data<Type> d = data[lvl - 1].generateMipmap();
+            dataCPU<Type> d = data[lvl - 1].generateMipmap();
             data[lvl] = d;
         }
     }
@@ -299,5 +292,5 @@ public:
     Type nodata;
 
 private:
-    std::vector<data<Type>> data;
+    std::vector<dataCPU<Type>> data;
 };

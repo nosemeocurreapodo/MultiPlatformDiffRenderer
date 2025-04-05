@@ -132,6 +132,11 @@ public:
         std::memcpy(m_data, data, sizeof(Type) * channels * width * height);
     }
 
+    Type *toCPU()
+    {
+        return m_data;
+    }
+    
     /*
     ~data()
     {

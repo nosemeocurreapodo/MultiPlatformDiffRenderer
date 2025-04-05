@@ -11,6 +11,15 @@ if(NOT TARGET Eigen3::Eigen)
   set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}")
 endif()
 
+include_directories(
+        "src"
+        "tests"
+        ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+        ${EIGEN3_INCLUDE_DIR}
+        ${Pangolin_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        )
+
 include(FetchContent)
 
 FetchContent_Declare(
