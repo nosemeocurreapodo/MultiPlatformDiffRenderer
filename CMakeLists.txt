@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.14)
 
 project(MultiPlatformRenderer)
 
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(EGL REQUIRED egl)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 #find_package(Pangolin REQUIRED)
@@ -15,6 +19,7 @@ include_directories(
         "src"
         "tests"
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+        ${GLEW_INCLUDE_DIRS}
         ${EIGEN3_INCLUDE_DIR}
         #${Pangolin_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}

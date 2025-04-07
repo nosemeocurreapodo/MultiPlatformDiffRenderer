@@ -1,14 +1,19 @@
-#include <pangolin/pangolin.h>
+#pragma once
 
-class BaseRendererGPU
+#include "common/devicegl.h"
+#include "common/texturegl.h"
+#include "common/buffergl.h"
+#include "common/meshgl.h"
+
+class BaseRendererGL
 {
 public:
-    BaseRendererGPU()
+    BaseRendererGL()
     {
     }
 
 protected:
-    void compileShaders(const char *vertex_shader, const char *fragment_shader)
+    void CompileShaders(const char *vertex_shader, const char *fragment_shader)
     {
         // Build and compile our shader program
         // ------------------------------------
@@ -47,17 +52,17 @@ protected:
         }
 
         // Link the vertex and fragment shaders into one complete program
-        shaderProgram = glCreateProgram();
+        shader_program_ = glCreateProgram();
 
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glLinkProgram(shaderProgram);
+        glAttachShader(shader_program_, vertexShader);
+        glAttachShader(shader_program_, fragmentShader);
+        glLinkProgram(shader_program_);
 
         // Check for linking errors
-        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        glGetProgramiv(shader_program_, GL_LINK_STATUS, &success);
         if (!success)
         {
-            glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+            glGetProgramInfoLog(shader_program_, 512, NULL, infoLog);
             std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
                       << infoLog << std::endl;
         }
@@ -67,21 +72,23 @@ protected:
         glDeleteShader(fragmentShader);
     }
 
-    unsigned int shaderProgram;
-    GLint mvpLoc;
+    unsigned int shader_program_;
+    GLint mvp_loc_;
 
-    const char *vertex_shader;
-    const char *fragment_shader;
+    const char *vertex_shader_;
+    const char *fragment_shader_;
 };
 
-class DepthRendererGPU : public BaseRendererGPU
+class DepthRendererGL : public BaseRendererGL
 {
 public:
-    DepthRendererGPU()
+    DepthRendererGL()
     {
-        vertex_shader = R"Shader(
+        vertex_shader_ = R"Shader(
             #version 330 core
             layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 a_weight;
             out float depth;
             uniform mat4 MVP;
         
@@ -91,10 +98,9 @@ public:
             }
             )Shader";
 
-        fragment_shader = R"Shader(
+        fragment_shader_ = R"Shader(
             #version 330 core
             layout(location = 0) out float f_color;
-            in vec2 v_texcoord;
             in float depth;
             
             void main() {
@@ -102,27 +108,26 @@ public:
             }
             )Shader";
 
-        compileShaders(vertex_shader, fragment_shader);
-        mvpLoc = glGetUniformLocation(shaderProgram, "MVP");
+        CompileShaders(vertex_shader, fragment_shader);
+        mvp_loc = glGetUniformLocation(shader_program_, "MVP");
     }
 
-    void render(keyFrameCPU &kframe, SE3f localPose, dataMipMap<float> &buffer, cameraType cam, int lvl)
+    void Render(MeshGL &mesh, SE3 pose, CameraType cam, TextureGL &buffer, int lvl)
     {
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.get(lvl), lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
 
-        mat4f viewMatrix = cam.getProjectiveMatrix() * localPose;
+        Mat4 view_matrix = cam.GetProjectiveMatrix() * pose;
 
-        glUseProgram(shaderProgram);
+        glUseProgram(shader_program);
         GLfloat mvp_float[16];
         for (int i = 0; i < 16; ++i)
         {
-            mvp_float[i] = static_cast<GLfloat>(viewMatrix[i]);
+            mvp_float[i] = static_cast<GLfloat>(view_matrix[i]);
         }
-        glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mvp_float);
+        glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, mvp_float);
 
-        // glBindVertexArray(VAO);
-        glBindVertexArray(kframe.geometry.VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(kframe.geometry.size()), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(mesh.vao_);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.tri_size_ * 3), GL_UNSIGNED_INT, 0);
         // glDrawElements(GL_LINE_STRIP, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
         // glDrawArrays(GL_LINE_STRIP, 0, verticesSize);
         glBindVertexArray(0);

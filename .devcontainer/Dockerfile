@@ -8,6 +8,8 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   libeigen3-dev \
   libboost-all-dev \
   libopencv-dev \
+  libglew-dev \
+  libegl1-mesa-dev \ 
   libglfw3-dev \
   git \
   libepoxy-dev \
