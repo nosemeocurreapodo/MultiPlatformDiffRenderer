@@ -8,6 +8,12 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
+template <typename T>
+inline std::type_index get_type_index()
+{
+    return std::type_index(typeid(T));
+}
+
 template <typename type, int rows>
 using vec = Eigen::Matrix<type, rows, 1>;
 

@@ -320,8 +320,7 @@ private:
         }
         else
         {
-            f.close();
-            return -1;
+            throw std::runtime_error("Failed to open file");
         }
     }
 
@@ -370,8 +369,7 @@ private:
         }
         else
         {
-            f.close();
-            return -1;
+            throw std::runtime_error("Failed to open file");
         }
     }
 };
@@ -466,8 +464,7 @@ private:
         }
         else
         {
-            f.close();
-            return -1;
+            throw std::runtime_error("Failed to open associations file");
         }
     }
 
@@ -516,8 +513,7 @@ private:
         }
         else
         {
-            f.close();
-            return -1;
+            throw std::runtime_error("Failed to open poses and timestamps file");
         }
     }
 };

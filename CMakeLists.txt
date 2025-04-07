@@ -4,7 +4,7 @@ project(MultiPlatformRenderer)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(Pangolin REQUIRED)
+#find_package(Pangolin REQUIRED)
 
 if(NOT TARGET Eigen3::Eigen)
   add_library(Eigen3::Eigen INTERFACE IMPORTED)
@@ -16,7 +16,7 @@ include_directories(
         "tests"
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         ${EIGEN3_INCLUDE_DIR}
-        ${Pangolin_INCLUDE_DIRS}
+        #${Pangolin_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         )
 
