@@ -10,7 +10,7 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   libopencv-dev \
   libglew-dev \
   libegl1-mesa-dev \ 
-  libglfw3-dev \
+  # libglfw3-dev \
   git \
   libepoxy-dev \
   python3-pip \

@@ -67,7 +67,7 @@ TEST_F(DataLoader, TestGLRenderDepth)
 
     MeshGL mesh(vertices, texcoords, weights);
     DepthRendererGL depth_renderer;
-    TextureCPU<float> depthGL(w, h, 1, -1);
+    TextureGL<float> depthGL(w, h, 1, -1);
 
     depth_renderer.Render(mesh, gtPose, cam, depthGL, 0);
 

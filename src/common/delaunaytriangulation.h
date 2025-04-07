@@ -182,7 +182,7 @@ private:
         std::vector<int> to_remove;
         for (int it = 0; it < (int)triangles_.size(); it++)
         {
-            Vec3 tri = triangles_[it];
+            Vec3i tri = triangles_[it];
 
             if (v_id == tri(0) || v_id == tri(1) || v_id == tri(2))
             {

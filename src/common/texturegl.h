@@ -5,9 +5,19 @@
 template <typename Type>
 class TextureGL
 {
-    friend class RendererGL;
+    friend class DepthRendererGL;
 
 public:
+    TextureGL() : nodata_(0), width_(0), height_(0), channels_(0)
+    {
+        glGenTextures(1, &texture_id_);
+        glBindTexture(GL_TEXTURE_2D, texture_id_);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
     TextureGL(int width, int height, int channels, Type nodata_value)
     {
         if (channels > 4)
@@ -49,7 +59,7 @@ public:
             GL_COLOR_ATTACHMENT0,
             GL_TEXTURE_2D,
             other.texture_id_, // <-- your source texture handle
-            0                // mipmap level
+            0                  // mipmap level
         );
         glReadBuffer(GL_COLOR_ATTACHMENT0);
 
@@ -57,9 +67,9 @@ public:
         glBindTexture(GL_TEXTURE_2D, texture_id_);
         glCopyTexSubImage2D(
             GL_TEXTURE_2D,
-            0,            // mipmap level
-            0, 0,         // xoffset, yoffset in dest texture
-            0, 0,         // x, y in the read buffer to start copying from
+            0,              // mipmap level
+            0, 0,           // xoffset, yoffset in dest texture
+            0, 0,           // x, y in the read buffer to start copying from
             width_, height_ // width, height to copy
         );
     }
@@ -68,12 +78,15 @@ public:
     {
         if (this != &other)
         {
+
             nodata_ = other.nodata_;
             width_ = other.width_;
             height_ = other.height_;
             channels_ = other.channels_;
 
-            GLuint fbo;
+            /*
+            glDeleteTextures(1, &texture_id_);
+
             glGenFramebuffers(1, &fbo);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
 
@@ -83,19 +96,20 @@ public:
                 GL_COLOR_ATTACHMENT0,
                 GL_TEXTURE_2D,
                 other.texture_id_, // <-- your source texture handle
-                0                // mipmap level
+                0                  // mipmap level
             );
             glReadBuffer(GL_COLOR_ATTACHMENT0);
 
             glGenTextures(1, &texture_id_);
             glBindTexture(GL_TEXTURE_2D, texture_id_);
             glCopyTexSubImage2D(
-                GL_TEXTURE_2D, // target
-                0,             // mipmap level
-                0, 0,          // xoffset, yoffset in dest texture
-                0, 0,          // x, y in the read buffer to start copying from
-                width_, height_  // width, height to copy
+                GL_TEXTURE_2D,  // target
+                0,              // mipmap level
+                0, 0,           // xoffset, yoffset in dest texture
+                0, 0,           // x, y in the read buffer to start copying from
+                width_, height_ // width, height to copy
             );
+            */
         }
         return *this;
     }

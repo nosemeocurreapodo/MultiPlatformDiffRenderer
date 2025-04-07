@@ -6,6 +6,12 @@ class TextureCPU
     friend class RendererCPU;
 
 public:
+
+    TextureCPU() : nodata_(0), width_(0), height_(0), channels_(0)
+    {
+        // data_ = nullptr;
+    }
+
     TextureCPU(int width, int height, int channels, Type nodata_value)
     {
         nodata_ = nodata_value;

@@ -2,28 +2,44 @@
 
 #include "common/devicegl.h"
 
-template <typename Type>
+template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATIC_DRAW>
 class BufferGL
 {
     friend class MeshGL;
 
 public:
+    BufferGL()
+    {
+        size_ = 0;
+        glGenBuffers(1, &buffer_);
+    }
+
     BufferGL(int size)
     {
         size_ = size;
-        glGenBuffers(1, &vbo_);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, size_ * sizeof(Type), nullptr, GL_STREAM_DRAW);
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, size_ * sizeof(Type), nullptr, usage);
+    }
+
+    BufferGL(std::vector<Type> &data)
+    {
+        size_ = data.size();
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, size_ * sizeof(Type), data.data(), usage);
     }
 
     BufferGL(const BufferGL &other)
     {
-        glGenBuffers(1, &vbo_);
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, other.size_ * sizeof(Type), nullptr, usage);
         // 1. Bind source as COPY_READ
-        glBindBuffer(GL_COPY_READ_BUFFER, other.vbo_);
+        glBindBuffer(GL_COPY_READ_BUFFER, other.buffer_);
 
         // 2. Bind destination as COPY_WRITE
-        glBindBuffer(GL_COPY_WRITE_BUFFER, vbo_);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, buffer_);
         glCopyBufferSubData(
             GL_COPY_READ_BUFFER,       // read target
             GL_COPY_WRITE_BUFFER,      // write target
@@ -38,12 +54,16 @@ public:
     {
         if (this != &other)
         {
-            glGenBuffers(1, &vbo_);
+            glDeleteBuffers(1, &buffer_);
+
+            glGenBuffers(1, &buffer_);
+            glBindBuffer(buffer_type, buffer_);
+            glBufferData(buffer_type, other.size_ * sizeof(Type), nullptr, usage);
             // 1. Bind source as COPY_READ
-            glBindBuffer(GL_COPY_READ_BUFFER, other.vbo_);
+            glBindBuffer(GL_COPY_READ_BUFFER, other.buffer_);
 
             // 2. Bind destination as COPY_WRITE
-            glBindBuffer(GL_COPY_WRITE_BUFFER, vbo_);
+            glBindBuffer(GL_COPY_WRITE_BUFFER, buffer_);
             glCopyBufferSubData(
                 GL_COPY_READ_BUFFER,       // read target
                 GL_COPY_WRITE_BUFFER,      // write target
@@ -58,14 +78,14 @@ public:
 
     void FromCPU(Type *data)
     {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, size_ * sizeof(Type), data, GL_STREAM_DRAW);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
     }
 
     void ToCPU(Type *data)
     {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glGetBufferSubData(GL_ARRAY_BUFFER, 0, size_ * sizeof(Type), data);
+        glBindBuffer(buffer_type, buffer_);
+        glGetBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
 
         /*
         void* mappedPtr = glMapBufferRange(
@@ -89,6 +109,6 @@ public:
     }
 
 protected:
-    GLuint vbo_;
+    GLuint buffer_;
     unsigned int size_;
 };
