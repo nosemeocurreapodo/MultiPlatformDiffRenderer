@@ -36,8 +36,54 @@ protected:
     int h;
 };
 
+TEST_F(DataLoader, TestCPURenderDepth)
+{
+    int i = 0;
+    cv::Mat imageCV = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
+    cv::Mat depthCV = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
+    SE3 gtPose = poses[i].inverse();
+
+    imageCV.convertTo(imageCV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
+    depthCV /= dataset.GetDepthFactor();
+    depthCV *= 100.0;
+
+    std::vector<Vec2> tex_coords = UniformTexCoords(w, h);
+    std::vector<float> texcoords;
+    std::vector<float> vertices;
+    std::vector<float> weights;
+    for (Vec2 tex_coord : tex_coords)
+    {
+        Vec3 ray = cam.PixToRay(tex_coord);
+        float depth = depthCV.at<float>(tex_coord(1), tex_coord(0));
+        Vec3 vertex = ray * depth;
+        vertices.push_back(vertex(0));
+        vertices.push_back(vertex(1));
+        vertices.push_back(vertex(2));
+        texcoords.push_back(tex_coord(0));
+        texcoords.push_back(tex_coord(1));
+        weights.push_back(1.0f);
+    }
+
+    MeshCPU mesh(vertices, texcoords, weights);
+    DepthRendererCPU depth_renderer;
+    TextureCPU<float> depth(w, h, 1, -1);
+
+    depth_renderer.Render(mesh, gtPose, cam, depth, 0);
+
+    cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
+
+    depth.ToCPU((float *)output_depthCV.data);
+
+    float depthError = ComputeImageError<float>(depthCV, output_depthCV);
+
+    EXPECT_EQ(depthError, 0.0f);
+}
+
 TEST_F(DataLoader, TestGLRenderDepth)
 {
+    ASSERT_TRUE(InitEGL());
+
     int i = 0;
     cv::Mat imageCV = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
     cv::Mat depthCV = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
@@ -67,15 +113,15 @@ TEST_F(DataLoader, TestGLRenderDepth)
 
     MeshGL mesh(vertices, texcoords, weights);
     DepthRendererGL depth_renderer;
-    TextureGL<float> depthGL(w, h, 1, -1);
+    TextureGL<float> depth(w, h, 1, -1);
 
-    depth_renderer.Render(mesh, gtPose, cam, depthGL, 0);
+    depth_renderer.Render(mesh, gtPose, cam, depth, 0);
 
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
-    depthGL.ToCPU((float *)output_depthCV.data);
+    depth.ToCPU((float *)output_depthCV.data);
 
     float depthError = ComputeImageError<float>(depthCV, output_depthCV);
 
-    ASSERT_EQ(depthError, 0.0f);
+    EXPECT_EQ(depthError, 0.0f);
 }

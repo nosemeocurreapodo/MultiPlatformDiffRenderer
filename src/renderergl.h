@@ -116,7 +116,7 @@ public:
     {
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
 
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.0f, 10.0f) * pose.matrix();
+        Mat4 view_matrix = cam.GetProjectiveMatrix(0.1f, 10.0f) * pose.matrix();
 
         glUseProgram(shader_program_);
         GLfloat mvp_float[16];
@@ -127,7 +127,7 @@ public:
         glUniformMatrix4fv(mvp_loc_, 1, GL_FALSE, mvp_float);
 
         glBindVertexArray(mesh.vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.tri_size_ * 3), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.tri_size_), GL_UNSIGNED_INT, 0);
         // glDrawElements(GL_LINE_STRIP, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
         // glDrawArrays(GL_LINE_STRIP, 0, verticesSize);
         glBindVertexArray(0);

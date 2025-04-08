@@ -150,7 +150,7 @@ class LoadDatasetBase
 {
 public:
     LoadDatasetBase(float fx, float fy, float cx, float cy, int w, int h)
-        : cam_(fx, fy, cx, cy, w, h)
+        : cam_(fx, fy, cx, cy, w, h), w_(w), h_(h)
     {
     }
 

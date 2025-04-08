@@ -61,17 +61,13 @@ TEST_F(DataLoader, TestCPUToFromOpenCV)
     float imageError = ComputeImageError<ImageType>(imageCV, output_imageCV);
     float depthError = ComputeImageError<float>(depthCV, output_depthCV);
 
-    ASSERT_EQ(imageError, 0.0f);
-    ASSERT_EQ(depthError, 0.0f);
+    EXPECT_EQ(imageError, 0.0f);
+    EXPECT_EQ(depthError, 0.0f);
 }
 
 TEST_F(DataLoader, TestGLToFromOpenCV)
 {
-    if (!InitEGL())
-    {
-        std::cerr << "Failed to initialize EGL" << std::endl;
-        return;
-    }
+    ASSERT_TRUE(InitEGL());
 
     int i = 0;
     cv::Mat imageCV = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
@@ -98,6 +94,6 @@ TEST_F(DataLoader, TestGLToFromOpenCV)
     float imageError = ComputeImageError<ImageType>(imageCV, output_imageCV);
     float depthError = ComputeImageError<float>(depthCV, output_depthCV);
 
-    ASSERT_EQ(imageError, 0.0f);
-    ASSERT_EQ(depthError, 0.0f);
+    EXPECT_EQ(imageError, 0.0f);
+    EXPECT_EQ(depthError, 0.0f);
 }
