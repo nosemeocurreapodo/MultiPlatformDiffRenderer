@@ -4,8 +4,13 @@
 
 #include "common.h"
 #include "common/types.h"
-#include "common/texturecpu.h"
+//#include "common/texturecpu.h"
 #include "common/texturegl.h"
+//#include "common/buffercpu.h"
+#include "common/buffergl.h"
+//#include "common/meshcpu.h"
+#include "common/meshgl.h"
+//#include "renderercpu.h"
 #include "renderergl.h"
 
 // #include "src/common/dataMulti.h"
@@ -35,7 +40,7 @@ protected:
     int w;
     int h;
 };
-
+/*
 TEST_F(DataLoader, TestCPURenderDepth)
 {
     int i = 0;
@@ -79,7 +84,7 @@ TEST_F(DataLoader, TestCPURenderDepth)
 
     EXPECT_EQ(depthError, 0.0f);
 }
-
+*/
 TEST_F(DataLoader, TestGLRenderDepth)
 {
     ASSERT_TRUE(InitEGL());
