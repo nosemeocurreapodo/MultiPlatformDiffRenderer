@@ -70,7 +70,7 @@ TEST_F(DataLoader, TestCPURenderDepth)
     {
         Vec2 img_coord = Vec2(tex_coord(0) * w, tex_coord(1) * h);
         float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
-        //float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
+        // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
         if (depth <= 0.0f)
             continue;
         Vec3 ray = cam.PixToRay(tex_coord);
@@ -138,7 +138,7 @@ TEST_F(DataLoader, TestCPURenderImage)
     {
         Vec2 img_coord = Vec2(tex_coord(0) * w, tex_coord(1) * h);
         float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
-        //float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
+        // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
         if (depth <= 0.0f)
             continue;
         Vec3 ray = cam.PixToRay(tex_coord);
@@ -175,29 +175,43 @@ TEST_F(DataLoader, TestCPURenderImage)
     EXPECT_EQ(depthError, 0.0f);
 }
 
-/*
 TEST_F(DataLoader, TestGLRenderDepth)
 {
     ASSERT_TRUE(InitEGL());
 
-    int i = 0;
-    cv::Mat imageCV = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
-    cv::Mat depthCV = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
-    SE3 gtPose = poses[i].inverse();
+    int src = 0;
+    int dst = 50;
 
-    imageCV.convertTo(imageCV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
-    depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
-    depthCV /= dataset.GetDepthFactor();
-    depthCV *= 100.0;
+    cv::Mat image_src_CV = cv::imread(image_files[src], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_src_CV = cv::imread(depth_files[src], cv::IMREAD_GRAYSCALE);
+    SE3 pose_src = poses[src].inverse();
 
-    std::vector<Vec2> tex_coords = UniformTexCoords(w, h);
+    cv::Mat image_dst_CV = cv::imread(image_files[dst], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_dst_CV = cv::imread(depth_files[dst], cv::IMREAD_GRAYSCALE);
+    SE3 pose_dst = poses[dst].inverse();
+
+    image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    depth_src_CV.convertTo(depth_src_CV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
+    depth_src_CV /= dataset.GetDepthFactor();
+    depth_src_CV *= 100.0;
+
+    image_dst_CV.convertTo(image_dst_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
+    depth_dst_CV /= dataset.GetDepthFactor();
+    depth_dst_CV *= 100.0;
+
+    std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
     std::vector<float> texcoords;
     std::vector<float> vertices;
     std::vector<float> weights;
     for (Vec2 tex_coord : tex_coords)
     {
+        Vec2 img_coord = Vec2(tex_coord(0) * w, tex_coord(1) * h);
+        float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
+        // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
+        if (depth <= 0.0f)
+            continue;
         Vec3 ray = cam.PixToRay(tex_coord);
-        float depth = depthCV.at<float>(tex_coord(1), tex_coord(0));
         Vec3 vertex = ray * depth;
         vertices.push_back(vertex(0));
         vertices.push_back(vertex(1));
@@ -208,17 +222,25 @@ TEST_F(DataLoader, TestGLRenderDepth)
     }
 
     MeshGL mesh(vertices, texcoords, weights);
-    DepthRendererGL depth_renderer;
+    DepthRendererGL renderer;
+    TextureGL<ImageType> image(w, h, 1, 0);
     TextureGL<float> depth(w, h, 1, -1);
+    image.FromCPU((ImageType *)image_src_CV.data);
 
-    depth_renderer.Render(mesh, gtPose, cam, depth, 0);
+    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0);
 
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
     depth.ToCPU((float *)output_depthCV.data);
 
-    float depthError = ComputeImageError<float>(depthCV, output_depthCV);
-
+    float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
+    
+    cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
+    cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
+    depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
+    output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
+    cv::imwrite("rendergldepth_input.png", depth_dst_CV);
+    cv::imwrite("rendergldepth_output.png", output_depthCV);
+    
     EXPECT_EQ(depthError, 0.0f);
 }
-*/
