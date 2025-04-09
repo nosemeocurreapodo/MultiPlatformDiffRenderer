@@ -6,7 +6,10 @@
 
 class MeshCPU : public MeshBase
 {
+    template <typename InTexType, typename VaryingType, typename OutTexType>
+    friend class BaseRendererCPU;
     friend class DepthRendererCPU;
+    friend class ImageRendererCPU;
 
 public:
     MeshCPU(std::vector<float> &vertices, std::vector<float> &tex_coords, std::vector<float> &weights)
@@ -54,6 +57,7 @@ private:
     BufferCPU<float> tex_buffer_;
     BufferCPU<float> wei_buffer_;
     BufferCPU<float> ebo_buffer_;
+    TextureCPU<float> texture_;
     unsigned int pos_size_;
     unsigned int tri_size_;
 };

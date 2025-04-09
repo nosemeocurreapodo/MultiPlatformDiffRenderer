@@ -5,6 +5,12 @@
 template <typename Type>
 class BufferCPU
 {
+    template <typename InTexType, typename VaryingType, typename OutTexType>
+    friend class BaseRendererCPU;
+    friend class DepthRendererCPU;
+    friend class ImageRendererCPU;
+    friend class MeshCPU;
+
 public:
     BufferCPU()
     {
@@ -21,7 +27,7 @@ public:
     {
         size_ = data.size();
         data_ = std::make_unique<Type[]>(size_);
-        std::copy(data.data(), data.data() + size+, data_.get());
+        std::copy(data.data(), data.data() + size_, data_.get());
     }
 
     BufferCPU(const BufferCPU &other)
@@ -53,6 +59,16 @@ public:
     }
 
 private:
+    Type &operator[](unsigned int index)
+    {
+        return data_[index];
+    }
+
+    const Type &operator[](unsigned int index) const
+    {
+        return data_[index];
+    }
+
     std::unique_ptr<Type[]> data_;
     unsigned int size_;
 };

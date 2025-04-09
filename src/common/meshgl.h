@@ -3,10 +3,12 @@
 #include "common/devicegl.h"
 #include "common/meshbase.h"
 #include "common/buffergl.h"
+#include "common/texturegl.h"
 
 class MeshGL : public MeshBase
 {
     friend class DepthRendererGL;
+    friend class ImageRendererGL;
 
 public:
     MeshGL(std::vector<float> &vertices, std::vector<float> &tex_coords, std::vector<float> &weights)
@@ -105,6 +107,7 @@ private:
     BufferGL<float, GL_ARRAY_BUFFER> tex_buffer_;
     BufferGL<float, GL_ARRAY_BUFFER> wei_buffer_;
     BufferGL<float, GL_ELEMENT_ARRAY_BUFFER> ebo_buffer_;
+    TextureGL<float> texture_;
     unsigned int pos_size_;
     unsigned int tri_size_;
 };

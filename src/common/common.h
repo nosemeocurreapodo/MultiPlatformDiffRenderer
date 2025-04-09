@@ -4,6 +4,46 @@
 #include <typeinfo>
 #include <opencv2/opencv.hpp>
 
+template <typename Type>
+class Window
+{
+public:
+    Window(Type minx, Type maxx, Type miny, Type maxy)
+    {
+        min_x_ = minx;
+        min_y_ = miny;
+        max_x_ = maxx;
+        max_y_ = maxy;
+    }
+
+    bool IsPixInWindow(Type x, Type y)
+    {
+        if (x < min_x_ || x > max_x_ || y < min_y_ || y > max_y_)
+            return false;
+        return true;
+    }
+
+    bool IsPixInWindow(Vec2 pix)
+    {
+        if (pix(0) < min_x_ || pix(0) > max_x_ || pix(1) < min_y_ || pix(1) > max_y_)
+            return false;
+        return true;
+    }
+
+    void Intersect(Window win)
+    {
+        min_x_ = std::max(min_x_, win.min_x_);
+        max_x_ = std::min(max_x_, win.max_x_);
+        min_y_ = std::max(min_y_, win.min_y_);
+        max_y_ = std::min(max_y_, win.max_y_);
+    }
+
+    Type min_x_;
+    Type max_x_;
+    Type min_y_;
+    Type max_y_;
+};
+
 static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
 {
     bool isIndicePresent[3];

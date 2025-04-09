@@ -5,7 +5,9 @@
 template <typename Type>
 class TextureGL
 {
+    friend class BaseRendererGL;
     friend class DepthRendererGL;
+    friend class ImageRendererGL;
 
 public:
     TextureGL() : nodata_(0), width_(0), height_(0), channels_(0)

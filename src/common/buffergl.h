@@ -6,6 +6,9 @@ template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATI
 class BufferGL
 {
     friend class MeshGL;
+    friend class BaseRendererGL;
+    friend class DepthRendererGL;
+    friend class ImageRendererGL;
 
 public:
     BufferGL()

@@ -3,7 +3,10 @@
 template <typename Type>
 class TextureCPU
 {
-    friend class RendererCPU;
+    template <typename InTexType, typename VaryingType, typename OutTexType>
+    friend class BaseRendererCPU;
+    friend class DepthRendererCPU;
+    friend class ImageRendererCPU;
 
 public:
 

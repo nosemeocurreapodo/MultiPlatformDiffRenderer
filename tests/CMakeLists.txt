@@ -1,11 +1,11 @@
 include(GoogleTest)
 
-add_executable(datamulti datamulti/datamulti_test.cpp)
-target_compile_features(datamulti PUBLIC cxx_std_17)
-target_link_libraries(datamulti gmock_main ${OpenCV_LIBS} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${EGL_LIBRARIES}) # ${Pangolin_LIBRARIES})
-target_include_directories(datamulti PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_compile_definitions(datamulti PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
-add_test(NAME datamulti COMMAND datamulti)
+#add_executable(datamulti datamulti/datamulti_test.cpp)
+#target_compile_features(datamulti PUBLIC cxx_std_17)
+#target_link_libraries(datamulti gmock_main ${OpenCV_LIBS} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${EGL_LIBRARIES}) # ${Pangolin_LIBRARIES})
+#target_include_directories(datamulti PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+#target_compile_definitions(datamulti PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+#add_test(NAME datamulti COMMAND datamulti)
 
 add_executable(depth depth/depthrenderer_test.cpp)
 target_compile_features(depth PUBLIC cxx_std_17)

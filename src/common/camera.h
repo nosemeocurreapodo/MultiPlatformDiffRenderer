@@ -46,7 +46,7 @@ public:
         return *this;
     }
 
-    Mat4 GetProjectiveMatrix(float znear, float zfar)
+    Mat4 GetProjectiveMatrix(float znear, float zfar) const
     {
         Mat4 projmat;
 
@@ -61,7 +61,7 @@ public:
         return projmat;
     }
 
-    bool IsPixVisible(Vec2 pix)
+    bool IsPixVisible(Vec2 pix) const
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -83,7 +83,7 @@ public:
     }
     */
 
-    Vec2 RayToPix(Vec3 ray)
+    Vec2 RayToPix(Vec3 ray) const
     {
         Vec2 pix;
         pix(0) = fx_ * ray(0) + cx_;
@@ -92,7 +92,7 @@ public:
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    Mat<RealType, 2, 3> d_pix_d_ver(Vec3 ver)
+    Mat<RealType, 2, 3> d_pix_d_ver(Vec3 ver) const
     {
         Mat<RealType, 2, 3> d_pix_d_ver;
 
@@ -107,7 +107,7 @@ public:
         return d_pix_d_ver;
     }
 
-    Mat<RealType, 2, 4> d_pix_d_intrinsics(Vec3 ray)
+    Mat<RealType, 2, 4> d_pix_d_intrinsics(Vec3 ray) const
     {
         Mat<RealType, 2, 4> d_pix_d_int;
 
@@ -124,7 +124,7 @@ public:
         return d_pix_d_int;
     }
 
-    Vec3 PixToRay(Vec2 pix)
+    Vec3 PixToRay(Vec2 pix) const
     {
         Vec3 ray;
         ray(0) = (pix(0) - cx_) / fx_;
@@ -157,7 +157,7 @@ public:
     }
     */
 
-    Vec4 GetParams()
+    Vec4 GetParams() const
     {
         return Vec4(fx_, fy_, cx_, cy_);
     }
