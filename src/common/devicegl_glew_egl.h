@@ -79,7 +79,10 @@ inline bool InitEGL()
         return false;
     }
 
-    if (glewInit() != GLEW_OK)
+    glewExperimental = GL_TRUE;
+    GLenum glew_error = glewInit();
+
+    if (glew_error != GLEW_OK)
     {
         return false;
     }

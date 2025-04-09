@@ -48,15 +48,15 @@ public:
 
     Mat4 GetProjectiveMatrix(float znear, float zfar) const
     {
-        Mat4 projmat;
+        Mat4 projmat = Mat4::Zero();
 
         projmat(0, 0) = 2.0f * fx_;
         projmat(1, 1) = 2.0f * fy_;
-        projmat(2, 0) = 1.0f - 2.0f * cx_;
-        projmat(2, 1) = -1.0f + 2.0f * cy_;
+        projmat(0, 2) = 1.0f - 2.0f * cx_;
+        projmat(1, 2) = -1.0f + 2.0f * cy_;
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
-        projmat(2, 3) = -1.0f;
-        projmat(3, 2) = -2.0f * zfar * znear / (zfar - znear);
+        projmat(3, 2) = -1.0f;
+        projmat(2, 3) = -2.0f * zfar * znear / (zfar - znear);
 
         return projmat;
     }

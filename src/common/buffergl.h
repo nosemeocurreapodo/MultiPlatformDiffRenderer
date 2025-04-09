@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/devicegl.h"
+#include "common/devicegl_glad.h"
 
 template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATIC_DRAW>
 class BufferGL

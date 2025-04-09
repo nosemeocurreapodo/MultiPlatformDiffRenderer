@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/devicegl.h"
+#include "common/devicegl_glad.h"
 
 template <typename Type>
 class TextureGL
@@ -50,7 +50,7 @@ public:
         width_ = other.width_;
         height_ = other.height_;
         channels_ = other.channels_;
-
+        /*
         GLuint fbo;
         glGenFramebuffers(1, &fbo);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
@@ -74,6 +74,7 @@ public:
             0, 0,           // x, y in the read buffer to start copying from
             width_, height_ // width, height to copy
         );
+        */
     }
 
     TextureGL &operator=(const TextureGL &other)

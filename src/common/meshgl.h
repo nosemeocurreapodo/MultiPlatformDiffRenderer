@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/devicegl.h"
+#include "common/devicegl_glad.h"
 #include "common/meshbase.h"
 #include "common/buffergl.h"
 #include "common/texturegl.h"

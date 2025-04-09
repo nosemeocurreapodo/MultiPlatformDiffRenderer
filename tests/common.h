@@ -195,7 +195,7 @@ public:
     }
 
 protected:
-    SE3 GetClosestPose(std::vector<SE3> poses, std::vector<double> time_stamps, double target_timestamp)
+    SE3 GetClosestPose(const std::vector<SE3> &poses, const std::vector<double> &time_stamps, double target_timestamp)
     {
         SE3 closest_pose;
         double closest_diff = 10000000000.0;
@@ -487,11 +487,11 @@ private:
                 pose.setQuaternion(Quaternion(values[7], values[4], values[5], values[6]));
                 pose.translation() = Vec3(values[1], values[2], values[3]);
 
-                poses_.push_back(pose);
-                time_stamps_.push_back(values[0]);
+                poses.push_back(pose);
+                timestamps.push_back(values[0]);
             }
 
-            return poses_.size();
+            return poses.size();
         }
         else
         {

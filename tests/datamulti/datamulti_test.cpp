@@ -61,6 +61,14 @@ TEST_F(DataLoader, TestCPUToFromOpenCV)
     float imageError = ComputeImageError<ImageType>(imageCV, output_imageCV);
     float depthError = ComputeImageError<float>(depthCV, output_depthCV);
 
+    /*
+    cv::normalize(depthCV, depthCV, 0, 255, cv::NORM_MINMAX);
+    cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
+    depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
+    output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
+    cv::imwrite("tofrom_input_depth.png", depthCV);
+    cv::imwrite("tofrom_output_depth.png", output_depthCV);
+    */
     EXPECT_EQ(imageError, 0.0f);
     EXPECT_EQ(depthError, 0.0f);
 }
