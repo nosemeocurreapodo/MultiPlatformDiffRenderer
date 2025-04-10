@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include <Eigen/Core>
 #include <Eigen/Dense>
 // #include <Eigen/Cholesky>
@@ -36,28 +37,38 @@ using Quaternion = Eigen::Quaternion<RealType>;
 
 using SE3 = Sophus::SE3<RealType>;
 using SIM3 = Sophus::Sim3<RealType>;
+*/
 
-/*
-#include "common/lingalglib.h"
-#include "common/ldlt_solver.h"
+#include "linalg.h"
 
-using Vec2f = vec2<float>;
-using Vec3f = vec3<float>;
-using Vec6f = vec6<float>;
-using Vecxf = vecx<float>;
+using RealType = float;
 
-using Mat3f = mat3<float>;
-using Mat6f = mat6<float>;
-using Matxf = matx<float>;
+template <typename Type, int rows>
+using Vec = vec<Type, rows>;
+
+using Vec2 = vec2<RealType>;
+using Vec3 = vec3<RealType>;
+using Vec4 = vec4<RealType>;
+using Vec5 = vec5<RealType>;
+using Vec6 = vec6<RealType>;
+using Vecx = vecx<RealType>;
 
 using Vec2i = vec2<int>;
 using Vec3i = vec3<int>;
 using Vecxi = vecx<int>;
 
-using SE3f = SE3<float>;
+template <typename type, int rows, int cols>
+using Mat = mat<type, rows, cols>;
 
-using solverType = LDLT<matxf>;
-*/
+using Mat3 = mat<RealType, 3, 3>;
+using Mat4 = mat<RealType, 4, 4>;
+using Mat6 = mat<RealType, 6, 6>;
+using Matx = matx<RealType>;
+
+//using Quaternion = Eigen::Quaternion<RealType>;
+
+using SE3 = _SE3<RealType>;
+// using SIM3 = Sim3<RealType>;
 
 class PinholeCamera;
 class PinholeDistortedCamera;
