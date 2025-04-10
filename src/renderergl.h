@@ -5,11 +5,64 @@
 #include "common/buffergl.h"
 #include "common/meshgl.h"
 
+template <typename InTexType, typename OutTexType>
 class BaseRendererGL
 {
 public:
     BaseRendererGL()
     {
+        glGenFramebuffers(1, &fbo);
+    }
+
+    void Render(const MeshGL &mesh, const SE3 pose, const CameraType cam, const TextureGL<InTexType> &texture, TextureGL<OutTexType> &buffer, int lvl)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
+
+        // unsigned int drawbuffers[] = {GL_COLOR_ATTACHMENT0};
+        // glDrawBuffers(sizeof(drawbuffers) / sizeof(unsigned int), drawbuffers);
+        // if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        //     std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER,
+                               GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D,
+                               buffer.texture_id_,
+                               lvl);
+
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            std::cerr << "FBO incomplete, status = 0x" << std::hex << status << std::dec << "\n";
+            return;
+        }
+
+        glDisable(GL_CULL_FACE);
+        glViewport(0, 0, buffer.width_, buffer.height_);
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f); // dark-blue background
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shader_program_);
+
+        Mat4 opencv2opengl = Mat4::Identity();
+        opencv2opengl(1, 1) = 1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+
+        glUseProgram(shader_program_);
+        GLfloat mvp_float[16];
+        for (int i = 0; i < 16; ++i)
+        {
+            mvp_float[i] = static_cast<GLfloat>(view_matrix.data()[i]);
+        }
+        glUniformMatrix4fv(mvp_loc_, 1, GL_FALSE, mvp_float);
+
+        glBindVertexArray(mesh.vao_);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.tri_size_), GL_UNSIGNED_INT, 0);
+
+        glBindVertexArray(0);
+        glUseProgram(0);
     }
 
 protected:
@@ -73,77 +126,43 @@ protected:
     }
 
     unsigned int shader_program_;
+    GLuint fbo;
     GLint mvp_loc_;
-
-    const char *vertex_shader_;
-    const char *fragment_shader_;
 };
 
-class DepthRendererGL : public BaseRendererGL
+class DepthRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
 {
 public:
-    DepthRendererGL()
+    DepthRendererGL() : BaseRendererGL()
     {
-        vertex_shader_ = R"Shader(
+        const char *vertex_shader = R"Shader(
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
             layout (location = 2) in vec3 a_weight;
             out float depth;
             uniform mat4 MVP;
-        
+
             void main() {
                 gl_Position = MVP * vec4(a_position, 1.0);
                 depth = a_position.z;
             }
             )Shader";
 
-        fragment_shader_ = R"Shader(
+        const char *fragment_shader = R"Shader(
             #version 330 core
             layout(location = 0) out float f_color;
             in float depth;
-            
-            void main() 
+
+            void main()
             {
-                //f_color = depth;
-                f_color = 100.0;
+                f_color = depth;
+                //f_color = 100.0;
             }
             )Shader";
 
-        CompileShaders(vertex_shader_, fragment_shader_);
+        CompileShaders(vertex_shader, fragment_shader);
         mvp_loc_ = glGetUniformLocation(shader_program_, "MVP");
-    }
-
-    void Render(const MeshGL &mesh, const SE3 pose, const CameraType cam, const TextureGL<ImageType> &texture, TextureGL<float> &buffer, int lvl)
-    {
-        glViewport(0, 0, buffer.width_, buffer.height_);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
-
-        unsigned int drawbuffers[] = {GL_COLOR_ATTACHMENT0};
-        glDrawBuffers(sizeof(drawbuffers) / sizeof(unsigned int), drawbuffers);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
-
-        Mat4 opencv2opengl = Mat4::Identity();
-        opencv2opengl(1, 1) = 1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
-
-        glUseProgram(shader_program_);
-        GLfloat mvp_float[16];
-        for (int i = 0; i < 16; ++i)
-        {
-            mvp_float[i] = static_cast<GLfloat>(view_matrix.data()[i]);
-        }
-        glUniformMatrix4fv(mvp_loc_, 1, GL_FALSE, mvp_float);
-
-        glBindVertexArray(mesh.vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.tri_size_), GL_UNSIGNED_INT, 0);
-        // glDrawElements(GL_LINE_STRIP, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
-        // glDrawArrays(GL_LINE_STRIP, 0, verticesSize);
-        glBindVertexArray(0);
-        glUseProgram(0);
     }
 
 private:

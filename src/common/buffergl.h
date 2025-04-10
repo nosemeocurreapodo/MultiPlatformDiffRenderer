@@ -5,10 +5,11 @@
 template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATIC_DRAW>
 class BufferGL
 {
-    friend class MeshGL;
+    template <typename InTexType, typename OutTexType>
     friend class BaseRendererGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;
+    friend class MeshGL;
 
 public:
     BufferGL()
@@ -25,7 +26,7 @@ public:
         glBufferData(buffer_type, size_ * sizeof(Type), nullptr, usage);
     }
 
-    BufferGL(std::vector<Type> &data)
+    BufferGL(const std::vector<Type> &data)
     {
         size_ = data.size();
         glGenBuffers(1, &buffer_);
@@ -79,7 +80,7 @@ public:
         return *this;
     }
 
-    void FromCPU(Type *data)
+    void FromCPU(const Type *data)
     {
         glBindBuffer(buffer_type, buffer_);
         glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);

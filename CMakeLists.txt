@@ -18,6 +18,7 @@ endif()
 include_directories(
         "src"
         "tests"
+        #"HLSLinearAlgebra/src"
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         ${PROJECT_SOURCE_DIR}/thirdparty/glad
         ${GLEW_INCLUDE_DIRS}

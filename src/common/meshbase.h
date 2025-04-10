@@ -9,7 +9,7 @@ public:
     MeshBase(){}
 
 protected:
-    std::vector<float> BuildTriangles(std::vector<float> tex_coords)
+    std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)
     {
         std::vector<Vec2> tex_coords_2d;
         for (size_t i = 0; i < tex_coords.size(); i += 2)
@@ -19,7 +19,7 @@ protected:
         triangulator_.LoadPoints(tex_coords_2d);
         triangulator_.Triangulate();
         std::vector<Vec3i> tris = triangulator_.GetTriangles();
-        std::vector<float> tris_f;
+        std::vector<unsigned int> tris_f;
         for (size_t i = 0; i < tris.size(); i++)
         {
             tris_f.push_back(tris[i](0));

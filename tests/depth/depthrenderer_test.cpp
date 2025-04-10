@@ -44,12 +44,22 @@ TEST_F(DataLoader, TestCPURenderDepth)
     int src = 0;
     int dst = 50;
 
+    int operation = cv::MORPH_CLOSE;
+    int morph_size = 5;
+    int morph_elem = cv::MORPH_ELLIPSE;
+
+    cv::Mat element = cv::getStructuringElement(morph_elem,
+                                                cv::Size(2 * morph_size + 1, 2 * morph_size + 1),
+                                                cv::Point(morph_size, morph_size));
+
     cv::Mat image_src_CV = cv::imread(image_files[src], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_src_CV = cv::imread(depth_files[src], cv::IMREAD_GRAYSCALE);
+    cv::morphologyEx(depth_src_CV, depth_src_CV, operation, element);
     SE3 pose_src = poses[src].inverse();
 
     cv::Mat image_dst_CV = cv::imread(image_files[dst], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_dst_CV = cv::imread(depth_files[dst], cv::IMREAD_GRAYSCALE);
+    cv::morphologyEx(depth_dst_CV, depth_dst_CV, operation, element);
     SE3 pose_dst = poses[dst].inverse();
 
     image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
@@ -96,14 +106,14 @@ TEST_F(DataLoader, TestCPURenderDepth)
     depth.ToCPU((float *)output_depthCV.data);
 
     float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
-    /*
+
     cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
     cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
     depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("rendercpudepth_input.png", depth_dst_CV);
     cv::imwrite("rendercpudepth_output.png", output_depthCV);
-    */
+
     EXPECT_EQ(depthError, 0.0f);
 }
 
@@ -182,12 +192,22 @@ TEST_F(DataLoader, TestGLRenderDepth)
     int src = 0;
     int dst = 50;
 
+    int operation = cv::MORPH_CLOSE;
+    int morph_size = 5;
+    int morph_elem = cv::MORPH_ELLIPSE;
+
+    cv::Mat element = cv::getStructuringElement(morph_elem,
+                                                cv::Size(2 * morph_size + 1, 2 * morph_size + 1),
+                                                cv::Point(morph_size, morph_size));
+
     cv::Mat image_src_CV = cv::imread(image_files[src], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_src_CV = cv::imread(depth_files[src], cv::IMREAD_GRAYSCALE);
+    cv::morphologyEx(depth_src_CV, depth_src_CV, operation, element);
     SE3 pose_src = poses[src].inverse();
 
     cv::Mat image_dst_CV = cv::imread(image_files[dst], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_dst_CV = cv::imread(depth_files[dst], cv::IMREAD_GRAYSCALE);
+    cv::morphologyEx(depth_dst_CV, depth_dst_CV, operation, element);
     SE3 pose_dst = poses[dst].inverse();
 
     image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
@@ -234,13 +254,15 @@ TEST_F(DataLoader, TestGLRenderDepth)
     depth.ToCPU((float *)output_depthCV.data);
 
     float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
-    
+
     cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
+    cv::threshold(output_depthCV, output_depthCV, 2.0, 2.0, cv::THRESH_TRUNC);
     cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
+    //output_depthCV = output_depthCV * 255.0f;
     depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("rendergldepth_input.png", depth_dst_CV);
     cv::imwrite("rendergldepth_output.png", output_depthCV);
-    
+
     EXPECT_EQ(depthError, 0.0f);
 }

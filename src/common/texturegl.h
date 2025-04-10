@@ -5,6 +5,7 @@
 template <typename Type>
 class TextureGL
 {
+    template <typename InTexType, typename OutTexType>
     friend class BaseRendererGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;

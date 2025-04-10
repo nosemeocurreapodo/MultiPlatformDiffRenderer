@@ -157,6 +157,84 @@ public:
     BaseRendererCPU() = default;
     virtual ~BaseRendererCPU() = default;
 
+    // Provide your own rendering routine
+    void Render(const MeshCPU &mesh,
+                const SE3 &pose,
+                const CameraType &cam,
+                const TextureCPU<InTexType> &in_texture,
+                TextureCPU<OutTexType> &out_texture,
+                int /*lvl*/)
+    {
+        Mat4 opencv2opengl = Mat4::Identity();
+        opencv2opengl(1, 1) = 1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+
+        BoundingBox<int> viewport(0, out_texture.width_, 0, out_texture.height_);
+
+        // Loop over triangles
+        for (int i = 0; i < mesh.tri_size_; i += 3)
+        {
+            Vec4 p[3];
+            Vec2 t[3]; // if needed
+
+            unsigned int i0 = mesh.ebo_buffer_[i + 0];
+            unsigned int i1 = mesh.ebo_buffer_[i + 1];
+            unsigned int i2 = mesh.ebo_buffer_[i + 2];
+
+            // Positions
+            p[0].x() = mesh.pos_buffer_[i0 * 3 + 0];
+            p[0].y() = mesh.pos_buffer_[i0 * 3 + 1];
+            p[0].z() = mesh.pos_buffer_[i0 * 3 + 2];
+            p[0].w() = 1.0f;
+
+            p[1].x() = mesh.pos_buffer_[i1 * 3 + 0];
+            p[1].y() = mesh.pos_buffer_[i1 * 3 + 1];
+            p[1].z() = mesh.pos_buffer_[i1 * 3 + 2];
+            p[1].w() = 1.0f;
+
+            p[2].x() = mesh.pos_buffer_[i2 * 3 + 0];
+            p[2].y() = mesh.pos_buffer_[i2 * 3 + 1];
+            p[2].z() = mesh.pos_buffer_[i2 * 3 + 2];
+            p[2].w() = 1.0f;
+
+            // Texcoords if needed (example):
+            t[0].x() = mesh.tex_buffer_[i0 * 2 + 0];
+            t[0].y() = mesh.tex_buffer_[i0 * 2 + 1];
+
+            t[1].x() = mesh.tex_buffer_[i1 * 2 + 0];
+            t[1].y() = mesh.tex_buffer_[i1 * 2 + 1];
+
+            t[2].x() = mesh.tex_buffer_[i2 * 2 + 0];
+            t[2].y() = mesh.tex_buffer_[i2 * 2 + 1];
+
+            // Draw the triangle
+            draw_triangle(p, t, in_texture, view_matrix, viewport, out_texture);
+        }
+    }
+
+protected:
+    // -------------------------------------------------------------------------
+    // rop: "render output pipeline" for writing one RGBA pixel
+    // -------------------------------------------------------------------------
+    /*
+    void rop(TextureCPU<OutTexType> &buf, int x, int y, const OutTexType &c)
+    {
+        // Here we assume the output is an 8-bit RGBA buffer
+        // Adjust as needed if your OutTexType is different
+        uint8_t *p = reinterpret_cast<uint8_t *>(buf.data)
+                     + buf.ys * (buf.height_ - y - 1)
+                     + 4 * x;
+        p[0] = linear_to_srgb8(c.x());
+        p[1] = linear_to_srgb8(c.y());
+        p[2] = linear_to_srgb8(c.z());
+        p[3] = static_cast<uint8_t>(
+                   std::lround(std::clamp(c.w(), 0.0f, 1.0f) * 255.0f)
+               );
+    }
+    */
+
     // The pipeline requires two shaders:
     // 1) Vertex shader
     // 2) Fragment shader
@@ -298,84 +376,6 @@ public:
             }
         }
     }
-
-    // Provide your own rendering routine
-    void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const CameraType &cam,
-                const TextureCPU<InTexType> &in_texture,
-                TextureCPU<OutTexType> &out_texture,
-                int /*lvl*/)
-    {
-        Mat4 opencv2opengl = Mat4::Identity();
-        opencv2opengl(1, 1) = 1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
-
-        BoundingBox<int> viewport(0, out_texture.width_, 0, out_texture.height_);
-
-        // Loop over triangles
-        for (int i = 0; i < mesh.tri_size_; i += 3)
-        {
-            Vec4 p[3];
-            Vec2 t[3]; // if needed
-
-            unsigned int i0 = mesh.ebo_buffer_[i + 0];
-            unsigned int i1 = mesh.ebo_buffer_[i + 1];
-            unsigned int i2 = mesh.ebo_buffer_[i + 2];
-
-            // Positions
-            p[0].x() = mesh.pos_buffer_[i0 * 3 + 0];
-            p[0].y() = mesh.pos_buffer_[i0 * 3 + 1];
-            p[0].z() = mesh.pos_buffer_[i0 * 3 + 2];
-            p[0].w() = 1.0f;
-
-            p[1].x() = mesh.pos_buffer_[i1 * 3 + 0];
-            p[1].y() = mesh.pos_buffer_[i1 * 3 + 1];
-            p[1].z() = mesh.pos_buffer_[i1 * 3 + 2];
-            p[1].w() = 1.0f;
-
-            p[2].x() = mesh.pos_buffer_[i2 * 3 + 0];
-            p[2].y() = mesh.pos_buffer_[i2 * 3 + 1];
-            p[2].z() = mesh.pos_buffer_[i2 * 3 + 2];
-            p[2].w() = 1.0f;
-
-            // Texcoords if needed (example):
-            t[0].x() = mesh.tex_buffer_[i0 * 2 + 0];
-            t[0].y() = mesh.tex_buffer_[i0 * 2 + 1];
-
-            t[1].x() = mesh.tex_buffer_[i1 * 2 + 0];
-            t[1].y() = mesh.tex_buffer_[i1 * 2 + 1];
-
-            t[2].x() = mesh.tex_buffer_[i2 * 2 + 0];
-            t[2].y() = mesh.tex_buffer_[i2 * 2 + 1];
-
-            // Draw the triangle
-            draw_triangle(p, t, in_texture, view_matrix, viewport, out_texture);
-        }
-    }
-
-protected:
-    // -------------------------------------------------------------------------
-    // rop: "render output pipeline" for writing one RGBA pixel
-    // -------------------------------------------------------------------------
-    /*
-    void rop(TextureCPU<OutTexType> &buf, int x, int y, const OutTexType &c)
-    {
-        // Here we assume the output is an 8-bit RGBA buffer
-        // Adjust as needed if your OutTexType is different
-        uint8_t *p = reinterpret_cast<uint8_t *>(buf.data)
-                     + buf.ys * (buf.height_ - y - 1)
-                     + 4 * x;
-        p[0] = linear_to_srgb8(c.x());
-        p[1] = linear_to_srgb8(c.y());
-        p[2] = linear_to_srgb8(c.z());
-        p[3] = static_cast<uint8_t>(
-                   std::lround(std::clamp(c.w(), 0.0f, 1.0f) * 255.0f)
-               );
-    }
-    */
 };
 
 // -----------------------------------------------------------------------------
