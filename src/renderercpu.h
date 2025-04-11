@@ -142,9 +142,9 @@ inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2)
 template <typename T, typename MemberPtr>
 auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
 {
-    return coord.x() * (t[0].*p) +
-           coord.y() * (t[1].*p) +
-           coord.z() * (t[2].*p);
+    return coord(0) * (t[0].*p) +
+           coord(1) * (t[1].*p) +
+           coord(2) * (t[2].*p);
 }
 
 // -----------------------------------------------------------------------------
@@ -184,30 +184,30 @@ public:
             unsigned int i2 = mesh.ebo_buffer_[i + 2];
 
             // Positions
-            p[0].x() = mesh.pos_buffer_[i0 * 3 + 0];
-            p[0].y() = mesh.pos_buffer_[i0 * 3 + 1];
-            p[0].z() = mesh.pos_buffer_[i0 * 3 + 2];
-            p[0].w() = 1.0f;
+            p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
+            p[0](1) = mesh.pos_buffer_[i0 * 3 + 1];
+            p[0](2) = mesh.pos_buffer_[i0 * 3 + 2];
+            p[0](3) = 1.0f;
 
-            p[1].x() = mesh.pos_buffer_[i1 * 3 + 0];
-            p[1].y() = mesh.pos_buffer_[i1 * 3 + 1];
-            p[1].z() = mesh.pos_buffer_[i1 * 3 + 2];
-            p[1].w() = 1.0f;
+            p[1](0) = mesh.pos_buffer_[i1 * 3 + 0];
+            p[1](1) = mesh.pos_buffer_[i1 * 3 + 1];
+            p[1](2) = mesh.pos_buffer_[i1 * 3 + 2];
+            p[1](3) = 1.0f;
 
-            p[2].x() = mesh.pos_buffer_[i2 * 3 + 0];
-            p[2].y() = mesh.pos_buffer_[i2 * 3 + 1];
-            p[2].z() = mesh.pos_buffer_[i2 * 3 + 2];
-            p[2].w() = 1.0f;
+            p[2](0) = mesh.pos_buffer_[i2 * 3 + 0];
+            p[2](1) = mesh.pos_buffer_[i2 * 3 + 1];
+            p[2](2) = mesh.pos_buffer_[i2 * 3 + 2];
+            p[2](3) = 1.0f;
 
             // Texcoords if needed (example):
-            t[0].x() = mesh.tex_buffer_[i0 * 2 + 0];
-            t[0].y() = mesh.tex_buffer_[i0 * 2 + 1];
+            t[0](0) = mesh.tex_buffer_[i0 * 2 + 0];
+            t[0](1) = mesh.tex_buffer_[i0 * 2 + 1];
 
-            t[1].x() = mesh.tex_buffer_[i1 * 2 + 0];
-            t[1].y() = mesh.tex_buffer_[i1 * 2 + 1];
+            t[1](0) = mesh.tex_buffer_[i1 * 2 + 0];
+            t[1](1) = mesh.tex_buffer_[i1 * 2 + 1];
 
-            t[2].x() = mesh.tex_buffer_[i2 * 2 + 0];
-            t[2].y() = mesh.tex_buffer_[i2 * 2 + 1];
+            t[2](0) = mesh.tex_buffer_[i2 * 2 + 0];
+            t[2](1) = mesh.tex_buffer_[i2 * 2 + 1];
 
             // Draw the triangle
             draw_triangle(p, t, in_texture, view_matrix, viewport, out_texture);
@@ -269,16 +269,16 @@ protected:
             vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide
-            float invW = 1.0f / gl_Position[i].w();
-            gl_Position[i].x() *= invW;
-            gl_Position[i].y() *= invW;
-            gl_Position[i].z() *= invW;
-            gl_Position[i].w() = invW;
+            float invW = 1.0f / gl_Position[i](3);
+            gl_Position[i](0) *= invW;
+            gl_Position[i](1) *= invW;
+            gl_Position[i](2) *= invW;
+            gl_Position[i](3) = invW;
             // gl_Position[i].w remains 1 or whatever you choose
 
             // NDC [-1,+1] to pixel coords [0, width], [0, height]
-            float x_ndc = 0.5f * (gl_Position[i].x() + 1.0f);
-            float y_ndc = 0.5f * (gl_Position[i].y() + 1.0f);
+            float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
+            float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
             float x_screen = x_ndc * (float)out_texture.width_;
             float y_screen = y_ndc * (float)out_texture.height_;
@@ -288,15 +288,15 @@ protected:
             y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height_ - 1));
 
             // Overwrite gl_Position with final screen coords
-            gl_Position[i].x() = x_screen;
-            gl_Position[i].y() = y_screen;
+            gl_Position[i](0) = x_screen;
+            gl_Position[i](1) = y_screen;
         }
 
         // Step 2: find triangle bounding box in screen space
-        float minX = std::min({gl_Position[0].x(), gl_Position[1].x(), gl_Position[2].x()});
-        float maxX = std::max({gl_Position[0].x(), gl_Position[1].x(), gl_Position[2].x()});
-        float minY = std::min({gl_Position[0].y(), gl_Position[1].y(), gl_Position[2].y()});
-        float maxY = std::max({gl_Position[0].y(), gl_Position[1].y(), gl_Position[2].y()});
+        float minX = std::min({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
+        float maxX = std::max({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
+        float minY = std::min({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
+        float maxY = std::max({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
 
         // Convert to int bounding box
         BoundingBox<int> tri_bb(
@@ -309,9 +309,9 @@ protected:
 
         // Step 3: compute barycentric denominator
         float denom = 1.0f / triangle_area(
-                                 Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                 Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                 Vec2(gl_Position[2].x(), gl_Position[2].y()));
+                                 Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                 Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                 Vec2(gl_Position[2](0), gl_Position[2](1)));
 
         // Step 4: rasterize each pixel in bounding box
         for (int py = tri_bb.min_y_; py < tri_bb.max_y_; ++py)
@@ -319,37 +319,37 @@ protected:
             for (int px = tri_bb.min_x_; px < tri_bb.max_x_; ++px)
             {
                 Vec4 gl_FragCoord;
-                gl_FragCoord.x() = px + 0.5f;
-                gl_FragCoord.y() = py + 0.5f;
+                gl_FragCoord(0) = px + 0.5f;
+                gl_FragCoord(1) = py + 0.5f;
 
                 // Barycentric coords in 2D
                 Vec3 barycentric = denom * Vec3(triangle_area(
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                                    Vec2(gl_Position[2].x(), gl_Position[2].y())),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y()),
+                                                    Vec2(gl_Position[1](0), gl_Position[1].y()),
+                                                    Vec2(gl_Position[2](0), gl_Position[2].y())),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[2].x(), gl_Position[2].y())),
+                                                    Vec2(gl_Position[0](0), gl_Position[0].y()),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y()),
+                                                    Vec2(gl_Position[2](0), gl_Position[2].y())),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y())));
+                                                    Vec2(gl_Position[0](0), gl_Position[0].y()),
+                                                    Vec2(gl_Position[1](0), gl_Position[1].y()),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y())));
 
                 // Discard if outside the triangle
                 if (barycentric.x() < 0.f || barycentric.y() < 0.f || barycentric.z() < 0.f)
                     continue;
 
                 // Interpolate Z if needed
-                gl_FragCoord.z() = barycentric.x() * gl_Position[0].z() +
+                gl_FragCoord.z() = barycentric(0) * gl_Position[0].z() +
                                    barycentric.y() * gl_Position[1].z() +
                                    barycentric.z() * gl_Position[2].z();
-                gl_FragCoord.w() = barycentric.x() * gl_Position[0].w() +
+                gl_FragCoord.w() = barycentric(0) * gl_Position[0].w() +
                                    barycentric.y() * gl_Position[1].w() +
                                    barycentric.z() * gl_Position[2].w();
 
                 // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
-                if (gl_FragCoord.z() < 0 || gl_FragCoord.z() > 1)
+                if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
                     continue;
 
                 // Depth test could go here if you keep a depth buffer

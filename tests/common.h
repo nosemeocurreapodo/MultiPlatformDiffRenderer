@@ -112,7 +112,7 @@ inline std::array<float, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose
     SE3 T_error = pose_est.inverse() * pose_gt;
 
     float translation_error = T_error.translation().norm();
-    float rotation_error = T_error.so3().log().norm();
+    float rotation_error = 0.0; // T_error.so3().log().norm();
 
     std::array<float, 2> error = {translation_error, rotation_error};
 

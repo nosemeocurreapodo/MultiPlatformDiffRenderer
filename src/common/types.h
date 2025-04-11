@@ -44,30 +44,30 @@ using SIM3 = Sophus::Sim3<RealType>;
 using RealType = float;
 
 template <typename Type, int rows>
-using Vec = vec<Type, rows>;
+using Vec = linalg::vec<Type, rows>;
 
-using Vec2 = vec2<RealType>;
-using Vec3 = vec3<RealType>;
-using Vec4 = vec4<RealType>;
-using Vec5 = vec5<RealType>;
-using Vec6 = vec6<RealType>;
-using Vecx = vecx<RealType>;
+using Vec2 = linalg::vec2<RealType>;
+using Vec3 = linalg::vec3<RealType>;
+using Vec4 = linalg::vec4<RealType>;
+using Vec5 = linalg::vec5<RealType>;
+using Vec6 = linalg::vec6<RealType>;
+using Vecx = linalg::vecx<RealType>;
 
-using Vec2i = vec2<int>;
-using Vec3i = vec3<int>;
-using Vecxi = vecx<int>;
+using Vec2i = linalg::vec2<int>;
+using Vec3i = linalg::vec3<int>;
+using Vecxi = linalg::vecx<int>;
 
 template <typename type, int rows, int cols>
-using Mat = mat<type, rows, cols>;
+using Mat = linalg::mat<type, rows, cols>;
 
-using Mat3 = mat<RealType, 3, 3>;
-using Mat4 = mat<RealType, 4, 4>;
-using Mat6 = mat<RealType, 6, 6>;
-using Matx = matx<RealType>;
+using Mat3 = linalg::mat<RealType, 3, 3>;
+using Mat4 = linalg::mat<RealType, 4, 4>;
+using Mat6 = linalg::mat<RealType, 6, 6>;
+using Matx = linalg::matx<RealType>;
 
-//using Quaternion = Eigen::Quaternion<RealType>;
+using Quaternion = linalg::Quaternion<RealType>;
 
-using SE3 = _SE3<RealType>;
+using SE3 = linalg::SE3<RealType>;
 // using SIM3 = Sim3<RealType>;
 
 class PinholeCamera;
