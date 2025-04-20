@@ -174,14 +174,14 @@ TEST_F(DataLoader, TestCPURenderImage)
     output.ToCPU((ImageType *)output_imageCV.data);
 
     float depthError = ComputeImageError<ImageType>(image_dst_CV, output_imageCV);
-    /*
+    
     cv::normalize(image_dst_CV, image_dst_CV, 0, 255, cv::NORM_MINMAX);
     cv::normalize(output_imageCV, output_imageCV, 0, 255, cv::NORM_MINMAX);
     image_dst_CV.convertTo(image_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_imageCV.convertTo(output_imageCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("rendercpuimage_input.png", image_dst_CV);
     cv::imwrite("rendercpuimage_output.png", output_imageCV);
-    */
+    
     EXPECT_EQ(depthError, 0.0f);
 }
 

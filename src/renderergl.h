@@ -52,9 +52,12 @@ public:
 
         glUseProgram(shader_program_);
         GLfloat mvp_float[16];
-        for (int i = 0; i < 16; ++i)
+        for(int y = 0; y < 4; ++y)
         {
-            mvp_float[i] = static_cast<GLfloat>(view_matrix.data()[i]);
+            for(int x = 0; x < 4; ++x)
+            {
+                mvp_float[x * 4 + y] = static_cast<GLfloat>(view_matrix(y, x));
+            }
         }
         glUniformMatrix4fv(mvp_loc_, 1, GL_FALSE, mvp_float);
 

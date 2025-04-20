@@ -44,26 +44,26 @@ using SIM3 = Sophus::Sim3<RealType>;
 using RealType = float;
 
 template <typename Type, int rows>
-using Vec = linalg::vec<Type, rows>;
+using Vec = linalg::Mat<Type, rows, 1>;
 
-using Vec2 = linalg::vec2<RealType>;
-using Vec3 = linalg::vec3<RealType>;
-using Vec4 = linalg::vec4<RealType>;
-using Vec5 = linalg::vec5<RealType>;
-using Vec6 = linalg::vec6<RealType>;
-using Vecx = linalg::vecx<RealType>;
+using Vec2 = linalg::Vec2<RealType>;
+using Vec3 = linalg::Vec3<RealType>;
+using Vec4 = linalg::Vec4<RealType>;
+using Vec5 = linalg::Vec5<RealType>;
+using Vec6 = linalg::Vec6<RealType>;
+// using Vecx = linalg::Vecx<RealType>;
 
-using Vec2i = linalg::vec2<int>;
-using Vec3i = linalg::vec3<int>;
-using Vecxi = linalg::vecx<int>;
+using Vec2i = linalg::Vec2<int>;
+using Vec3i = linalg::Vec3<int>;
+// using Vecxi = linalg::vecx<int>;
 
 template <typename type, int rows, int cols>
-using Mat = linalg::mat<type, rows, cols>;
+using Mat = linalg::Mat<type, rows, cols>;
 
-using Mat3 = linalg::mat<RealType, 3, 3>;
-using Mat4 = linalg::mat<RealType, 4, 4>;
-using Mat6 = linalg::mat<RealType, 6, 6>;
-using Matx = linalg::matx<RealType>;
+using Mat3 = linalg::Mat<RealType, 3, 3>;
+using Mat4 = linalg::Mat<RealType, 4, 4>;
+using Mat6 = linalg::Mat<RealType, 6, 6>;
+// using Matx = linalg::matx<RealType>;
 
 using Quaternion = linalg::Quaternion<RealType>;
 

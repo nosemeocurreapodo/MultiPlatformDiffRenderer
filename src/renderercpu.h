@@ -324,29 +324,29 @@ protected:
 
                 // Barycentric coords in 2D
                 Vec3 barycentric = denom * Vec3(triangle_area(
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[1](0), gl_Position[1].y()),
-                                                    Vec2(gl_Position[2](0), gl_Position[2].y())),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0].y()),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[2](0), gl_Position[2].y())),
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0].y()),
-                                                    Vec2(gl_Position[1](0), gl_Position[1].y()),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord.y())));
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1))));
 
                 // Discard if outside the triangle
-                if (barycentric.x() < 0.f || barycentric.y() < 0.f || barycentric.z() < 0.f)
+                if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
                     continue;
 
                 // Interpolate Z if needed
-                gl_FragCoord.z() = barycentric(0) * gl_Position[0].z() +
-                                   barycentric.y() * gl_Position[1].z() +
-                                   barycentric.z() * gl_Position[2].z();
-                gl_FragCoord.w() = barycentric(0) * gl_Position[0].w() +
-                                   barycentric.y() * gl_Position[1].w() +
-                                   barycentric.z() * gl_Position[2].w();
+                gl_FragCoord(2) = barycentric(0) * gl_Position[0](2) +
+                                   barycentric(1) * gl_Position[1](2) +
+                                   barycentric(2) * gl_Position[2](2);
+                gl_FragCoord(3) = barycentric(0) * gl_Position[0](3) +
+                                   barycentric(1) * gl_Position[1](3) +
+                                   barycentric(2) * gl_Position[2](3);
 
                 // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
                 if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
@@ -355,16 +355,16 @@ protected:
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                Vec3 perspective = (1 / gl_FragCoord.w()) * Vec3(barycentric.x() * gl_Position[0].w(), barycentric.y() * gl_Position[1].w(), barycentric.z() * gl_Position[2].w());
+                Vec3 perspective = (1 / gl_FragCoord(3)) * Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
-                Vec2 texcoord = perspective.x() * texcoords[0] +
-                                perspective.y() * texcoords[1] +
-                                perspective.z() * texcoords[2];
+                Vec2 texcoord = perspective(0) * texcoords[0] +
+                                perspective(1) * texcoords[1] +
+                                perspective(2) * texcoords[2];
 
-                VaryingType varying = perspective.x() * perVertex[0] +
-                                      perspective.y() * perVertex[1] +
-                                      perspective.z() * perVertex[2];
+                VaryingType varying = perspective(0) * perVertex[0] +
+                                      perspective(1) * perVertex[1] +
+                                      perspective(2) * perVertex[2];
 
                 // Run fragment shader
                 OutTexType outColor;
@@ -399,7 +399,7 @@ public:
     {
         gl_Position = tm * inVertex;
         // No attributes in outVarying, so do nothing with it
-        outVarying = inVertex.z(); // example: store Z in outVarying
+        outVarying = inVertex(2); // example: store Z in outVarying
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
@@ -445,7 +445,7 @@ public:
                          const float &inVarying,
                          ImageType &outFragment) override
     {
-        outFragment = inTexture.Get(inTexCoord.y(), inTexCoord.x());
+        outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));
 
         // Example: color = [checker pattern], ignoring inVarying
         // float fx = std::floor(gl_FragCoord.x() * 0.1f);

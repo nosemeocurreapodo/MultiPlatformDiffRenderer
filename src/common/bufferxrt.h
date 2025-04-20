@@ -21,7 +21,7 @@ BufferXRT()
     BufferXRT(int size)
     {
         size_ = size;
-        buffer_ = xrt::bo(device, vector_size_bytes, krnl.group_id(0));
+        buffer_ = xrt::bo(device, size_*sizeof(Type), krnl.group_id(0));
     }
 
     BufferXRT(const std::vector<Type> &data)
