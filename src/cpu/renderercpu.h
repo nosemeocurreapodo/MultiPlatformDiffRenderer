@@ -4,10 +4,120 @@
 #include <cmath>
 #include <cstdint>
 #include "common/types.h"
-#include "common/devicexrt.h"
-#include "common/texturexrt.h"
-#include "common/bufferxrt.h"
-#include "common/meshxrt.h"
+#include "cpu/devicecpu.h"
+#include "cpu/texturecpu.h"
+#include "cpu/buffercpu.h"
+#include "cpu/meshcpu.h"
+
+/*
+struct Renderbuffer { int w, h, ys; void *data; };
+struct Vert { vec4 position, texcoord, color; };
+struct Varying { vec4 texcoord, color; };
+
+void vertex_shader(const Vert &in, vec4 &gl_Position, Varying &OUT) {
+    OUT.texcoord = in.texcoord;
+    OUT.color = in.color;
+    gl_Position = vec4(in.position.x, in.position.y, -2*in.position.z - 2*in.position.w, -in.position.z);
+}
+
+void fragment_shader(vec4 &gl_FragCoord, const Varying &IN, vec4 &OUT) {
+    OUT = IN.color;
+    vec2 wrapped = IN.texcoord.xy - floor(IN.texcoord.xy);
+    bool brighter = (wrapped[0] < 0.5) != (wrapped[1] < 0.5);
+    if(!brighter)
+        OUT.rgb *= 0.5f;
+}
+
+// render output unit/render operations pipeline
+void rop(Renderbuffer &buf, int x, int y, const vec4 &c) {
+    uint8_t *p = (uint8_t*)buf.data + buf.ys*(buf.h - y - 1) + 4*x;
+    p[0] = linear_to_srgb8(c[0]);
+    p[1] = linear_to_srgb8(c[1]);
+    p[2] = linear_to_srgb8(c[2]);
+    p[3] = lround(c[3]*255);
+}
+
+void draw_triangle(Renderbuffer &color_attachment, const box2 &viewport, const Vert *verts) {
+    auto area = [](const vec2 &p0, const vec2 &p1, const vec2 &p2) { return cross(p1 - p0, p2 - p0); };
+    auto interpolate = [](const auto a[3], auto p, const vec3 &coord) { return coord.x*a[0].*p + coord.y*a[1].*p + coord.z*a[2].*p; };
+
+    Varying perVertex[3];
+    vec4 gl_Position[3];
+
+    box2 aabb = { viewport.hi, viewport.lo };
+    for(int i = 0; i < 3; ++i) {
+        vertex_shader(verts[i], gl_Position[i], perVertex[i]);
+
+        // convert to normalized device coordinates
+        gl_Position[i].w = 1/gl_Position[i].w;
+        gl_Position[i].xyz *= gl_Position[i].w;
+
+        // convert to window coordinates
+        gl_Position[i].xy = mix(viewport.lo, viewport.hi, 0.5f*(gl_Position[i].xy + 1.0f));
+        aabb = join(aabb, gl_Position[i].xy);
+    }
+
+    const float denom = 1/area(gl_Position[0].xy, gl_Position[1].xy, gl_Position[2].xy);
+
+    // loop over all pixels in the rectangle bounding the triangle
+    const ibox2 iaabb = lround(aabb);
+    for(int y = iaabb.lo.y; y < iaabb.hi.y; ++y)
+    for(int x = iaabb.lo.x; x < iaabb.hi.x; ++x)
+    {
+        vec4 gl_FragCoord;
+        gl_FragCoord.xy = vec2(x, y) + 0.5f;
+
+        // fragment barycentric coordinates in window coordinates
+        const vec3 barycentric = denom*vec3(
+            area(gl_FragCoord.xy, gl_Position[1].xy, gl_Position[2].xy),
+            area(gl_Position[0].xy, gl_FragCoord.xy, gl_Position[2].xy),
+            area(gl_Position[0].xy, gl_Position[1].xy, gl_FragCoord.xy)
+        );
+
+        // discard fragment outside the triangle. this doesn't handle edges correctly.
+        if(barycentric.x < 0 || barycentric.y < 0 || barycentric.z < 0)
+            continue;
+
+        // interpolate inverse depth linearly
+        gl_FragCoord.z = interpolate(gl_Position, &vec4::z, barycentric);
+        gl_FragCoord.w = interpolate(gl_Position, &vec4::w, barycentric);
+
+        // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
+        if(gl_FragCoord.z < 0 || gl_FragCoord.z > 1)
+            continue;
+
+        // convert to perspective correct (clip-space) barycentric
+        const vec3 perspective = 1/gl_FragCoord.w*barycentric*vec3(gl_Position[0].w, gl_Position[1].w, gl_Position[2].w);
+
+        // interpolate attributes
+        Varying varying = {
+            interpolate(perVertex, &Varying::texcoord, perspective),
+            interpolate(perVertex, &Varying::color, perspective),
+        };
+
+        vec4 color;
+        fragment_shader(gl_FragCoord, varying, color);
+        rop(color_attachment, x, y, color);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    Renderbuffer buffer = { 512, 512, 512*4 };
+    buffer.data = calloc(buffer.ys, buffer.h);
+
+    // VAO interleaved attributes buffer
+    Vert verts[] = {
+        { { -1, -1, -2, 1 }, { 0, 0, 0, 1 }, { 0, 0, 1, 1 } },
+        { { 1, -1, -1, 1 }, { 10, 0, 0, 1 }, { 1, 0, 0, 1 } },
+        { { 0, 1, -1, 1 }, { 0, 10, 0, 1 }, { 0, 1, 0, 1 } },
+    };
+
+    box2 viewport = { 0, 0, buffer.w, buffer.h };
+    draw_triangle(buffer, viewport, verts);
+
+    stbi_write_png("out.png", buffer.w, buffer.h, 4, buffer.data, buffer.ys);
+}
+*/
 
 // 2D cross product:  (Ax * By - Ay * Bx)
 inline float cross(const Vec2 &a, const Vec2 &b)
@@ -32,16 +142,16 @@ inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2)
 template <typename T, typename MemberPtr>
 auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
 {
-    return coord.x() * (t[0].*p) +
-           coord.y() * (t[1].*p) +
-           coord.z() * (t[2].*p);
+    return coord(0) * (t[0].*p) +
+           coord(1) * (t[1].*p) +
+           coord(2) * (t[2].*p);
 }
 
 // -----------------------------------------------------------------------------
 // BaseRendererCPU
 // -----------------------------------------------------------------------------
 template <typename InTexType, typename VaryingType, typename OutTexType>
-class BaseRendererCPU
+class BaseRendererCPU : public Renderer<InTexType, OutTexType>
 {
 public:
     BaseRendererCPU() = default;
@@ -74,30 +184,30 @@ public:
             unsigned int i2 = mesh.ebo_buffer_[i + 2];
 
             // Positions
-            p[0].x() = mesh.pos_buffer_[i0 * 3 + 0];
-            p[0].y() = mesh.pos_buffer_[i0 * 3 + 1];
-            p[0].z() = mesh.pos_buffer_[i0 * 3 + 2];
-            p[0].w() = 1.0f;
+            p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
+            p[0](1) = mesh.pos_buffer_[i0 * 3 + 1];
+            p[0](2) = mesh.pos_buffer_[i0 * 3 + 2];
+            p[0](3) = 1.0f;
 
-            p[1].x() = mesh.pos_buffer_[i1 * 3 + 0];
-            p[1].y() = mesh.pos_buffer_[i1 * 3 + 1];
-            p[1].z() = mesh.pos_buffer_[i1 * 3 + 2];
-            p[1].w() = 1.0f;
+            p[1](0) = mesh.pos_buffer_[i1 * 3 + 0];
+            p[1](1) = mesh.pos_buffer_[i1 * 3 + 1];
+            p[1](2) = mesh.pos_buffer_[i1 * 3 + 2];
+            p[1](3) = 1.0f;
 
-            p[2].x() = mesh.pos_buffer_[i2 * 3 + 0];
-            p[2].y() = mesh.pos_buffer_[i2 * 3 + 1];
-            p[2].z() = mesh.pos_buffer_[i2 * 3 + 2];
-            p[2].w() = 1.0f;
+            p[2](0) = mesh.pos_buffer_[i2 * 3 + 0];
+            p[2](1) = mesh.pos_buffer_[i2 * 3 + 1];
+            p[2](2) = mesh.pos_buffer_[i2 * 3 + 2];
+            p[2](3) = 1.0f;
 
             // Texcoords if needed (example):
-            t[0].x() = mesh.tex_buffer_[i0 * 2 + 0];
-            t[0].y() = mesh.tex_buffer_[i0 * 2 + 1];
+            t[0](0) = mesh.tex_buffer_[i0 * 2 + 0];
+            t[0](1) = mesh.tex_buffer_[i0 * 2 + 1];
 
-            t[1].x() = mesh.tex_buffer_[i1 * 2 + 0];
-            t[1].y() = mesh.tex_buffer_[i1 * 2 + 1];
+            t[1](0) = mesh.tex_buffer_[i1 * 2 + 0];
+            t[1](1) = mesh.tex_buffer_[i1 * 2 + 1];
 
-            t[2].x() = mesh.tex_buffer_[i2 * 2 + 0];
-            t[2].y() = mesh.tex_buffer_[i2 * 2 + 1];
+            t[2](0) = mesh.tex_buffer_[i2 * 2 + 0];
+            t[2](1) = mesh.tex_buffer_[i2 * 2 + 1];
 
             // Draw the triangle
             draw_triangle(p, t, in_texture, view_matrix, viewport, out_texture);
@@ -159,16 +269,16 @@ protected:
             vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide
-            float invW = 1.0f / gl_Position[i].w();
-            gl_Position[i].x() *= invW;
-            gl_Position[i].y() *= invW;
-            gl_Position[i].z() *= invW;
-            gl_Position[i].w() = invW;
+            float invW = 1.0f / gl_Position[i](3);
+            gl_Position[i](0) *= invW;
+            gl_Position[i](1) *= invW;
+            gl_Position[i](2) *= invW;
+            gl_Position[i](3) = invW;
             // gl_Position[i].w remains 1 or whatever you choose
 
             // NDC [-1,+1] to pixel coords [0, width], [0, height]
-            float x_ndc = 0.5f * (gl_Position[i].x() + 1.0f);
-            float y_ndc = 0.5f * (gl_Position[i].y() + 1.0f);
+            float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
+            float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
             float x_screen = x_ndc * (float)out_texture.width_;
             float y_screen = y_ndc * (float)out_texture.height_;
@@ -178,15 +288,15 @@ protected:
             y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height_ - 1));
 
             // Overwrite gl_Position with final screen coords
-            gl_Position[i].x() = x_screen;
-            gl_Position[i].y() = y_screen;
+            gl_Position[i](0) = x_screen;
+            gl_Position[i](1) = y_screen;
         }
 
         // Step 2: find triangle bounding box in screen space
-        float minX = std::min({gl_Position[0].x(), gl_Position[1].x(), gl_Position[2].x()});
-        float maxX = std::max({gl_Position[0].x(), gl_Position[1].x(), gl_Position[2].x()});
-        float minY = std::min({gl_Position[0].y(), gl_Position[1].y(), gl_Position[2].y()});
-        float maxY = std::max({gl_Position[0].y(), gl_Position[1].y(), gl_Position[2].y()});
+        float minX = std::min({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
+        float maxX = std::max({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
+        float minY = std::min({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
+        float maxY = std::max({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
 
         // Convert to int bounding box
         BoundingBox<int> tri_bb(
@@ -199,9 +309,9 @@ protected:
 
         // Step 3: compute barycentric denominator
         float denom = 1.0f / triangle_area(
-                                 Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                 Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                 Vec2(gl_Position[2].x(), gl_Position[2].y()));
+                                 Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                 Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                 Vec2(gl_Position[2](0), gl_Position[2](1)));
 
         // Step 4: rasterize each pixel in bounding box
         for (int py = tri_bb.min_y_; py < tri_bb.max_y_; ++py)
@@ -209,52 +319,52 @@ protected:
             for (int px = tri_bb.min_x_; px < tri_bb.max_x_; ++px)
             {
                 Vec4 gl_FragCoord;
-                gl_FragCoord.x() = px + 0.5f;
-                gl_FragCoord.y() = py + 0.5f;
+                gl_FragCoord(0) = px + 0.5f;
+                gl_FragCoord(1) = py + 0.5f;
 
                 // Barycentric coords in 2D
                 Vec3 barycentric = denom * Vec3(triangle_area(
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                                    Vec2(gl_Position[2].x(), gl_Position[2].y())),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y()),
-                                                    Vec2(gl_Position[2].x(), gl_Position[2].y())),
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
                                                 triangle_area(
-                                                    Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                                    Vec2(gl_FragCoord.x(), gl_FragCoord.y())));
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1))));
 
                 // Discard if outside the triangle
-                if (barycentric.x() < 0.f || barycentric.y() < 0.f || barycentric.z() < 0.f)
+                if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
                     continue;
 
                 // Interpolate Z if needed
-                gl_FragCoord.z() = barycentric.x() * gl_Position[0].z() +
-                                   barycentric.y() * gl_Position[1].z() +
-                                   barycentric.z() * gl_Position[2].z();
-                gl_FragCoord.w() = barycentric.x() * gl_Position[0].w() +
-                                   barycentric.y() * gl_Position[1].w() +
-                                   barycentric.z() * gl_Position[2].w();
+                gl_FragCoord(2) = barycentric(0) * gl_Position[0](2) +
+                                   barycentric(1) * gl_Position[1](2) +
+                                   barycentric(2) * gl_Position[2](2);
+                gl_FragCoord(3) = barycentric(0) * gl_Position[0](3) +
+                                   barycentric(1) * gl_Position[1](3) +
+                                   barycentric(2) * gl_Position[2](3);
 
                 // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
-                if (gl_FragCoord.z() < 0 || gl_FragCoord.z() > 1)
+                if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
                     continue;
 
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                Vec3 perspective = (1 / gl_FragCoord.w()) * Vec3(barycentric.x() * gl_Position[0].w(), barycentric.y() * gl_Position[1].w(), barycentric.z() * gl_Position[2].w());
+                Vec3 perspective = (1 / gl_FragCoord(3)) * Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
-                Vec2 texcoord = perspective.x() * texcoords[0] +
-                                perspective.y() * texcoords[1] +
-                                perspective.z() * texcoords[2];
+                Vec2 texcoord = perspective(0) * texcoords[0] +
+                                perspective(1) * texcoords[1] +
+                                perspective(2) * texcoords[2];
 
-                VaryingType varying = perspective.x() * perVertex[0] +
-                                      perspective.y() * perVertex[1] +
-                                      perspective.z() * perVertex[2];
+                VaryingType varying = perspective(0) * perVertex[0] +
+                                      perspective(1) * perVertex[1] +
+                                      perspective(2) * perVertex[2];
 
                 // Run fragment shader
                 OutTexType outColor;
@@ -289,7 +399,7 @@ public:
     {
         gl_Position = tm * inVertex;
         // No attributes in outVarying, so do nothing with it
-        outVarying = inVertex.z(); // example: store Z in outVarying
+        outVarying = inVertex(2); // example: store Z in outVarying
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
@@ -335,7 +445,7 @@ public:
                          const float &inVarying,
                          ImageType &outFragment) override
     {
-        outFragment = inTexture.Get(inTexCoord.y(), inTexCoord.x());
+        outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));
 
         // Example: color = [checker pattern], ignoring inVarying
         // float fx = std::floor(gl_FragCoord.x() * 0.1f);

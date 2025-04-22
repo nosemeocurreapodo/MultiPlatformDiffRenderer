@@ -1,7 +1,10 @@
 #pragma once
 
+#include "texture.h"
+#include "cpu/buffercpu.h"
+
 template <typename Type>
-class TextureCPU
+class TextureCPU : public Texture<Type>
 {
     template <typename InTexType, typename VaryingType, typename OutTexType>
     friend class BaseRendererCPU;
@@ -10,32 +13,40 @@ class TextureCPU
 
 public:
 
+    /*
     TextureCPU() : nodata_(0), width_(0), height_(0), channels_(0)
     {
         // data_ = nullptr;
     }
+    */
 
     TextureCPU(int width, int height, int channels, Type nodata_value)
+    : data_(width * height * channels)
     {
         nodata_ = nodata_value;
         width_ = width;
         height_ = height;
         channels_ = channels;
 
-        data_ = std::make_unique<Type[]>(channels * width * height);
+        data_.fill(nodata_value);
+    }
 
-        // set(_nodata_value);
+    TextureCPU(int width, int height, int channels, Type nodata_value, Type *data)
+    : data_(width * height * channels, data)
+    {
+        nodata_ = nodata_value;
+        width_ = width;
+        height_ = height;
+        channels_ = channels;
     }
 
     TextureCPU(const TextureCPU &other)
+    : data_(other.data_)
     {
         nodata_ = other.nodata_;
         width_ = other.width_;
         height_ = other.height_;
         channels_ = other.channels_;
-        data_ = std::make_unique<Type[]>(channels_ * width_ * height_);
-
-        std::copy(other.data_.get(), other.data_.get() + channels_ * width_ * height_, data_.get());
     }
 
     TextureCPU &operator=(const TextureCPU &other)
@@ -46,30 +57,20 @@ public:
             width_ = other.width_;
             height_ = other.height_;
             channels_ = other.channels_;
-
-            data_ = std::make_unique<Type[]>(channels_ * width_ * height_);
-            std::copy(other.data_.get(), other.data_.get() + channels_ * width_ * height_, data_.get());
+            data_ = other.data_;
         }
         return *this;
     }
 
     void FromCPU(Type *data)
     {
-        std::copy(data, data + channels_ * width_ * height_, data_.get());
+        data_.FromCPU(data);
     }
 
     void ToCPU(Type *data)
     {
-        std::copy(data_.get(), data_.get() + channels_ * width_ * height_, data);
+        data_.ToCPU(data);
     }
-
-    /*
-    ~data()
-    {
-        delete[] m_data;
-        // m_data = nullptr;
-    }
-    */
 
     Type nodata_;
     int width_;
@@ -77,20 +78,7 @@ public:
     int channels_;
 
 private:
-    /*
-    void set(const Type value)
-    {
-        std::fill_n(m_data, width * height, value);
-    }
-    */
-
-    /*
-    void setToNoData()
-    {
-        set(nodata);
-    }
-    */
-
+ 
     void SetTexel(Type value, int y, int x)
     {
         assert(y >= 0 && x >= 0 && y < height_ && x < width_);
@@ -212,7 +200,7 @@ private:
         return pix;
     }
 
-    std::unique_ptr<Type[]> data_;
+    BufferCPU<Type> data_;
 };
 
 template <typename Type>

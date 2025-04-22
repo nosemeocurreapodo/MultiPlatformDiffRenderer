@@ -3,10 +3,8 @@
 #include <opencv2/opencv.hpp>
 
 #include "common/types.h"
-#include "common/texturecpu.h"
-#include "common/texturegl.h"
-#include "common/buffercpu.h"
-#include "common/buffergl.h"
+#include "gl/texturegl.h"
+#include "gl/buffergl.h"
 #include "common.h"
 // #include "src/common/dataMulti.h"
 
@@ -35,45 +33,6 @@ protected:
     int w;
     int h;
 };
-
-TEST_F(DataLoader, TestCPUToFromOpenCV)
-{
-    int i = 0;
-    cv::Mat imageCV = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
-    cv::Mat depthCV = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
-    // SE3f gtPose = poses[i].inverse();
-
-    imageCV.convertTo(imageCV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
-    depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
-    depthCV /= dataset.GetDepthFactor();
-    depthCV *= 100.0;
-
-    TextureCPU<ImageType> imageCPU(w, h, 1, 0);
-    imageCPU.FromCPU((ImageType *)imageCV.data);
-
-    TextureCPU<float> depthCPU(w, h, 1, 0);
-    depthCPU.FromCPU((float *)depthCV.data);
-
-    cv::Mat output_imageCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
-    cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
-
-    imageCPU.ToCPU((ImageType *)output_imageCV.data);
-    depthCPU.ToCPU((float *)output_depthCV.data);
-
-    float imageError = ComputeImageError<ImageType>(imageCV, output_imageCV);
-    float depthError = ComputeImageError<float>(depthCV, output_depthCV);
-
-    /*
-    cv::normalize(depthCV, depthCV, 0, 255, cv::NORM_MINMAX);
-    cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
-    depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
-    output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
-    cv::imwrite("tofrom_input_depth.png", depthCV);
-    cv::imwrite("tofrom_output_depth.png", output_depthCV);
-    */
-    EXPECT_EQ(imageError, 0.0f);
-    EXPECT_EQ(depthError, 0.0f);
-}
 
 TEST_F(DataLoader, TestGLToFromOpenCV)
 {
@@ -144,9 +103,9 @@ TEST_F(DataLoader, TestGLToFromBuffer)
         weights.push_back(1.0f);
     }
 
-    BufferCPU<float> pos_buffer(vertices);
-    BufferCPU<float> tex_buffer(texcoords);
-    BufferCPU<float> wei_buffer(weights);
+    BufferGL<float> pos_buffer(vertices);
+    BufferGL<float> tex_buffer(texcoords);
+    BufferGL<float> wei_buffer(weights);
 
     std::vector<float> pos_cpu(vertices.size());
     std::vector<float> tex_cpu(texcoords.size());

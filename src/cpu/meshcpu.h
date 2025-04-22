@@ -1,10 +1,10 @@
 #pragma once
 
-#include "common/devicecpu.h"
-#include "common/meshbase.h"
-#include "common/buffercpu.h"
+#include "cpu/devicecpu.h"
+#include "cpu/buffercpu.h"
+#include "mesh.h"
 
-class MeshCPU : public MeshBase
+class MeshCPU : public Mesh
 {
     template <typename InTexType, typename VaryingType, typename OutTexType>
     friend class BaseRendererCPU;
@@ -13,7 +13,6 @@ class MeshCPU : public MeshBase
 
 public:
     MeshCPU(std::vector<float> &vertices, std::vector<float> &tex_coords, std::vector<float> &weights)
-        : MeshBase()
     {
         std::vector<unsigned int> triangles = BuildTriangles(tex_coords);
 

@@ -1,0 +1,13 @@
+add_executable(datacpu datacpu_test.cpp)
+target_compile_features(datacpu PUBLIC cxx_std_17)
+target_link_libraries(datacpu gmock_main ${OpenCV_LIBS}) # ${OPENGL_LIBRARIES} ${EGL_LIBRARIES} ${GLEW_LIBRARIES} ${Pangolin_LIBRARIES})
+target_include_directories(datacpu PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_compile_definitions(datacpu PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+add_test(NAME datacpu COMMAND datacpu)
+
+add_executable(renderercpu renderercpu_test.cpp)
+target_compile_features(renderercpu PUBLIC cxx_std_17)
+target_link_libraries(renderercpu gmock_main ${OpenCV_LIBS}) #  ${OPENGL_LIBRARIES} ${EGL_LIBRARIES} ${GLEW_LIBRARIES} ${Pangolin_LIBRARIES})
+target_include_directories(renderercpu PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_compile_definitions(renderercpu PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+add_test(NAME renderercpu COMMAND renderercpu)

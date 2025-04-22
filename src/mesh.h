@@ -3,10 +3,9 @@
 #include "common/types.h"
 #include "common/delaunaytriangulation.h"
 
-class MeshBase
+class Mesh
 {
 public:
-    MeshBase(){}
 
 protected:
     std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)

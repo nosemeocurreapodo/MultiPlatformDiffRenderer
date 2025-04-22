@@ -1,8 +1,21 @@
 #pragma once
 
-class Renderer {
-    public:
-        virtual ~Renderer() = default;
-        virtual void setSceneData(const Scene& scene) = 0; // Possibly upload data
-        virtual void render(Image& output) = 0;
-    };
+#include "common/camera.h"
+#include "mesh.h"
+#include "buffer.h"
+#include "texture.h"
+
+template <typename InTexType, typename OutTexType>
+class Renderer
+{
+public:
+    Renderer() = default;
+    virtual ~Renderer() = default;
+
+    virtual void Render(const Mesh &mesh,
+                        const SE3 &pose,
+                        const CameraType &cam,
+                        const Texture<InTexType> &in_texture,
+                        Texture<OutTexType> &out_texture,
+                        int /*lvl*/) = 0;
+};

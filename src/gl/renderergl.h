@@ -1,12 +1,13 @@
 #pragma once
 
-#include "common/devicegl_glad.h"
-#include "common/texturegl.h"
-#include "common/buffergl.h"
-#include "common/meshgl.h"
+#include "renderer.h"
+#include "gl/devicegl_glad.h"
+#include "gl/texturegl.h"
+#include "gl/buffergl.h"
+#include "gl/meshgl.h"
 
 template <typename InTexType, typename OutTexType>
-class BaseRendererGL
+class BaseRendererGL : public Renderer<InTexType, OutTexType>
 {
 public:
     BaseRendererGL()

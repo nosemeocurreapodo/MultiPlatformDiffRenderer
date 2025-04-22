@@ -2,13 +2,11 @@ cmake_minimum_required(VERSION 3.14)
 
 project(MultiPlatformRenderer)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(EGL REQUIRED egl)
-find_package(OpenGL REQUIRED)
-#find_package(GLEW REQUIRED)
+option(COMPILE_GL "Enable OpenGL compilation" ON)
+option(COMPILE_XRT "Enable XRT compilation" OFF)
+
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
-#find_package(Pangolin REQUIRED)
 
 if(NOT TARGET Eigen3::Eigen)
   add_library(Eigen3::Eigen INTERFACE IMPORTED)
@@ -20,10 +18,7 @@ include_directories(
         "tests"
         "HLSLinearAlgebra/src"
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
-        ${PROJECT_SOURCE_DIR}/thirdparty/glad
-        ${GLEW_INCLUDE_DIRS}
         ${EIGEN3_INCLUDE_DIR}
-        #${Pangolin_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         )
 

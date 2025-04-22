@@ -1,37 +1,39 @@
 #pragma once
 
-#include "common/devicexrt.h"
+#include "gl/devicegl_glad.h"
+#include "buffer.h"
 
 template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATIC_DRAW>
-class BufferXRT
+class BufferGL : public Buffer<Type>
 {
-    template <typename InTexType, typename OutTexType>
-    friend class BaseRendererXRT;
-    friend class DepthRendererXRT;
-    friend class ImageRendererXRT;
-    friend class MeshXRT;
 
 public:
-BufferXRT()
-    {
-        size_ = 0;
-        glGenBuffers(1, &buffer_);
-    }
 
-    BufferXRT(int size)
+    BufferGL(unsigned int size)
     {
         size_ = size;
-        buffer_ = xrt::bo(device, size_*sizeof(Type), krnl.group_id(0));
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, size_ * sizeof(Type), nullptr, usage);
     }
 
-    BufferXRT(const std::vector<Type> &data)
+    BufferGL(unsigned int size, const Type *data)
+    {
+        size_ = size;
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, size_ * sizeof(Type), data, usage);
+    }
+
+    BufferGL(const std::vector<Type> &data)
     {
         size_ = data.size();
-        buffer_ = xrt::bo(device, data.size()*sizeof(Type), krnl.group_id(0));
-        FromCPU(data.data());
+        glGenBuffers(1, &buffer_);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferData(buffer_type, size_ * sizeof(Type), data.data(), usage);
     }
 
-    BufferXRT(const BufferXRT &other)
+    BufferGL(const BufferGL &other)
     {
         glGenBuffers(1, &buffer_);
         glBindBuffer(buffer_type, buffer_);
@@ -51,7 +53,7 @@ BufferXRT()
         size_ = other.size_;
     }
 
-    BufferXRT &operator=(const BufferXRT &other)
+    BufferGL &operator=(const BufferGL &other)
     {
         if (this != &other)
         {
@@ -77,21 +79,39 @@ BufferXRT()
         return *this;
     }
 
-    void FromCPU(const Type *data)
+    void FromCPU(const Type *data) override
     {
-        Type* buffer_map = buffer_.map<Type*>();
-        std::memcmp(data, buffer_map, size_)
-        buffer_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        glBindBuffer(buffer_type, buffer_);
+        glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
     }
 
-    void ToCPU(Type *data)
+    void ToCPU(Type *data) const override
     {
-        buffer_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        Type* buffer_map = buffer_.map<Type*>();
-        std::memcmp(buffer_map, data, size_)
+        glBindBuffer(buffer_type, buffer_);
+        glGetBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
+
+        /*
+        void* mappedPtr = glMapBufferRange(
+            GL_ARRAY_BUFFER,
+            0,               // offset in bytes
+            dataSize,        // size in bytes to map
+            GL_MAP_READ_BIT  // we only want to read from this buffer
+        );
+
+        if (mappedPtr) {
+            // 2) Copy from mappedPtr to outPtr
+            memcpy(outPtr, mappedPtr, dataSize);
+
+            // 3) Unmap
+            glUnmapBuffer(GL_ARRAY_BUFFER);
+        }
+        else {
+            // Handle error: mapping failed
+        }
+        */
     }
 
 protected:
-    xrt::bo buffer_;
+    GLuint buffer_;
     unsigned int size_;
 };

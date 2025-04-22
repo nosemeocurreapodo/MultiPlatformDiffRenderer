@@ -1,15 +1,14 @@
 include(GoogleTest)
 
-add_executable(datamulti ../thirdparty/glad/egl.c ../thirdparty/glad/gl.c datamulti/datamulti_test.cpp)
-target_compile_features(datamulti PUBLIC cxx_std_17)
-target_link_libraries(datamulti gmock_main ${OpenCV_LIBS}) # ${OPENGL_LIBRARIES} ${EGL_LIBRARIES} ${GLEW_LIBRARIES} ${Pangolin_LIBRARIES})
-target_include_directories(datamulti PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_compile_definitions(datamulti PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
-add_test(NAME datamulti COMMAND datamulti)
+add_subdirectory(cpu)
 
-add_executable(depth ../thirdparty/glad/egl.c ../thirdparty/glad/gl.c depth/depthrenderer_test.cpp)
-target_compile_features(depth PUBLIC cxx_std_17)
-target_link_libraries(depth gmock_main ${OpenCV_LIBS}) #  ${OPENGL_LIBRARIES} ${EGL_LIBRARIES} ${GLEW_LIBRARIES} ${Pangolin_LIBRARIES})
-target_include_directories(depth PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_compile_definitions(depth PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
-add_test(NAME depth COMMAND depth)
+add_subdirectory(multi)
+
+if(COMPILE_GL)
+  add_subdirectory(gl)
+endif()
+
+if(COMPILE_XRT)
+  add_subdirectory(xrt)
+endif()
+

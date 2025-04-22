@@ -1,11 +1,11 @@
 #pragma once
 
-#include "common/devicegl_glad.h"
-#include "common/meshbase.h"
-#include "common/buffergl.h"
-#include "common/texturegl.h"
+#include "gl/devicegl_glad.h"
+#include "gl/buffergl.h"
+#include "gl/texturegl.h"
+#include "mesh.h"
 
-class MeshGL : public MeshBase
+class MeshGL : public Mesh
 {
     template <typename InTexType, typename OutTexType>
     friend class BaseRendererGL;
@@ -14,7 +14,6 @@ class MeshGL : public MeshBase
 
 public:
     MeshGL(const std::vector<float> &vertices, const std::vector<float> &tex_coords, const std::vector<float> &weights)
-        : MeshBase()
     {
         std::vector<unsigned int> triangles = BuildTriangles(tex_coords);
 

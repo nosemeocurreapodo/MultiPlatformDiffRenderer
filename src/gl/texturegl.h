@@ -1,9 +1,10 @@
 #pragma once
 
-#include "common/devicegl_glad.h"
+#include "gl/devicegl_glad.h"
+#include "texture.h"
 
 template <typename Type>
-class TextureGL
+class TextureGL : public Texture<Type>
 {
     template <typename InTexType, typename OutTexType>
     friend class BaseRendererGL;
@@ -11,6 +12,7 @@ class TextureGL
     friend class ImageRendererGL;
 
 public:
+    /*
     TextureGL() : nodata_(0), width_(0), height_(0), channels_(0)
     {
         glGenTextures(1, &texture_id_);
@@ -20,7 +22,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
-
+    */
     TextureGL(int width, int height, int channels, Type nodata_value)
     {
         if (channels > 4)

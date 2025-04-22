@@ -1,26 +1,24 @@
 #pragma once
 
-#include "common/devicecpu.h"
+#include "cpu/devicecpu.h"
+#include "buffer.h"
 
 template <typename Type>
-class BufferCPU
+class BufferCPU : public Buffer<Type>
 {
-    template <typename InTexType, typename VaryingType, typename OutTexType>
-    friend class BaseRendererCPU;
-    friend class DepthRendererCPU;
-    friend class ImageRendererCPU;
-    friend class MeshCPU;
 
 public:
-    BufferCPU()
-    {
-        data_ = nullptr;
-        size_ = 0;
-    }
     BufferCPU(unsigned int size)
     {
-        data_ = std::make_unique<Type[]>(size);
         size_ = size;
+        data_ = std::make_unique<Type[]>(size);
+    }
+
+    BufferCPU(Type *data, unsigned int size)
+    {
+        size_ = size;
+        data_ = std::make_unique<Type[]>(size);
+        std::copy(data, data + size_, data_);
     }
 
     BufferCPU(const std::vector<Type> &data)
@@ -48,14 +46,24 @@ public:
         return *this;
     }
 
-    void FromCPU(Type *data)
+    void FromCPU(const Type *data) override
     {
         std::copy(data, data + size_, data_.get());
     }
 
-    void ToCPU(Type *data)
+    void ToCPU(Type *data) const override
     {
         std::copy(data_.get(), data_.get() + size_, data);
+    }
+
+    unsigned int size() const override
+    {
+        return size_;
+    }
+
+    void fill(const Type &value) override
+    {
+        std::fill_n(data_.get(), size_, value);
     }
 
 private:
