@@ -3,6 +3,12 @@
 template <typename Type>
 class TextureFPGA
 {
+    template <typename InTexType,
+              typename VaryingType,
+              typename OutTexType,
+              typename Derived>
+    friend class BaseRendererFPGA;
+    friend class ImageRendererFPGA;
 
 public:
     /*
@@ -12,7 +18,7 @@ public:
     }
     */
 
-    TextureFPGA(int width, int height, int channels, Type nodata_value, Type *data)
+    TextureFPGA(unsigned int width, unsigned int height, unsigned int channels, Type nodata_value, Type *data)
     {
         width_ = width;
         height_ = height;
@@ -43,12 +49,7 @@ public:
         return *this;
     }
 
-    Type nodata_;
-    int width_;
-    int height_;
-    int channels_;
-
-private:
+protected:
     /*
     void set(const Type value)
     {
@@ -65,7 +66,7 @@ private:
 
     void SetTexel(Type value, int y, int x)
     {
-        assert(y >= 0 && x >= 0 && y < height_ && x < width_);
+        // assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
         int address = x + y * width_;
         data_[address] = value;
@@ -73,7 +74,7 @@ private:
 
     Type GetTexel(int y, int x) const
     {
-        assert(y >= 0 && x >= 0 && y < height_ && x < width_);
+        // assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
         int address = x + y * width_;
         return data_[address];
@@ -154,4 +155,8 @@ private:
     }
 
     Type *data_;
+    Type nodata_;
+    int width_;
+    int height_;
+    int channels_;
 };

@@ -7,10 +7,6 @@
 
 class MeshGL : public Mesh
 {
-    template <typename InTexType, typename OutTexType>
-    friend class BaseRendererGL;
-    friend class DepthRendererGL;
-    friend class ImageRendererGL;
 
 public:
     MeshGL(const std::vector<float> &vertices, const std::vector<float> &tex_coords, const std::vector<float> &weights)
@@ -31,17 +27,17 @@ public:
         ebo_buffer_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER>(triangles);
         glBindVertexArray(0);
 
-        //glBindBuffer(GL_ARRAY_BUFFER, pos_buffer_.buffer_);
-        //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        //glEnableVertexAttribArray(0);
-        //glBindBuffer(GL_ARRAY_BUFFER, tex_buffer_.buffer_);
-        //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        //glEnableVertexAttribArray(1);
-        //glBindBuffer(GL_ARRAY_BUFFER, wei_buffer_.buffer_);
-        //glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        //glEnableVertexAttribArray(2);
-        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_buffer_.buffer_);
-        //glBindVertexArray(0);
+        // glBindBuffer(GL_ARRAY_BUFFER, pos_buffer_.buffer_);
+        // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        // glEnableVertexAttribArray(0);
+        // glBindBuffer(GL_ARRAY_BUFFER, tex_buffer_.buffer_);
+        // glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        // glEnableVertexAttribArray(1);
+        // glBindBuffer(GL_ARRAY_BUFFER, wei_buffer_.buffer_);
+        // glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        // glEnableVertexAttribArray(2);
+        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_buffer_.buffer_);
+        // glBindVertexArray(0);
 
         // glGenBuffers(1, &pos_vb0_);
         // glGenBuffers(1, &tex_vb0_);

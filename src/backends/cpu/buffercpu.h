@@ -8,6 +8,12 @@ class BufferCPU : public Buffer<Type>
 {
 
 public:
+    BufferCPU()
+    {
+        size_ = 0;
+        data_ = nullptr;
+    }
+
     BufferCPU(unsigned int size)
     {
         size_ = size;
@@ -56,17 +62,19 @@ public:
         std::copy(data_.get(), data_.get() + size_, data);
     }
 
-    unsigned int size() const override
-    {
-        return size_;
-    }
+    /*
+unsigned int size() const override
+{
+    return size_;
+}
 
-    void fill(const Type &value) override
-    {
-        std::fill_n(data_.get(), size_, value);
-    }
+void fill(const Type &value) override
+{
+    std::fill_n(data_.get(), size_, value);
+}
+*/
 
-private:
+protected:
     Type &operator[](unsigned int index)
     {
         return data_[index];

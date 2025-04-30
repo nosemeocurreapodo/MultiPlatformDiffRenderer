@@ -8,6 +8,11 @@ class BufferGL : public Buffer<Type>
 {
 
 public:
+    BufferGL()
+    {
+        size_ = 0;
+        buffer_ = 0;
+    }
 
     BufferGL(unsigned int size)
     {

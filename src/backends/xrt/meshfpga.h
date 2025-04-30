@@ -1,9 +1,15 @@
 #pragma once
 
-#include "xrt/bufferfpga.h"
+#include "bufferfpga.h"
+#include "rendererfpga.h"
 
 class MeshFPGA
 {
+template <typename  InTexType,
+          typename  VaryingType,
+          typename  OutTexType,
+          typename  Derived>   
+friend class BaseRendererFPGA;
 
 public:
     MeshFPGA(const BufferFPGA<float> &pos_buffer,
@@ -18,11 +24,11 @@ public:
           };
 
     MeshFPGA(const MeshFPGA &other)
+        : pos_buffer_(other.pos_buffer_),
+          tex_buffer_(other.tex_buffer_),
+          wei_buffer_(other.wei_buffer_),
+          ebo_buffer_(other.ebo_buffer_)
     {
-        pos_buffer_ = other.pos_buffer_;
-        tex_buffer_ = other.tex_buffer_;
-        wei_buffer_ = other.tex_buffer_;
-        ebo_buffer_ = other.ebo_buffer_;
     }
 
     MeshFPGA &operator=(const MeshFPGA &other)
@@ -37,7 +43,7 @@ public:
         return *this;
     }
 
-private:
+protected:
     BufferFPGA<float> pos_buffer_;
     BufferFPGA<float> tex_buffer_;
     BufferFPGA<float> wei_buffer_;

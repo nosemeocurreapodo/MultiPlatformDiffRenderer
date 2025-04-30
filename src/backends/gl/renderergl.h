@@ -15,7 +15,7 @@ public:
         glGenFramebuffers(1, &fbo);
     }
 
-    void Render(const MeshGL &mesh, const SE3 pose, const CameraType cam, const TextureGL<InTexType> &texture, TextureGL<OutTexType> &buffer, int lvl)
+    void Render(const Mesh &mesh, const SE3 pose, const CameraType cam, const Texture<InTexType> &texture, Texture<OutTexType> &buffer, int lvl)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
@@ -67,7 +67,7 @@ public:
 
         glBindVertexArray(0);
         glUseProgram(0);
-    }
+    } override
 
 protected:
     void CompileShaders(const char *vertex_shader, const char *fragment_shader)

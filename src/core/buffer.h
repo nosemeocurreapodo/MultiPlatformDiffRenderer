@@ -11,6 +11,11 @@ public:
     // virtual Buffer &operator=(const Buffer &other) = 0;
     virtual void FromCPU(const Type *data) = 0;
     virtual void ToCPU(Type *data) const = 0;
-    virtual unsigned int size() const = 0;
-    virtual void fill(const Type &value) = 0;
+    unsigned int size()
+    {
+        return size_;
+    }
+    // virtual void fill(const Type &value) = 0;
+private:
+    unsigned int size_;
 };

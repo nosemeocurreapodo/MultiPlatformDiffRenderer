@@ -3,16 +3,22 @@
 template <typename Type>
 class BufferFPGA
 {
-
+template <typename  InTexType,
+          typename  VaryingType,
+          typename  OutTexType,
+          typename  Derived>   
+    friend class BaseRendererFPGA;
+    
 public:
     /*
-    BufferXRT()
+    BufferFPGA()
         {
+    buffer_ = nullptr;
             size_ = 0;
         }
             */
 
-    BufferFPGA(int size, const Type *data)
+    BufferFPGA(int size, Type *data)
     {
         size_ = size;
         buffer_ = data;
@@ -24,9 +30,9 @@ public:
         buffer_ = other.buffer_;
     }
 
-    BufferXRT &operator=(const BufferXRT &other)
+    BufferFPGA &operator=(const BufferFPGA &other)
     {
-        if (this != &other)
+        //if (this != &other)
         {
             size_ = other.size_;
             buffer_ = other.buffer_;
@@ -34,6 +40,12 @@ public:
         return *this;
     }
 
+    int size() const
+    {
+        return size_;
+    }
+
+protected:
     Type &operator[](int index)
     {
         return buffer_[index];
@@ -44,12 +56,6 @@ public:
         return buffer_[index];
     }
 
-    int size() const
-    {
-        return size_;
-    }
-
-private:
     Type *buffer_;
     unsigned int size_;
 };

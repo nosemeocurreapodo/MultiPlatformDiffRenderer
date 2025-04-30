@@ -39,35 +39,35 @@ using SE3 = Sophus::SE3<RealType>;
 using SIM3 = Sophus::Sim3<RealType>;
 */
 
-#include "linalg.h"
+#include "linalgHLS.h"
 
 using RealType = float;
 
 template <typename Type, int rows>
-using Vec = linalg::Mat<Type, rows, 1>;
+using Vec = linalgHLS::Mat<Type, rows, 1>;
 
-using Vec2 = linalg::Vec2<RealType>;
-using Vec3 = linalg::Vec3<RealType>;
-using Vec4 = linalg::Vec4<RealType>;
-using Vec5 = linalg::Vec5<RealType>;
-using Vec6 = linalg::Vec6<RealType>;
+using Vec2 = linalgHLS::Vec2<RealType>;
+using Vec3 = linalgHLS::Vec3<RealType>;
+using Vec4 = linalgHLS::Vec4<RealType>;
+using Vec5 = linalgHLS::Vec5<RealType>;
+using Vec6 = linalgHLS::Vec6<RealType>;
 // using Vecx = linalg::Vecx<RealType>;
 
-using Vec2i = linalg::Vec2<int>;
-using Vec3i = linalg::Vec3<int>;
+using Vec2i = linalgHLS::Vec2<int>;
+using Vec3i = linalgHLS::Vec3<int>;
 // using Vecxi = linalg::vecx<int>;
 
 template <typename type, int rows, int cols>
-using Mat = linalg::Mat<type, rows, cols>;
+using Mat = linalgHLS::Mat<type, rows, cols>;
 
-using Mat3 = linalg::Mat<RealType, 3, 3>;
-using Mat4 = linalg::Mat<RealType, 4, 4>;
-using Mat6 = linalg::Mat<RealType, 6, 6>;
+using Mat3 = linalgHLS::Mat<RealType, 3, 3>;
+using Mat4 = linalgHLS::Mat<RealType, 4, 4>;
+using Mat6 = linalgHLS::Mat<RealType, 6, 6>;
 // using Matx = linalg::matx<RealType>;
 
-using Quaternion = linalg::Quaternion<RealType>;
+using Quaternion = linalgHLS::Quaternion<RealType>;
 
-using SE3 = linalg::SE3<RealType>;
+using SE3 = linalgHLS::SE3<RealType>;
 // using SIM3 = Sim3<RealType>;
 
 class PinholeCamera;

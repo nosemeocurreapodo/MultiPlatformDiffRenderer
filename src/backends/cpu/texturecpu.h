@@ -8,20 +8,16 @@ class TextureCPU : public Texture<Type>
 {
     template <typename InTexType, typename VaryingType, typename OutTexType>
     friend class BaseRendererCPU;
-    friend class DepthRendererCPU;
     friend class ImageRendererCPU;
 
 public:
-
-    /*
     TextureCPU() : nodata_(0), width_(0), height_(0), channels_(0)
     {
         // data_ = nullptr;
     }
-    */
 
     TextureCPU(int width, int height, int channels, Type nodata_value)
-    : data_(width * height * channels)
+        : data_(width * height * channels)
     {
         nodata_ = nodata_value;
         width_ = width;
@@ -32,7 +28,7 @@ public:
     }
 
     TextureCPU(int width, int height, int channels, Type nodata_value, Type *data)
-    : data_(width * height * channels, data)
+        : data_(width * height * channels, data)
     {
         nodata_ = nodata_value;
         width_ = width;
@@ -41,7 +37,7 @@ public:
     }
 
     TextureCPU(const TextureCPU &other)
-    : data_(other.data_)
+        : data_(other.data_)
     {
         nodata_ = other.nodata_;
         width_ = other.width_;
@@ -72,13 +68,7 @@ public:
         data_.ToCPU(data);
     }
 
-    Type nodata_;
-    int width_;
-    int height_;
-    int channels_;
-
-private:
- 
+protected:
     void SetTexel(Type value, int y, int x)
     {
         assert(y >= 0 && x >= 0 && y < height_ && x < width_);

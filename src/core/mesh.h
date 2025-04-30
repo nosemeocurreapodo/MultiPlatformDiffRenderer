@@ -2,14 +2,15 @@
 
 #include "common/types.h"
 #include "common/delaunaytriangulation.h"
+#include "buffer.h"
 
 class Mesh
 {
 public:
-
 protected:
     std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)
     {
+        DelaunayTriangulation triangulator_;
         std::vector<Vec2> tex_coords_2d;
         for (size_t i = 0; i < tex_coords.size(); i += 2)
         {
@@ -27,6 +28,4 @@ protected:
         }
         return tris_f;
     }
-
-    DelaunayTriangulation triangulator_;
 };
