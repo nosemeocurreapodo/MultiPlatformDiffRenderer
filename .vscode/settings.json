@@ -87,6 +87,7 @@
         "csignal": "cpp",
         "strstream": "cpp",
         "cfenv": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "buffer": "cpp"
     }
 }

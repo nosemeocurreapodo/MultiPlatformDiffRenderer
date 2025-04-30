@@ -57,6 +57,8 @@ public:
     render_triangle_loop:
         for (int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
         {
+            #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+
             Vec4 p[3];
             Vec2 t[3]; // if needed
 
@@ -167,9 +169,13 @@ protected:
         draw_pixel_loop_y:
         for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
         {
+            #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+
             draw_pixel_loop_x:
             for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
             {
+                #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+
                 Vec4 gl_FragCoord;
                 gl_FragCoord(0) = px + 0.5f;
                 gl_FragCoord(1) = py + 0.5f;

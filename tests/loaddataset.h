@@ -4,25 +4,45 @@
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <cctype>
+#include <string>
 #include <iostream>
 #include <chrono>
 
-#include "common/types.h"
-#include "common/camera.h"
+#include "types.h"
+#include "camera.h"
 
-inline std::string &ltrim(std::string &s)
-{
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
-                                                                    { return std::isspace(ch); })));
-    return s;
+//inline std::string &ltrim(std::string &s)
+//{
+//    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
+//                                                                    { return std::isspace(ch); })));
+//    return s;
+//}
+
+ inline std::string& ltrim(std::string& s) 
+ { 
+    s.erase(s.begin(), 
+            std::find_if(s.begin(), s.end(), [](unsigned char ch){ return !std::isspace(ch); })
+           );
+    return s; 
 }
 
-inline std::string &rtrim(std::string &s)
+//inline std::string &rtrim(std::string &s)
+//{
+//    s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch)
+//                                                           { return std::isspace(ch); }))
+//                .base(),
+//            s.end());
+//    return s;
+//}
+
+inline std::string& rtrim(std::string& s)
 {
-    s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch)
-                                                           { return std::isspace(ch); }))
-                .base(),
-            s.end());
+    s.erase(
+        std::find_if(s.rbegin(), s.rend(),
+                     [](unsigned char ch){ return !std::isspace(ch); }
+                    ).base(),
+        s.end());
     return s;
 }
 
@@ -371,9 +391,9 @@ public:
     LoadDatasetIclNuim()
         : LoadDatasetBase(481.20, -480.0, 319.5, 239.5, 640, 480)
     {
-        std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3n_frei_png_part";
+        std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3_frei_png_part";
         std::string assosiations_path = "/associations.txt";
-        std::string pose_path = "/traj3n.gt.freiburg";
+        std::string pose_path = "/traj3.gt.freiburg";
 
         depth_factor_ = 5000.0;
 

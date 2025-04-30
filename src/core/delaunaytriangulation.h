@@ -4,8 +4,8 @@
 #include <array>
 #include <cmath>
 
-#include "common/types.h"
-#include "common/common.h"
+#include "types.h"
+#include "common.h"
 
 class DelaunayTriangulation
 {
@@ -221,7 +221,9 @@ private:
 
     bool IsPointInCircumcircle(Vec2 &point, Vec3i &tri)
     {
-        auto [circumcenter, circumradius] = Circumcircle(tri);
+        std::pair<Vec2, double> center_radius = Circumcircle(tri);
+        Vec2 circumcenter = center_radius.first;
+        double circumradius = center_radius.second;
         double dist = std::sqrt((point(0) - circumcenter(0)) * (point(0) - circumcenter(0)) + (point(1) - circumcenter(1)) * (point(1) - circumcenter(1)));
         return dist <= circumradius;
     }

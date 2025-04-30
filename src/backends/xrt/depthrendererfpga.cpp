@@ -1,3 +1,7 @@
+#include "types.h"
+#include "bufferfpga.h"
+#include "texturefpga.h"
+#include "meshfpga.h"
 #include "rendererfpga.h"
 
 void DepthRenderFPGA(float *pos_buffer_data,

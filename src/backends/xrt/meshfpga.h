@@ -1,7 +1,6 @@
 #pragma once
 
 #include "bufferfpga.h"
-#include "rendererfpga.h"
 
 class MeshFPGA
 {
