@@ -4,7 +4,7 @@
 #*/
 
 ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
-SRC_DIR=$(ROOT_DIR)/src
+SRC_DIR=$(ROOT_DIR)
 
 PLATFORM_NAME=xilinx_u280_gen3x16_xdma_1_202211_1
 PLATFORM=/opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/$(PLATFORM_NAME).xpfm
@@ -28,7 +28,9 @@ LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 
 LDFLAGS += -luuid -lxrt_coreutil
 
-VPP_FLAGS += --save-temps 
+#VPP_FLAGS += --save-temps 
+VPP_FLAGS += -I/workspaces/MultiPlatformRenderer/HLSLinearAlgebra/src
+VPP_FLAGS += -I/workspaces/MultiPlatformRenderer/src/core
 VPP_LDFLAGS :=
 
 TARGET := hw
@@ -67,18 +69,18 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++  --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k depthrenderer -o $(XO_PATH)/depthrenderer.xo $(SRC_DIR)/depthrenderer.cpp
+	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k DepthRenderFPGA -o $(XO_PATH)/depthrendererfpga.xo $(SRC_DIR)/depthrendererfpga.cpp
 
 $(XCLBIN_PATH):
-	@echo "Making xo"
+	@echo "Making xclbin"
 	mkdir -p $(XCLBIN_PATH)
 #	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
-	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/depthrenderer.xclbin $(XO_PATH)/depthrenderer.xo
+	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/depthrendererfpga.xclbin $(XO_PATH)/depthrendererfpga.xo
 
 $(HOST_PATH):
 	@echo "Making host"
 	mkdir -p $(HOST_PATH)
-	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/vadd_host $(SRC_DIR)/rendererfpga_test_xrt.cpp $(LDFLAGS)
+	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/rendererfpga_host $(SRC_DIR)/rendererfpga_test_xrt.cpp $(LDFLAGS)
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:

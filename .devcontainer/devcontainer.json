@@ -8,7 +8,8 @@
         },
         //"image": "bcc003ce2b6d/vivado_2023.2:v1",
         "mounts": [
-          "source=/home/emanuel/workspace/,target=/home/emanuel/workspace/,type=bind,consistency=cached"
+          "source=/home/emanuel/workspace/,target=/home/emanuel/workspace/,type=bind,consistency=cached",
+          "source=/tools/,target=/tools/,type=bind,consistency=cached"
         ],
         "customizations":
             {
