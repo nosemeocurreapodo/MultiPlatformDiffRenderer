@@ -1,2 +1,4 @@
 /HLSLinearAlgebra
 /build
+/src/backends/xrt/build
+.cache
