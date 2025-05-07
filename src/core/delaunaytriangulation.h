@@ -4,8 +4,8 @@
 #include <array>
 #include <cmath>
 
-#include "types.h"
-#include "common.h"
+#include "core/types.h"
+#include "core/common.h"
 
 class DelaunayTriangulation
 {

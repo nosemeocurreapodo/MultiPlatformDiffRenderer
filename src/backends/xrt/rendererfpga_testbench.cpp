@@ -105,24 +105,15 @@ int main()
     // renderer.Render(mesh, pose, cam, image, depth, 0);
     // depth.ToCPU((float *)output_depthCV.data);
 
-    DepthRenderFPGA((float *)vertices.data(),
-                    vertices.size(),
-                    (float *)texcoords.data(),
-                    texcoords.size(),
-                    (float *)weights.data(),
-                    weights.size(),
-                    (unsigned int *)tris_f.data(),
-                    tris_f.size(),
-                    &pose,
-                    &cam,
+    DepthRenderFPGA((float *)vertices.data(), vertices.size(),
+                    (float *)texcoords.data(), texcoords.size(),
+                    (float *)weights.data(), weights.size(),
+                    (unsigned int *)tris_f.data(), tris_f.size(),
+                    &pose, &cam,
                     (ImageType *)image_src_CV.data,
-                    w,
-                    h,
-                    1,
+                    w, h, 1,
                     (float *)output_depthCV.data,
-                    w,
-                    h,
-                    1);
+                    w, h, 1);
 
     float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
 

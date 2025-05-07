@@ -1,10 +1,9 @@
 #pragma once
 
-#include "texture.h"
-#include "cpu/buffercpu.h"
+#include "backends/cpu/buffercpu.h"
 
 template <typename Type>
-class TextureCPU : public Texture<Type>
+class TextureCPU
 {
     template <typename InTexType, typename VaryingType, typename OutTexType>
     friend class BaseRendererCPU;
@@ -24,7 +23,7 @@ public:
         height_ = height;
         channels_ = channels;
 
-        data_.fill(nodata_value);
+        //data_.fill(nodata_value);
     }
 
     TextureCPU(int width, int height, int channels, Type nodata_value, Type *data)
@@ -58,14 +57,46 @@ public:
         return *this;
     }
 
-    void FromCPU(Type *data)
+    void FromCPU(const Type *data)
     {
         data_.FromCPU(data);
     }
 
-    void ToCPU(Type *data)
+    void ToCPU(Type *data) const
     {
         data_.ToCPU(data);
+    }
+
+    const Type *get() const
+    {
+        return data_.get();
+    }
+
+    Type *get()
+    {
+        return data_.get();
+    }
+
+    unsigned int width() const
+    {
+        return width_;
+    }
+    unsigned int height() const
+    {
+        return height_;
+    }
+    unsigned int channels() const
+    {
+        return channels_;
+    }
+    unsigned int size() const
+    {
+        return width_ * height_ * channels_;
+    }
+
+    Type nodata() const
+    {
+        return nodata_;
     }
 
 protected:
@@ -191,6 +222,11 @@ protected:
     }
 
     BufferCPU<Type> data_;
+
+    unsigned int width_;
+    unsigned int height_;
+    unsigned int channels_;
+    Type nodata_;
 };
 
 template <typename Type>

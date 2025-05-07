@@ -2,12 +2,12 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "common.h"
-#include "common/types.h"
-#include "gl/texturegl.h"
-#include "gl/buffergl.h"
-#include "gl/meshgl.h"
-#include "renderergl.h"
+#include "core/types.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/gl/renderergl.h"
+#include "loaddataset.h"
 
 class DataLoader : public ::testing::Test
 {
@@ -91,13 +91,17 @@ TEST_F(DataLoader, TestGLRenderDepth)
         weights.push_back(1.0f);
     }
 
-    MeshGL mesh(vertices, texcoords, weights);
-    DepthRendererGL renderer;
-    TextureGL<ImageType> image(w, h, 1, 0);
-    TextureGL<float> depth(w, h, 1, -1);
+    MeshCPU mesh(vertices, texcoords, weights);
+    TextureCPU<ImageType> image(w, h, 1, 0);
+    TextureCPU<float> depth(w, h, 1, -1);
     image.FromCPU((ImageType *)image_src_CV.data);
 
-    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0);
+    DepthRendererGL renderer;
+    renderer.WriteMesh(mesh);
+    renderer.WriteInTexture(image);
+    renderer.PrepareOutTexture(depth);
+    renderer.Render(pose_dst * pose_src.inverse(), cam, 0);
+    renderer.ReadOutTexture(depth);
 
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
@@ -108,7 +112,7 @@ TEST_F(DataLoader, TestGLRenderDepth)
     cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
     cv::threshold(output_depthCV, output_depthCV, 2.0, 2.0, cv::THRESH_TRUNC);
     cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
-    //output_depthCV = output_depthCV * 255.0f;
+    // output_depthCV = output_depthCV * 255.0f;
     depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("rendergldepth_input.png", depth_dst_CV);

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "types.h"
-#include "common.h"
+#include "core/types.h"
+//#include "common.h"
 
 template <typename Type>
 class BoundingBox

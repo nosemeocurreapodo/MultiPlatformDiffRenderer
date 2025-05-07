@@ -4,7 +4,7 @@
 #include "glad/gl.h"
 
 #include <map>
-#include "common/common.h"
+#include "core/format_converters.h"
 
 struct EGLInternalData2
 {

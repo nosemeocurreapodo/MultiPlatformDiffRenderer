@@ -1,10 +1,9 @@
 #pragma once
 
-#include "cpu/devicecpu.h"
-#include "buffer.h"
+#include "backends/cpu/devicecpu.h"
 
 template <typename Type>
-class BufferCPU : public Buffer<Type>
+class BufferCPU
 {
 
 public:
@@ -52,14 +51,39 @@ public:
         return *this;
     }
 
-    void FromCPU(const Type *data) override
+    void FromCPU(const Type *data)
     {
         std::copy(data, data + size_, data_.get());
     }
 
-    void ToCPU(Type *data) const override
+    void ToCPU(Type *data) const
     {
         std::copy(data_.get(), data_.get() + size_, data);
+    }
+
+    Type &operator[](unsigned int index)
+    {
+        return data_[index];
+    }
+
+    const Type &operator[](unsigned int index) const
+    {
+        return data_[index];
+    }
+
+    const Type *get() const
+    {
+        return data_.get();
+    }
+
+    Type *get()
+    {
+        return data_.get();
+    }
+
+    unsigned int size() const
+    {
+        return size_;
     }
 
     /*
@@ -74,17 +98,7 @@ void fill(const Type &value) override
 }
 */
 
-protected:
-    Type &operator[](unsigned int index)
-    {
-        return data_[index];
-    }
-
-    const Type &operator[](unsigned int index) const
-    {
-        return data_[index];
-    }
-
+private:
     std::unique_ptr<Type[]> data_;
     unsigned int size_;
 };

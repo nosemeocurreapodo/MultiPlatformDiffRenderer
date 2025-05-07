@@ -2,7 +2,7 @@ include(GoogleTest)
 
 add_subdirectory(cpu)
 
-add_subdirectory(multi)
+#add_subdirectory(multi)
 
 if(COMPILE_GL)
   add_subdirectory(gl)

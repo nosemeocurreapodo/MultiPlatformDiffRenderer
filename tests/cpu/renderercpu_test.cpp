@@ -2,12 +2,13 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "common.h"
-#include "common/types.h"
-#include "cpu/texturecpu.h"
-#include "cpu/buffercpu.h"
-#include "cpu/meshcpu.h"
-#include "cpu/renderercpu.h"
+#include "core/types.h"
+#include "core/format_converters.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/cpu/renderercpu.h"
+#include "loaddataset.h"
 
 class DataLoader : public ::testing::Test
 {

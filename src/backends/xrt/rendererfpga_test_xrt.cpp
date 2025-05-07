@@ -8,7 +8,7 @@
 #include "bufferxrt.h"
 #include "texturexrt.h"
 #include "meshxrt.h"
-#include "depthrendererxrt.h"
+#include "rendererxrt.h"
 #include "delaunaytriangulation.h"
 
 int main()
@@ -102,14 +102,18 @@ int main()
         return 1;
     }
 
-    MeshXRT mesh(vertices, texcoords, weights);
-    TextureXRT<ImageType> image(w, h, 1, 0);
-    TextureXRT<float> depth(w, h, 1, -1);
-    image.FromCPU((ImageType *)image_src_CV.data);
-    renderer.Render(mesh, pose, cam, image, depth, 0);
-    depth.ToCPU((float *)output_depthCV.data);
+    DepthRendererXRT renderer;
 
-    DepthRenderXRT(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0);
+    MeshCPU mesh(vertices, texcoords, weights);
+    TextureCPU<ImageType> image(w, h, 1, 0);
+    TextureCPU<float> depth(w, h, 1, -1);
+    image.FromCPU((ImageType *)image_src_CV.data);
+    renderer.WriteMesh(mesh);
+    renderer.WriteInTexture(image);
+    renderer.PrepareOutTexture(depth);
+    renderer.Render(pose, cam, 0);
+    renderer.ReadOutTexture(depth);
+    depth.ToCPU((float *)output_depthCV.data);
 
     float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
 

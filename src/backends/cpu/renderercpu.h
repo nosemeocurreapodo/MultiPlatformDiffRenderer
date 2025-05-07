@@ -3,12 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include "common/types.h"
-#include "renderer.h"
-#include "cpu/devicecpu.h"
-#include "cpu/texturecpu.h"
-#include "cpu/buffercpu.h"
-#include "cpu/meshcpu.h"
+#include "core/types.h"
+#include "core/boundingbox.h"
+#include "core/camera.h"
+#include "backends/cpu/devicecpu.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/meshcpu.h"
 
 /*
 struct Renderbuffer { int w, h, ys; void *data; };
@@ -152,19 +153,19 @@ auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
 // BaseRendererCPU
 // -----------------------------------------------------------------------------
 template <typename InTexType, typename VaryingType, typename OutTexType>
-class BaseRendererCPU : public Renderer<InTexType, OutTexType>
+class BaseRendererCPU
 {
 public:
     BaseRendererCPU() = default;
     virtual ~BaseRendererCPU() = default;
 
     // Provide your own rendering routine
-    void Render(const Mesh &mesh,
+    void Render(const MeshCPU &mesh,
                 const SE3 &pose,
                 const CameraType &cam,
-                const Texture<InTexType> &in_texture,
-                Texture<OutTexType> &out_texture,
-                int /*lvl*/) override
+                const TextureCPU<InTexType> &in_texture,
+                TextureCPU<OutTexType> &out_texture,
+                int /*lvl*/)
     {
         Mat4 opencv2opengl = Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
@@ -185,19 +186,19 @@ public:
             unsigned int i2 = mesh.GetEboBuffer()[i + 2];
 
             // Positions
-            p[0](0) = mesh.GetPoseBuffer()[i0 * 3 + 0];
-            p[0](1) = mesh.GetPoseBuffer()[i0 * 3 + 1];
-            p[0](2) = mesh.GetPoseBuffer()[i0 * 3 + 2];
+            p[0](0) = mesh.GetPosBuffer()[i0 * 3 + 0];
+            p[0](1) = mesh.GetPosBuffer()[i0 * 3 + 1];
+            p[0](2) = mesh.GetPosBuffer()[i0 * 3 + 2];
             p[0](3) = 1.0f;
 
-            p[1](0) = mesh.GetPoseBuffer()[i1 * 3 + 0];
-            p[1](1) = mesh.GetPoseBuffer()[i1 * 3 + 1];
-            p[1](2) = mesh.GetPoseBuffer()[i1 * 3 + 2];
+            p[1](0) = mesh.GetPosBuffer()[i1 * 3 + 0];
+            p[1](1) = mesh.GetPosBuffer()[i1 * 3 + 1];
+            p[1](2) = mesh.GetPosBuffer()[i1 * 3 + 2];
             p[1](3) = 1.0f;
 
-            p[2](0) = mesh.GetPoseBuffer()[i2 * 3 + 0];
-            p[2](1) = mesh.GetPoseBuffer()[i2 * 3 + 1];
-            p[2](2) = mesh.GetPoseBuffer()[i2 * 3 + 2];
+            p[2](0) = mesh.GetPosBuffer()[i2 * 3 + 0];
+            p[2](1) = mesh.GetPosBuffer()[i2 * 3 + 1];
+            p[2](2) = mesh.GetPosBuffer()[i2 * 3 + 2];
             p[2](3) = 1.0f;
 
             // Texcoords if needed (example):
@@ -294,19 +295,12 @@ protected:
         }
 
         // Step 2: find triangle bounding box in screen space
-        float minX = std::min({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
-        float maxX = std::max({gl_Position[0](0), gl_Position[1](0), gl_Position[2](0)});
-        float minY = std::min({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
-        float maxY = std::max({gl_Position[0](1), gl_Position[1](1), gl_Position[2](1)});
+        BoundingBox<int> tri_bb(Vec2(gl_Position[0].x(), gl_Position[0].y()),
+                                Vec2(gl_Position[1].x(), gl_Position[1].y()),
+                                Vec2(gl_Position[2].x(), gl_Position[2].y()));
 
-        // Convert to int bounding box
-        BoundingBox<int> tri_bb(
-            static_cast<int>(std::floor(minX)),
-            static_cast<int>(std::ceil(maxX)),
-            static_cast<int>(std::floor(minY)),
-            static_cast<int>(std::ceil(maxY)));
         // Intersect with the given viewport
-        tri_bb.Intersect(viewport);
+        BoundingBox<int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
         float denom = 1.0f / triangle_area(
@@ -315,9 +309,9 @@ protected:
                                  Vec2(gl_Position[2](0), gl_Position[2](1)));
 
         // Step 4: rasterize each pixel in bounding box
-        for (int py = tri_bb.min_y_; py < tri_bb.max_y_; ++py)
+        for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
         {
-            for (int px = tri_bb.min_x_; px < tri_bb.max_x_; ++px)
+            for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
             {
                 Vec4 gl_FragCoord;
                 gl_FragCoord(0) = px + 0.5f;
@@ -343,11 +337,11 @@ protected:
 
                 // Interpolate Z if needed
                 gl_FragCoord(2) = barycentric(0) * gl_Position[0](2) +
-                                   barycentric(1) * gl_Position[1](2) +
-                                   barycentric(2) * gl_Position[2](2);
+                                  barycentric(1) * gl_Position[1](2) +
+                                  barycentric(2) * gl_Position[2](2);
                 gl_FragCoord(3) = barycentric(0) * gl_Position[0](3) +
-                                   barycentric(1) * gl_Position[1](3) +
-                                   barycentric(2) * gl_Position[2](3);
+                                  barycentric(1) * gl_Position[1](3) +
+                                  barycentric(2) * gl_Position[2](3);
 
                 // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
                 if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
