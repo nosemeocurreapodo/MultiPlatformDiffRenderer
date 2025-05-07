@@ -1,8 +1,8 @@
 #pragma once
 
-#include "types.h"
-#include "camera.h"
-#include "boundingbox.h"
+#include "core/types.h"
+#include "core/camera.h"
+#include "core/boundingbox.h"
 #include "texturefpga.h"
 #include "bufferfpga.h"
 #include "meshfpga.h"

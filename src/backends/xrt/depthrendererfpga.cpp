@@ -1,4 +1,4 @@
-#include "types.h"
+#include "core/types.h"
 #include "bufferfpga.h"
 #include "texturefpga.h"
 #include "meshfpga.h"

@@ -18,7 +18,8 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   python3-pip \
   libgtest-dev \
   locales \
-  libtinfo5
+  libtinfo5 \ 
+  unzip
 
 COPY packages/xrt_202320.2.16.204_22.04-amd64-xrt.deb /tmp
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/xrt_202320.2.16.204_22.04-amd64-xrt.deb

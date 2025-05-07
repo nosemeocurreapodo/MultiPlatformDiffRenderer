@@ -30,7 +30,7 @@ LDFLAGS += -luuid -lxrt_coreutil
 
 #VPP_FLAGS += --save-temps 
 VPP_FLAGS += -I/workspaces/MultiPlatformRenderer/HLSLinearAlgebra/src
-VPP_FLAGS += -I/workspaces/MultiPlatformRenderer/src/core
+VPP_FLAGS += -I/workspaces/MultiPlatformRenderer/src
 VPP_LDFLAGS :=
 
 TARGET := hw

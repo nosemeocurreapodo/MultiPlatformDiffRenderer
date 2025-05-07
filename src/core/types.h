@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include <Eigen/Core>
 #include <Eigen/Dense>
 // #include <Eigen/Cholesky>
@@ -36,8 +37,8 @@ using Quaternion = Eigen::Quaternion<RealType>;
 
 using SE3 = Sophus::SE3<RealType>;
 using SIM3 = Sophus::Sim3<RealType>;
+*/
 
-/*
 #include "linalgHLS.h"
 
 using RealType = float;
@@ -68,7 +69,7 @@ using Quaternion = linalgHLS::Quaternion<RealType>;
 
 using SE3 = linalgHLS::SE3<RealType>;
 // using SIM3 = Sim3<RealType>;
-*/
+
 
 class PinholeCamera;
 class PinholeDistortedCamera;
