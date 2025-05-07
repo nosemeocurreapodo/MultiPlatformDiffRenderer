@@ -29,8 +29,8 @@ LDFLAGS += -lrt -lstdc++
 LDFLAGS += -luuid -lxrt_coreutil
 
 #VPP_FLAGS += --save-temps 
-VPP_FLAGS += -I../../../HLSLinearAlgebra/src
-VPP_FLAGS += -I../..
+VPP_FLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
+VPP_FLAGS += -I$(SRC_DIR)/../../
 VPP_LDFLAGS :=
 
 TARGET := hw
