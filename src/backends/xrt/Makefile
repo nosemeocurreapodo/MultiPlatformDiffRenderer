@@ -25,7 +25,9 @@ CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g # -std=c++1y
 CXXFLAGS += -fmessage-length=0
 CXXFLAGS += -I$(SRC_DIR)/../../../tests
 # CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
-# CXXFLAGS += -I$(SRC_DIR)/../../
+CXXFLAGS += -I$(SRC_DIR)/../../
+CXXFLAGS += -I/usr/include/eigen3
+CXXFLAGS += -I$(SRC_DIR)/../../../thirdparty/Sophus
 
 LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 

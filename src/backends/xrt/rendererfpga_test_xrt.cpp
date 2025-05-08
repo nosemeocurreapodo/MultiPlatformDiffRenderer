@@ -20,7 +20,7 @@ int main()
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
     std::vector<cpu::SE3> poses = dataset.GetPoses();
     std::vector<double> timestamps = dataset.GetTimestamps();
-    cpu::CameraType cam = dataset.GetCamera();
+    cpu::Camera cam = dataset.GetCamera();
     int w = dataset.GetWidth();
     int h = dataset.GetHeight();
 
