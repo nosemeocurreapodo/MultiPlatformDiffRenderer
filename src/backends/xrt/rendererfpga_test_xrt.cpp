@@ -55,13 +55,13 @@ int main()
     depth_dst_CV /= dataset.GetDepthFactor();
     depth_dst_CV *= 100.0;
 
-    std::vector<cpu::Vec2> tex_coords = UniformTexCoords(32, 32);
+    std::vector<cpu::Vec2> tex_coords = UniformTexCoords<cpu::Vec2>(32, 32);
     std::vector<float> texcoords;
     std::vector<float> vertices;
     std::vector<float> weights;
     for (cpu::Vec2 tex_coord : tex_coords)
     {
-        cpu::Vec2 img_coord = Vec2(tex_coord(0) * w, tex_coord(1) * h);
+        cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * w, tex_coord(1) * h);
         float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
         // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
         if (depth <= 0.0f)
