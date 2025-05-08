@@ -9,39 +9,37 @@
 #include <iostream>
 #include <chrono>
 
-#include "core/types.h"
-#include "core/camera.h"
-
-//inline std::string &ltrim(std::string &s)
+// inline std::string &ltrim(std::string &s)
 //{
-//    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
-//                                                                    { return std::isspace(ch); })));
-//    return s;
-//}
+//     s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
+//                                                                     { return std::isspace(ch); })));
+//     return s;
+// }
 
- inline std::string& ltrim(std::string& s) 
- { 
-    s.erase(s.begin(), 
-            std::find_if(s.begin(), s.end(), [](unsigned char ch){ return !std::isspace(ch); })
-           );
-    return s; 
+inline std::string &ltrim(std::string &s)
+{
+    s.erase(s.begin(),
+            std::find_if(s.begin(), s.end(), [](unsigned char ch)
+                         { return !std::isspace(ch); }));
+    return s;
 }
 
-//inline std::string &rtrim(std::string &s)
+// inline std::string &rtrim(std::string &s)
 //{
-//    s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch)
-//                                                           { return std::isspace(ch); }))
-//                .base(),
-//            s.end());
-//    return s;
-//}
+//     s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch)
+//                                                            { return std::isspace(ch); }))
+//                 .base(),
+//             s.end());
+//     return s;
+// }
 
-inline std::string& rtrim(std::string& s)
+inline std::string &rtrim(std::string &s)
 {
     s.erase(
         std::find_if(s.rbegin(), s.rend(),
-                     [](unsigned char ch){ return !std::isspace(ch); }
-                    ).base(),
+                     [](unsigned char ch)
+                     { return !std::isspace(ch); })
+            .base(),
         s.end());
     return s;
 }
@@ -125,26 +123,6 @@ inline int getFile(std::string source, std::vector<std::string> &files)
     }
 }
 
-// Function to compute error between two SE3 poses
-inline std::array<float, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
-{
-    // Compute the relative transformation: error transformation T_error
-    SE3 T_error = pose_est.inverse() * pose_gt;
-
-    float translation_error = T_error.translation().norm();
-    float rotation_error = 0.0; // T_error.so3().log().norm();
-
-    std::array<float, 2> error = {translation_error, rotation_error};
-
-    return error;
-
-    // Convert T_error to a 6D vector (Lie algebra) representing the error
-    // vec6f error_vector = T_error.log();
-
-    // Return the norm of the error vector
-    // return error_vector.norm();
-}
-
 template <typename Type>
 inline float ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt)
 {
@@ -166,6 +144,28 @@ inline float ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt
     return error / count;
 }
 
+// Function to compute error between two SE3 poses
+template <typename SE3>
+inline std::array<float, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
+{
+    // Compute the relative transformation: error transformation T_error
+    SE3 T_error = pose_est.inverse() * pose_gt;
+
+    float translation_error = T_error.translation().norm();
+    float rotation_error = 0.0; // T_error.so3().log().norm();
+
+    std::array<float, 2> error = {translation_error, rotation_error};
+
+    return error;
+
+    // Convert T_error to a 6D vector (Lie algebra) representing the error
+    // vec6f error_vector = T_error.log();
+
+    // Return the norm of the error vector
+    // return error_vector.norm();
+}
+
+template <typename SE3, typename Camera>
 class LoadDatasetBase
 {
 public:
@@ -194,7 +194,7 @@ public:
         return time_stamps_;
     }
 
-    CameraType GetCamera()
+    Camera GetCamera()
     {
         return cam_;
     }
@@ -241,21 +241,22 @@ protected:
     std::vector<std::string> depth_files_;
     std::vector<SE3> poses_;
     std::vector<double> time_stamps_;
-    CameraType cam_;
+    Camera cam_;
 };
 
-class LoadDatasetTumRgbd : public LoadDatasetBase
+template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
+class LoadDatasetTumRgbd : public LoadDatasetBase<SE3, Camera>
 {
 public:
     LoadDatasetTumRgbd()
-        : LoadDatasetBase(525.0, 525.0, 319.5, 239.5, 640, 480) // for tum rgbd dataset
+        : LoadDatasetBase<SE3, Camera>(525.0, 525.0, 319.5, 239.5, 640, 480) // for tum rgbd dataset
     {
         std::string dataset_path = std::string(TEST_DATA_DIR) + "/rgbd_dataset_freiburg1_floor_part";
         std::string image_path = "/rgb.txt";
         std::string depth_path = "/depth.txt";
         std::string pose_path = "/groundtruth.txt";
 
-        depth_factor_ = 5000.0;
+        this->depth_factor_ = 5000.0;
 
         // std::string poses_path = std::string(TEST_DATA_DIR) + dataset_path + pose_path;
         // poses = getPosesFromFile(poses_path);
@@ -278,10 +279,10 @@ public:
             sync_poses.push_back(GetClosestPose(poses_list, pose_timestamps, timestamp));
         }
 
-        image_files_ = image_file_paths;
-        depth_files_ = depth_file_paths;
-        time_stamps_ = image_timestamps;
-        poses_ = sync_poses;
+        this->image_files_ = image_file_paths;
+        this->depth_files_ = depth_file_paths;
+        this->time_stamps_ = image_timestamps;
+        this->poses_ = sync_poses;
     }
 
 private:
@@ -385,31 +386,32 @@ private:
     }
 };
 
-class LoadDatasetIclNuim : public LoadDatasetBase
+template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
+class LoadDatasetIclNuim : public LoadDatasetBase<SE3, Camera>
 {
 public:
     LoadDatasetIclNuim()
-        : LoadDatasetBase(481.20, -480.0, 319.5, 239.5, 640, 480)
+        : LoadDatasetBase<SE3, Camera>(481.20, -480.0, 319.5, 239.5, 640, 480)
     {
         std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3_frei_png_part";
         std::string assosiations_path = "/associations.txt";
         std::string pose_path = "/traj3.gt.freiburg";
 
-        depth_factor_ = 5000.0;
+        this->depth_factor_ = 5000.0;
 
-        ReadAssociationsFile(dataset_path, assosiations_path, image_files_, depth_files_, time_stamps_);
+        ReadAssociationsFile(dataset_path, assosiations_path, this->image_files_, this->depth_files_, this->time_stamps_);
 
         std::vector<SE3> pose_list;
         std::vector<double> poses_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, pose_list, poses_timestamps);
 
         std::vector<SE3> sync_poses;
-        for (double time_stamp : time_stamps_)
+        for (double time_stamp : this->time_stamps_)
         {
-            sync_poses.push_back(GetClosestPose(pose_list, poses_timestamps, time_stamp));
+            sync_poses.push_back(this->GetClosestPose(pose_list, poses_timestamps, time_stamp));
         }
 
-        poses_ = sync_poses;
+        this->poses_ = sync_poses;
     }
 
 private:

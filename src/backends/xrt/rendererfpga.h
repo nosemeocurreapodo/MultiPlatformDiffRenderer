@@ -1,27 +1,25 @@
 #pragma once
 
-#include "core/types.h"
-#include "core/camera.h"
-#include "core/boundingbox.h"
+#include "typesfpga.h"
 #include "texturefpga.h"
 #include "bufferfpga.h"
 #include "meshfpga.h"
 
 // 2D cross product:  (Ax * By - Ay * Bx)
-inline RealType cross(const Vec2 &a, const Vec2 &b)
+inline fpga::Scalar cross(const fpga::Vec2 &a, const fpga::Vec2 &b)
 {
     return a(0) * b(1) - a(1) * b(0);
 }
 
 // Area of a 2D triangle
-inline RealType triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2)
+inline fpga::Scalar triangle_area(const fpga::Vec2 &p0, const fpga::Vec2 &p1, const fpga::Vec2 &p2)
 {
     return cross(p1 - p0, p2 - p0);
 }
 
 // Interpolate a member pointer p across 3 items using barycentric coords
 template <typename T, typename MemberPtr>
-auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
+auto interpolate(const T t[3], MemberPtr p, const fpga::Vec3 &coord)
 {
     return coord(0) * (t[0].*p) +
            coord(1) * (t[1].*p) +
@@ -40,27 +38,27 @@ public:
 
     // Provide your own rendering routine
     void Render(const MeshFPGA &mesh,
-                const SE3 &pose,
-                const CameraType &cam,
+                const fpga::SE3 &pose,
+                const fpga::Camera &cam,
                 const TextureFPGA<InTexType> &in_texture,
                 TextureFPGA<OutTexType> &out_texture,
                 int /*lvl*/)
     {
-        Mat4 opencv2opengl = Mat4::Identity();
+        fpga::Mat4 opencv2opengl = fpga::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+        fpga::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
-        const BoundingBox<int> viewport(0, out_texture.width_, 0, out_texture.height_);
+        const fpga::BoundingBoxType<int> viewport(0, out_texture.width_, 0, out_texture.height_);
 
     render_triangle_loop:
         for (int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
         {
-            #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+#pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
-            Vec4 p[3];
-            Vec2 t[3]; // if needed
+            fpga::Vec4 p[3];
+            fpga::Vec2 t[3]; // if needed
 
             unsigned int i0 = mesh.ebo_buffer_[i + 0];
             unsigned int i1 = mesh.ebo_buffer_[i + 1];
@@ -98,42 +96,42 @@ public:
     }
 
 protected:
-    inline void call_vertex_shader(const Vec4 &inVertex,
-                                   const Mat4 &tm,
-                                   Vec4 &gl_Position,
+    inline void call_vertex_shader(const fpga::Vec4 &inVertex,
+                                   const fpga::Mat4 &tm,
+                                   fpga::Vec4 &gl_Position,
                                    VaryingType &outVarying) const
     {
         static_cast<const Derived *>(this)->vertex_shader(inVertex, tm, gl_Position, outVarying);
     }
 
-    inline void call_fragment_shader(const Vec4 &gl_FragCoord,
-                                const Vec2 &inTexCoord,
-                                const TextureFPGA<InTexType> &inTexture,
-                                const VaryingType &inVarying,
-                                OutTexType &outFragment) const
+    inline void call_fragment_shader(const fpga::Vec4 &gl_FragCoord,
+                                     const fpga::Vec2 &inTexCoord,
+                                     const TextureFPGA<InTexType> &inTexture,
+                                     const VaryingType &inVarying,
+                                     OutTexType &outFragment) const
     {
         static_cast<const Derived *>(this)->fragment_shader(
             gl_FragCoord, inTexCoord, inTexture, inVarying, outFragment);
     }
 
-    void draw_triangle(const Vec4 *verts,
-                       const Vec2 *texcoords,
+    void draw_triangle(const fpga::Vec4 *verts,
+                       const fpga::Vec2 *texcoords,
                        const TextureFPGA<InTexType> &in_texture,
-                       const Mat4 &tm,
-                       const BoundingBox<int> &viewport,
+                       const fpga::Mat4 &tm,
+                       const fpga::BoundingBoxType<int> &viewport,
                        TextureFPGA<OutTexType> &out_texture) const
     {
         // Step 1: transform each vertex
         VaryingType perVertex[3];
-        Vec4 gl_Position[3];
+        fpga::Vec4 gl_Position[3];
 
-        draw_vertex_loop:
+    draw_vertex_loop:
         for (int i = 0; i < 3; ++i)
         {
             call_vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide
-            RealType invW = 1.0f / gl_Position[i](3);
+            fpga::Scalar invW = 1.0f / gl_Position[i](3);
             gl_Position[i](0) *= invW;
             gl_Position[i](1) *= invW;
             gl_Position[i](2) *= invW;
@@ -141,15 +139,15 @@ protected:
             // gl_Position[i].w remains 1 or whatever you choose
 
             // NDC [-1,+1] to pixel coords [0, width], [0, height]
-            RealType x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
-            RealType y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
+            fpga::Scalar x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
+            fpga::Scalar y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
-            RealType x_screen = x_ndc * (RealType)out_texture.width_;
-            RealType y_screen = y_ndc * (RealType)out_texture.height_;
+            fpga::Scalar x_screen = x_ndc * (fpga::Scalar)out_texture.width_;
+            fpga::Scalar y_screen = y_ndc * (fpga::Scalar)out_texture.height_;
 
             // Clamp to valid pixel range
-            x_screen = clamp(x_screen, 0.0f, RealType(out_texture.width_ - 1));
-            y_screen = clamp(y_screen, 0.0f, RealType(out_texture.height_ - 1));
+            x_screen = clamp(x_screen, 0.0f, fpga::Scalar(out_texture.width_ - 1));
+            y_screen = clamp(y_screen, 0.0f, fpga::Scalar(out_texture.height_ - 1));
 
             // Overwrite gl_Position with final screen coords
             gl_Position[i](0) = x_screen;
@@ -158,38 +156,38 @@ protected:
 
         // Step 2: find triangle bounding box in screen space
 
-        BoundingBox<int> tri_bb(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
+        fpga::BoundingBoxType<int> tri_bb(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
         // Intersect with the given viewport
-        BoundingBox<int> screen_bb = tri_bb.Intersection(viewport);
+        fpga::BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
         float denom = 1.0f / triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
 
-        // Step 4: rasterize each pixel in bounding box
-        draw_pixel_loop_y:
+    // Step 4: rasterize each pixel in bounding box
+    draw_pixel_loop_y:
         for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
         {
-            #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+#pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
-            draw_pixel_loop_x:
+        draw_pixel_loop_x:
             for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
             {
-                #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
+#pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
-                Vec4 gl_FragCoord;
+                fpga::Vec4 gl_FragCoord;
                 gl_FragCoord(0) = px + 0.5f;
                 gl_FragCoord(1) = py + 0.5f;
 
                 // Barycentric coords in 2D
-                Vec3 barycentric = denom * Vec3(triangle_area(gl_FragCoord.xy(),
-                                                              gl_Position[1].xy(),
-                                                              gl_Position[2].xy()),
-                                                triangle_area(gl_Position[0].xy(),
-                                                              gl_FragCoord.xy(),
-                                                              gl_Position[2].xy()),
-                                                triangle_area(gl_Position[0].xy(),
-                                                              gl_Position[1].xy(),
-                                                              gl_FragCoord.xy()));
+                fpga::Vec3 barycentric = denom * fpga::Vec3(triangle_area(gl_FragCoord.xy(),
+                                                                          gl_Position[1].xy(),
+                                                                          gl_Position[2].xy()),
+                                                            triangle_area(gl_Position[0].xy(),
+                                                                          gl_FragCoord.xy(),
+                                                                          gl_Position[2].xy()),
+                                                            triangle_area(gl_Position[0].xy(),
+                                                                          gl_Position[1].xy(),
+                                                                          gl_FragCoord.xy()));
 
                 // Discard if outside the triangle
                 if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
@@ -210,12 +208,12 @@ protected:
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                Vec3 perspective = (1 / gl_FragCoord(3)) * Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                fpga::Vec3 perspective = (1 / gl_FragCoord(3)) * fpga::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
-                Vec2 texcoord = perspective(0) * texcoords[0] +
-                                perspective(1) * texcoords[1] +
-                                perspective(2) * texcoords[2];
+                fpga::Vec2 texcoord = perspective(0) * texcoords[0] +
+                                      perspective(1) * texcoords[1] +
+                                      perspective(2) * texcoords[2];
 
                 VaryingType varying = perspective(0) * perVertex[0] +
                                       perspective(1) * perVertex[1] +
@@ -237,9 +235,9 @@ class DepthRendererFPGA
     : public BaseRendererFPGA<float /*InTexType*/, float /*VaryingType*/, float /*OutTexType*/, DepthRendererFPGA>
 {
 public:
-    void vertex_shader(const Vec4 &inVertex,
-                       const Mat4 &tm,
-                       Vec4 &gl_Position,
+    void vertex_shader(const fpga::Vec4 &inVertex,
+                       const fpga::Mat4 &tm,
+                       fpga::Vec4 &gl_Position,
                        float &outVarying) const
     {
         gl_Position = tm * inVertex;
@@ -247,8 +245,8 @@ public:
         outVarying = inVertex(2); // example: store Z in outVarying
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inTexCoord,
+    void fragment_shader(const fpga::Vec4 &gl_FragCoord,
+                         const fpga::Vec2 &inTexCoord,
                          const TextureFPGA<float> &inTexture,
                          const float &inVarying,
                          float &outFragment) const
@@ -261,12 +259,12 @@ public:
 };
 
 class ImageRendererFPGA
-    : public BaseRendererFPGA<ImageType /*InTexType*/, float /*VaryingType*/, ImageType /*OutTexType*/, ImageRendererFPGA>
+    : public BaseRendererFPGA<fpga::ImageType /*InTexType*/, float /*VaryingType*/, fpga::ImageType /*OutTexType*/, ImageRendererFPGA>
 {
 public:
-    void vertex_shader(const Vec4 &inVertex,
-                       const Mat4 &tm,
-                       Vec4 &gl_Position,
+    void vertex_shader(const fpga::Vec4 &inVertex,
+                       const fpga::Mat4 &tm,
+                       fpga::Vec4 &gl_Position,
                        float &outVarying) const
     {
         gl_Position = tm * inVertex;
@@ -274,11 +272,11 @@ public:
         outVarying = 0.0f; // placeholder
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inTexCoord,
-                         const TextureFPGA<ImageType> &inTexture,
+    void fragment_shader(const fpga::Vec4 &gl_FragCoord,
+                         const fpga::Vec2 &inTexCoord,
+                         const TextureFPGA<fpga::ImageType> &inTexture,
                          const float &inVarying,
-                         ImageType &outFragment) const
+                         fpga::ImageType &outFragment) const
     {
         outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));
 

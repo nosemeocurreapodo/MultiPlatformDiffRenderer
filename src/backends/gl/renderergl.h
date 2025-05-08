@@ -98,7 +98,7 @@ public:
         // glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
     }
 
-    void Render(const SE3 pose, const CameraType cam, int lvl)
+    void Render(const cpu::SE3 pose, const cpu::Camera cam, int lvl)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
@@ -128,11 +128,11 @@ public:
 
         glUseProgram(shader_program_);
 
-        Mat4 opencv2opengl = Mat4::Identity();
+        cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+        cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
         glUseProgram(shader_program_);
         GLfloat mvp_float[16];

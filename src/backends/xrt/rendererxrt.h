@@ -69,7 +69,8 @@ public:
                 tex_bo_, tex_bo_size_,
                 wei_bo_, wei_bo_size_,
                 ebo_, ebo_size_,
-                &pose, &cam,
+                pose.rotation.data(), pose.translation.data(),
+                cam.data(),
                 in_tex_bo_, in_tex_w, in_tex_h, in_tex_c,
                 out_tex_bo_, out_tex_w, out_tex_h, out_tex_c);
     }

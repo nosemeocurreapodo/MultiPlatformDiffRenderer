@@ -88,6 +88,8 @@
         "strstream": "cpp",
         "cfenv": "cpp",
         "core": "cpp",
-        "buffer": "cpp"
+        "buffer": "cpp",
+        "regex": "cpp",
+        "shared_mutex": "cpp"
     }
 }

@@ -1,9 +1,24 @@
 #pragma once
 
-#include "core/types.h"
-#include "core/common.h"
+template <typename Type>
+inline Type min(Type a, Type b)
+{
+    return a < b ? a : b;
+}
 
 template <typename Type>
+inline Type max(Type a, Type b)
+{
+    return a > b ? a : b;
+}
+
+template <typename Type>
+inline Type clamp(Type a, Type _min, Type _max)
+{
+    return min(max(a, _min), _max);
+}
+
+template <typename Type, typename Vec2Type>
 class BoundingBox
 {
 public:
@@ -15,7 +30,7 @@ public:
         max_y_ = maxy;
     }
 
-    BoundingBox(Vec2 t1, Vec2 t2, Vec2 t3)
+    BoundingBox(Vec2Type t1, Vec2Type t2, Vec2Type t3)
     {
         min_x_ = Type(min(min(t1(0), t2(0)), t3(0)));
         max_x_ = Type(max(max(t1(0), t2(0)), t3(0)));
@@ -30,7 +45,7 @@ public:
         return true;
     }
 
-    bool IsPixInBoundingBox(Vec2 pix)
+    bool IsPixInBoundingBox(Vec2Type pix)
     {
         if (pix(0) < min_x_ || pix(0) > max_x_ || pix(1) < min_y_ || pix(1) > max_y_)
             return false;

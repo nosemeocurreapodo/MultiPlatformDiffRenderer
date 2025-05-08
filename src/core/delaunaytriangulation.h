@@ -4,9 +4,9 @@
 #include <array>
 #include <cmath>
 
-#include "core/types.h"
 #include "core/common.h"
 
+template <typename Vec2, typename Vec2i, typename Vec3i>
 class DelaunayTriangulation
 {
 public:
@@ -59,7 +59,7 @@ public:
                 {
                     Vec2i pol = polygon[k];
 
-                    if (IsEdgeEqual(edge, pol))
+                    if (IsEdgeEqual<>(edge, pol))
                     {
                         edge_index = k;
                         break;

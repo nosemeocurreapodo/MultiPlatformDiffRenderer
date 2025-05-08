@@ -2,10 +2,10 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "core/types.h"
 #include "core/format_converters.h"
-#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/typescpu.h"
 #include "backends/cpu/buffercpu.h"
+#include "backends/cpu/texturecpu.h"
 #include "loaddataset.h"
 // #include "src/common/dataMulti.h"
 
@@ -24,13 +24,13 @@ protected:
     }
 
     // load_dataset_tum_rgbd dataset;
-    LoadDatasetIclNuim dataset;
+    LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset;
 
     std::vector<std::string> image_files;
     std::vector<std::string> depth_files;
-    std::vector<SE3> poses;
+    std::vector<cpu::SE3> poses;
     std::vector<double> timestamps;
-    CameraType cam;
+    cpu::Camera cam;
     int w;
     int h;
 };
@@ -42,24 +42,24 @@ TEST_F(DataLoader, TestCPUToFromOpenCV)
     cv::Mat depthCV = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
     // SE3f gtPose = poses[i].inverse();
 
-    imageCV.convertTo(imageCV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    imageCV.convertTo(imageCV, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
     depthCV.convertTo(depthCV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
     depthCV /= dataset.GetDepthFactor();
     depthCV *= 100.0;
 
-    TextureCPU<ImageType> imageCPU(w, h, 1, 0);
-    imageCPU.FromCPU((ImageType *)imageCV.data);
+    TextureCPU<cpu::ImageType> imageCPU(w, h, 1, 0);
+    imageCPU.FromCPU((cpu::ImageType *)imageCV.data);
 
     TextureCPU<float> depthCPU(w, h, 1, 0);
     depthCPU.FromCPU((float *)depthCV.data);
 
-    cv::Mat output_imageCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    cv::Mat output_imageCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
-    imageCPU.ToCPU((ImageType *)output_imageCV.data);
+    imageCPU.ToCPU((cpu::ImageType *)output_imageCV.data);
     depthCPU.ToCPU((float *)output_depthCV.data);
 
-    float imageError = ComputeImageError<ImageType>(imageCV, output_imageCV);
+    float imageError = ComputeImageError<cpu::ImageType>(imageCV, output_imageCV);
     float depthError = ComputeImageError<float>(depthCV, output_depthCV);
 
     /*

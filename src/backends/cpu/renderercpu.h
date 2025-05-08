@@ -3,9 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include "core/types.h"
-#include "core/boundingbox.h"
-#include "core/camera.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
@@ -122,7 +119,7 @@ int main(int argc, char *argv[]) {
 */
 
 // 2D cross product:  (Ax * By - Ay * Bx)
-inline float cross(const Vec2 &a, const Vec2 &b)
+inline float cross(const cpu::Vec2 &a, const cpu::Vec2 &b)
 {
     return a(0) * b(1) - a(1) * b(0);
 }
@@ -135,14 +132,14 @@ inline uint8_t linear_to_srgb8(float val)
 }
 
 // Area of a 2D triangle
-inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2)
+inline float triangle_area(const cpu::Vec2 &p0, const cpu::Vec2 &p1, const cpu::Vec2 &p2)
 {
     return cross(p1 - p0, p2 - p0);
 }
 
 // Interpolate a member pointer p across 3 items using barycentric coords
 template <typename T, typename MemberPtr>
-auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
+auto interpolate(const T t[3], MemberPtr p, const cpu::Vec3 &coord)
 {
     return coord(0) * (t[0].*p) +
            coord(1) * (t[1].*p) +
@@ -161,25 +158,25 @@ public:
 
     // Provide your own rendering routine
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const CameraType &cam,
+                const cpu::SE3 &pose,
+                const cpu::Camera &cam,
                 const TextureCPU<InTexType> &in_texture,
                 TextureCPU<OutTexType> &out_texture,
                 int /*lvl*/)
     {
-        Mat4 opencv2opengl = Mat4::Identity();
+        cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+        cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
-        BoundingBox<int> viewport(0, out_texture.width(), 0, out_texture.height());
+        cpu::BoundingBoxType<int> viewport(0, out_texture.width(), 0, out_texture.height());
 
         // Loop over triangles
         for (int i = 0; i < mesh.GetEboBuffer().size(); i += 3)
         {
-            Vec4 p[3];
-            Vec2 t[3]; // if needed
+            cpu::Vec4 p[3];
+            cpu::Vec2 t[3]; // if needed
 
             unsigned int i0 = mesh.GetEboBuffer()[i + 0];
             unsigned int i1 = mesh.GetEboBuffer()[i + 1];
@@ -241,13 +238,13 @@ protected:
     // 1) Vertex shader
     // 2) Fragment shader
     // They must be provided by derived classes.
-    virtual void vertex_shader(const Vec4 &inVertex,
-                               const Mat4 &tm,
-                               Vec4 &gl_Position,
+    virtual void vertex_shader(const cpu::Vec4 &inVertex,
+                               const cpu::Mat4 &tm,
+                               cpu::Vec4 &gl_Position,
                                VaryingType &outVarying) = 0;
 
-    virtual void fragment_shader(const Vec4 &gl_FragCoord,
-                                 const Vec2 &inTexCoord,
+    virtual void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                                 const cpu::Vec2 &inTexCoord,
                                  const TextureCPU<InTexType> &inTexture,
                                  const VaryingType &inVarying,
                                  OutTexType &outFragment) = 0;
@@ -255,16 +252,16 @@ protected:
     // -------------------------------------------------------------------------
     // draw_triangle: minimal CPU rasterizer for one triangle
     // -------------------------------------------------------------------------
-    void draw_triangle(const Vec4 *verts,
-                       const Vec2 *texcoords,
+    void draw_triangle(const cpu::Vec4 *verts,
+                       const cpu::Vec2 *texcoords,
                        const TextureCPU<InTexType> &in_texture,
-                       const Mat4 &tm,
-                       const BoundingBox<int> &viewport,
+                       const cpu::Mat4 &tm,
+                       const cpu::BoundingBoxType<int> &viewport,
                        TextureCPU<OutTexType> &out_texture)
     {
         // Step 1: transform each vertex
         VaryingType perVertex[3];
-        Vec4 gl_Position[3];
+        cpu::Vec4 gl_Position[3];
 
         for (int i = 0; i < 3; ++i)
         {
@@ -282,12 +279,12 @@ protected:
             float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
             float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
-            float x_screen = x_ndc * (float)out_texture.width_;
-            float y_screen = y_ndc * (float)out_texture.height_;
+            float x_screen = x_ndc * (float)out_texture.width();
+            float y_screen = y_ndc * (float)out_texture.height();
 
             // Clamp to valid pixel range
-            x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width_ - 1));
-            y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height_ - 1));
+            x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width() - 1));
+            y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height() - 1));
 
             // Overwrite gl_Position with final screen coords
             gl_Position[i](0) = x_screen;
@@ -295,41 +292,41 @@ protected:
         }
 
         // Step 2: find triangle bounding box in screen space
-        BoundingBox<int> tri_bb(Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                Vec2(gl_Position[2].x(), gl_Position[2].y()));
+        cpu::BoundingBoxType<int> tri_bb(cpu::Vec2(gl_Position[0].x(), gl_Position[0].y()),
+                                         cpu::Vec2(gl_Position[1].x(), gl_Position[1].y()),
+                                         cpu::Vec2(gl_Position[2].x(), gl_Position[2].y()));
 
         // Intersect with the given viewport
-        BoundingBox<int> screen_bb = tri_bb.Intersection(viewport);
+        cpu::BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
         float denom = 1.0f / triangle_area(
-                                 Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                 Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                 Vec2(gl_Position[2](0), gl_Position[2](1)));
+                                 cpu::Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                 cpu::Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                 cpu::Vec2(gl_Position[2](0), gl_Position[2](1)));
 
         // Step 4: rasterize each pixel in bounding box
         for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
         {
             for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
             {
-                Vec4 gl_FragCoord;
+                cpu::Vec4 gl_FragCoord;
                 gl_FragCoord(0) = px + 0.5f;
                 gl_FragCoord(1) = py + 0.5f;
 
                 // Barycentric coords in 2D
-                Vec3 barycentric = denom * Vec3(triangle_area(
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1))));
+                cpu::Vec3 barycentric = denom * cpu::Vec3(triangle_area(
+                                                              cpu::Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                              cpu::Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                              cpu::Vec2(gl_Position[2](0), gl_Position[2](1))),
+                                                          triangle_area(
+                                                              cpu::Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                              cpu::Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                              cpu::Vec2(gl_Position[2](0), gl_Position[2](1))),
+                                                          triangle_area(
+                                                              cpu::Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                              cpu::Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                              cpu::Vec2(gl_FragCoord(0), gl_FragCoord(1))));
 
                 // Discard if outside the triangle
                 if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
@@ -350,12 +347,12 @@ protected:
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                Vec3 perspective = (1 / gl_FragCoord(3)) * Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                cpu::Vec3 perspective = (1 / gl_FragCoord(3)) * cpu::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
-                Vec2 texcoord = perspective(0) * texcoords[0] +
-                                perspective(1) * texcoords[1] +
-                                perspective(2) * texcoords[2];
+                cpu::Vec2 texcoord = perspective(0) * texcoords[0] +
+                                     perspective(1) * texcoords[1] +
+                                     perspective(2) * texcoords[2];
 
                 VaryingType varying = perspective(0) * perVertex[0] +
                                       perspective(1) * perVertex[1] +
@@ -387,9 +384,9 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec4 &inVertex,
-                       const Mat4 &tm,
-                       Vec4 &gl_Position,
+    void vertex_shader(const cpu::Vec4 &inVertex,
+                       const cpu::Mat4 &tm,
+                       cpu::Vec4 &gl_Position,
                        float &outVarying) override
     {
         gl_Position = tm * inVertex;
@@ -397,8 +394,8 @@ public:
         outVarying = inVertex(2); // example: store Z in outVarying
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inTexCoord,
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec2 &inTexCoord,
                          const TextureCPU<float> &inTexture,
                          const float &inVarying,
                          float &outFragment) override
@@ -415,7 +412,7 @@ public:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 class ImageRendererCPU
-    : public BaseRendererCPU<ImageType /*InTexType*/, float /*VaryingType*/, ImageType /*OutTexType*/>
+    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, float /*VaryingType*/, cpu::ImageType /*OutTexType*/>
 {
 public:
     ImageRendererCPU() = default;
@@ -424,9 +421,9 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec4 &inVertex,
-                       const Mat4 &tm,
-                       Vec4 &gl_Position,
+    void vertex_shader(const cpu::Vec4 &inVertex,
+                       const cpu::Mat4 &tm,
+                       cpu::Vec4 &gl_Position,
                        float &outVarying) override
     {
         gl_Position = tm * inVertex;
@@ -434,11 +431,11 @@ public:
         outVarying = 0.0f; // placeholder
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inTexCoord,
-                         const TextureCPU<ImageType> &inTexture,
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec2 &inTexCoord,
+                         const TextureCPU<cpu::ImageType> &inTexture,
                          const float &inVarying,
-                         ImageType &outFragment) override
+                         cpu::ImageType &outFragment) override
     {
         outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));
 

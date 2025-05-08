@@ -2,8 +2,8 @@
 
 #include <cassert>
 #include <vector>
-#include "core/types.h"
 
+template <typename Type, typename Vec2Type, typename Vec3Type, typename Vec4Type, typename Mat4Type, typename Mat23Type, typename Mat24Type>
 class PinholeCamera
 {
 public:
@@ -14,7 +14,7 @@ public:
         cx_ = 0;
         cy_ = 0;
     }
-    PinholeCamera(float fx, float fy, float cx, float cy, int width, int height)
+    PinholeCamera(Type fx, Type fy, Type cx, Type cy, unsigned int width, unsigned int height)
     {
         fx_ = fx / width;
         fy_ = fy / height;
@@ -24,6 +24,20 @@ public:
         // float alpha = std::exp(-imageExp(0));
         // float beta = imageExp(1);
         // imageType f_i_cor = alpha * (f_i - beta);
+    }
+    PinholeCamera(Type fx, Type fy, Type cx, Type cy)
+    {
+        fx_ = fx;
+        fy_ = fy;
+        cx_ = cx;
+        cy_ = cy;
+    }
+    PinholeCamera(Type *data)
+    {
+        fx_ = data[0];
+        fy_ = data[1];
+        cx_ = data[2];
+        cy_ = data[3];
     }
 
     PinholeCamera(const PinholeCamera &other)
@@ -46,9 +60,9 @@ public:
         return *this;
     }
 
-    Mat4 GetProjectiveMatrix(float znear, float zfar) const
+    Mat4Type GetProjectiveMatrix(float znear, float zfar) const
     {
-        Mat4 projmat = Mat4::Zero();
+        Mat4Type projmat = Mat4Type::Zero();
 
         projmat(0, 0) = 2.0f * fx_;
         projmat(1, 1) = 2.0f * fy_;
@@ -61,7 +75,7 @@ public:
         return projmat;
     }
 
-    bool IsPixVisible(Vec2 pix) const
+    bool IsPixVisible(Vec2Type pix) const
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -83,18 +97,18 @@ public:
     }
     */
 
-    Vec2 RayToPix(Vec3 ray) const
+    Vec2Type RayToPix(Vec3Type ray) const
     {
-        Vec2 pix;
+        Vec2Type pix;
         pix(0) = fx_ * ray(0) + cx_;
         pix(1) = fy_ * ray(1) + cy_;
         return pix;
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    Mat<RealType, 2, 3> d_pix_d_ver(Vec3 ver) const
+    Mat23Type d_pix_d_ver(Vec3Type ver) const
     {
-        Mat<RealType, 2, 3> d_pix_d_ver;
+        Mat23Type d_pix_d_ver;
 
         d_pix_d_ver(0, 0) = fx_ / ver(2);
         d_pix_d_ver(0, 1) = 0;
@@ -107,9 +121,9 @@ public:
         return d_pix_d_ver;
     }
 
-    Mat<RealType, 2, 4> d_pix_d_intrinsics(Vec3 ray) const
+    Mat24Type d_pix_d_intrinsics(Vec3Type ray) const
     {
-        Mat<RealType, 2, 4> d_pix_d_int;
+        Mat24Type d_pix_d_int;
 
         d_pix_d_int(0, 0) = ray(0);
         d_pix_d_int(0, 1) = 0;
@@ -124,9 +138,9 @@ public:
         return d_pix_d_int;
     }
 
-    Vec3 PixToRay(Vec2 pix) const
+    Vec3Type PixToRay(Vec2Type pix) const
     {
-        Vec3 ray;
+        Vec3Type ray;
         ray(0) = (pix(0) - cx_) / fx_;
         ray(1) = (pix(1) - cy_) / fy_;
         ray(2) = 1.0;
@@ -157,12 +171,12 @@ public:
     }
     */
 
-    Vec4 GetParams() const
+    Vec4Type GetParams() const
     {
-        return Vec4(fx_, fy_, cx_, cy_);
+        return Vec4Type(fx_, fy_, cx_, cy_);
     }
 
-    void SetParams(Vec4 params)
+    void SetParams(Vec4Type params)
     {
         fx_ = params(0);
         fy_ = params(1);
@@ -180,12 +194,14 @@ public:
     */
 
 private:
-    float fx_;
-    float fy_;
-    float cx_;
-    float cy_;
+    Type fx_;
+    Type fy_;
+    Type cx_;
+    Type cy_;
 };
 
+/*
+template <typename Type>
 class PinholeDistortedCamera
 {
 public:
@@ -237,7 +253,8 @@ public:
         return *this;
     }
 
-    bool IsPixVisible(Vec2 pix)
+    template <typename Vec2Type>
+    bool IsPixVisible(Vec2Type pix)
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -249,43 +266,47 @@ public:
         return true;
     }
 
-    Vec2 RayToPix(Vec3 ray)
+    template <typename Vec2Type, typename Vec3Type>
+    Vec2Type RayToPix(Vec3Type ray)
     {
-        Vec3 dist_ray = DistortRay(ray);
-        Vec2 pixel(fx_ * dist_ray(0) + cx_, fy_ * dist_ray(1) + cy_);
+        Vec3Type dist_ray = DistortRay(ray);
+        Vec2Type pixel(fx_ * dist_ray(0) + cx_, fy_ * dist_ray(1) + cy_);
         return pixel;
     }
-    /*
-    mat<float, 2, 3> d_pix_d_ver(vec3f ver)
+
+    //mat<float, 2, 3> d_pix_d_ver(vec3f ver)
+    //{
+    //    mat<float, 2, 3> d_pix_d_ver;
+
+    //    d_pix_d_ver(0, 0) = fx / ver(2);
+    //    d_pix_d_ver(0, 1) = 0;
+    //    d_pix_d_ver(0, 2) = -fx * ver(0) / (ver(2) * ver(2));
+
+    //    d_pix_d_ver(1, 0) = 0;
+    //    d_pix_d_ver(1, 1) = fy / ver(2);
+    //    d_pix_d_ver(1, 2) = -fy * ver(1) / (ver(2) * ver(2));
+
+    //    return d_pix_d_ver;
+    //}
+
+
+    template <typename MatType, typename Vec3Type>
+    MatType<RealType, 2, 3> d_pix_d_ver(Vec3Type ver)
     {
-        mat<float, 2, 3> d_pix_d_ver;
+        Vec3Type ray = ver / ver(2);
 
-        d_pix_d_ver(0, 0) = fx / ver(2);
-        d_pix_d_ver(0, 1) = 0;
-        d_pix_d_ver(0, 2) = -fx * ver(0) / (ver(2) * ver(2));
+        MatType<Type, 2, 3> d_pix_d_dist = d_pix_d_distRay();
+        MatType<Type, 3, 3> d_dis_d_ray = d_distray_d_ray(ray);
+        MatType<Type, 3, 3> d_ray_d_v = d_ray_d_ver(ver);
 
-        d_pix_d_ver(1, 0) = 0;
-        d_pix_d_ver(1, 1) = fy / ver(2);
-        d_pix_d_ver(1, 2) = -fy * ver(1) / (ver(2) * ver(2));
-
-        return d_pix_d_ver;
-    }
-    */
-    Mat<RealType, 2, 3> d_pix_d_ver(Vec3 ver)
-    {
-        Vec3 ray = ver / ver(2);
-
-        Mat<RealType, 2, 3> d_pix_d_dist = d_pix_d_distRay();
-        Mat3 d_dis_d_ray = d_distray_d_ray(ray);
-        Mat3 d_ray_d_v = d_ray_d_ver(ver);
-
-        Mat<RealType, 2, 3> d_pix_d_ray = d_pix_d_dist * d_dis_d_ray;
-        Mat<RealType, 2, 3> d_pix_d_v = d_pix_d_ray * d_ray_d_v;
+        MatType<RealType, 2, 3> d_pix_d_ray = d_pix_d_dist * d_dis_d_ray;
+        MatType<RealType, 2, 3> d_pix_d_v = d_pix_d_ray * d_ray_d_v;
 
         return d_pix_d_v;
     }
 
-    Mat<RealType, 2, 5> d_pix_d_intrinsics(Vec3 ray)
+    template <typename MatType, typename Vec3Type>
+    MatType<RealType, 2, 5> d_pix_d_intrinsics(Vec3Type ray)
     {
         Mat<RealType, 2, 5> d_pix_d_int;
 
@@ -309,63 +330,64 @@ public:
         return d_pix_d_int;
     }
 
-    Vec3 PixToRay(Vec2 pix)
+    template <typename Vec3Type, typename Vec2Type>
+    Vec3Type PixToRay(Vec2Type pix)
     {
-        Vec3 dist_ray;
+        Vec3Type dist_ray;
         dist_ray(0) = (pix(0) - cx_) / fx_;
         dist_ray(1) = (pix(1) - cy_) / fy_;
         dist_ray(2) = 1.0;
 
-        Vec3 ray = CorrectRay(dist_ray);
+        Vec3Type ray = CorrectRay(dist_ray);
 
         return ray;
     }
 
-    /*
-    mat<float, 3, 5> d_ray_d_intrinsics(vec2f pix)
-    {
-        // Step 2: Compute radius squared from the optical axis
+    //mat<float, 3, 5> d_ray_d_intrinsics(vec2f pix)
+    //{
+    //    // Step 2: Compute radius squared from the optical axis
         float r2 = ray(0) * ray(0) + ray(1) * ray(1);
         // float r4 = r2 * r2;
         // float r6 = r4 * r2;
 
         // Step 3: Compute the radial distortion factor
-        float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
+    //    float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
 
         // Step 4: Apply radial and tangential distortion
-        float xDistorted = ray(0) * radial; // + 2 * p1 * ray(0) * ray(1);        // + p2 * (r2 + 2 * ray(0) * ray(0));
-        float yDistorted = ray(1) * radial; // + p1 * (r2 + 2 * ray(1) * ray(1)); // + 2 * p2 * ray(0) * ray(1);
+    //    float xDistorted = ray(0) * radial; // + 2 * p1 * ray(0) * ray(1);        // + p2 * (r2 + 2 * ray(0) * ray(0));
+    //    float yDistorted = ray(1) * radial; // + p1 * (r2 + 2 * ray(1) * ray(1)); // + 2 * p2 * ray(0) * ray(1);
 
-        mat<float, 3, 5> d_ray_d_int;
+    //    mat<float, 3, 5> d_ray_d_int;
 
-        d_ray_d_int(0, 0) = -(pix(0) - cx) / (fx * fx);
-        d_ray_d_int(0, 1) = 0.0;
-        d_ray_d_int(0, 2) = -1.0 / fx;
-        d_ray_d_int(0, 3) = 0.0;
-        d_ray_d_int(0, 4) = 0.0;
+    //    d_ray_d_int(0, 0) = -(pix(0) - cx) / (fx * fx);
+    //    d_ray_d_int(0, 1) = 0.0;
+    //    d_ray_d_int(0, 2) = -1.0 / fx;
+    //    d_ray_d_int(0, 3) = 0.0;
+    //    d_ray_d_int(0, 4) = 0.0;
 
-        d_ray_d_int(1, 0) = 0.0;
-        d_ray_d_int(1, 1) = -(pix(1) - cy) / (fy * fy);
-        d_ray_d_int(1, 2) = 0.0;
-        d_ray_d_int(1, 3) = -1.0 / fy;
-        d_ray_d_int(1, 4) = 0.0;
+    //    d_ray_d_int(1, 0) = 0.0;
+    //    d_ray_d_int(1, 1) = -(pix(1) - cy) / (fy * fy);
+    //    d_ray_d_int(1, 2) = 0.0;
+    //    d_ray_d_int(1, 3) = -1.0 / fy;
+    //    d_ray_d_int(1, 4) = 0.0;
 
-        d_ray_d_int(2, 0) = 0.0;
-        d_ray_d_int(2, 1) = 0.0;
-        d_ray_d_int(2, 2) = 0.0;
-        d_ray_d_int(2, 3) = 0.0;
-        d_ray_d_int(2, 4) = 0.0;
+    //    d_ray_d_int(2, 0) = 0.0;
+    //    d_ray_d_int(2, 1) = 0.0;
+    //    d_ray_d_int(2, 2) = 0.0;
+    //    d_ray_d_int(2, 3) = 0.0;
+    //    d_ray_d_int(2, 4) = 0.0;
 
-        return d_ray_d_int;
-    }
-    */
+    //    return d_ray_d_int;
+    //}
 
-    Vec5 GetParams()
+    template <typename Vec5Type>
+    Vec5Type GetParams()
     {
-        return Vec5(fx_, fy_, cx_, cy_, k1_);
+        return Vec5Type(fx_, fy_, cx_, cy_, k1_);
     }
 
-    void setParams(Vec5 params)
+    template <typename Vec5Type>
+    void setParams(Vec5Type params)
     {
         fx_ = params(0);
         fy_ = params(1);
@@ -375,14 +397,13 @@ public:
         // p1 = params(5);
     }
 
-    /*
-    bool operator==(cameraDist c)
-    {
-        if (fx == c.fx && fy == c.fy && cx == c.cx && cy == c.cy)
-            return true;
-        return false;
-    }
-    */
+    //bool operator==(cameraDist c)
+    //{
+    //    if (fx == c.fx && fy == c.fy && cx == c.cx && cy == c.cy)
+    //        return true;
+    //    return false;
+    //}
+
 
 private:
     Vec3 DistortRay(Vec3 ray)
@@ -494,3 +515,4 @@ private:
     // float p2;
     // float k3;
 };
+*/

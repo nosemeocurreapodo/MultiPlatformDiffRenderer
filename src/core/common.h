@@ -1,25 +1,6 @@
 #pragma once
 
-#include "core/types.h"
-
-template<typename Type>
-inline Type min(Type a, Type b)
-{
-    return a < b ? a : b;
-}
-
-template<typename Type>
-inline Type max(Type a, Type b)
-{
-    return a > b ? a : b;
-}
-
-template<typename Type>
-inline Type clamp(Type a, Type _min, Type _max)
-{
-    return min(max(a, _min), _max);
-}
-
+template <typename Vec3i>
 static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
 {
     bool isIndicePresent[3];
@@ -34,6 +15,7 @@ static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
     return false;
 }
 
+template <typename Vec2i>
 static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
 {
     bool isIndicePresent[2];
@@ -48,6 +30,7 @@ static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
     return false;
 }
 
+template <typename Vec2>
 inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
     std::vector<Vec2> texcoords;
@@ -72,6 +55,7 @@ inline float RandomDepth(float min_depth, float max_depth)
     return depth;
 }
 
+template <typename Vec2>
 inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
 {
     // max depth when y = 0

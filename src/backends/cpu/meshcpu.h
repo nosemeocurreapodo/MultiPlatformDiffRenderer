@@ -60,15 +60,15 @@ public:
 private:
     std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)
     {
-        DelaunayTriangulation triangulator_;
-        std::vector<Vec2> tex_coords_2d;
+        DelaunayTriangulation<cpu::Vec2, cpu::Vec3, cpu::Vec3i> triangulator_;
+        std::vector<cpu::Vec2> tex_coords_2d;
         for (size_t i = 0; i < tex_coords.size(); i += 2)
         {
-            tex_coords_2d.push_back(Vec2(tex_coords[i], tex_coords[i + 1]));
+            tex_coords_2d.push_back(cpu::Vec2(tex_coords[i], tex_coords[i + 1]));
         }
         triangulator_.LoadPoints(tex_coords_2d);
         triangulator_.Triangulate();
-        std::vector<Vec3i> tris = triangulator_.GetTriangles();
+        std::vector<cpu::Vec3i> tris = triangulator_.GetTriangles();
         std::vector<unsigned int> tris_f;
         for (size_t i = 0; i < tris.size(); i++)
         {
