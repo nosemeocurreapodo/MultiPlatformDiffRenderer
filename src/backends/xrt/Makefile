@@ -23,6 +23,9 @@ PACKAGE_PATH=$(BUILD_PATH)/package
 
 CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g # -std=c++1y
 CXXFLAGS += -fmessage-length=0
+CXXFLAGS += -I$(SRC_DIR)/../../../tests
+# CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
+# CXXFLAGS += -I$(SRC_DIR)/../../
 
 LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 
