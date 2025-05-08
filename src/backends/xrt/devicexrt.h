@@ -6,11 +6,11 @@
 
 xrt::device device_xrt;
 xrt::uuid uuid_xrt;
-xrt::kernel depth_render_xrt;
 
 inline bool InitXRT()
 {
     std::string binaryFile = "/path/to/binary/file";
+    int device_index = 0;
     device_xrt = xrt::device(device_index);
-    uuid_xrt = device.load_xclbin(binaryFile);
+    uuid_xrt = device_xrt.load_xclbin(binaryFile);
 }

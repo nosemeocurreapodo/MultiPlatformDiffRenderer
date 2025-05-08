@@ -108,7 +108,7 @@ int main()
                     (float *)texcoords.data(), texcoords.size(),
                     (float *)weights.data(), weights.size(),
                     (unsigned int *)tris_f.data(), tris_f.size(),
-                    pose.rotation().getQuaterion().x_, pose.rotation().getQuaterion().y_, pose.rotation().getQuaterion().z_, pose.rotation().getQuaterion().w_,
+                    pose.so3().getQuaterion().x_, pose.so3().getQuaterion().y_, pose.so3().getQuaterion().z_, pose.so3().getQuaterion().w_,
                     pose.translation()(0), pose.translation()(1), pose.translation()(2),
                     cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
                     (fpga::ImageType *)image_src_CV.data,

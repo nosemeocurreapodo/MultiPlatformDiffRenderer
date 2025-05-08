@@ -170,7 +170,7 @@ class LoadDatasetBase
 {
 public:
     LoadDatasetBase(float fx, float fy, float cx, float cy, int w, int h)
-        : cam_(fx, fy, cx, cy, w, h), w_(w), h_(h)
+        : w_(w), h_(h), cam_(fx, fy, cx, cy, w, h)
     {
     }
 
@@ -219,7 +219,7 @@ protected:
     {
         SE3 closest_pose;
         double closest_diff = 10000000000.0;
-        for (int i = 0; i < poses.size(); i++)
+        for (size_t i = 0; i < poses.size(); i++)
         {
             double time_stamp = time_stamps[i];
             SE3 pose = poses[i];
@@ -449,7 +449,7 @@ private:
                 }
 
                 double image_index = std::stod(tokens[0]);
-                double depth_index = std::stod(tokens[2]);
+                // double depth_index = std::stod(tokens[2]);
                 std::string image_path = dir + "/" + tokens[3];
                 std::string depth_path = dir + "/" + tokens[1];
 

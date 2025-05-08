@@ -13,7 +13,7 @@
 
 int main()
 {
-    LoadDatasetIclNuim dataset;
+    LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset;
     // LoadDatasetTumRgbd dataset;
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
