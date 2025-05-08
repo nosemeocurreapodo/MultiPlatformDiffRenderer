@@ -82,11 +82,13 @@ public:
         GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), texture.channels());
         GLenum format = GetGLFormat(texture.channels());
         GLenum type = GetGLType(GetTypeIndex<OutTexType>());
+        out_tex_width_ = texture.width();
+        out_tex_height_ = texture.height();
         glBindTexture(GL_TEXTURE_2D, out_tex_);
         glTexImage2D(GL_TEXTURE_2D, 0, internal_format, texture.width(), texture.height(), 0, format, type, texture.get());
     }
 
-    void ReadOutTexture(TextureCPU<OutTexType> &texture)
+    void ReadOutTexture(TextureCPU<OutTexType> &texture) const
     {
         GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), texture.channels());
         GLenum format = GetGLFormat(texture.channels());
@@ -225,19 +227,19 @@ protected:
     int ebo_size_;
 
     GLuint in_tex_;
-    GLint in_tex_internal_format_;
-    GLenum in_tex_format_;
-    GLenum in_tex_type_;
-    InTexType in_tex_nodata_;
-    int in_tex_width_;
-    int in_tex_height_;
-    int in_tex_channels_;
+    //GLint in_tex_internal_format_;
+    //GLenum in_tex_format_;
+    //GLenum in_tex_type_;
+    //InTexType in_tex_nodata_;
+    //int in_tex_width_;
+    //int in_tex_height_;
+    //int in_tex_channels_;
 
     GLuint out_tex_;
-    GLint out_tex_internal_format_;
-    GLenum out_tex_format_;
-    GLenum out_tex_type_;
-    OutTexType out_tex_nodata_;
+    //GLint out_tex_internal_format_;
+    //GLenum out_tex_format_;
+    //GLenum out_tex_type_;
+    //OutTexType out_tex_nodata_;
     int out_tex_width_;
     int out_tex_height_;
     int out_tex_channels_;

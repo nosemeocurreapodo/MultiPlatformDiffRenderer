@@ -95,6 +95,7 @@ TEST_F(DataLoader, TestGLRenderDepth)
     TextureCPU<cpu::ImageType> image(w, h, 1, 0);
     TextureCPU<float> depth(w, h, 1, -1);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
+    //depth.FromCPU((float*)depth_dst_CV.data);
 
     DepthRendererGL renderer;
     renderer.WriteMesh(mesh);

@@ -47,9 +47,13 @@ public:
         for (const auto &tri : badTriangles)
         {
             std::array<Vec2i, 3> edges;
-            edges[0] = {tri(0), tri(1)};
-            edges[1] = {tri(1), tri(2)};
-            edges[2] = {tri(2), tri(0)};
+            //edges[0] = {tri(0), tri(1)};
+            //edges[1] = {tri(1), tri(2)};
+            //edges[2] = {tri(2), tri(0)};
+            
+            edges[0] = Vec2i(tri(0), tri(1));
+            edges[1] = Vec2i(tri(1), tri(2));
+            edges[2] = Vec2i(tri(2), tri(0));
 
             for (size_t j = 0; j < edges.size(); j++)
             {

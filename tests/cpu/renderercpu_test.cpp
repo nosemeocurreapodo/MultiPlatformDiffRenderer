@@ -108,8 +108,8 @@ TEST_F(DataLoader, TestCPURenderDepth)
     cv::normalize(output_depthCV, output_depthCV, 0, 255, cv::NORM_MINMAX);
     depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
-    cv::imwrite("rendercpudepth_input.png", depth_dst_CV);
-    cv::imwrite("rendercpudepth_output.png", output_depthCV);
+    cv::imwrite("depthrendercpu_input.png", depth_dst_CV);
+    cv::imwrite("depthrendercpu_output.png", output_depthCV);
 
     EXPECT_EQ(depthError, 0.0f);
 }

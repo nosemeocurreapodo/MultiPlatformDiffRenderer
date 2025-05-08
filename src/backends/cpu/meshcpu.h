@@ -60,7 +60,7 @@ public:
 private:
     std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)
     {
-        DelaunayTriangulation<cpu::Vec2, cpu::Vec3, cpu::Vec3i> triangulator_;
+        DelaunayTriangulation<cpu::Vec2, cpu::Vec2i, cpu::Vec3i> triangulator_;
         std::vector<cpu::Vec2> tex_coords_2d;
         for (size_t i = 0; i < tex_coords.size(); i += 2)
         {
