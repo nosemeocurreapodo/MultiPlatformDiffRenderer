@@ -69,8 +69,9 @@ public:
                 tex_bo_, tex_bo_size_,
                 wei_bo_, wei_bo_size_,
                 ebo_, ebo_size_,
-                pose.rotation.data(), pose.translation.data(),
-                cam.data(),
+                pose.rotation().getQuaterion().x_, pose.rotation().getQuaterion().y_, pose.rotation().getQuaterion().z_, pose.rotation().getQuaterion().w_,
+                pose.translation()(0), pose.translation()(1), pose.translation()(2),
+                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
                 in_tex_bo_, in_tex_w, in_tex_h, in_tex_c,
                 out_tex_bo_, out_tex_w, out_tex_h, out_tex_c);
     }
