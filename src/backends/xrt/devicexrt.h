@@ -7,10 +7,9 @@
 xrt::device device_xrt;
 xrt::uuid uuid_xrt;
 
-inline bool InitXRT()
+inline bool InitXRT(std:: string xclbin_file, int device_index)
 {
-    std::string binaryFile = "/path/to/binary/file";
-    int device_index = 0;
     device_xrt = xrt::device(device_index);
-    uuid_xrt = device_xrt.load_xclbin(binaryFile);
+    uuid_xrt = device_xrt.load_xclbin(xclbin_file);
+    return 1;
 }

@@ -11,8 +11,17 @@
 #include "backends/xrt/devicexrt.h"
 #include "backends/xrt/rendererxrt.h"
 
-int main()
+int main(int argc, char** argv)
 {
+    if (argc < 3 || argc > 3) {
+        std::cout << "please provide: xclbin_file device_id" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // Read settings
+    std::string xclbin_file = argv[1];
+    int device_index = atoi(argv[2]);
+
     LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset;
     // LoadDatasetTumRgbd dataset;
 
@@ -79,7 +88,7 @@ int main()
     cpu::SE3 pose = pose_dst * pose_src.inverse();
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
-    if (!InitXRT())
+    if (!InitXRT(xclbin_file, device_index))
     {
         std::cout << "Error initializing xrt backend!" << std::endl;
         return 1;

@@ -65,15 +65,16 @@ public:
 
     void Render(const cpu::SE3 pose, const cpu::Camera cam, int lvl)
     {
-        kernel_(pos_bo_, pos_bo_size_,
+        xrt::run run = kernel_(pos_bo_, pos_bo_size_,
                 tex_bo_, tex_bo_size_,
                 wei_bo_, wei_bo_size_,
                 ebo_, ebo_size_,
-                pose.so3().unit_quaternion().x, pose.so3().unit_quaternion().y, pose.so3().unit_quaternion().z, pose.so3().unit_quaternion().w,
+                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                 pose.translation()(0), pose.translation()(1), pose.translation()(2),
                 cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
                 in_tex_bo_, in_tex_w_, in_tex_h_, in_tex_c_,
                 out_tex_bo_, out_tex_w_, out_tex_h_, out_tex_c_);
+	run.wait();
     }
 
 protected:

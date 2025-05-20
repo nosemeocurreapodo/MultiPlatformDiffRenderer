@@ -21,7 +21,7 @@ PACKAGE_PATH=$(BUILD_PATH)/package
 
 #PL_EXAMPLE_PATH = $(BUILD_PATH)/Vitis_Accel_Examples/cpp_kernels/simple_vadd/
 
-CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g # -std=c++1y
+CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g -std=c++17
 CXXFLAGS += -fmessage-length=0
 CXXFLAGS += -I$(SRC_DIR)/../../../tests
 # CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
@@ -32,6 +32,7 @@ CXXFLAGS += -I$(SRC_DIR)/../../../thirdparty/Sophus
 LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 
 LDFLAGS += -luuid -lxrt_coreutil
+LDFLAGS += -lopencv_core -lopencv_highgui -lopencv_imgcodecs
 
 #VPP_FLAGS += --save-temps 
 VPP_FLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
@@ -85,7 +86,7 @@ $(XCLBIN_PATH):
 $(HOST_PATH):
 	@echo "Making host"
 	mkdir -p $(HOST_PATH)
-	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/rendererfpga_host $(SRC_DIR)/rendererfpga_test_xrt.cpp $(LDFLAGS)
+	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/depthrendererfpga_host $(SRC_DIR)/depthrendererfpga_test_xrt.cpp $(LDFLAGS)
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:
@@ -102,14 +103,14 @@ $(PACKAGE_PATH): create_json
 	@echo "INFO: Packaging Completed"
 	mkdir -p $(PACKAGE_PATH)
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
-	cp $(XCLBIN_PATH)/vadd.xclbin $(PACKAGE_PATH)
-	cp $(HOST_PATH)/vadd_host $(PACKAGE_PATH)
+	cp $(XCLBIN_PATH)/depthrendererfpga.xclbin $(PACKAGE_PATH)
+	cp $(HOST_PATH)/depthrendererfpga_host $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
 	@echo "then use xmutil to load hardware."
 	@echo "xmutil unloadapp"
 	@echo "xmutil loadapp vadd"
 	@echo "Go to /lib/firmware/xilinx/vadd directory and run application"
-	@echo "$ ./vadd_host ./vadd.xclbin"
+	@echo "$ ./depthrendererfpga_host ./depthrendererfpga.xclbin"
 
 clean:
 	rm -rf build
