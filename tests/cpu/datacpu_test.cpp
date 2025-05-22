@@ -12,6 +12,8 @@
 class DataLoader : public ::testing::Test
 {
 protected:
+    DataLoader() : dataset(std::string(TEST_DATA_DIR)) {}
+
     void SetUp() override
     {
         image_files = dataset.GetImageFiles();

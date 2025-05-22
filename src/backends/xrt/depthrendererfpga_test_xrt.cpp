@@ -1,7 +1,5 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformRenderer/tests/data"
-
 #include "loaddataset.h"
 #include "core/format_converters.h"
 #include "backends/cpu/typescpu.h"
@@ -11,18 +9,20 @@
 #include "backends/xrt/devicexrt.h"
 #include "backends/xrt/rendererxrt.h"
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    if (argc < 3 || argc > 3) {
-        std::cout << "please provide: xclbin_file device_id" << std::endl;
+    if (argc < 4 || argc > 4)
+    {
+        std::cout << "please provide: xclbin_file device_id dataset_path" << std::endl;
         return EXIT_FAILURE;
     }
 
     // Read settings
     std::string xclbin_file = argv[1];
     int device_index = atoi(argv[2]);
+    std::string dataset_path = argv[3];
 
-    LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset;
+    LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset(dataset_path);
     // LoadDatasetTumRgbd dataset;
 
     std::vector<std::string> image_files = dataset.GetImageFiles();

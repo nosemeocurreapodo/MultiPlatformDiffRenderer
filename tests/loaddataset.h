@@ -248,17 +248,17 @@ template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
 class LoadDatasetTumRgbd : public LoadDatasetBase<SE3, Camera>
 {
 public:
-    LoadDatasetTumRgbd()
+    LoadDatasetTumRgbd(std::string test_data_path)
         : LoadDatasetBase<SE3, Camera>(525.0, 525.0, 319.5, 239.5, 640, 480) // for tum rgbd dataset
     {
-        std::string dataset_path = std::string(TEST_DATA_DIR) + "/rgbd_dataset_freiburg1_floor_part";
+        std::string dataset_path = test_data_path + "/rgbd_dataset_freiburg1_floor_part";
         std::string image_path = "/rgb.txt";
         std::string depth_path = "/depth.txt";
         std::string pose_path = "/groundtruth.txt";
 
         this->depth_factor_ = 5000.0;
 
-        // std::string poses_path = std::string(TEST_DATA_DIR) + dataset_path + pose_path;
+        // std::string poses_path = test_data_path + dataset_path + pose_path;
         // poses = getPosesFromFile(poses_path);
 
         std::vector<std::string> image_file_paths;
@@ -390,10 +390,10 @@ template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
 class LoadDatasetIclNuim : public LoadDatasetBase<SE3, Camera>
 {
 public:
-    LoadDatasetIclNuim()
+    LoadDatasetIclNuim(std::string test_data_path)
         : LoadDatasetBase<SE3, Camera>(481.20, -480.0, 319.5, 239.5, 640, 480)
     {
-        std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3_frei_png_part";
+        std::string dataset_path = test_data_path + "/traj3_frei_png_part";
         std::string assosiations_path = "/associations.txt";
         std::string pose_path = "/traj3.gt.freiburg";
 
