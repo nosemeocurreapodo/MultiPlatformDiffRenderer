@@ -115,6 +115,6 @@ int main(int argc, char **argv)
     // output_depthCV = output_depthCV * 255.0f;
     depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
-    cv::imwrite("depthrendergl_input.png", depth_dst_CV);
-    cv::imwrite("depthrendergl_output.png", output_depthCV);
+    cv::imwrite("depthrenderxrt_input.png", depth_dst_CV);
+    cv::imwrite("depthrenderxrt_output.png", output_depthCV);
 }

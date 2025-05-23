@@ -13,7 +13,7 @@
 
 int main()
 {
-    LoadDatasetIclNuim<fpga::Vec3, fpga::Quaternion, fpga::SE3, fpga::Camera> dataset;
+    LoadDatasetIclNuim<fpga::Vec3, fpga::Quaternion, fpga::SE3, fpga::Camera> dataset(std::string(TEST_DATA_DIR));
     // LoadDatasetTumRgbd dataset;
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
@@ -104,17 +104,18 @@ int main()
     // renderer.Render(mesh, pose, cam, image, depth, 0);
     // depth.ToCPU((float *)output_depthCV.data);
 
-    DepthRenderFPGA((float *)vertices.data(), vertices.size(),
-                    (float *)texcoords.data(), texcoords.size(),
-                    (float *)weights.data(), weights.size(),
-                    (unsigned int *)tris_f.data(), tris_f.size(),
+    DepthRenderFPGA((float *)vertices.data(),
+                    (float *)texcoords.data(),
+                    (float *)weights.data(),
+                    (unsigned int *)tris_f.data(),
+                    (fpga::ImageType *)image_src_CV.data,
+                    (float *)output_depthCV.data,
+                    vertices.size(), texcoords.size(), weights.size(), tris_f.size(),
+                    w, h, 1,
+                    w, h, 1,
                     pose.so3().getQuaterion().x_, pose.so3().getQuaterion().y_, pose.so3().getQuaterion().z_, pose.so3().getQuaterion().w_,
                     pose.translation()(0), pose.translation()(1), pose.translation()(2),
-                    cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
-                    (fpga::ImageType *)image_src_CV.data,
-                    w, h, 1,
-                    (float *)output_depthCV.data,
-                    w, h, 1);
+                    cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
     float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
 

@@ -5,24 +5,24 @@
 #include "rendererfpga.h"
 
 void DepthRenderFPGA(float *pos_buffer_data,
-                     unsigned int pos_buffer_size,
                      float *tex_buffer_data,
-                     unsigned int tex_buffer_size,
                      float *wei_buffer_data,
-                     unsigned int wei_buffer_size,
                      unsigned int *ebo_buffer_data,
-                     unsigned int ebo_buffer_size,
-                     float q_x, float q_y, float q_z, float q_w,
-                     float t_x, float t_y, float t_z,
-                     float fx, float fy, float cx, float cy,
                      fpga::ImageType *in_texture_data,
+                     fpga::Scalar *out_texture_data,
+                     unsigned int pos_buffer_size,
+                     unsigned int tex_buffer_size,
+                     unsigned int wei_buffer_size,
+                     unsigned int ebo_buffer_size,
                      unsigned int in_texture_width,
                      unsigned int in_texture_height,
                      unsigned int in_texture_channels,
-                     fpga::Scalar *out_texture_data,
                      unsigned int out_texture_width,
                      unsigned int out_texture_height,
-                     unsigned int out_texture_channels)
+                     unsigned int out_texture_channels,
+                     float q_x, float q_y, float q_z, float q_w,
+                     float t_x, float t_y, float t_z,
+                     float fx, float fy, float cx, float cy)
 {
 #pragma HLS INTERFACE m_axi port = pos_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0
