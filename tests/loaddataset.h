@@ -124,18 +124,21 @@ inline int getFile(std::string source, std::vector<std::string> &files)
 }
 
 template <typename Type>
-inline float ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt)
+inline double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt, Type nodata_value)
 {
     assert(image_est.cols == image_gt.cols && image_est.rows == image_gt.rows);
 
-    float error = 0.0;
+    double error = 0.0;
     int count = 0;
     for (int y = 0; y < image_est.rows; y++)
     {
         for (int x = 0; x < image_est.cols; x++)
         {
-            float est = image_est.at<Type>(y, x);
-            float gt = image_gt.at<Type>(y, x);
+            Type est = image_est.at<Type>(y, x);
+            Type gt = image_gt.at<Type>(y, x);
+
+            if(est == nodata_value || gt == nodata_value)
+                continue;
 
             error += (est - gt) * (est - gt);
             count += 1;
@@ -146,15 +149,15 @@ inline float ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt
 
 // Function to compute error between two SE3 poses
 template <typename SE3>
-inline std::array<float, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
+inline std::array<double, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
 {
     // Compute the relative transformation: error transformation T_error
     SE3 T_error = pose_est.inverse() * pose_gt;
 
-    float translation_error = T_error.translation().norm();
-    float rotation_error = 0.0; // T_error.so3().log().norm();
+    double translation_error = T_error.translation().norm();
+    double rotation_error = 0.0; // T_error.so3().log().norm();
 
-    std::array<float, 2> error = {translation_error, rotation_error};
+    std::array<double, 2> error = {translation_error, rotation_error};
 
     return error;
 

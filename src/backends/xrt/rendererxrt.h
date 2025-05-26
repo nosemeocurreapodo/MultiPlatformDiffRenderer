@@ -15,25 +15,25 @@ public:
         pos_bo_size_ = mesh.GetPosBuffer().size();
         pos_bo_ = xrt::bo(device_xrt, mesh.GetPosBuffer().size() * sizeof(float), kernel_.group_id(0));
         float *pos_bo_map = pos_bo_.map<float *>();
-        std::memcmp(mesh.GetPosBuffer().get(), pos_bo_map, mesh.GetPosBuffer().size());
+        std::memcpy(pos_bo_map, mesh.GetPosBuffer().get(), sizeof(float) * mesh.GetPosBuffer().size());
         pos_bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
         tex_bo_size_ = mesh.GetTexBuffer().size();
         tex_bo_ = xrt::bo(device_xrt, mesh.GetTexBuffer().size() * sizeof(float), kernel_.group_id(1));
         float *tex_bo_map = tex_bo_.map<float *>();
-        std::memcmp(mesh.GetTexBuffer().get(), tex_bo_map, mesh.GetTexBuffer().size());
+        std::memcpy(tex_bo_map, mesh.GetTexBuffer().get(), sizeof(float) * mesh.GetTexBuffer().size());
         tex_bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
         wei_bo_size_ = mesh.GetWeiBuffer().size();
         wei_bo_ = xrt::bo(device_xrt, mesh.GetWeiBuffer().size() * sizeof(float), kernel_.group_id(2));
         float *wei_bo_map = wei_bo_.map<float *>();
-        std::memcmp(mesh.GetWeiBuffer().get(), wei_bo_map, mesh.GetWeiBuffer().size());
+        std::memcpy(wei_bo_map, mesh.GetWeiBuffer().get(), sizeof(float) * mesh.GetWeiBuffer().size());
         wei_bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
         ebo_size_ = mesh.GetEboBuffer().size();
         ebo_ = xrt::bo(device_xrt, mesh.GetEboBuffer().size() * sizeof(unsigned int), kernel_.group_id(3));
         unsigned int *ebo_map = ebo_.map<unsigned int *>();
-        std::memcmp(mesh.GetEboBuffer().get(), ebo_map, mesh.GetEboBuffer().size());
+        std::memcpy(ebo_map, mesh.GetEboBuffer().get(), sizeof(unsigned int) * mesh.GetEboBuffer().size());
         ebo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
     }
 
@@ -42,33 +42,35 @@ public:
         in_tex_w_ = texture.width();
         in_tex_h_ = texture.height();
         in_tex_c_ = texture.channels();
+        in_tex_nodata_ = texture.nodata();
         in_tex_bo_ = xrt::bo(device_xrt, texture.size() * sizeof(InTexType), kernel_.group_id(4));
         InTexType *in_tex_bo_map = in_tex_bo_.map<InTexType *>();
-        std::memcmp(texture.get(), in_tex_bo_map, texture.size());
+        std::memcpy(in_tex_bo_map, texture.get(), sizeof(InTexType) * texture.size());
         in_tex_bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
     }
 
-    void PrepareOutTexture(TextureCPU<OutTexType> &texture)
+    void PrepareOutTexture(const TextureCPU<OutTexType> &texture)
     {
         out_tex_w_ = texture.width();
         out_tex_h_ = texture.height();
         out_tex_c_ = texture.channels();
+        out_tex_nodata_ = texture.nodata();
         out_tex_bo_ = xrt::bo(device_xrt, texture.size() * sizeof(OutTexType), kernel_.group_id(5));
     }
 
-    void ReadOutTexture(TextureCPU<OutTexType> &texture)
+    void ReadOutTexture(TextureCPU<OutTexType> &texture) const
     {
         out_tex_bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         OutTexType *buffer_map = out_tex_bo_.map<OutTexType *>();
-        std::memcmp(buffer_map, texture.get(), texture.size());
+        std::memcpy(texture.get(), buffer_map, sizeof(OutTexType) * texture.size());
     }
 
     void Render(const cpu::SE3 pose, const cpu::Camera cam, int lvl)
     {
         xrt::run run = kernel_(pos_bo_, tex_bo_, wei_bo_, ebo_, in_tex_bo_, out_tex_bo_,
                                pos_bo_size_, tex_bo_size_, wei_bo_size_, ebo_size_,
-                               in_tex_w_, in_tex_h_, in_tex_c_,
-                               out_tex_w_, out_tex_h_, out_tex_c_,
+                               in_tex_w_, in_tex_h_, in_tex_c_, in_tex_nodata_,
+                               out_tex_w_, out_tex_h_, out_tex_c_, out_tex_nodata_,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
                                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));

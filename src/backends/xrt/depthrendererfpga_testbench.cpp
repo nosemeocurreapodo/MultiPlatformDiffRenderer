@@ -111,13 +111,13 @@ int main()
                     (fpga::ImageType *)image_src_CV.data,
                     (float *)output_depthCV.data,
                     vertices.size(), texcoords.size(), weights.size(), tris_f.size(),
-                    w, h, 1,
-                    w, h, 1,
+                    w, h, 1, 0,
+                    w, h, 1, -1.0f,
                     pose.so3().getQuaterion().x_, pose.so3().getQuaterion().y_, pose.so3().getQuaterion().z_, pose.so3().getQuaterion().w_,
                     pose.translation()(0), pose.translation()(1), pose.translation()(2),
                     cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
-    float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
+    double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
 
     cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
     // cv::threshold(output_depthCV, output_depthCV, 2.0, 2.0, cv::THRESH_TRUNC);
@@ -127,4 +127,6 @@ int main()
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("depthrenderfpga_input.png", depth_dst_CV);
     cv::imwrite("depthrenderfpga_output.png", output_depthCV);
+
+    std::cout << "Depth error: " << depthError << std::endl;
 }

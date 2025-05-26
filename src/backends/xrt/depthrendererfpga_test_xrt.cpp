@@ -14,7 +14,7 @@ int main(int argc, char **argv)
     if (argc < 4 || argc > 4)
     {
         std::cout << "please provide: xclbin_file device_id dataset_path" << std::endl;
-        return EXIT_FAILURE;
+        return 1;
     }
 
     // Read settings
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
     renderer.ReadOutTexture(depth);
     depth.ToCPU((float *)output_depthCV.data);
 
-    float depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV);
+    double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, depth.nodata());
 
     cv::normalize(depth_dst_CV, depth_dst_CV, 0, 255, cv::NORM_MINMAX);
     // cv::threshold(output_depthCV, output_depthCV, 2.0, 2.0, cv::THRESH_TRUNC);
@@ -117,4 +117,8 @@ int main(int argc, char **argv)
     output_depthCV.convertTo(output_depthCV, GetOpenCVFormat(GetTypeIndex<uchar>(), 1));
     cv::imwrite("depthrenderxrt_input.png", depth_dst_CV);
     cv::imwrite("depthrenderxrt_output.png", output_depthCV);
+
+    std::cout << "Depth error: " << depthError << std::endl;
+
+    return 0;
 }
