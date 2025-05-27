@@ -108,11 +108,13 @@ int main(int argc, char **argv)
 
     auto start = std::chrono::steady_clock::now();
     renderer.Render(pose, cam, 0);
-    std::cout << "Render time (ms)=" << since(start).count() << std::endl;
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Render time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
 
     start = std::chrono::steady_clock::now();
     renderer.ReadOutTexture(depth);
-    std::cout << "Read frame time (ms)=" << since(start).count() << std::endl;
+    end = std::chrono::steady_clock::now();
+    std::cout << "Read frame time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
 
     depth.ToCPU((float *)output_depthCV.data);
 
