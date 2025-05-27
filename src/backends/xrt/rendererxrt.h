@@ -58,7 +58,7 @@ public:
         out_tex_bo_ = xrt::bo(device_xrt, texture.size() * sizeof(OutTexType), kernel_.group_id(5));
     }
 
-    void ReadOutTexture(TextureCPU<OutTexType> &texture) const
+    void ReadOutTexture(TextureCPU<OutTexType> &texture)
     {
         out_tex_bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         OutTexType *buffer_map = out_tex_bo_.map<OutTexType *>();
