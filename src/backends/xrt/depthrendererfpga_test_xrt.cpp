@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <opencv2/opencv.hpp>
 
 #include "loaddataset.h"
@@ -103,8 +105,15 @@ int main(int argc, char **argv)
     renderer.WriteMesh(mesh);
     renderer.WriteInTexture(image);
     renderer.PrepareOutTexture(depth);
+
+    auto start = std::chrono::steady_clock::now();
     renderer.Render(pose, cam, 0);
+    std::cout << "Render time (ms)=" << since(start).count() << std::endl;
+
+    start = std::chrono::steady_clock::now();
     renderer.ReadOutTexture(depth);
+    std::cout << "Read frame time (ms)=" << since(start).count() << std::endl;
+
     depth.ToCPU((float *)output_depthCV.data);
 
     double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, depth.nodata());
