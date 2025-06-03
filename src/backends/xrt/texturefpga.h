@@ -80,26 +80,26 @@ protected:
         return data_[address];
     }
 
-    Type Get(float norm_y, float norm_x) const
+    Type Get(fpga::Scalar norm_y, fpga::Scalar norm_x) const
     {
-        float wrapped_y = norm_y;
-        float wrapped_x = norm_x;
-        if (wrapped_y < 0.0)
+        fpga::Scalar wrapped_y = norm_y;
+        fpga::Scalar wrapped_x = norm_x;
+        if (wrapped_y < fpga::Scalar(0.0))
             // wrapped_y = std::fabs(wrapped_y);
             wrapped_y = -wrapped_y;
-        if (wrapped_x < 0.0)
+        if (wrapped_x < fpga::Scalar(0.0))
             // wrapped_x = std::fabs(wrapped_x);
             wrapped_x = -wrapped_x;
-        if (wrapped_y > 1.0)
-            wrapped_y = 1.0 - (wrapped_y - 1.0);
-        if (wrapped_x > 1.0)
-            wrapped_x = 1.0 - (wrapped_x - 1.0);
-        float x = wrapped_x * (width_ - 1);
-        float y = wrapped_y * (height_ - 1);
+        if (wrapped_y > fpga::Scalar(1.0))
+            wrapped_y = fpga::Scalar(1.0) - (wrapped_y - fpga::Scalar(1.0));
+        if (wrapped_x > fpga::Scalar(1.0))
+            wrapped_x = fpga::Scalar(1.0) - (wrapped_x - fpga::Scalar(1.0));
+        fpga::Scalar x = wrapped_x * fpga::Scalar(width_ - 1);
+        fpga::Scalar y = wrapped_y * fpga::Scalar(height_ - 1);
         return Bilinear(y, x);
     }
 
-    Type Bilinear(float y, float x) const
+    Type Bilinear(fpga::Scalar y, fpga::Scalar x) const
     {
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
@@ -109,13 +109,13 @@ protected:
 
         int _x = int(x);
         int _y = int(y);
-        float dx = x - _x;
-        float dy = y - _y;
+        fpga::Scalar dx = x - fpga::Scalar(_x);
+        fpga::Scalar dy = y - fpga::Scalar(_y);
 
-        float weight_tl = (1.0 - dx) * (1.0 - dy);
-        float weight_tr = (dx) * (1.0 - dy);
-        float weight_bl = (1.0 - dx) * (dy);
-        float weight_br = (dx) * (dy);
+        fpga::Scalar weight_tl = (fpga::Scalar(1.0) - dx) * (fpga::Scalar(1.0) - dy);
+        fpga::Scalar weight_tr = (dx) * (fpga::Scalar(1.0) - dy);
+        fpga::Scalar weight_bl = (fpga::Scalar(1.0) - dx) * (dy);
+        fpga::Scalar weight_br = (dx) * (dy);
 
         Type tl = GetTexel(_y, _x);
         Type tr = GetTexel(_y, _x + 1);
@@ -155,8 +155,8 @@ protected:
     }
 
     Type *data_;
-    Type nodata_;
-    int width_;
-    int height_;
-    int channels_;
+    const Type nodata_;
+    const unsigned int width_;
+    const unsigned int height_;
+    const unsigned int channels_;
 };

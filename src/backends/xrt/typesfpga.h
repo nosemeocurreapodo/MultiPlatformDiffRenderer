@@ -1,12 +1,13 @@
 #pragma once
 
 #include "linalgHLS.h"
+#include "Posit.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
 
 namespace fpga
 {
-    using Scalar = float;
+    using Scalar = Posit<16, 1>;
 
     template <typename Type, int rows>
     using Vec = linalgHLS::Mat<Type, rows, 1>;

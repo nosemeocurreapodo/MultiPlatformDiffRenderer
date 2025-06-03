@@ -11,9 +11,9 @@ template <typename  InTexType,
 friend class BaseRendererFPGA;
 
 public:
-    MeshFPGA(const BufferFPGA<float> &pos_buffer,
-             const BufferFPGA<float> &tex_buffer,
-             const BufferFPGA<float> &wei_buffer,
+    MeshFPGA(const BufferFPGA<fpga::Scalar> &pos_buffer,
+             const BufferFPGA<fpga::Scalar> &tex_buffer,
+             const BufferFPGA<fpga::Scalar> &wei_buffer,
              const BufferFPGA<unsigned int> &ebo_buffer)
         : pos_buffer_(pos_buffer),
           tex_buffer_(tex_buffer),
@@ -43,9 +43,9 @@ public:
     }
 
 protected:
-    BufferFPGA<float> pos_buffer_;
-    BufferFPGA<float> tex_buffer_;
-    BufferFPGA<float> wei_buffer_;
+    BufferFPGA<fpga::Scalar> pos_buffer_;
+    BufferFPGA<fpga::Scalar> tex_buffer_;
+    BufferFPGA<fpga::Scalar> wei_buffer_;
     BufferFPGA<unsigned int> ebo_buffer_;
     // TextureFPGA<float> texture_;
 };

@@ -137,7 +137,7 @@ inline double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_g
             Type est = image_est.at<Type>(y, x);
             Type gt = image_gt.at<Type>(y, x);
 
-            if(est == nodata_value || gt == nodata_value)
+            if (est == nodata_value || gt == nodata_value)
                 continue;
 
             error += (est - gt) * (est - gt);
@@ -148,11 +148,10 @@ inline double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_g
 }
 
 // Function to compute error between two SE3 poses
-template <typename SE3>
-inline std::array<double, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
+inline std::array<double, 2> ComputeSE3Error(const cpu::SE3 &pose_est, const cpu::SE3 &pose_gt)
 {
     // Compute the relative transformation: error transformation T_error
-    SE3 T_error = pose_est.inverse() * pose_gt;
+    cpu::SE3 T_error = pose_est.inverse() * pose_gt;
 
     double translation_error = T_error.translation().norm();
     double rotation_error = 0.0; // T_error.so3().log().norm();
@@ -168,11 +167,10 @@ inline std::array<double, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pos
     // return error_vector.norm();
 }
 
-template <typename SE3, typename Camera>
 class LoadDatasetBase
 {
 public:
-    LoadDatasetBase(float fx, float fy, float cx, float cy, int w, int h)
+    LoadDatasetBase(double fx, double fy, double cx, double cy, int w, int h)
         : w_(w), h_(h), cam_(fx, fy, cx, cy, w, h)
     {
     }
@@ -187,7 +185,7 @@ public:
         return depth_files_;
     }
 
-    std::vector<SE3> GetPoses()
+    std::vector<cpu::SE3> GetPoses()
     {
         return poses_;
     }
@@ -197,35 +195,35 @@ public:
         return time_stamps_;
     }
 
-    Camera GetCamera()
+    cpu::Camera GetCamera()
     {
         return cam_;
     }
 
-    int GetWidth()
+    unsigned int GetWidth()
     {
         return w_;
     }
 
-    int GetHeight()
+    unsigned int GetHeight()
     {
         return h_;
     }
 
-    float GetDepthFactor()
+    double GetDepthFactor()
     {
         return depth_factor_;
     }
 
 protected:
-    SE3 GetClosestPose(const std::vector<SE3> &poses, const std::vector<double> &time_stamps, double target_timestamp)
+    cpu::SE3 GetClosestPose(const std::vector<cpu::SE3> &poses, const std::vector<double> &time_stamps, double target_timestamp)
     {
-        SE3 closest_pose;
+        cpu::SE3 closest_pose;
         double closest_diff = 10000000000.0;
         for (size_t i = 0; i < poses.size(); i++)
         {
             double time_stamp = time_stamps[i];
-            SE3 pose = poses[i];
+            cpu::SE3 pose = poses[i];
 
             double diff = std::abs(time_stamp - target_timestamp);
             if (diff < closest_diff)
@@ -237,22 +235,21 @@ protected:
         return closest_pose;
     }
 
-    int w_, h_;
-    float depth_factor_;
+    unsigned int w_, h_;
+    double depth_factor_;
 
     std::vector<std::string> image_files_;
     std::vector<std::string> depth_files_;
-    std::vector<SE3> poses_;
+    std::vector<cpu::SE3> poses_;
     std::vector<double> time_stamps_;
-    Camera cam_;
+    cpu::Camera cam_;
 };
 
-template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
-class LoadDatasetTumRgbd : public LoadDatasetBase<SE3, Camera>
+class LoadDatasetTumRgbd : public LoadDatasetBase
 {
 public:
     LoadDatasetTumRgbd(std::string test_data_path)
-        : LoadDatasetBase<SE3, Camera>(525.0, 525.0, 319.5, 239.5, 640, 480) // for tum rgbd dataset
+        : LoadDatasetBase(525.0, 525.0, 319.5, 239.5, 640, 480) // for tum rgbd dataset
     {
         std::string dataset_path = test_data_path + "/rgbd_dataset_freiburg1_floor_part";
         std::string image_path = "/rgb.txt";
@@ -272,11 +269,11 @@ public:
         std::vector<double> depth_timestamps;
         GetFilesAndTimestamps(dataset_path, depth_path, depth_file_paths, depth_timestamps);
 
-        std::vector<SE3> poses_list;
+        std::vector<cpu::SE3> poses_list;
         std::vector<double> pose_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, poses_list, pose_timestamps);
 
-        std::vector<SE3> sync_poses;
+        std::vector<cpu::SE3> sync_poses;
         for (double timestamp : image_timestamps)
         {
             sync_poses.push_back(GetClosestPose(poses_list, pose_timestamps, timestamp));
@@ -339,7 +336,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<cpu::SE3> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -372,9 +369,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3 pose;
-                pose.setQuaternion(Quaternion(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3(values[1], values[2], values[3]);
+                cpu::SE3 pose;
+                pose.setQuaternion(cpu::Quaternion(values[7], values[4], values[5], values[6]));
+                pose.translation() = cpu::Vec3(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);
@@ -389,12 +386,11 @@ private:
     }
 };
 
-template <typename Vec3, typename Quaternion, typename SE3, typename Camera>
-class LoadDatasetIclNuim : public LoadDatasetBase<SE3, Camera>
+class LoadDatasetIclNuim : public LoadDatasetBase
 {
 public:
     LoadDatasetIclNuim(std::string test_data_path)
-        : LoadDatasetBase<SE3, Camera>(481.20, -480.0, 319.5, 239.5, 640, 480)
+        : LoadDatasetBase(481.20, -480.0, 319.5, 239.5, 640, 480)
     {
         std::string dataset_path = test_data_path + "/traj3_frei_png_part";
         std::string assosiations_path = "/associations.txt";
@@ -404,11 +400,11 @@ public:
 
         ReadAssociationsFile(dataset_path, assosiations_path, this->image_files_, this->depth_files_, this->time_stamps_);
 
-        std::vector<SE3> pose_list;
+        std::vector<cpu::SE3> pose_list;
         std::vector<double> poses_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, pose_list, poses_timestamps);
 
-        std::vector<SE3> sync_poses;
+        std::vector<cpu::SE3> sync_poses;
         for (double time_stamp : this->time_stamps_)
         {
             sync_poses.push_back(this->GetClosestPose(pose_list, poses_timestamps, time_stamp));
@@ -475,7 +471,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<Sophus::SE3d> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -508,9 +504,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3 pose;
-                pose.setQuaternion(Quaternion(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3(values[1], values[2], values[3]);
+                Sophus::SE3d pose;
+                pose.setQuaternion(Eigen::Quaterniond(values[7], values[4], values[5], values[6]));
+                pose.translation() = Eigen::Vector3f(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);

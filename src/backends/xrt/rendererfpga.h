@@ -139,15 +139,15 @@ protected:
             // gl_Position[i].w remains 1 or whatever you choose
 
             // NDC [-1,+1] to pixel coords [0, width], [0, height]
-            fpga::Scalar x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
-            fpga::Scalar y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
+            fpga::Scalar x_ndc = fpga::Scalar(0.5) * (gl_Position[i](0) + fpga::Scalar(1));
+            fpga::Scalar y_ndc = fpga::Scalar(0.5) * (gl_Position[i](1) + fpga::Scalar(1));
 
-            fpga::Scalar x_screen = x_ndc * (fpga::Scalar)out_texture.width_;
-            fpga::Scalar y_screen = y_ndc * (fpga::Scalar)out_texture.height_;
+            fpga::Scalar x_screen = x_ndc * fpga::Scalar(out_texture.width_);
+            fpga::Scalar y_screen = y_ndc * fpga::Scalar(out_texture.height_);
 
             // Clamp to valid pixel range
-            x_screen = clamp(x_screen, 0.0f, fpga::Scalar(out_texture.width_ - 1));
-            y_screen = clamp(y_screen, 0.0f, fpga::Scalar(out_texture.height_ - 1));
+            x_screen = clamp(x_screen, fpga::Scalar(0), fpga::Scalar(out_texture.width_ - 1));
+            y_screen = clamp(y_screen, fpga::Scalar(0), fpga::Scalar(out_texture.height_ - 1));
 
             // Overwrite gl_Position with final screen coords
             gl_Position[i](0) = x_screen;
@@ -161,7 +161,7 @@ protected:
         fpga::BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
-        float denom = 1.0f / triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
+        fpga::Scalar denom = fpga::Scalar(1) / triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
 
     // Step 4: rasterize each pixel in bounding box
     draw_pixel_loop_y:
@@ -175,8 +175,8 @@ protected:
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
                 fpga::Vec4 gl_FragCoord;
-                gl_FragCoord(0) = px + 0.5f;
-                gl_FragCoord(1) = py + 0.5f;
+                gl_FragCoord(0) = px + fpga::Scalar(0.5);
+                gl_FragCoord(1) = py + fpga::Scalar(0.5);
 
                 // Barycentric coords in 2D
                 fpga::Vec3 barycentric = denom * fpga::Vec3(triangle_area(gl_FragCoord.xy(),
@@ -190,7 +190,7 @@ protected:
                                                                           gl_FragCoord.xy()));
 
                 // Discard if outside the triangle
-                if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
+                if (barycentric(0) < fpga::Scalar(0) || barycentric(1) < fpga::Scalar(0) || barycentric(2) < fpga::Scalar(0))
                     continue;
 
                 // Interpolate Z if needed
@@ -202,22 +202,22 @@ protected:
                                   barycentric(2) * gl_Position[2](3);
 
                 // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
-                if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
+                if (gl_FragCoord(2) < fpga::Scalar(0) || gl_FragCoord(2) > fpga::Scalar(1))
                     continue;
 
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                fpga::Vec3 perspective = (1 / gl_FragCoord(3)) * fpga::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                fpga::Vec3 perspective = (fpga::Scalar(1) / gl_FragCoord(3)) * fpga::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
                 fpga::Vec2 texcoord = perspective(0) * texcoords[0] +
                                       perspective(1) * texcoords[1] +
                                       perspective(2) * texcoords[2];
 
-                VaryingType varying = perspective(0) * perVertex[0] +
-                                      perspective(1) * perVertex[1] +
-                                      perspective(2) * perVertex[2];
+                VaryingType varying = VaryingType(perspective(0) * perVertex[0] +
+                                                  perspective(1) * perVertex[1] +
+                                                  perspective(2) * perVertex[2]);
 
                 // Run fragment shader
                 OutTexType outColor;
@@ -232,13 +232,13 @@ protected:
 };
 
 class DepthRendererFPGA
-    : public BaseRendererFPGA<float /*InTexType*/, float /*VaryingType*/, float /*OutTexType*/, DepthRendererFPGA>
+    : public BaseRendererFPGA<fpga::Scalar /*InTexType*/, fpga::Scalar /*VaryingType*/, fpga::Scalar /*OutTexType*/, DepthRendererFPGA>
 {
 public:
     void vertex_shader(const fpga::Vec4 &inVertex,
                        const fpga::Mat4 &tm,
                        fpga::Vec4 &gl_Position,
-                       float &outVarying) const
+                       fpga::Scalar &outVarying) const
     {
         gl_Position = tm * inVertex;
         // No attributes in outVarying, so do nothing with it
@@ -247,9 +247,9 @@ public:
 
     void fragment_shader(const fpga::Vec4 &gl_FragCoord,
                          const fpga::Vec2 &inTexCoord,
-                         const TextureFPGA<float> &inTexture,
-                         const float &inVarying,
-                         float &outFragment) const
+                         const TextureFPGA<Scalar> &inTexture,
+                         const fpga::Scalar &inVarying,
+                         fpga::Scalar &outFragment) const
     {
         // Example: store depth in outFragment as a float:
         // outFragment = gl_FragCoord.z();
@@ -259,13 +259,13 @@ public:
 };
 
 class ImageRendererFPGA
-    : public BaseRendererFPGA<fpga::ImageType /*InTexType*/, float /*VaryingType*/, fpga::ImageType /*OutTexType*/, ImageRendererFPGA>
+    : public BaseRendererFPGA<fpga::ImageType /*InTexType*/, fpga::Scalar /*VaryingType*/, fpga::ImageType /*OutTexType*/, ImageRendererFPGA>
 {
 public:
     void vertex_shader(const fpga::Vec4 &inVertex,
                        const fpga::Mat4 &tm,
                        fpga::Vec4 &gl_Position,
-                       float &outVarying) const
+                       fpga::Scalar &outVarying) const
     {
         gl_Position = tm * inVertex;
         // We are using a "float" for VaryingType, so you can store something if needed
@@ -275,7 +275,7 @@ public:
     void fragment_shader(const fpga::Vec4 &gl_FragCoord,
                          const fpga::Vec2 &inTexCoord,
                          const TextureFPGA<fpga::ImageType> &inTexture,
-                         const float &inVarying,
+                         const fpga::Scalar &inVarying,
                          fpga::ImageType &outFragment) const
     {
         outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));

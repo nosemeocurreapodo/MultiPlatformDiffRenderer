@@ -2,9 +2,9 @@
 
 extern "C"
 {
-    void DepthRenderFPGA(float *pos_buffer_data,
-                         float *tex_buffer_data,
-                         float *wei_buffer_data,
+    void DepthRenderFPGA(fpga::Scalar *pos_buffer_data,
+                         fpga::Scalar *tex_buffer_data,
+                         fpga::Scalar *wei_buffer_data,
                          unsigned int *ebo_buffer_data,
                          fpga::ImageType *in_texture_data,
                          fpga::Scalar *out_texture_data,
@@ -20,7 +20,7 @@ extern "C"
                          unsigned int out_texture_height,
                          unsigned int out_texture_channels,
                          fpga::Scalar out_nodata_value,
-                         float q_x, float q_y, float q_z, float q_w,
-                         float t_x, float t_y, float t_z,
-                         float fx, float fy, float cx, float cy);
+                         fpga::Scalar q_x, fpga::Scalar q_y, fpga::Scalar q_z, fpga::Scalar q_w,
+                         fpga::Scalar t_x, fpga::Scalar t_y, fpga::Scalar t_z,
+                         fpga::Scalar fx, fpga::Scalar fy, fpga::Scalar cx, fpga::Scalar cy);
 }

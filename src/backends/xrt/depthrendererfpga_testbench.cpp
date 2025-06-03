@@ -13,16 +13,16 @@
 
 int main()
 {
-    LoadDatasetIclNuim<fpga::Vec3, fpga::Quaternion, fpga::SE3, fpga::Camera> dataset(std::string(TEST_DATA_DIR));
+    LoadDatasetIclNuim dataset(std::string(TEST_DATA_DIR));
     // LoadDatasetTumRgbd dataset;
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
-    std::vector<fpga::SE3> poses = dataset.GetPoses();
+    std::vector<cpu::SE3> poses = dataset.GetPoses();
     std::vector<double> timestamps = dataset.GetTimestamps();
-    fpga::Camera cam = dataset.GetCamera();
-    int w = dataset.GetWidth();
-    int h = dataset.GetHeight();
+    cpu::Camera cam = dataset.GetCamera();
+    unsigned int w = dataset.GetWidth();
+    unsigned int h = dataset.GetHeight();
 
     int src = 0;
     int dst = 50;
@@ -56,9 +56,9 @@ int main()
     depth_dst_CV *= 100.0;
 
     std::vector<fpga::Vec2> tex_coords = UniformTexCoords<fpga::Vec2>(32, 32);
-    std::vector<float> texcoords;
-    std::vector<float> vertices;
-    std::vector<float> weights;
+    std::vector<fpga::Scalar> texcoords;
+    std::vector<fpga::Scalar> vertices;
+    std::vector<fpga::Scalar> weights;
     for (fpga::Vec2 tex_coord : tex_coords)
     {
         fpga::Vec2 img_coord = fpga::Vec2(tex_coord(0) * w, tex_coord(1) * h);
@@ -67,13 +67,13 @@ int main()
         if (depth <= 0.0f)
             continue;
         fpga::Vec3 ray = cam.PixToRay(tex_coord);
-        fpga::Vec3 vertex = ray * depth;
+        fpga::Vec3 vertex = ray * fpga::Scalar(depth);
         vertices.push_back(vertex(0));
         vertices.push_back(vertex(1));
         vertices.push_back(vertex(2));
         texcoords.push_back(tex_coord(0));
         texcoords.push_back(tex_coord(1));
-        weights.push_back(1.0f);
+        weights.push_back(fpga::Scalar(1.0f));
     }
 
     DelaunayTriangulation<fpga::Vec2, fpga::Vec2i, fpga::Vec3i> triangulator_;
@@ -104,12 +104,12 @@ int main()
     // renderer.Render(mesh, pose, cam, image, depth, 0);
     // depth.ToCPU((float *)output_depthCV.data);
 
-    DepthRenderFPGA((float *)vertices.data(),
-                    (float *)texcoords.data(),
-                    (float *)weights.data(),
+    DepthRenderFPGA((fpga::Scalar *)vertices.data(),
+                    (fpga::Scalar *)texcoords.data(),
+                    (fpga::Scalar *)weights.data(),
                     (unsigned int *)tris_f.data(),
                     (fpga::ImageType *)image_src_CV.data,
-                    (float *)output_depthCV.data,
+                    (fpga::Scalar *)output_depthCV.data,
                     vertices.size(), texcoords.size(), weights.size(), tris_f.size(),
                     w, h, 1, 0,
                     w, h, 1, -1.0f,
