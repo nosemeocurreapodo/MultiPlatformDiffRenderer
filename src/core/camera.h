@@ -60,17 +60,17 @@ public:
         return *this;
     }
 
-    Mat4Type GetProjectiveMatrix(float znear, float zfar) const
+    Mat4Type GetProjectiveMatrix(Type znear, Type zfar) const
     {
         Mat4Type projmat = Mat4Type::Zero();
 
-        projmat(0, 0) = 2.0f * fx_;
-        projmat(1, 1) = 2.0f * fy_;
-        projmat(0, 2) = 1.0f - 2.0f * cx_;
-        projmat(1, 2) = -1.0f + 2.0f * cy_;
+        projmat(0, 0) = Type(2) * fx_;
+        projmat(1, 1) = Type(2) * fy_;
+        projmat(0, 2) = Type(1) - Type(2) * cx_;
+        projmat(1, 2) = -Type(1) + Type(2) * cy_;
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
-        projmat(3, 2) = -1.0f;
-        projmat(2, 3) = -2.0f * zfar * znear / (zfar - znear);
+        projmat(3, 2) = -Type(1);
+        projmat(2, 3) = -Type(2) * zfar * znear / (zfar - znear);
 
         return projmat;
     }
@@ -82,7 +82,7 @@ public:
         // so here the max is one more than the last pixel
         // if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
         //    return false;
-        if (pix(0) < 0 || pix(0) > 1.0 || pix(1) < 0 || pix(1) > 1.0)
+        if (pix(0) < Type(0) || pix(0) > Type(1) || pix(1) < Type(0) || pix(1) > Type(1))
             return false;
         return true;
     }
@@ -111,10 +111,10 @@ public:
         Mat23Type d_pix_d_ver;
 
         d_pix_d_ver(0, 0) = fx_ / ver(2);
-        d_pix_d_ver(0, 1) = 0;
+        d_pix_d_ver(0, 1) = Type(0);
         d_pix_d_ver(0, 2) = -fx_ * ver(0) / (ver(2) * ver(2));
 
-        d_pix_d_ver(1, 0) = 0;
+        d_pix_d_ver(1, 0) = Type(0);
         d_pix_d_ver(1, 1) = fy_ / ver(2);
         d_pix_d_ver(1, 2) = -fy_ * ver(1) / (ver(2) * ver(2));
 
@@ -126,14 +126,14 @@ public:
         Mat24Type d_pix_d_int;
 
         d_pix_d_int(0, 0) = ray(0);
-        d_pix_d_int(0, 1) = 0;
-        d_pix_d_int(0, 2) = 1.0;
-        d_pix_d_int(0, 3) = 0;
+        d_pix_d_int(0, 1) = Type(0);
+        d_pix_d_int(0, 2) = Type(1);
+        d_pix_d_int(0, 3) = Type(0);
 
-        d_pix_d_int(1, 0) = 0;
+        d_pix_d_int(1, 0) = Type(0);
         d_pix_d_int(1, 1) = ray(1);
-        d_pix_d_int(1, 2) = 0;
-        d_pix_d_int(1, 3) = 1.0;
+        d_pix_d_int(1, 2) = Type(0);
+        d_pix_d_int(1, 3) = Type(1);
 
         return d_pix_d_int;
     }
@@ -143,7 +143,7 @@ public:
         Vec3Type ray;
         ray(0) = (pix(0) - cx_) / fx_;
         ray(1) = (pix(1) - cy_) / fy_;
-        ray(2) = 1.0;
+        ray(2) = Type(1);
         return ray;
     }
 

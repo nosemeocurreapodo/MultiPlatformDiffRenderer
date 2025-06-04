@@ -14,7 +14,7 @@ public:
     MeshFPGA(const BufferFPGA<fpga::Scalar> &pos_buffer,
              const BufferFPGA<fpga::Scalar> &tex_buffer,
              const BufferFPGA<fpga::Scalar> &wei_buffer,
-             const BufferFPGA<unsigned int> &ebo_buffer)
+             const BufferFPGA<fpga::UInt> &ebo_buffer)
         : pos_buffer_(pos_buffer),
           tex_buffer_(tex_buffer),
           wei_buffer_(wei_buffer),
@@ -46,6 +46,6 @@ protected:
     BufferFPGA<fpga::Scalar> pos_buffer_;
     BufferFPGA<fpga::Scalar> tex_buffer_;
     BufferFPGA<fpga::Scalar> wei_buffer_;
-    BufferFPGA<unsigned int> ebo_buffer_;
+    BufferFPGA<fpga::UInt> ebo_buffer_;
     // TextureFPGA<float> texture_;
 };

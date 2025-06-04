@@ -85,7 +85,7 @@ int main()
     triangulator_.LoadPoints(tex_coords_2d);
     triangulator_.Triangulate();
     std::vector<fpga::Vec3i> tris = triangulator_.GetTriangles();
-    std::vector<unsigned int> tris_f;
+    std::vector<fpga::UInt> tris_f;
     for (size_t i = 0; i < tris.size(); i++)
     {
         tris_f.push_back(tris[i](0));
@@ -107,7 +107,7 @@ int main()
     DepthRenderFPGA((fpga::Scalar *)vertices.data(),
                     (fpga::Scalar *)texcoords.data(),
                     (fpga::Scalar *)weights.data(),
-                    (unsigned int *)tris_f.data(),
+                    (fpga::UInt *)tris_f.data(),
                     (fpga::ImageType *)image_src_CV.data,
                     (fpga::Scalar *)output_depthCV.data,
                     vertices.size(), texcoords.size(), weights.size(), tris_f.size(),

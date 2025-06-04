@@ -45,24 +45,24 @@ public:
                 int /*lvl*/)
     {
         fpga::Mat4 opencv2opengl = fpga::Mat4::Identity();
-        opencv2opengl(1, 1) = 1.0;
-        opencv2opengl(2, 2) = -1.0;
+        opencv2opengl(1, 1) = fpga::Scalar(1);
+        opencv2opengl(2, 2) = -fpga::Scalar(1);
 
         fpga::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
         const fpga::BoundingBoxType<int> viewport(0, out_texture.width_, 0, out_texture.height_);
 
     render_triangle_loop:
-        for (int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
+        for (fpga::Int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
         {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
             fpga::Vec4 p[3];
             fpga::Vec2 t[3]; // if needed
 
-            unsigned int i0 = mesh.ebo_buffer_[i + 0];
-            unsigned int i1 = mesh.ebo_buffer_[i + 1];
-            unsigned int i2 = mesh.ebo_buffer_[i + 2];
+            fpga::UInt i0 = mesh.ebo_buffer_[i + 0];
+            fpga::UInt i1 = mesh.ebo_buffer_[i + 1];
+            fpga::UInt i2 = mesh.ebo_buffer_[i + 2];
 
             // Positions
             p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
@@ -126,12 +126,12 @@ protected:
         fpga::Vec4 gl_Position[3];
 
     draw_vertex_loop:
-        for (int i = 0; i < 3; ++i)
+        for (fpga::Int i = 0; i < 3; ++i)
         {
             call_vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide
-            fpga::Scalar invW = 1.0f / gl_Position[i](3);
+            fpga::Scalar invW = fpga::Scalar(1) / gl_Position[i](3);
             gl_Position[i](0) *= invW;
             gl_Position[i](1) *= invW;
             gl_Position[i](2) *= invW;
@@ -165,18 +165,18 @@ protected:
 
     // Step 4: rasterize each pixel in bounding box
     draw_pixel_loop_y:
-        for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
+        for (fpga::Int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
         {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
         draw_pixel_loop_x:
-            for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
+            for (fpga::Int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
             {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
                 fpga::Vec4 gl_FragCoord;
-                gl_FragCoord(0) = px + fpga::Scalar(0.5);
-                gl_FragCoord(1) = py + fpga::Scalar(0.5);
+                gl_FragCoord(0) = fpga::Scalar(px) + fpga::Scalar(0.5);
+                gl_FragCoord(1) = fpga::Scalar(py) + fpga::Scalar(0.5);
 
                 // Barycentric coords in 2D
                 fpga::Vec3 barycentric = denom * fpga::Vec3(triangle_area(gl_FragCoord.xy(),
@@ -247,7 +247,7 @@ public:
 
     void fragment_shader(const fpga::Vec4 &gl_FragCoord,
                          const fpga::Vec2 &inTexCoord,
-                         const TextureFPGA<Scalar> &inTexture,
+                         const TextureFPGA<fpga::Scalar> &inTexture,
                          const fpga::Scalar &inVarying,
                          fpga::Scalar &outFragment) const
     {

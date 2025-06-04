@@ -7,7 +7,15 @@
 
 namespace fpga
 {
+    using Int = int;
+    //using Int = short int;
+    //using Int = ap_int<16>;
+    using UInt = unsigned int;
+    //using UInt = unsigned short int;
+    //using UInt = ap_uint<16>;
     using Scalar = Posit<16, 1>;
+    //using Scalar = ap_fixed<16, 4>;
+    //using Scalar = half;
 
     template <typename Type, int rows>
     using Vec = linalgHLS::Mat<Type, rows, 1>;
@@ -19,8 +27,8 @@ namespace fpga
     using Vec6 = linalgHLS::Vec6<Scalar>;
     // using Vecx = linalg::Vecx<RealType>;
 
-    using Vec2i = linalgHLS::Vec2<int>;
-    using Vec3i = linalgHLS::Vec3<int>;
+    using Vec2i = linalgHLS::Vec2<Int>;
+    using Vec3i = linalgHLS::Vec3<Int>;
     // using Vecxi = linalg::vecx<int>;
 
     template <typename type, int rows, int cols>

@@ -19,21 +19,25 @@ public:
     */
 
     TextureFPGA(unsigned int width, unsigned int height, unsigned int channels, Type nodata_value, Type *data)
+    : width_(width),
+      height_(height),
+      channels_(channels),
+      nodata_(nodata_value),
+      data_(data)
     {
-        width_ = width;
-        height_ = height;
-        channels_ = channels;
-        nodata_ = nodata_value;
-        data_ = data;
+        // assert(data != nullptr);
+        // assert(width > 0 && height > 0 && channels > 0);
     }
 
     TextureFPGA(const TextureFPGA &other)
+    : width_(other.width_),
+      height_(other.height_),
+      channels_(other.channels_),
+      nodata_(other.nodata_),
+      data_(other.data_)
     {
-        width_ = other.width_;
-        height_ = other.height_;
-        channels_ = other.channels_;
-        nodata_ = other.nodata_;
-        data_ = other.data_;
+        // assert(data != nullptr);
+        // assert(width > 0 && height > 0 && channels > 0);
     }
 
     TextureFPGA &operator=(const TextureFPGA &other)
@@ -64,19 +68,19 @@ protected:
     }
     */
 
-    void SetTexel(Type value, int y, int x)
+    void SetTexel(Type value, fpga::Int y, fpga::Int x)
     {
         // assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
-        int address = x + y * width_;
+        fpga::Int address = x + y * width_;
         data_[address] = value;
     }
 
-    Type GetTexel(int y, int x) const
+    Type GetTexel(fpga::Int y, fpga::Int x) const
     {
         // assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
-        int address = x + y * width_;
+        fpga::Int address = x + y * width_;
         return data_[address];
     }
 
@@ -104,31 +108,34 @@ protected:
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > height_ - 2 || x > width_ - 2)
-            return GetTexel(int(y), int(x));
+        if (y > fpga::Scalar(height_ - 2) || x > fpga::Scalar(width_ - 2))
+            return GetTexel(fpga::Int(y), fpga::Int(x));
 
-        int _x = int(x);
-        int _y = int(y);
-        fpga::Scalar dx = x - fpga::Scalar(_x);
-        fpga::Scalar dy = y - fpga::Scalar(_y);
+        fpga::Scalar _x = round(x);
+        fpga::Scalar _y = round(y);
+        fpga::Scalar dx = x - _x;
+        fpga::Scalar dy = y - _y;
 
-        fpga::Scalar weight_tl = (fpga::Scalar(1.0) - dx) * (fpga::Scalar(1.0) - dy);
-        fpga::Scalar weight_tr = (dx) * (fpga::Scalar(1.0) - dy);
-        fpga::Scalar weight_bl = (fpga::Scalar(1.0) - dx) * (dy);
+        fpga::Scalar weight_tl = (fpga::Scalar(1) - dx) * (fpga::Scalar(1) - dy);
+        fpga::Scalar weight_tr = (dx) * (fpga::Scalar(1) - dy);
+        fpga::Scalar weight_bl = (fpga::Scalar(1) - dx) * (dy);
         fpga::Scalar weight_br = (dx) * (dy);
 
-        Type tl = GetTexel(_y, _x);
-        Type tr = GetTexel(_y, _x + 1);
-        Type bl = GetTexel(_y + 1, _x);
-        Type br = GetTexel(_y + 1, _x + 1);
+        fpga::Int i_x = fpga::Int(_x);
+        fpga::Int i_y = fpga::Int(_y);
+
+        Type tl = GetTexel(i_y, i_x);
+        Type tr = GetTexel(i_y, i_x + 1);
+        Type bl = GetTexel(i_y + 1, i_x);
+        Type br = GetTexel(i_y + 1, i_x + 1);
 
         if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
             return nodata_;
 
-        Type pix = Type(tl * weight_tl +
-                        tr * weight_tr +
-                        bl * weight_bl +
-                        br * weight_br);
+        Type pix = Type(float(tl) * float(weight_tl) +
+                        float(tr) * float(weight_tr) +
+                        float(bl) * float(weight_bl) +
+                        float(br) * float(weight_br));
 
         return pix;
     }
@@ -156,7 +163,7 @@ protected:
 
     Type *data_;
     const Type nodata_;
-    const unsigned int width_;
-    const unsigned int height_;
-    const unsigned int channels_;
+    const fpga::UInt width_;
+    const fpga::UInt height_;
+    const fpga::UInt channels_;
 };

@@ -9,20 +9,20 @@ extern "C"
     void DepthRenderFPGA(fpga::Scalar *pos_buffer_data,
                          fpga::Scalar *tex_buffer_data,
                          fpga::Scalar *wei_buffer_data,
-                         unsigned int *ebo_buffer_data,
+                         fpga::UInt *ebo_buffer_data,
                          fpga::ImageType *in_texture_data,
                          fpga::Scalar *out_texture_data,
-                         unsigned int pos_buffer_size,
-                         unsigned int tex_buffer_size,
-                         unsigned int wei_buffer_size,
-                         unsigned int ebo_buffer_size,
-                         unsigned int in_texture_width,
-                         unsigned int in_texture_height,
-                         unsigned int in_texture_channels,
+                         fpga::UInt pos_buffer_size,
+                         fpga::UInt tex_buffer_size,
+                         fpga::UInt wei_buffer_size,
+                         fpga::UInt ebo_buffer_size,
+                         fpga::UInt in_texture_width,
+                         fpga::UInt in_texture_height,
+                         fpga::UInt in_texture_channels,
                          fpga::ImageType in_nodata_value,
-                         unsigned int out_texture_width,
-                         unsigned int out_texture_height,
-                         unsigned int out_texture_channels,
+                         fpga::UInt out_texture_width,
+                         fpga::UInt out_texture_height,
+                         fpga::UInt out_texture_channels,
                          fpga::Scalar out_nodata_value,
                          fpga::Scalar q_x, fpga::Scalar q_y, fpga::Scalar q_z, fpga::Scalar q_w,
                          fpga::Scalar t_x, fpga::Scalar t_y, fpga::Scalar t_z,
@@ -38,7 +38,7 @@ extern "C"
         BufferFPGA<fpga::Scalar> pos_buffer(pos_buffer_size, pos_buffer_data);
         BufferFPGA<fpga::Scalar> tex_buffer(tex_buffer_size, tex_buffer_data);
         BufferFPGA<fpga::Scalar> wei_buffer(wei_buffer_size, wei_buffer_data);
-        BufferFPGA<unsigned int> ebo_buffer(ebo_buffer_size, ebo_buffer_data);
+        BufferFPGA<fpga::UInt> ebo_buffer(ebo_buffer_size, ebo_buffer_data);
         MeshFPGA mesh(pos_buffer, tex_buffer, wei_buffer, ebo_buffer);
         TextureFPGA<fpga::ImageType> in_texture(in_texture_width, in_texture_height, in_texture_channels, in_nodata_value, in_texture_data);
         TextureFPGA<fpga::Scalar> out_texture(out_texture_width, out_texture_height, out_texture_channels, out_nodata_value, out_texture_data);
