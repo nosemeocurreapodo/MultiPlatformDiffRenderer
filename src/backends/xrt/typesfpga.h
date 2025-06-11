@@ -8,14 +8,15 @@
 namespace fpga
 {
     using Int = int;
-    //using Int = short int;
-    //using Int = ap_int<16>;
+    // using Int = short int;
+    // using Int = ap_int<16>;
     using UInt = unsigned int;
-    //using UInt = unsigned short int;
-    //using UInt = ap_uint<16>;
-    using Scalar = Posit<16, 1>;
-    //using Scalar = ap_fixed<16, 4>;
+    // using UInt = unsigned short int;
+    // using UInt = ap_uint<16>;
+    //using Scalar = float;
     //using Scalar = half;
+    using Scalar = Posit<16, 1>;
+    //using Scalar = ap_fixed<32, 16>;
 
     template <typename Type, int rows>
     using Vec = linalgHLS::Mat<Type, rows, 1>;
@@ -53,4 +54,10 @@ namespace fpga
     template <typename Type>
     using BoundingBoxType = BoundingBox<Type, Vec2>;
     using ImageType = Scalar;
+}
+
+template <int nbits, int ibits>
+ap_fixed<nbits, ibits> round(const ap_fixed<nbits, ibits> &p)
+{
+    return p;
 }

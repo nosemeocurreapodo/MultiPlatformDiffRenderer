@@ -132,10 +132,10 @@ protected:
         if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
             return nodata_;
 
-        Type pix = Type(float(tl) * float(weight_tl) +
-                        float(tr) * float(weight_tr) +
-                        float(bl) * float(weight_bl) +
-                        float(br) * float(weight_br));
+        Type pix = Type(fpga::Scalar(tl) * weight_tl +
+                        fpga::Scalar(tr) * weight_tr +
+                        fpga::Scalar(bl) * weight_bl +
+                        fpga::Scalar(br) * weight_br);
 
         return pix;
     }

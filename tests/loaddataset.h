@@ -9,6 +9,8 @@
 #include <iostream>
 #include <chrono>
 
+#include <backends/cpu/typescpu.h>
+
 // inline std::string &ltrim(std::string &s)
 //{
 //     s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
@@ -471,7 +473,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<Sophus::SE3d> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<cpu::SE3> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -504,9 +506,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                Sophus::SE3d pose;
-                pose.setQuaternion(Eigen::Quaterniond(values[7], values[4], values[5], values[6]));
-                pose.translation() = Eigen::Vector3f(values[1], values[2], values[3]);
+                cpu::SE3 pose;
+                pose.setQuaternion(cpu::Quaternion(values[7], values[4], values[5], values[6]));
+                pose.translation() = cpu::Vec3(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);

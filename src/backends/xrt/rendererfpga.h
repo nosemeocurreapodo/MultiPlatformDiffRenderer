@@ -50,10 +50,10 @@ public:
 
         fpga::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
-        const fpga::BoundingBoxType<int> viewport(0, out_texture.width_, 0, out_texture.height_);
+        const fpga::BoundingBoxType<fpga::Int> viewport(0, out_texture.width_, 0, out_texture.height_);
 
     render_triangle_loop:
-        for (fpga::Int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
+        for (fpga::UInt i = 0; i < mesh.ebo_buffer_.size(); i += 3)
         {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
@@ -68,17 +68,17 @@ public:
             p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
             p[0](1) = mesh.pos_buffer_[i0 * 3 + 1];
             p[0](2) = mesh.pos_buffer_[i0 * 3 + 2];
-            p[0](3) = 1.0f;
+            p[0](3) = fpga::Scalar(1);
 
             p[1](0) = mesh.pos_buffer_[i1 * 3 + 0];
             p[1](1) = mesh.pos_buffer_[i1 * 3 + 1];
             p[1](2) = mesh.pos_buffer_[i1 * 3 + 2];
-            p[1](3) = 1.0f;
+            p[1](3) = fpga::Scalar(1);
 
             p[2](0) = mesh.pos_buffer_[i2 * 3 + 0];
             p[2](1) = mesh.pos_buffer_[i2 * 3 + 1];
             p[2](2) = mesh.pos_buffer_[i2 * 3 + 2];
-            p[2](3) = 1.0f;
+            p[2](3) = fpga::Scalar(1);
 
             // Texcoords if needed (example):
             t[0](0) = mesh.tex_buffer_[i0 * 2 + 0];
@@ -118,7 +118,7 @@ protected:
                        const fpga::Vec2 *texcoords,
                        const TextureFPGA<InTexType> &in_texture,
                        const fpga::Mat4 &tm,
-                       const fpga::BoundingBoxType<int> &viewport,
+                       const fpga::BoundingBoxType<fpga::Int> &viewport,
                        TextureFPGA<OutTexType> &out_texture) const
     {
         // Step 1: transform each vertex
@@ -126,7 +126,7 @@ protected:
         fpga::Vec4 gl_Position[3];
 
     draw_vertex_loop:
-        for (fpga::Int i = 0; i < 3; ++i)
+        for (fpga::UInt i = 0; i < 3; ++i)
         {
             call_vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
@@ -146,22 +146,27 @@ protected:
             fpga::Scalar y_screen = y_ndc * fpga::Scalar(out_texture.height_);
 
             // Clamp to valid pixel range
-            x_screen = clamp(x_screen, fpga::Scalar(0), fpga::Scalar(out_texture.width_ - 1));
-            y_screen = clamp(y_screen, fpga::Scalar(0), fpga::Scalar(out_texture.height_ - 1));
+            fpga::Scalar c_x_screen = clamp(x_screen, fpga::Scalar(0), fpga::Scalar(out_texture.width_ - 1));
+            fpga::Scalar c_y_screen = clamp(y_screen, fpga::Scalar(0), fpga::Scalar(out_texture.height_ - 1));
 
             // Overwrite gl_Position with final screen coords
-            gl_Position[i](0) = x_screen;
-            gl_Position[i](1) = y_screen;
+            gl_Position[i](0) = c_x_screen;
+            gl_Position[i](1) = c_y_screen;
         }
 
         // Step 2: find triangle bounding box in screen space
 
-        fpga::BoundingBoxType<int> tri_bb(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
+        fpga::BoundingBoxType<fpga::Int> tri_bb(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
         // Intersect with the given viewport
-        fpga::BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
+        fpga::BoundingBoxType<fpga::Int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
-        fpga::Scalar denom = fpga::Scalar(1) / triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
+        fpga::Scalar area = triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
+
+        if(area >= fpga::Scalar(0))
+            return;
+
+        fpga::Scalar denom = fpga::Scalar(1) / area;
 
     // Step 4: rasterize each pixel in bounding box
     draw_pixel_loop_y:
@@ -269,7 +274,7 @@ public:
     {
         gl_Position = tm * inVertex;
         // We are using a "float" for VaryingType, so you can store something if needed
-        outVarying = 0.0f; // placeholder
+        outVarying = fpga::Scalar(0); // placeholder
     }
 
     void fragment_shader(const fpga::Vec4 &gl_FragCoord,

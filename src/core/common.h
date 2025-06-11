@@ -1,7 +1,6 @@
 #pragma once
 
-template <typename Vec3i>
-static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
+static bool IsTriangleEqual(cpu::Vec3i tri_indices_1, cpu::Vec3i tri_indices_2)
 {
     bool isIndicePresent[3];
     for (int tri_indice = 0; tri_indice < 3; tri_indice++)
@@ -15,8 +14,7 @@ static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
     return false;
 }
 
-template <typename Vec2i>
-static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
+static bool IsEdgeEqual(cpu::Vec2i edge_indices_1, cpu::Vec2i edge_indices_2)
 {
     bool isIndicePresent[2];
     for (int edge_indice = 0; edge_indice < 2; edge_indice++)
@@ -30,15 +28,14 @@ static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
     return false;
 }
 
-template <typename Vec2>
-inline std::vector<Vec2> UniformTexCoords(int width, int height)
+inline std::vector<cpu::Vec2> UniformTexCoords(int width, int height)
 {
-    std::vector<Vec2> texcoords;
+    std::vector<cpu::Vec2> texcoords;
     for (float y = 0.0; y < height; y++)
     {
         for (float x = 0.0; x < width; x++)
         {
-            Vec2 pix;
+            cpu::Vec2 pix;
             pix(0) = x / (width - 1);
             pix(1) = y / (height - 1);
 
@@ -55,8 +52,7 @@ inline float RandomDepth(float min_depth, float max_depth)
     return depth;
 }
 
-template <typename Vec2>
-inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
+inline float VerticallySmoothDepth(cpu::Vec2 pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
