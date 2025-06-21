@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ap_fixed.h"
+#include "ap_float.h"
 #include "linalgHLS.h"
 #include "Posit.h"
 #include "core/camera.h"
@@ -13,10 +15,11 @@ namespace fpga
     using UInt = unsigned int;
     // using UInt = unsigned short int;
     // using UInt = ap_uint<16>;
-    //using Scalar = float;
-    //using Scalar = half;
+    // using Scalar = float;
+    // using Scalar = half;
     using Scalar = Posit<16, 1>;
-    //using Scalar = ap_fixed<32, 16>;
+    // using Scalar = ap_fixed<32, 16>;
+    // using Scalar = ap_float<24, 8>;
 
     template <typename Type, int rows>
     using Vec = linalgHLS::Mat<Type, rows, 1>;
@@ -58,6 +61,24 @@ namespace fpga
 
 template <int nbits, int ibits>
 ap_fixed<nbits, ibits> round(const ap_fixed<nbits, ibits> &p)
+{
+    return p;
+}
+
+template <int nbits, int ibits>
+ap_float<nbits, ibits> round(const ap_float<nbits, ibits> &p)
+{
+    return p;
+}
+
+template <int nbits, int ibits>
+ap_fixed<nbits, ibits> floor(const ap_fixed<nbits, ibits> &p)
+{
+    return p;
+}
+
+template <int nbits, int ibits>
+ap_float<nbits, ibits> floor(const ap_float<nbits, ibits> &p)
 {
     return p;
 }

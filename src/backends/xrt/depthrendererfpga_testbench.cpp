@@ -25,7 +25,7 @@ int main()
     unsigned int h = dataset.GetHeight();
 
     int src = 0;
-    int dst = 50;
+    int dst = 0;
 
     // int operation = cv::MORPH_CLOSE;
     // int morph_size = 5;
@@ -85,7 +85,7 @@ int main()
         vertices.push_back(fpga_vertex(2));
         texcoords.push_back(fpga_tex_coord(0));
         texcoords.push_back(fpga_tex_coord(1));
-        weights.push_back(fpga::Scalar(1.0f));
+        weights.push_back(fpga::Scalar(1));
     }
 
     std::vector<fpga::ImageType> input_image;

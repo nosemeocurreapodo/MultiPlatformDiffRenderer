@@ -27,6 +27,13 @@ public:
     {
         // assert(data != nullptr);
         // assert(width > 0 && height > 0 && channels > 0);
+        for(int y = 0; y < height_; y++)
+        {
+            for(int x = 0; x < width_; x++)
+            {
+                data_[x + y * width_] = nodata_;
+            }
+        }
     }
 
     TextureFPGA(const TextureFPGA &other)
@@ -111,8 +118,8 @@ protected:
         if (y > fpga::Scalar(height_ - 2) || x > fpga::Scalar(width_ - 2))
             return GetTexel(fpga::Int(y), fpga::Int(x));
 
-        fpga::Scalar _x = round(x);
-        fpga::Scalar _y = round(y);
+        fpga::Scalar _x = floor(x);
+        fpga::Scalar _y = floor(y);
         fpga::Scalar dx = x - _x;
         fpga::Scalar dy = y - _y;
 

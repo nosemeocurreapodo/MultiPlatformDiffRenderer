@@ -48,7 +48,10 @@ public:
         opencv2opengl(1, 1) = fpga::Scalar(1);
         opencv2opengl(2, 2) = -fpga::Scalar(1);
 
-        fpga::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+        fpga::Mat4 projmatrix = cam.GetProjectiveMatrix(0.01f, 100.0f);
+        fpga::Mat4 posematrix = pose.matrix();
+
+        fpga::Mat4 view_matrix = projmatrix * opencv2opengl * posematrix;
 
         const fpga::BoundingBoxType<fpga::Int> viewport(0, out_texture.width_, 0, out_texture.height_);
 
@@ -163,7 +166,7 @@ protected:
         // Step 3: compute barycentric denominator
         fpga::Scalar area = triangle_area(gl_Position[0].xy(), gl_Position[1].xy(), gl_Position[2].xy());
 
-        if(area >= fpga::Scalar(0))
+        if (area >= fpga::Scalar(0))
             return;
 
         fpga::Scalar denom = fpga::Scalar(1) / area;
@@ -213,7 +216,7 @@ protected:
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                fpga::Vec3 perspective = (fpga::Scalar(1) / gl_FragCoord(3)) * fpga::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                fpga::Vec3 perspective = fpga::Scalar(fpga::Scalar(1) / gl_FragCoord(3)) * fpga::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
                 fpga::Vec2 texcoord = perspective(0) * texcoords[0] +
@@ -231,6 +234,8 @@ protected:
                 out_texture.SetTexel(outColor, py, px);
                 // Write out to the color attachment
                 // rop(out_texture, px, py, outColor);
+
+                // std::cout << px << " " << py << " " << float(outColor) << std::endl;
             }
         }
     }
