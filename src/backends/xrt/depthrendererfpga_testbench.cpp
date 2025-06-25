@@ -10,6 +10,7 @@
 #include "backends/xrt/texturefpga.h"
 #include "backends/xrt/meshfpga.h"
 #include "backends/xrt/depthrendererfpga.h"
+#include "backends/xrt/imagerendererfpga.h"
 
 int main()
 {
@@ -25,7 +26,7 @@ int main()
     unsigned int h = dataset.GetHeight();
 
     int src = 0;
-    int dst = 0;
+    int dst = 50;
 
     // int operation = cv::MORPH_CLOSE;
     // int morph_size = 5;
@@ -55,7 +56,7 @@ int main()
     depth_dst_CV /= dataset.GetDepthFactor();
     depth_dst_CV *= 100.0;
 
-    std::vector<cpu::Vec2> tex_coords = UniformTexCoords(32, 32);
+    std::vector<cpu::Vec2> tex_coords = UniformTexCoords(8, 8);
 
     DelaunayTriangulation triangulator_;
     triangulator_.LoadPoints(tex_coords);
@@ -108,6 +109,7 @@ int main()
             float value = image_src_CV.at<float>(y, x);
             fpga::ImageType fpga_value = fpga::ImageType(value);
             input_image[y * w + x] = fpga_value;
+            output_image[y * w + x] = fpga::ImageType(-1);
         }
     }
 
@@ -119,18 +121,20 @@ int main()
     // renderer.Render(mesh, pose, cam, image, depth, 0);
     // depth.ToCPU((float *)output_depthCV.data);
 
-    DepthRenderFPGA((fpga::Scalar *)vertices.data(),
-                    (fpga::Scalar *)texcoords.data(),
-                    (fpga::Scalar *)weights.data(),
-                    (fpga::UInt *)tris_f.data(),
-                    (fpga::ImageType *)input_image.data(),
-                    (fpga::Scalar *)output_image.data(),
-                    fpga::UInt(vertices.size()), fpga::UInt(texcoords.size()), fpga::UInt(weights.size()), fpga::UInt(tris_f.size()),
-                    fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::ImageType(0),
-                    fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::Scalar(-1.0f),
-                    fpga::Scalar(pose.so3().unit_quaternion().x()), fpga::Scalar(pose.so3().unit_quaternion().y()), fpga::Scalar(pose.so3().unit_quaternion().z()), fpga::Scalar(pose.so3().unit_quaternion().w()),
-                    fpga::Scalar(pose.translation()(0)), fpga::Scalar(pose.translation()(1)), fpga::Scalar(pose.translation()(2)),
-                    fpga::Scalar(cam.GetParams()(0)), fpga::Scalar(cam.GetParams()(1)), fpga::Scalar(cam.GetParams()(2)), fpga::Scalar(cam.GetParams()(3)));
+    //DepthRenderFPGA(
+    ImageRenderFPGA(
+        (fpga::Scalar *)vertices.data(),
+        (fpga::Scalar *)texcoords.data(),
+        (fpga::Scalar *)weights.data(),
+        (fpga::UInt *)tris_f.data(),
+        (fpga::ImageType *)input_image.data(),
+        (fpga::Scalar *)output_image.data(),
+        fpga::UInt(vertices.size()), fpga::UInt(texcoords.size()), fpga::UInt(weights.size()), fpga::UInt(tris_f.size()),
+        fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::ImageType(0),
+        fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::Scalar(-1.0f),
+        fpga::Scalar(pose.so3().unit_quaternion().x()), fpga::Scalar(pose.so3().unit_quaternion().y()), fpga::Scalar(pose.so3().unit_quaternion().z()), fpga::Scalar(pose.so3().unit_quaternion().w()),
+        fpga::Scalar(pose.translation()(0)), fpga::Scalar(pose.translation()(1)), fpga::Scalar(pose.translation()(2)),
+        fpga::Scalar(cam.GetParams()(0)), fpga::Scalar(cam.GetParams()(1)), fpga::Scalar(cam.GetParams()(2)), fpga::Scalar(cam.GetParams()(3)));
 
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
@@ -156,4 +160,6 @@ int main()
     cv::imwrite("depthrenderfpga_output.png", output_depthCV);
 
     std::cout << "Depth error: " << depthError << std::endl;
+
+    cv::imwrite("depthrenderfpga_image.png", image_dst_CV);
 }

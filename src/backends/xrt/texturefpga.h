@@ -27,6 +27,7 @@ public:
     {
         // assert(data != nullptr);
         // assert(width > 0 && height > 0 && channels > 0);
+        /*
         for(int y = 0; y < height_; y++)
         {
             for(int x = 0; x < width_; x++)
@@ -34,6 +35,7 @@ public:
                 data_[x + y * width_] = nodata_;
             }
         }
+        */
     }
 
     TextureFPGA(const TextureFPGA &other)
