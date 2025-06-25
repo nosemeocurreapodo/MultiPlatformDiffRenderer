@@ -53,7 +53,7 @@ public:
 
         fpga::Mat4 view_matrix = projmatrix * opencv2opengl * posematrix;
 
-        const fpga::BoundingBoxType<fpga::Int> viewport(0, out_texture.width_, 0, out_texture.height_);
+        const fpga::BoundingBoxType<fpga::Int> viewport(0, out_texture.width_ - 1, 0, out_texture.height_ - 1);
 
     render_triangle_loop:
         for (fpga::UInt i = 0; i < mesh.ebo_buffer_.size(); i += 3)
@@ -145,8 +145,8 @@ protected:
             fpga::Scalar x_ndc = fpga::Scalar(0.5) * (gl_Position[i](0) + fpga::Scalar(1));
             fpga::Scalar y_ndc = fpga::Scalar(0.5) * (gl_Position[i](1) + fpga::Scalar(1));
 
-            fpga::Scalar x_screen = x_ndc * fpga::Scalar(out_texture.width_);
-            fpga::Scalar y_screen = y_ndc * fpga::Scalar(out_texture.height_);
+            fpga::Scalar x_screen = x_ndc * fpga::Scalar(out_texture.width_ - 1);
+            fpga::Scalar y_screen = y_ndc * fpga::Scalar(out_texture.height_ - 1);
 
             // Clamp to valid pixel range
             fpga::Scalar c_x_screen = clamp(x_screen, fpga::Scalar(0), fpga::Scalar(out_texture.width_ - 1));
@@ -173,18 +173,18 @@ protected:
 
     // Step 4: rasterize each pixel in bounding box
     draw_pixel_loop_y:
-        for (fpga::Int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
+        for (fpga::Int py = screen_bb.min_y_ - 1; py < screen_bb.max_y_ + 1; ++py)
         {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
         draw_pixel_loop_x:
-            for (fpga::Int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
+            for (fpga::Int px = screen_bb.min_x_ - 1; px < screen_bb.max_x_ + 1; ++px)
             {
 #pragma HLS LOOP_TRIPCOUNT min = 64 max = 64
 
                 fpga::Vec4 gl_FragCoord;
-                gl_FragCoord(0) = fpga::Scalar(px) + fpga::Scalar(0.5);
-                gl_FragCoord(1) = fpga::Scalar(py) + fpga::Scalar(0.5);
+                gl_FragCoord(0) = fpga::Scalar(px); // + fpga::Scalar(0.5);
+                gl_FragCoord(1) = fpga::Scalar(py); // + fpga::Scalar(0.5);
 
                 // Barycentric coords in 2D
                 fpga::Vec3 barycentric = denom * fpga::Vec3(triangle_area(gl_FragCoord.xy(),

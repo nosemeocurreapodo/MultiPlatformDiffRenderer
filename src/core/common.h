@@ -31,13 +31,13 @@ static bool IsEdgeEqual(cpu::Vec2i edge_indices_1, cpu::Vec2i edge_indices_2)
 inline std::vector<cpu::Vec2> UniformTexCoords(int width, int height)
 {
     std::vector<cpu::Vec2> texcoords;
-    for (float y = 0.0; y < height; y++)
+    for (int y = 0; y < height; y++)
     {
-        for (float x = 0.0; x < width; x++)
+        for (int x = 0; x < width; x++)
         {
             cpu::Vec2 pix;
-            pix(0) = x / (width - 1);
-            pix(1) = y / (height - 1);
+            pix(0) = cpu::Scalar(x) / (width - 1);
+            pix(1) = cpu::Scalar(y) / (height - 1);
 
             texcoords.push_back(pix);
         }

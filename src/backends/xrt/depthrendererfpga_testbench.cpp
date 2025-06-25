@@ -56,7 +56,7 @@ int main()
     depth_dst_CV /= dataset.GetDepthFactor();
     depth_dst_CV *= 100.0;
 
-    std::vector<cpu::Vec2> tex_coords = UniformTexCoords(8, 8);
+    std::vector<cpu::Vec2> tex_coords = UniformTexCoords(32, 32);
 
     DelaunayTriangulation triangulator_;
     triangulator_.LoadPoints(tex_coords);
@@ -70,7 +70,7 @@ int main()
     std::vector<fpga::Scalar> weights;
     for (cpu::Vec2 tex_coord : tex_coords)
     {
-        cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * w, tex_coord(1) * h);
+        cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
         float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
         // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
         if (depth <= 0.0f)
@@ -109,7 +109,7 @@ int main()
             float value = image_src_CV.at<float>(y, x);
             fpga::ImageType fpga_value = fpga::ImageType(value);
             input_image[y * w + x] = fpga_value;
-            output_image[y * w + x] = fpga::ImageType(-1);
+            output_image[y * w + x] = fpga::Scalar(-1);
         }
     }
 
@@ -121,8 +121,8 @@ int main()
     // renderer.Render(mesh, pose, cam, image, depth, 0);
     // depth.ToCPU((float *)output_depthCV.data);
 
-    //DepthRenderFPGA(
-    ImageRenderFPGA(
+    DepthRenderFPGA(
+    //ImageRenderFPGA(
         (fpga::Scalar *)vertices.data(),
         (fpga::Scalar *)texcoords.data(),
         (fpga::Scalar *)weights.data(),
@@ -131,7 +131,7 @@ int main()
         (fpga::Scalar *)output_image.data(),
         fpga::UInt(vertices.size()), fpga::UInt(texcoords.size()), fpga::UInt(weights.size()), fpga::UInt(tris_f.size()),
         fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::ImageType(0),
-        fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::Scalar(-1.0f),
+        fpga::UInt(w), fpga::UInt(h), fpga::UInt(1), fpga::Scalar(-1),
         fpga::Scalar(pose.so3().unit_quaternion().x()), fpga::Scalar(pose.so3().unit_quaternion().y()), fpga::Scalar(pose.so3().unit_quaternion().z()), fpga::Scalar(pose.so3().unit_quaternion().w()),
         fpga::Scalar(pose.translation()(0)), fpga::Scalar(pose.translation()(1)), fpga::Scalar(pose.translation()(2)),
         fpga::Scalar(cam.GetParams()(0)), fpga::Scalar(cam.GetParams()(1)), fpga::Scalar(cam.GetParams()(2)), fpga::Scalar(cam.GetParams()(3)));

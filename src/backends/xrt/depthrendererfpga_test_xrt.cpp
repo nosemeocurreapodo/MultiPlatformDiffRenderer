@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     std::vector<float> weights;
     for (cpu::Vec2 tex_coord : tex_coords)
     {
-        cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * w, tex_coord(1) * h);
+        cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
         float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
         // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
         if (depth <= 0.0f)

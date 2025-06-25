@@ -15,11 +15,11 @@ namespace fpga
     using UInt = unsigned int;
     // using UInt = unsigned short int;
     // using UInt = ap_uint<16>;
-    //using Scalar = float;
+    using Scalar = float;
     //using Scalar = half;
-    using Scalar = Posit<32, 3>;
-    // using Scalar = ap_fixed<32, 16>;
-    // using Scalar = ap_float<24, 8>;
+    //using Scalar = Posit<16, 1>;
+    //using Scalar = ap_fixed<32, 16>;
+    //using Scalar = ap_float<16, 8>;
 
     template <typename Type, int rows>
     using Vec = linalgHLS::Mat<Type, rows, 1>;
