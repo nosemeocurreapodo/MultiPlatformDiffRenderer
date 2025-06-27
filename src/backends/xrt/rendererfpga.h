@@ -131,6 +131,7 @@ protected:
     draw_vertex_loop:
         for (fpga::UInt i = 0; i < 3; ++i)
         {
+//#pragma HLS UNROLL
             call_vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide

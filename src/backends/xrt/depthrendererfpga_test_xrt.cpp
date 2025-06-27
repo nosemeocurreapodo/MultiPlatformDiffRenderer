@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     int device_index = atoi(argv[2]);
     std::string dataset_path = argv[3];
 
-    LoadDatasetIclNuim<cpu::Vec3, cpu::Quaternion, cpu::SE3, cpu::Camera> dataset(dataset_path);
+    LoadDatasetIclNuim dataset(dataset_path);
     // LoadDatasetTumRgbd dataset;
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
@@ -50,11 +50,6 @@ int main(int argc, char **argv)
     cv::Mat depth_src_CV = cv::imread(depth_files[src], cv::IMREAD_GRAYSCALE);
     // cv::morphologyEx(depth_src_CV, depth_src_CV, operation, element);
     cpu::SE3 pose_src = poses[src].inverse();
-
-    cv::Mat image_dst_CV = cv::imread(image_files[dst], cv::IMREAD_GRAYSCALE);
-    cv::Mat depth_dst_CV = cv::imread(depth_files[dst], cv::IMREAD_GRAYSCALE);
-    // cv::morphologyEx(depth_dst_CV, depth_dst_CV, operation, element);
-    cpu::SE3 pose_dst = poses[dst].inverse();
 
     image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
     depth_src_CV.convertTo(depth_src_CV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
@@ -87,7 +82,6 @@ int main(int argc, char **argv)
         weights.push_back(1.0f);
     }
 
-    cpu::SE3 pose = pose_dst * pose_src.inverse();
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
     if (!InitXRT(xclbin_file, device_index))
@@ -106,17 +100,27 @@ int main(int argc, char **argv)
     renderer.WriteInTexture(image);
     renderer.PrepareOutTexture(depth);
 
-    auto start = std::chrono::steady_clock::now();
-    renderer.Render(pose, cam, 0);
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "Render time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+    for (int i = 0; i < dst; i++)
+    {
+        cpu::SE3 pose = (poses[i].inverse()) * pose_src.inverse();
 
-    start = std::chrono::steady_clock::now();
-    renderer.ReadOutTexture(depth);
-    end = std::chrono::steady_clock::now();
-    std::cout << "Read frame time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+        auto start = std::chrono::steady_clock::now();
+        renderer.Render(pose, cam, 0);
+        auto end = std::chrono::steady_clock::now();
+        std::cout << "Render time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+
+        start = std::chrono::steady_clock::now();
+        renderer.ReadOutTexture(depth);
+        end = std::chrono::steady_clock::now();
+        std::cout << "Read frame time (ms)=" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+    }
 
     depth.ToCPU((float *)output_depthCV.data);
+
+    cv::Mat image_dst_CV = cv::imread(image_files[dst], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_dst_CV = cv::imread(depth_files[dst], cv::IMREAD_GRAYSCALE);
+    // cv::morphologyEx(depth_dst_CV, depth_dst_CV, operation, element);
+    cpu::SE3 pose_dst = poses[dst].inverse();
 
     double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, depth.nodata());
 
