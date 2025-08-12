@@ -162,7 +162,7 @@ public:
                 const cpu::Camera &cam,
                 const TextureCPU<InTexType> &in_texture,
                 TextureCPU<OutTexType> &out_texture,
-                int /*lvl*/)
+                int lvl)
     {
         cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
@@ -170,13 +170,14 @@ public:
 
         cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
 
-        cpu::BoundingBoxType<int> viewport(0, out_texture.width(), 0, out_texture.height());
+        cpu::BoundingBoxType<int> viewport(0, out_texture.width() - 1, 0, out_texture.height() - 1);
 
         // Loop over triangles
         for (int i = 0; i < mesh.GetEboBuffer().size(); i += 3)
         {
-            cpu::Vec4 p[3];
+            cpu::Vec3 p[3];
             cpu::Vec2 t[3]; // if needed
+            float w[3];     // if needed
 
             unsigned int i0 = mesh.GetEboBuffer()[i + 0];
             unsigned int i1 = mesh.GetEboBuffer()[i + 1];
@@ -186,17 +187,14 @@ public:
             p[0](0) = mesh.GetPosBuffer()[i0 * 3 + 0];
             p[0](1) = mesh.GetPosBuffer()[i0 * 3 + 1];
             p[0](2) = mesh.GetPosBuffer()[i0 * 3 + 2];
-            p[0](3) = 1.0f;
 
             p[1](0) = mesh.GetPosBuffer()[i1 * 3 + 0];
             p[1](1) = mesh.GetPosBuffer()[i1 * 3 + 1];
             p[1](2) = mesh.GetPosBuffer()[i1 * 3 + 2];
-            p[1](3) = 1.0f;
 
             p[2](0) = mesh.GetPosBuffer()[i2 * 3 + 0];
             p[2](1) = mesh.GetPosBuffer()[i2 * 3 + 1];
             p[2](2) = mesh.GetPosBuffer()[i2 * 3 + 2];
-            p[2](3) = 1.0f;
 
             // Texcoords if needed (example):
             t[0](0) = mesh.GetTexBuffer()[i0 * 2 + 0];
@@ -208,8 +206,15 @@ public:
             t[2](0) = mesh.GetTexBuffer()[i2 * 2 + 0];
             t[2](1) = mesh.GetTexBuffer()[i2 * 2 + 1];
 
+            // Texcoords if needed (example):
+            w[0] = mesh.GetWeiBuffer()[i0];
+
+            w[1] = mesh.GetWeiBuffer()[i1];
+
+            w[2] = mesh.GetWeiBuffer()[i2];
+
             // Draw the triangle
-            draw_triangle(p, t, in_texture, view_matrix, viewport, out_texture);
+            draw_triangle(p, t, w, view_matrix, viewport, in_texture, out_texture);
         }
     }
 
@@ -238,25 +243,27 @@ protected:
     // 1) Vertex shader
     // 2) Fragment shader
     // They must be provided by derived classes.
-    virtual void vertex_shader(const cpu::Vec4 &inVertex,
+    virtual void vertex_shader(const cpu::Vec3 &inVertex,
+                               const cpu::Vec2 &inTexCoord,
+                               const float &inWeight,
                                const cpu::Mat4 &tm,
                                cpu::Vec4 &gl_Position,
                                VaryingType &outVarying) = 0;
 
     virtual void fragment_shader(const cpu::Vec4 &gl_FragCoord,
-                                 const cpu::Vec2 &inTexCoord,
-                                 const TextureCPU<InTexType> &inTexture,
                                  const VaryingType &inVarying,
+                                 const TextureCPU<InTexType> &inTexture,
                                  OutTexType &outFragment) = 0;
 
     // -------------------------------------------------------------------------
     // draw_triangle: minimal CPU rasterizer for one triangle
     // -------------------------------------------------------------------------
-    void draw_triangle(const cpu::Vec4 *verts,
+    void draw_triangle(const cpu::Vec3 *verts,
                        const cpu::Vec2 *texcoords,
-                       const TextureCPU<InTexType> &in_texture,
+                       const float *weights,
                        const cpu::Mat4 &tm,
                        const cpu::BoundingBoxType<int> &viewport,
+                       const TextureCPU<InTexType> &in_texture,
                        TextureCPU<OutTexType> &out_texture)
     {
         // Step 1: transform each vertex
@@ -265,7 +272,7 @@ protected:
 
         for (int i = 0; i < 3; ++i)
         {
-            vertex_shader(verts[i], tm, gl_Position[i], perVertex[i]);
+            vertex_shader(verts[i], texcoords[i], weights[i], tm, gl_Position[i], perVertex[i]);
 
             // Perspective divide
             float invW = 1.0f / gl_Position[i](3);
@@ -279,8 +286,8 @@ protected:
             float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
             float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
-            float x_screen = x_ndc * (float)out_texture.width();
-            float y_screen = y_ndc * (float)out_texture.height();
+            float x_screen = x_ndc * (float)(out_texture.width() - 1);
+            float y_screen = y_ndc * (float)(out_texture.height() - 1);
 
             // Clamp to valid pixel range
             x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width() - 1));
@@ -300,19 +307,24 @@ protected:
         cpu::BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
 
         // Step 3: compute barycentric denominator
-        float denom = 1.0f / triangle_area(
-                                 cpu::Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                 cpu::Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                 cpu::Vec2(gl_Position[2](0), gl_Position[2](1)));
+        float area = triangle_area(
+            cpu::Vec2(gl_Position[0](0), gl_Position[0](1)),
+            cpu::Vec2(gl_Position[1](0), gl_Position[1](1)),
+            cpu::Vec2(gl_Position[2](0), gl_Position[2](1)));
+
+        if (area >= 0.0)
+            return;
+
+        float denom = 1.0f / area;
 
         // Step 4: rasterize each pixel in bounding box
-        for (int py = screen_bb.min_y_; py < screen_bb.max_y_; ++py)
+        for (int py = screen_bb.min_y_ - 1; py < screen_bb.max_y_ + 1; ++py)
         {
-            for (int px = screen_bb.min_x_; px < screen_bb.max_x_; ++px)
+            for (int px = screen_bb.min_x_ - 1; px < screen_bb.max_x_ + 1; ++px)
             {
                 cpu::Vec4 gl_FragCoord;
-                gl_FragCoord(0) = px + 0.5f;
-                gl_FragCoord(1) = py + 0.5f;
+                gl_FragCoord(0) = float(px);
+                gl_FragCoord(1) = float(py);
 
                 // Barycentric coords in 2D
                 cpu::Vec3 barycentric = denom * cpu::Vec3(triangle_area(
@@ -347,20 +359,16 @@ protected:
                 // Depth test could go here if you keep a depth buffer
 
                 // Perspective-correct weighting (optional)
-                cpu::Vec3 perspective = (1 / gl_FragCoord(3)) * cpu::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                cpu::Vec3 perspective = (1.0 / gl_FragCoord(3)) * cpu::Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
 
                 // Interpolate any per-vertex attributes
-                cpu::Vec2 texcoord = perspective(0) * texcoords[0] +
-                                     perspective(1) * texcoords[1] +
-                                     perspective(2) * texcoords[2];
-
                 VaryingType varying = perspective(0) * perVertex[0] +
                                       perspective(1) * perVertex[1] +
                                       perspective(2) * perVertex[2];
 
                 // Run fragment shader
                 OutTexType outColor;
-                fragment_shader(gl_FragCoord, texcoord, in_texture, varying, outColor);
+                fragment_shader(gl_FragCoord, varying, in_texture, outColor);
 
                 out_texture.SetTexel(outColor, py, px);
                 // Write out to the color attachment
@@ -384,20 +392,21 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const cpu::Vec4 &inVertex,
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
                        const cpu::Mat4 &tm,
                        cpu::Vec4 &gl_Position,
                        float &outVarying) override
     {
-        gl_Position = tm * inVertex;
+        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // No attributes in outVarying, so do nothing with it
         outVarying = inVertex(2); // example: store Z in outVarying
     }
 
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
-                         const cpu::Vec2 &inTexCoord,
-                         const TextureCPU<float> &inTexture,
                          const float &inVarying,
+                         const TextureCPU<float> &inTexture,
                          float &outFragment) override
     {
         // Example: store depth in outFragment as a float:
@@ -412,7 +421,7 @@ public:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 class ImageRendererCPU
-    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, float /*VaryingType*/, cpu::ImageType /*OutTexType*/>
+    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, cpu::Vec2 /*VaryingType*/, cpu::ImageType /*OutTexType*/>
 {
 public:
     ImageRendererCPU() = default;
@@ -421,23 +430,24 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const cpu::Vec4 &inVertex,
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
                        const cpu::Mat4 &tm,
                        cpu::Vec4 &gl_Position,
-                       float &outVarying) override
+                       cpu::Vec5 &outVarying) override
     {
-        gl_Position = tm * inVertex;
+        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // We are using a "float" for VaryingType, so you can store something if needed
-        outVarying = 0.0f; // placeholder
+        outVarying = inTexCoord; // placeholder
     }
 
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
-                         const cpu::Vec2 &inTexCoord,
+                         const cpu::Vec2 &inVarying,
                          const TextureCPU<cpu::ImageType> &inTexture,
-                         const float &inVarying,
                          cpu::ImageType &outFragment) override
     {
-        outFragment = inTexture.Get(inTexCoord(1), inTexCoord(0));
+        outFragment = inTexture.Get(inVarying(1), inVarying(0));
 
         // Example: color = [checker pattern], ignoring inVarying
         // float fx = std::floor(gl_FragCoord.x() * 0.1f);
@@ -446,5 +456,63 @@ public:
 
         // For demonstration, store a grayscale in float
         // outFragment = bright ? 1.0f : 0.2f;
+    }
+};
+
+// -----------------------------------------------------------------------------
+// ResidualRendererCPU
+//   Example derived renderer that outputs a "depth" or modifies Z
+// -----------------------------------------------------------------------------
+class JPoseRendererCPU
+    : public BaseRendererCPU<cpu::Vec2 /*InTexType*/, cpu::Vec5 /*VaryingType*/, cpu::Vec6 /*OutTexType*/>
+{
+public:
+    JPoseRendererCPU() = default;
+    ~JPoseRendererCPU() override = default;
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const cpu::Mat4 &tm,
+                       cpu::Vec4 &gl_Position,
+                       cpu::Vec5 &outVarying) override
+    {
+        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        outVarying(0) = gl_Position(0);
+        outVarying(1) = gl_Position(1);
+        outVarying(2) = gl_Position(2);
+        outVarying(3) = inTexCoord(0);
+        outVarying(4) = inTexCoord(1);
+    }
+
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec5 &inVarying,
+                         const TextureCPU<cpu::Vec2> &inTexture,
+                         cpu::Vec6 &outFragment) override
+    {
+        // outFragment = inVarying;
+
+        cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
+        cpu::Vec2 f_der = inTexture.Get(inVarying(3), inVarying(4));
+
+        float fx = f_der(0) * inVarying(3);
+        float fy = f_der(1) * inVarying(4);
+
+        float v0 = f_der(0) * fx / f_ver(2);
+        float v1 = f_der(1) * fy / f_ver(2);
+        float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);
+        cpu::Vec3 d_f_i_d_rot = cpu::Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        outFragment(0) = d_f_i_d_tra(0);
+        outFragment(1) = d_f_i_d_tra(1);
+        outFragment(2) = d_f_i_d_tra(2);
+        outFragment(3) = d_f_i_d_rot(0);
+        outFragment(4) = d_f_i_d_rot(1);
+        outFragment(5) = d_f_i_d_rot(2);
     }
 };

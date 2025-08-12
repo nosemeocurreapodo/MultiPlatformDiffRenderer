@@ -12,95 +12,18 @@ public:
     {
         glGenFramebuffers(1, &fbo_);
 
-        glGenVertexArrays(1, &vao_);
-        glGenBuffers(1, &pos_bo_);
-        glGenBuffers(1, &tex_bo_);
-        glGenBuffers(1, &wei_bo_);
-        glGenBuffers(1, &ebo_);
-
-        glGenTextures(1, &in_tex_);
-        glBindTexture(GL_TEXTURE_2D, in_tex_);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glGenTextures(1, &out_tex_);
-        glBindTexture(GL_TEXTURE_2D, out_tex_);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
         // GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), out_channels);
         // GLenum format = GetGLFormat(texture.channels());
         // GLenum type = GetGLType(GetTypeIndex<InTexType>());
         // glTexImage2D(GL_TEXTURE_2D, 0, internal_format_, width_, height_, 0, format_, type_, nullptr);
     }
 
-    void WriteMesh(const MeshCPU &mesh)
-    {
-        glBindVertexArray(vao_);
-
-        glBindBuffer(GL_ARRAY_BUFFER, pos_bo_);
-        glBufferData(GL_ARRAY_BUFFER, mesh.GetPosBuffer().size() * sizeof(float), mesh.GetPosBuffer().get(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        glEnableVertexAttribArray(0);
-
-        glBindBuffer(GL_ARRAY_BUFFER, tex_bo_);
-        glBufferData(GL_ARRAY_BUFFER, mesh.GetTexBuffer().size() * sizeof(float), mesh.GetTexBuffer().get(), GL_STATIC_DRAW);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        glEnableVertexAttribArray(1);
-
-        glBindBuffer(GL_ARRAY_BUFFER, wei_bo_);
-        glBufferData(GL_ARRAY_BUFFER, mesh.GetWeiBuffer().size() * sizeof(float), mesh.GetWeiBuffer().get(), GL_STATIC_DRAW);
-        glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
-        glEnableVertexAttribArray(2);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.GetEboBuffer().size() * sizeof(unsigned int), mesh.GetEboBuffer().get(), GL_STATIC_DRAW);
-        ebo_size_ = mesh.GetEboBuffer().size();
-
-        glBindVertexArray(0);
-    }
-
-    void WriteInTexture(const TextureCPU<InTexType> &texture)
-    {
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<InTexType>(), texture.channels());
-        GLenum format = GetGLFormat(texture.channels());
-        GLenum type = GetGLType(GetTypeIndex<InTexType>());
-        glBindTexture(GL_TEXTURE_2D, in_tex_);
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, texture.width(), texture.height(), 0, format, type, texture.get());
-
-        // glBindTexture(GL_TEXTURE_2D, texture_id_);
-        // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, format_, type_, data);
-        // glGenerateMipmap(GL_TEXTURE_2D);
-    }
-
-    void PrepareOutTexture(const TextureCPU<OutTexType> &texture)
-    {
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), texture.channels());
-        GLenum format = GetGLFormat(texture.channels());
-        GLenum type = GetGLType(GetTypeIndex<OutTexType>());
-        out_tex_width_ = texture.width();
-        out_tex_height_ = texture.height();
-        glBindTexture(GL_TEXTURE_2D, out_tex_);
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, texture.width(), texture.height(), 0, format, type, texture.get());
-    }
-
-    void ReadOutTexture(TextureCPU<OutTexType> &texture) const
-    {
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), texture.channels());
-        GLenum format = GetGLFormat(texture.channels());
-        GLenum type = GetGLType(GetTypeIndex<OutTexType>());
-        glBindTexture(GL_TEXTURE_2D, out_tex_);
-        glGetTexImage(GL_TEXTURE_2D, 0, format, type, texture.get());
-
-        // glGetBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
-        // glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
-    }
-
-    void Render(const cpu::SE3 pose, const cpu::Camera cam, int lvl)
+    void Render(const MeshGL &mesh,
+                const cpu::SE3 pose,
+                const cpu::Camera cam,
+                const TextureGL<InTexType> &texture_in,
+                TextureGL<OutTexType> &texture_out,
+                int lvl)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
@@ -113,7 +36,7 @@ public:
         glFramebufferTexture2D(GL_FRAMEBUFFER,
                                GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_2D,
-                               out_tex_,
+                               texture_out.tex_,
                                lvl);
 
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -124,9 +47,12 @@ public:
         }
 
         glDisable(GL_CULL_FACE);
-        glViewport(0, 0, out_tex_width_, out_tex_height_);
+        glViewport(0, 0, texture_out.width_, texture_out.height_);
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f); // dark-blue background
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindImageTexture(0, texture_in.tex_, lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>(), texture_in.channels_));
 
         glUseProgram(shader_program_);
 
@@ -147,8 +73,8 @@ public:
         }
         glUniformMatrix4fv(mvp_loc_, 1, GL_FALSE, mvp_float);
 
-        glBindVertexArray(vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ebo_size_), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(mesh.vao_);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.ebo_size_), GL_UNSIGNED_INT, 0);
 
         glBindVertexArray(0);
         glUseProgram(0);
@@ -217,32 +143,6 @@ protected:
     unsigned int shader_program_;
     GLuint fbo_;
     GLint mvp_loc_;
-
-    GLuint vao_;
-    GLuint pos_bo_;
-    GLuint tex_bo_;
-    GLuint wei_bo_;
-    GLuint ebo_;
-
-    int ebo_size_;
-
-    GLuint in_tex_;
-    //GLint in_tex_internal_format_;
-    //GLenum in_tex_format_;
-    //GLenum in_tex_type_;
-    //InTexType in_tex_nodata_;
-    //int in_tex_width_;
-    //int in_tex_height_;
-    //int in_tex_channels_;
-
-    GLuint out_tex_;
-    //GLint out_tex_internal_format_;
-    //GLenum out_tex_format_;
-    //GLenum out_tex_type_;
-    //OutTexType out_tex_nodata_;
-    int out_tex_width_;
-    int out_tex_height_;
-    int out_tex_channels_;
 };
 
 class DepthRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
@@ -273,6 +173,96 @@ public:
             {
                 f_color = depth;
                 //f_color = 100.0;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+        mvp_loc_ = glGetUniformLocation(shader_program_, "MVP");
+    }
+
+private:
+};
+
+class ImageRendererGL : public BaseRendererGL<cpu::ImageType /*InTexType*/, cpu::ImageType /*OutTexType*/>
+{
+public:
+    ImageRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 a_weight;
+            uniform mat4 MVP;
+
+            out vec2 texcoord;
+
+            void main() {
+                gl_Position = MVP * vec4(a_position, 1.0);
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out float f_color;
+            in vec2 texcoord;
+
+            uniform sampler2D image;
+
+            void main()
+            {
+                f_color = texture(image, texcoord).r;
+                //f_color = 100.0;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+        mvp_loc_ = glGetUniformLocation(shader_program_, "MVP");
+    }
+
+private:
+};
+
+class JPoseRendererGL : public BaseRendererGL<cpu::ImageType /*InTexType*/, float /*OutTexType*/>
+{
+public:
+    JPoseRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 a_weight;
+            uniform mat4 MVP;
+
+            out vec2 texcoord;
+
+            void main() {
+                gl_Position = MVP * vec4(a_position, 1.0);
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out float f_color;
+            in vec2 texcoord;
+
+            uniform sampler2D image;
+
+            void main()
+            {
+                f_color = texture(image, texcoord).r;
+                //f_color = 100.0;
+
+                float v0 = f_der.x * fx * id;
+                float v1 = f_der.y * fy * id;
+                float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
+
+                vec3f d_f_i_d_tra = vec3f(v0, v1, v2);
+                vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
             }
             )Shader";
 

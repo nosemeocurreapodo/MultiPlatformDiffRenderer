@@ -8,7 +8,7 @@
             "name": "(gdb) Launch Data Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/gl/datagl",
+            "program": "${workspaceFolder}/build/tests/cpu/datacpu",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

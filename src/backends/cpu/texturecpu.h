@@ -174,8 +174,8 @@ protected:
         if (y > height_ - 2 || x > width_ - 2)
             return GetTexel(int(y), int(x));
 
-        int _x = int(x);
-        int _y = int(y);
+        float _x = floor(x);
+        float _y = floor(y);
         float dx = x - _x;
         float dy = y - _y;
 
@@ -183,6 +183,9 @@ protected:
         float weight_tr = (dx) * (1.0 - dy);
         float weight_bl = (1.0 - dx) * (dy);
         float weight_br = (dx) * (dy);
+
+        int i_x = int(_x);
+        int i_y = int(_y);
 
         Type tl = GetTexel(_y, _x);
         Type tr = GetTexel(_y, _x + 1);

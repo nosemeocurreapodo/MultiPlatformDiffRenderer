@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/delaunaytriangulation.h"
+
 static bool IsTriangleEqual(cpu::Vec3i tri_indices_1, cpu::Vec3i tri_indices_2)
 {
     bool isIndicePresent[3];
