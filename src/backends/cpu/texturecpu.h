@@ -8,6 +8,8 @@ class TextureCPU
     template <typename InTexType, typename VaryingType, typename OutTexType>
     friend class BaseRendererCPU;
     friend class ImageRendererCPU;
+    friend class DIDxyRendererCPU;
+    friend class JPoseRendererCPU;
 
 public:
     TextureCPU() : nodata_(0), width_(0), height_(0), channels_(0)

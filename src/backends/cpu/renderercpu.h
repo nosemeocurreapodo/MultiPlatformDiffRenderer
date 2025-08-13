@@ -164,6 +164,9 @@ public:
                 TextureCPU<OutTexType> &out_texture,
                 int lvl)
     {
+        pose_ = pose;
+        cam_ = cam;
+
         cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
@@ -376,6 +379,9 @@ protected:
             }
         }
     }
+
+    cpu::SE3 pose_;
+    cpu::Camera cam_;
 };
 
 // -----------------------------------------------------------------------------
@@ -435,7 +441,7 @@ public:
                        const float &inWeight,
                        const cpu::Mat4 &tm,
                        cpu::Vec4 &gl_Position,
-                       cpu::Vec5 &outVarying) override
+                       cpu::Vec2 &outVarying) override
     {
         gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // We are using a "float" for VaryingType, so you can store something if needed
@@ -447,7 +453,8 @@ public:
                          const TextureCPU<cpu::ImageType> &inTexture,
                          cpu::ImageType &outFragment) override
     {
-        outFragment = inTexture.Get(inVarying(1), inVarying(0));
+        cpu::ImageType pix = inTexture.Get(inVarying(1), inVarying(0));
+        outFragment = pix;
 
         // Example: color = [checker pattern], ignoring inVarying
         // float fx = std::floor(gl_FragCoord.x() * 0.1f);
@@ -459,10 +466,61 @@ public:
     }
 };
 
-// -----------------------------------------------------------------------------
-// ResidualRendererCPU
-//   Example derived renderer that outputs a "depth" or modifies Z
-// -----------------------------------------------------------------------------
+class DIDxyRendererCPU
+    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, cpu::Vec2 /*VaryingType*/, cpu::Vec2 /*OutTexType*/>
+{
+public:
+    DIDxyRendererCPU() = default;
+    ~DIDxyRendererCPU() override = default;
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const cpu::Mat4 &tm,
+                       cpu::Vec4 &gl_Position,
+                       cpu::Vec2 &outVarying) override
+    {
+        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        outVarying(0) = inTexCoord(0);
+        outVarying(1) = inTexCoord(1);
+    }
+
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec2 &inVarying,
+                         const TextureCPU<cpu::ImageType> &inTexture,
+                         cpu::Vec2 &outFragment) override
+    {
+        // outFragment = inVarying;
+
+        int x = int(inVarying(0) * inTexture.width());
+        int y = int(inVarying(1) * inTexture.height());
+        int x_p = x + 1;
+        int x_m = x - 1;
+        int y_p = y + 1;
+        int y_m = y - 1;
+
+        if (x_p >= inTexture.width() || x_m < 0 || y_p >= inTexture.height() || y_m < 0)
+        {
+            outFragment(0) = 0.0f;
+            outFragment(1) = 0.0f;
+        }
+        else
+        {
+
+            float f_y_p = float(inTexture.GetTexel(y_p, x));
+            float f_y_m = float(inTexture.GetTexel(y_m, x));
+            float f_x_p = float(inTexture.GetTexel(y, x_p));
+            float f_x_m = float(inTexture.GetTexel(y, x_m));
+
+            outFragment(0) = (f_x_p - f_x_m) / 2.0f;
+            outFragment(1) = (f_y_p - f_y_m) / 2.0f;
+        }
+    }
+};
+
 class JPoseRendererCPU
     : public BaseRendererCPU<cpu::Vec2 /*InTexType*/, cpu::Vec5 /*VaryingType*/, cpu::Vec6 /*OutTexType*/>
 {
@@ -481,9 +539,10 @@ public:
                        cpu::Vec5 &outVarying) override
     {
         gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying(0) = gl_Position(0);
-        outVarying(1) = gl_Position(1);
-        outVarying(2) = gl_Position(2);
+        cpu::Vec3 f_ver = pose_ * inVertex;
+        outVarying(0) = f_ver(0);
+        outVarying(1) = f_ver(1);
+        outVarying(2) = f_ver(2);
         outVarying(3) = inTexCoord(0);
         outVarying(4) = inTexCoord(1);
     }
@@ -496,13 +555,13 @@ public:
         // outFragment = inVarying;
 
         cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        cpu::Vec2 f_der = inTexture.Get(inVarying(3), inVarying(4));
+        cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
-        float fx = f_der(0) * inVarying(3);
-        float fy = f_der(1) * inVarying(4);
+        float fx = cam_.GetParams()(0);
+        float fy = cam_.GetParams()(1);
 
-        float v0 = f_der(0) * fx / f_ver(2);
-        float v1 = f_der(1) * fy / f_ver(2);
+        float v0 = f_der(0) * fx * inTexture.width() / f_ver(2);
+        float v1 = f_der(1) * fy * inTexture.height() / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);
