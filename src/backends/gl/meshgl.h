@@ -39,9 +39,10 @@ public:
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles.size() * sizeof(unsigned int), triangles.data(), GL_STATIC_DRAW);
-        ebo_size_ = triangles.size();
-
+        
         glBindVertexArray(0);
+        
+        ebo_size_ = triangles.size();
     };
 
     /*

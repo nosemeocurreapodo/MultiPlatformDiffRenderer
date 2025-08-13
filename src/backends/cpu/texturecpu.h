@@ -12,29 +12,26 @@ class TextureCPU
     friend class JPoseRendererCPU;
 
 public:
-    TextureCPU() : nodata_(0), width_(0), height_(0), channels_(0)
+    TextureCPU() : nodata_(0), width_(0), height_(0)
     {
         // data_ = nullptr;
     }
 
-    TextureCPU(int width, int height, int channels, Type nodata_value)
-        : data_(width * height * channels)
+    TextureCPU(int width, int height, Type nodata_value)
+        : data_(width * height, nodata_value)
     {
         nodata_ = nodata_value;
         width_ = width;
         height_ = height;
-        channels_ = channels;
-
-        //data_.fill(nodata_value);
+        // data_.fill(nodata_value);
     }
 
-    TextureCPU(int width, int height, int channels, Type nodata_value, Type *data)
-        : data_(width * height * channels, data)
+    TextureCPU(int width, int height, Type nodata_value, Type *data)
+        : data_(width * height, data)
     {
         nodata_ = nodata_value;
         width_ = width;
         height_ = height;
-        channels_ = channels;
     }
 
     TextureCPU(const TextureCPU &other)
@@ -43,7 +40,6 @@ public:
         nodata_ = other.nodata_;
         width_ = other.width_;
         height_ = other.height_;
-        channels_ = other.channels_;
     }
 
     TextureCPU &operator=(const TextureCPU &other)
@@ -53,7 +49,6 @@ public:
             nodata_ = other.nodata_;
             width_ = other.width_;
             height_ = other.height_;
-            channels_ = other.channels_;
             data_ = other.data_;
         }
         return *this;
@@ -87,13 +82,9 @@ public:
     {
         return height_;
     }
-    unsigned int channels() const
-    {
-        return channels_;
-    }
     unsigned int size() const
     {
-        return width_ * height_ * channels_;
+        return width_ * height_;
     }
 
     Type nodata() const
@@ -106,16 +97,15 @@ protected:
     {
         assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
-        int address = x + y * width_;
-        data_[address] = value;
+        data_[x + y * width_] = value;
     }
 
     Type GetTexel(int y, int x) const
     {
         assert(y >= 0 && x >= 0 && y < height_ && x < width_);
 
-        int address = x + y * width_;
-        return data_[address];
+        // int address = x + y * width_;
+        return data_[x + y * width_];
     }
 
     Type Get(float norm_y, float norm_x) const
@@ -230,7 +220,6 @@ protected:
 
     unsigned int width_;
     unsigned int height_;
-    unsigned int channels_;
     Type nodata_;
 };
 

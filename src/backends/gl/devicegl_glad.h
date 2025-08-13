@@ -205,25 +205,27 @@ inline bool InitEGL()
     return true;
 }
 
-inline GLint GetGLInternalFormat(std::type_index tindex, int channels)
+inline GLint GetGLInternalFormat(std::type_index tindex)
 {
-    static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
-    internal_format_map[std::make_pair(GetTypeIndex<float>(), 1)] = GL_R32F;
-    internal_format_map[std::make_pair(GetTypeIndex<float>(), 2)] = GL_RG32F;
-    internal_format_map[std::make_pair(GetTypeIndex<float>(), 3)] = GL_RGB32F;
-    internal_format_map[std::make_pair(GetTypeIndex<float>(), 4)] = GL_RGBA32F;
+    // static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
+    static std::map<std::type_index, GLint> internal_format_map;
+    internal_format_map[GetTypeIndex<float>()] = GL_R32F;
+    internal_format_map[GetTypeIndex<cpu::Vec2>()] = GL_RG32F;
+    internal_format_map[GetTypeIndex<cpu::Vec3>()] = GL_RGB32F;
+    internal_format_map[GetTypeIndex<cpu::Vec4>()] = GL_RGBA32F;
 
-    internal_format_map[std::make_pair(GetTypeIndex<int>(), 1)] = GL_R32I;
-    internal_format_map[std::make_pair(GetTypeIndex<int>(), 2)] = GL_RG32I;
-    internal_format_map[std::make_pair(GetTypeIndex<int>(), 3)] = GL_RGB32I;
-    internal_format_map[std::make_pair(GetTypeIndex<int>(), 4)] = GL_RGBA32I;
+    internal_format_map[GetTypeIndex<int>()] = GL_R32I;
+    internal_format_map[GetTypeIndex<cpu::Vec2i>()] = GL_RG32I;
+    internal_format_map[GetTypeIndex<cpu::Vec3i>()] = GL_RGB32I;
+    internal_format_map[GetTypeIndex<cpu::Vec4i>()] = GL_RGBA32I;
 
-    internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 1)] = GL_R8;
-    internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 2)] = GL_RG8;
-    internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 3)] = GL_RGB8;
-    internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 4)] = GL_RGBA8;
+    internal_format_map[GetTypeIndex<unsigned char>()] = GL_R8;
+    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 2)] = GL_RG8;
+    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 3)] = GL_RGB8;
+    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 4)] = GL_RGBA8;
 
-    return internal_format_map[std::make_pair(tindex, channels)];
+    // return internal_format_map[std::make_pair(tindex, channels)];
+    return internal_format_map[tindex];
 }
 
 inline GLenum GetGLFormat(int channels)
@@ -241,7 +243,13 @@ inline GLenum GetGLType(std::type_index tindex)
 {
     static std::map<std::type_index, GLenum> type_map;
     type_map[GetTypeIndex<float>()] = GL_FLOAT;
+    type_map[GetTypeIndex<cpu::Vec2>()] = GL_FLOAT;
+    type_map[GetTypeIndex<cpu::Vec3>()] = GL_FLOAT;
+    type_map[GetTypeIndex<cpu::Vec4>()] = GL_FLOAT;
     type_map[GetTypeIndex<int>()] = GL_INT;
+    type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
+    type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
+    type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
     type_map[GetTypeIndex<unsigned char>()] = GL_UNSIGNED_BYTE;
 
     return type_map[tindex];

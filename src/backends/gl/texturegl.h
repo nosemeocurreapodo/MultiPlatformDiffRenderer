@@ -10,12 +10,12 @@ class TextureGL
     friend class ImageRendererGL;
 
 public:
-    TextureGL() : nodata_(0), width_(0), height_(0), channels_(0)
+    TextureGL() : nodata_(0), width_(0), height_(0)
     {
         // data_ = nullptr;
     }
 
-    TextureGL(int width, int height, int channels, Type nodata_value)
+    TextureGL(int width, int height, Type nodata_value)
     {
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -24,7 +24,9 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>(), channels);
+        int channels = cpu::getChannels<Type>();
+
+        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
         GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -33,12 +35,11 @@ public:
         nodata_ = nodata_value;
         width_ = width;
         height_ = height;
-        channels_ = channels;
 
         // data_.fill(nodata_value);
     }
 
-    TextureGL(int width, int height, int channels, Type nodata_value, Type *data)
+    TextureGL(int width, int height, Type nodata_value, Type *data)
     {
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -47,7 +48,9 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>(), channels);
+        int channels = cpu::getChannels<Type>();
+
+        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
         GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -56,7 +59,6 @@ public:
         nodata_ = nodata_value;
         width_ = width;
         height_ = height;
-        channels_ = channels;
     }
 
     /*
@@ -85,8 +87,10 @@ public:
 
     void FromCPU(const Type *data)
     {
-        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>(), channels_);
-        GLenum format = GetGLFormat(channels_);
+        int channels = cpu::getChannels<Type>();
+
+        GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
+        GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
 
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -98,7 +102,9 @@ public:
         // data_.ToCPU(data);
 
         // GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>(), channels);
-        GLenum format = GetGLFormat(channels_);
+
+        int channels = cpu::getChannels<Type>();
+        GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
         glGetTexImage(GL_TEXTURE_2D, 0, format, type, data);
@@ -112,13 +118,9 @@ public:
     {
         return height_;
     }
-    unsigned int channels() const
-    {
-        return channels_;
-    }
     unsigned int size() const
     {
-        return width_ * height_ * channels_;
+        return width_ * height_;
     }
 
     Type nodata() const
@@ -130,6 +132,5 @@ protected:
     GLuint tex_;
     unsigned int width_;
     unsigned int height_;
-    unsigned int channels_;
     Type nodata_;
 };

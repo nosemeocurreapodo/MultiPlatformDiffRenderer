@@ -51,8 +51,10 @@ public:
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f); // dark-blue background
         glClear(GL_COLOR_BUFFER_BIT);
 
+        // int channels = cpu::getChannels<InTexType>();
+
         glActiveTexture(GL_TEXTURE0);
-        glBindImageTexture(0, texture_in.tex_, lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>(), texture_in.channels_));
+        glBindImageTexture(0, texture_in.tex_, lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
 
         glUseProgram(shader_program_);
 
@@ -214,6 +216,66 @@ public:
             {
                 f_color = texture(image, texcoord).r;
                 //f_color = 100.0;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+        mvp_loc_ = glGetUniformLocation(shader_program_, "MVP");
+    }
+
+private:
+};
+
+class DIDxyRendererGL : public BaseRendererGL<cpu::ImageType /*InTexType*/, cpu::Vec2 /*OutTexType*/>
+{
+public:
+    DIDxyRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 a_weight;
+            uniform mat4 MVP;
+
+            out vec2 texcoord;
+
+            void main() {
+                gl_Position = MVP * vec4(a_position, 1.0);
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out vec2 f_color;
+            in vec2 texcoord;
+
+            uniform sampler2D image;
+
+            void main()
+            {
+                int x = int(texcoord.x * textureSize(image, 0).x);
+                int y = int(texcoord.y * textureSize(image, 0).y);
+                int x_p = x + 1;
+                int x_m = x - 1;
+                int y_p = y + 1;
+                int y_m = y - 1;
+
+                if (x_p >= textureSize(image, 0).x || x_m < 0 || y_p >= textureSize(image, 0).y || y_m < 0)
+                {
+                    f_color = vec2(0, 0);
+                    return;
+                }
+
+                float f_x_p = float(texelFetch(image, ivec(x_p, y)));
+                float f_x_m = float(texelFetch(image, ivec(x_m, y)));
+                float f_y_p = float(texelFetch(image, ivec(x, y_p)));
+                float f_y_m = float(texelFetch(image, ivec(x, y_m)));
+
+                f_color(0) = (f_x_p - f_x_m) / 2.0f;
+                f_color(1) = (f_y_p - f_y_m) / 2.0f;
+
             }
             )Shader";
 

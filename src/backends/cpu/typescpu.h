@@ -27,6 +27,7 @@ namespace cpu
 
     using Vec2i = Eigen::Matrix<int, 2, 1>;
     using Vec3i = Eigen::Matrix<int, 3, 1>;
+    using Vec4i = Eigen::Matrix<int, 4, 1>;
     using Vecxi = Eigen::Matrix<int, Eigen::Dynamic, 1>;
 
     template <typename type, int rows, int cols>
@@ -49,4 +50,30 @@ namespace cpu
     template <typename Type>
     using BoundingBoxType = BoundingBox<Type, Vec2>;
     using ImageType = Scalar;
+
+    template <typename Type>
+    inline int getChannels()
+    {
+        if constexpr (std::is_same_v<Type, Scalar>)
+        {
+            return 1;
+        }
+        else if constexpr (std::is_same_v<Type, Vec2>)
+        {
+            return 2;
+        }
+        else if constexpr (std::is_same_v<Type, Vec3>)
+        {
+            return 3;
+        }
+        else if constexpr (std::is_same_v<Type, Vec4>)
+        {
+            return 4;
+        }
+        else
+        {
+            // static_assert(false, "Unsupported type for getChannels");
+            return 0; // Unreachable
+        }
+    }
 }
