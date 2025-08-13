@@ -49,10 +49,10 @@ TEST_F(DataLoader, TestCPUToFromOpenCV)
     depthCV /= dataset.GetDepthFactor();
     depthCV *= 100.0;
 
-    TextureCPU<cpu::ImageType> image(w, h, 1, 0);
+    TextureCPU<cpu::ImageType> image(w, h, cpu::ImageType(0));
     image.FromCPU((cpu::ImageType *)imageCV.data);
 
-    TextureCPU<float> depth(w, h, 1, 0);
+    TextureCPU<float> depth(w, h, float(0));
     depth.FromCPU((float *)depthCV.data);
 
     cv::Mat output_imageCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));

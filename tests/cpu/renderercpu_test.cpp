@@ -94,8 +94,8 @@ TEST_F(DataLoader, TestDepthRendererCPU)
 
     MeshCPU mesh(vertices, texcoords, weights);
     DepthRendererCPU renderer;
-    TextureCPU<cpu::ImageType> image(w, h, 1, 0);
-    TextureCPU<float> depth(w, h, 1, -1);
+    TextureCPU<cpu::ImageType> image(w, h, 0);
+    TextureCPU<float> depth(w, h, -1);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
     renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0);
@@ -162,8 +162,8 @@ TEST_F(DataLoader, TestImageRendererCPU)
 
     MeshCPU mesh(vertices, texcoords, weights);
     ImageRendererCPU renderer;
-    TextureCPU<cpu::ImageType> image(w, h, 1, 0);
-    TextureCPU<cpu::ImageType> output(w, h, 1, -1);
+    TextureCPU<cpu::ImageType> image(w, h, 0);
+    TextureCPU<cpu::ImageType> output(w, h, -1);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
     renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, output, 0);
@@ -232,10 +232,10 @@ TEST_F(DataLoader, TestDIDxyRendererCPU)
 
     MeshCPU mesh(vertices, texcoords, weights);
 
-    TextureCPU<cpu::ImageType> image(w, h, 1, 0);
+    TextureCPU<cpu::ImageType> image(w, h, 0);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
-    TextureCPU<cpu::Vec2> didxy(w, h, 1, cpu::Vec2(0, 0));
+    TextureCPU<cpu::Vec2> didxy(w, h, cpu::Vec2(0, 0));
 
     didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0);
 
@@ -315,14 +315,14 @@ TEST_F(DataLoader, TestJPoseRendererCPU)
 
     MeshCPU mesh(vertices, texcoords, weights);
 
-    TextureCPU<cpu::ImageType> image(w, h, 1, 0);
+    TextureCPU<cpu::ImageType> image(w, h, 0);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
-    TextureCPU<cpu::Vec2> didxy(w, h, 1, cpu::Vec2(0, 0));
+    TextureCPU<cpu::Vec2> didxy(w, h, cpu::Vec2(0, 0));
 
     didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0);
 
-    TextureCPU<cpu::Vec6> jpose(w, h, 1, cpu::Vec6(-1, -1, -1, -1, -1, -1));
+    TextureCPU<cpu::Vec6> jpose(w, h, cpu::Vec6(-1, -1, -1, -1, -1, -1));
 
     jpose_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, didxy, jpose, 0);
 
