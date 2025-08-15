@@ -19,7 +19,7 @@ public:
         data_ = std::make_unique<Type[]>(size);
     }
 
-    BufferCPU(Type *data, unsigned int size)
+    BufferCPU(unsigned int size, Type *data)
     {
         size_ = size;
         data_ = std::make_unique<Type[]>(size);

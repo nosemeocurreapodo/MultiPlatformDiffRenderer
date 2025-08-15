@@ -167,11 +167,13 @@ public:
     {
         in_nodata_ = in_texture.nodata();
 
-        // out_texture.fill(out_texture.nodata());
+        out_texture.fill(out_lvl, out_texture.nodata());
+        /*
         for (int i = 0; i < out_texture.size(); ++i)
         {
             out_texture.data_[i] = out_texture.nodata();
         }
+        */
 
         cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
@@ -183,7 +185,7 @@ public:
         fx = cam.GetParams()(0);
         fy = cam.GetParams()(1);
 
-        cpu::BoundingBoxType<int> viewport(0, out_texture.width() - 1, 0, out_texture.height() - 1);
+        cpu::BoundingBoxType<int> viewport(0, out_texture.width(out_lvl) - 1, 0, out_texture.height(out_lvl) - 1);
 
         // Loop over triangles
         for (int i = 0; i < mesh.GetEboBuffer().size(); i += 3)
@@ -227,7 +229,7 @@ public:
             w[2] = mesh.GetWeiBuffer()[i2];
 
             // Draw the triangle
-            draw_triangle(p, t, w, view_matrix, pose_matrix, viewport, in_texture, out_texture);
+            draw_triangle(p, t, w, view_matrix, pose_matrix, viewport, in_texture, out_texture, in_lvl, out_lvl);
         }
     }
 
@@ -267,7 +269,9 @@ protected:
     virtual void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                                  const VaryingType &inVarying,
                                  const TextureCPU<InTexType> &inTexture,
-                                 OutTexType &outFragment) = 0;
+                                 OutTexType &outFragment,
+                                 int in_lvl,
+                                 int out_lvl) = 0;
 
     // -------------------------------------------------------------------------
     // draw_triangle: minimal CPU rasterizer for one triangle
@@ -279,7 +283,9 @@ protected:
                        const cpu::Mat4 &pose_matrix,
                        const cpu::BoundingBoxType<int> &viewport,
                        const TextureCPU<InTexType> &in_texture,
-                       TextureCPU<OutTexType> &out_texture)
+                       TextureCPU<OutTexType> &out_texture,
+                       int in_lvl,
+                       int out_lvl)
     {
         // Step 1: transform each vertex
         VaryingType perVertex[3];
@@ -301,12 +307,12 @@ protected:
             float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
             float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
 
-            float x_screen = x_ndc * (float)(out_texture.width() - 1);
-            float y_screen = y_ndc * (float)(out_texture.height() - 1);
+            float x_screen = x_ndc * (float)(out_texture.width(out_lvl) - 1);
+            float y_screen = y_ndc * (float)(out_texture.height(out_lvl) - 1);
 
             // Clamp to valid pixel range
-            x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width() - 1));
-            y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height() - 1));
+            x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width(out_lvl) - 1));
+            y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height(out_lvl) - 1));
 
             // Overwrite gl_Position with final screen coords
             gl_Position[i](0) = x_screen;
@@ -383,9 +389,9 @@ protected:
 
                 // Run fragment shader
                 OutTexType outColor = out_texture.nodata();
-                fragment_shader(gl_FragCoord, varying, in_texture, outColor);
+                fragment_shader(gl_FragCoord, varying, in_texture, outColor, in_lvl, out_lvl);
 
-                out_texture.SetTexel(outColor, py, px);
+                out_texture.SetTexel(outColor, py, px, out_lvl);
                 // Write out to the color attachment
                 // rop(out_texture, px, py, outColor);
             }
@@ -427,7 +433,9 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const float &inVarying,
                          const TextureCPU<float> &inTexture,
-                         float &outFragment) override
+                         float &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
         // Example: store depth in outFragment as a float:
         // outFragment = gl_FragCoord.z();
@@ -466,9 +474,11 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec2 &inVarying,
                          const TextureCPU<cpu::ImageType> &inTexture,
-                         cpu::ImageType &outFragment) override
+                         cpu::ImageType &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
-        cpu::ImageType pix = inTexture.Get(inVarying(1), inVarying(0));
+        cpu::ImageType pix = inTexture.Get(inVarying(1), inVarying(0), in_lvl);
         outFragment = pix;
 
         // Example: color = [checker pattern], ignoring inVarying
@@ -506,12 +516,14 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec2 &inVarying,
                          const TextureCPU<cpu::ImageType> &inTexture,
-                         cpu::Vec3 &outFragment) override
+                         cpu::Vec3 &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
         // outFragment = inVarying;
 
-        int height = inTexture.height();
-        int width = inTexture.width();
+        int height = inTexture.height(in_lvl);
+        int width = inTexture.width(in_lvl);
         cpu::ImageType nodata = inTexture.nodata();
 
         int x = int(inVarying(0) * (width - 1));
@@ -530,10 +542,10 @@ public:
             return;
         }
 
-        float f_y_p = inTexture.GetTexel(y_p, x);
-        float f_y_m = inTexture.GetTexel(y_m, x);
-        float f_x_p = inTexture.GetTexel(y, x_p);
-        float f_x_m = inTexture.GetTexel(y, x_m);
+        float f_y_p = inTexture.GetTexel(y_p, x, in_lvl);
+        float f_y_m = inTexture.GetTexel(y_m, x, in_lvl);
+        float f_x_p = inTexture.GetTexel(y, x_p, in_lvl);
+        float f_x_m = inTexture.GetTexel(y, x_m, in_lvl);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata)
@@ -582,12 +594,19 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec5 &inVarying,
                          const TextureCPU<cpu::Vec3> &inTexture,
-                         cpu::Vec3 &outFragment) override
+                         cpu::Vec3 &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
         // outFragment = inVarying;
 
+        cpu::Vec3 nodata = inTexture.nodata();
+
         cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        cpu::Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3));
+        cpu::Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+
+        if (f_der == nodata)
+            return;
 
         float v0 = f_der(0) * fx / f_ver(2);
         float v1 = f_der(1) * fy / f_ver(2);
@@ -636,14 +655,21 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec5 &inVarying,
                          const TextureCPU<cpu::Vec3> &inTexture,
-                         cpu::Vec3 &outFragment) override
+                         cpu::Vec3 &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
         // outFragment = inVarying;
+
+        cpu::Vec3 nodata = inTexture.nodata();
 
         cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
-        cpu::Vec3 v = inTexture.Get(inVarying(4), inVarying(3));
+        cpu::Vec3 v = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+
+        if (v == nodata)
+            return;
 
         // float fx = cam_.GetParams()(0);
         // float fy = cam_.GetParams()(1);
@@ -680,13 +706,13 @@ public:
                        const cpu::Vec2 &inTexCoord,
                        const float &inWeight,
                        const cpu::Mat4 &view_matrix,
-                          const cpu::Mat4 &pose_matrix,
+                       const cpu::Mat4 &pose_matrix,
                        cpu::Vec4 &gl_Position,
                        cpu::Vec5 &outVarying) override
     {
         cpu::Vec4 f_ver = pose_matrix * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix * f_ver;
-        
+
         outVarying(0) = f_ver(0);
         outVarying(1) = f_ver(1);
         outVarying(2) = f_ver(2);
@@ -697,15 +723,17 @@ public:
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec5 &inVarying,
                          const TextureCPU<cpu::Vec2> &inTexture,
-                         cpu::Vec6 &outFragment) override
+                         cpu::Vec6 &outFragment,
+                         int in_lvl,
+                         int out_lvl) override
     {
         // outFragment = inVarying;
 
         cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
+        cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
 
-        float v0 = f_der(0) * fx * inTexture.width() / f_ver(2);
-        float v1 = f_der(1) * fy * inTexture.height() / f_ver(2);
+        float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
+        float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);

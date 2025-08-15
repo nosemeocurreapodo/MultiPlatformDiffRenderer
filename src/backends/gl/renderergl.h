@@ -41,11 +41,12 @@ public:
         // if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         //     std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
 
-        glFramebufferTexture2D(GL_FRAMEBUFFER,
-                               GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_2D,
-                               texture_out.tex_,
-                               out_lvl);
+        // glFramebufferTexture2D(GL_FRAMEBUFFER,
+        //                        GL_COLOR_ATTACHMENT0,
+        //                        GL_TEXTURE_2D,
+        //                        texture_out.tex_,
+        //                        out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.tex_, out_lvl);
 
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE)
@@ -55,7 +56,7 @@ public:
         }
 
         glDisable(GL_CULL_FACE);
-        glViewport(0, 0, texture_out.width_, texture_out.height_);
+        glViewport(0, 0, int(texture_out.width_ / std::pow(2, out_lvl)), int(texture_out.height_ / std::pow(2, out_lvl)));
 
         /*
         if (out_channels == 1)
@@ -75,8 +76,12 @@ public:
 
         // int channels = cpu::getChannels<InTexType>();
 
+        // glActiveTexture(GL_TEXTURE0);
+        // glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
+
         glActiveTexture(GL_TEXTURE0);
-        glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
+        glBindTexture(GL_TEXTURE_2D, texture_in.tex_);
+        // glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
 
         glUseProgram(shader_program_);
 
@@ -104,7 +109,9 @@ public:
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
 
-        glUniform1i(texture_loc, 0);
+        glUniform1i(image_lvl_loc_, in_lvl);
+
+        // glUniform1i(image_loc, 0);
 
         /*
         if (in_channels == 1)
@@ -199,8 +206,9 @@ protected:
     GLint pose_matrix_loc_;
     GLint fx_loc_;
     GLint fy_loc_;
-    GLuint texture_loc;
-    GLuint texture_nodata_loc;
+    GLuint image_loc_;
+    GLuint image_nodata_loc_;
+    GLuint image_lvl_loc_;
 
     cpu::SE3 pose_;
     cpu::Camera cam_;
@@ -232,23 +240,24 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out float output;
+            layout(location = 0) out float a_output;
             in float depth;
 
-            uniform sampler2D texture;
-            uniform float texture_nodata;
+            //uniform sampler2D image;
+            //uniform float image_nodata;
 
             void main()
             {
-                output = depth;
+                a_output = depth;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
         view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        texture_loc = glGetUniformLocation(shader_program_, "texture");
-        texture_nodata_loc = glGetUniformLocation(shader_program_, "texture_nodata");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
     }
 
 private:
@@ -278,24 +287,25 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out float f_color;
+            layout(location = 0) out float a_output;
             in vec2 texcoord;
 
             uniform sampler2D image;
             uniform float image_nodata;
+            uniform int image_lvl;
 
             void main()
             {
-                f_color = texture(image, texcoord).r;
-                //f_color = 100.0;
+                a_output = texture(image, texcoord).r;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
         view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        texture_loc = glGetUniformLocation(shader_program_, "texture");
-        texture_nodata_loc = glGetUniformLocation(shader_program_, "texture_nodata");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
     }
 
 private:
@@ -325,15 +335,16 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out vec3 f_color;
+            layout(location = 0) out vec3 a_output;
             in vec2 texcoord;
 
             uniform sampler2D image;
             uniform float image_nodata;
+            uniform int image_lvl;
 
             void main()
             {
-                ivec2 tex_size = textureSize(image, 0);
+                ivec2 tex_size = textureSize(image, image_lvl);
                 int x = int(texcoord.x * (tex_size.x - 1));
                 int y = int(texcoord.y * (tex_size.y - 1));
                 int x_p = x + 1;
@@ -344,40 +355,41 @@ public:
                 if (x_p >= tex_size.x || x_m < 0 || y_p >= tex_size.y || y_m < 0)
                 {
                     //no need to explicitly set to nodata, it is already in the background color
-                    //f_color = nodata;
+                    //a_output = nodata;
                     return;
                 }
 
-                float f_x_p = texelFetch(image, ivec2(x_p, y), 0).r;
-                float f_x_m = texelFetch(image, ivec2(x_m, y), 0).r;
-                float f_y_p = texelFetch(image, ivec2(x, y_p), 0).r;
-                float f_y_m = texelFetch(image, ivec2(x, y_m), 0).r;
+                float f_x_p = texelFetch(image, ivec2(x_p, y), image_lvl).r;
+                float f_x_m = texelFetch(image, ivec2(x_m, y), image_lvl).r;
+                float f_y_p = texelFetch(image, ivec2(x, y_p), image_lvl).r;
+                float f_y_m = texelFetch(image, ivec2(x, y_m), image_lvl).r;
 
                 if (f_x_p == image_nodata || f_x_m == image_nodata ||
                     f_y_p == image_nodata || f_y_m == image_nodata)
                 {
                     //no need to explicitly set to nodata, it is already in the background color
-                    //f_color = nodata;
+                    //a_output = nodata;
                     return;
                 }
 
-                f_color.x = (f_x_p - f_x_m) / 2.0f;
-                f_color.y = (f_y_p - f_y_m) / 2.0f;
-                f_color.z = 0.0f;
+                a_output.x = (f_x_p - f_x_m) / 2.0f;
+                a_output.y = (f_y_p - f_y_m) / 2.0f;
+                a_output.z = 0.0f;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
         view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        texture_loc = glGetUniformLocation(shader_program_, "texture");
-        texture_nodata_loc = glGetUniformLocation(shader_program_, "texture_nodata");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
     }
 
 private:
 };
 
-class JtraRendererGL : public BaseRendererGL<cpu::Vec2 /*InTexType*/, cpu::Vec3 /*OutTexType*/>
+class JtraRendererGL : public BaseRendererGL<cpu::Vec3 /*InTexType*/, cpu::Vec3 /*OutTexType*/>
 {
 public:
     JtraRendererGL() : BaseRendererGL()
@@ -397,11 +409,12 @@ public:
             flat out float fy;
 
             void main() {
-                f_ver = pose_matrix * vec4(a_position, 1.0);
-                gl_Position = view_matrix * f_ver;
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                gl_Position = view_matrix * ver;
 
-                fx = view_matrix(0, 0) / 2.0f;
-                fy = view_matrix(1, 1) / 2.0f;
+                f_ver = ver.xyz;
+                fx = view_matrix[0][0] / 2.0f;
+                fy = view_matrix[1][1] / 2.0f;
                 
                 // Pass texture coordinates to fragment shader
                 texcoord = a_texcoord;
@@ -410,25 +423,24 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out float f_color;
+            layout(location = 0) out vec3 a_output;
             
             in vec2 texcoord;
             in vec3 f_ver;
             flat in float fx;
             flat in float fy;
 
-            uniform sampler2D texture;
-            uniform float texture_nodata;
+            uniform sampler2D image;
+            uniform float image_nodata;
             void main()
             {
-                vec3 didxy = texture(texture, texcoord).xyz;
-                //f_color = 100.0;
+                vec3 didxy = texture(image, texcoord).xyz;
 
                 float v0 = didxy.x * fx / f_ver.z;
                 float v1 = didxy.y * fy / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
-                f_color = vec3f(v0, v1, v2);
+                a_output = vec3(v0, v1, v2);
                 //vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
             }
@@ -437,8 +449,78 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
         view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        texture_loc = glGetUniformLocation(shader_program_, "texture");
-        texture_nodata_loc = glGetUniformLocation(shader_program_, "texture_nodata");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+    }
+
+private:
+};
+
+class JrotRendererGL : public BaseRendererGL<cpu::Vec3 /*InTexType*/, cpu::Vec3 /*OutTexType*/>
+{
+public:
+    JrotRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 a_weight;
+            
+            uniform mat4 view_matrix;
+            uniform mat4 pose_matrix;
+
+            out vec2 texcoord;
+            out vec3 f_ver;
+            //flat out float fx;
+            //flat out float fy;
+
+            void main() {
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                gl_Position = view_matrix * ver;
+
+                f_ver = ver.xyz;
+                //fx = view_matrix[0][0] / 2.0f;
+                //fy = view_matrix[1][1] / 2.0f;
+                
+                // Pass texture coordinates to fragment shader
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out vec3 a_output;
+            
+            in vec2 texcoord;
+            in vec3 f_ver;
+            //flat in float fx;
+            //flat in float fy;
+
+            uniform sampler2D image;
+            uniform float image_nodata;
+
+            void main()
+            {
+                vec3 v = texture(image, texcoord).xyz;
+
+                //float v0 = didxy.x * fx / f_ver.z;
+                //float v1 = didxy.y * fy / f_ver.z;
+                //float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
+
+                //a_output = vec3f(v0, v1, v2);
+                a_output = vec3(-f_ver.z * v.y + f_ver.x * v.z, f_ver.z * v.x - f_ver.x * v.z, -f_ver.y * v.x + f_ver.x * v.y);
+
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
+        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
     }
 
 private:
@@ -469,7 +551,7 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out float output;
+            layout(location = 0) out float a_output;
             in vec2 texcoord;
 
             uniform sampler2D image;
@@ -477,15 +559,14 @@ public:
 
             void main()
             {
-                output = texture(image, texcoord).r;
-                //f_color = 100.0;
+                vec3 v = texture(image, texcoord).r;
 
                 float v0 = f_der.x * fx * id;
                 float v1 = f_der.y * fy * id;
                 float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
 
                 vec3f d_f_i_d_tra = vec3f(v0, v1, v2);
-                vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                vec3f d_f_i_d_rot(-f_ver(2) * v(1) + f_ver(1) * v(2), f_ver(2) * v(0) - f_ver(0) * v(2), -f_ver(1) * v(0) + f_ver(0) * v(1));
 
             }
             )Shader";
@@ -493,8 +574,9 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
         view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        texture_loc = glGetUniformLocation(shader_program_, "texture");
-        texture_nodata_loc = glGetUniformLocation(shader_program_, "texture_nodata");
+        image_loc_ = glGetUniformLocation(shader_program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
     }
 
 private:

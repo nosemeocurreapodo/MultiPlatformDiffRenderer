@@ -20,28 +20,63 @@ public:
     }
 
     TextureCPU(int width, int height, Type nodata_value)
-        : data_(width * height)
     {
         nodata_ = nodata_value;
-        width_ = width;
-        height_ = height;
-        // data_.fill(nodata_value);
+        // width_ = width;
+        // height_ = height;
+        //  data_.fill(nodata_value);
+
+        int lvl = 0;
+        while (true)
+        {
+            int width_lvl = int(width / std::pow(2, lvl));
+            int height_lvl = int(height / std::pow(2, lvl));
+
+            if (width_lvl == 0 || height_lvl == 0)
+                break;
+
+            width_.push_back(width_lvl);
+            height_.push_back(height_lvl);
+
+            BufferCPU<Type> data_lvl(width_lvl * height_lvl);
+            data_.push_back(data_lvl);
+            lvl++;
+        }
     }
 
     TextureCPU(int width, int height, Type nodata_value, Type *data)
-        : data_(width * height, data)
     {
         nodata_ = nodata_value;
-        width_ = width;
-        height_ = height;
+
+        BufferCPU<Type> d(width * height, data);
+        data_.push_back(d);
+        width_.push_back(width);
+        height_.push_back(height);
+
+        int lvl = 1;
+        while (true)
+        {
+            int width_lvl = int(width / std::pow(2, lvl));
+            int height_lvl = int(height / std::pow(2, lvl));
+
+            if (width_lvl == 0 || height_lvl == 0)
+                break;
+
+            width_.push_back(width_lvl);
+            height_.push_back(height_lvl);
+
+            BufferCPU<Type> data_lvl = GenerateMipmap(lvl);
+            data_.push_back(data_lvl);
+            lvl++;
+        }
     }
 
     TextureCPU(const TextureCPU &other)
-        : data_(other.data_)
     {
         nodata_ = other.nodata_;
         width_ = other.width_;
         height_ = other.height_;
+        data_ = other.data_;
     }
 
     TextureCPU &operator=(const TextureCPU &other)
@@ -56,14 +91,14 @@ public:
         return *this;
     }
 
-    void FromCPU(const Type *data)
+    void FromCPU(int lvl, const Type *data)
     {
-        data_.FromCPU(data);
+        data_[lvl].FromCPU(data);
     }
 
-    void ToCPU(Type *data) const
+    void ToCPU(int lvl, Type *data) const
     {
-        data_.ToCPU(data);
+        data_[lvl].ToCPU(data);
     }
 
     /*
@@ -78,17 +113,17 @@ public:
     }
     */
 
-    unsigned int width() const
+    unsigned int width(int lvl) const
     {
-        return width_;
+        return width_[lvl];
     }
-    unsigned int height() const
+    unsigned int height(int lvl) const
     {
-        return height_;
+        return height_[lvl];
     }
-    unsigned int size() const
+    unsigned int size(int lvl) const
     {
-        return width_ * height_;
+        return data_[lvl].size();
     }
 
     Type nodata() const
@@ -97,22 +132,22 @@ public:
     }
 
 protected:
-    void SetTexel(Type value, int y, int x)
+    void SetTexel(Type value, int y, int x, int lvl)
     {
-        assert(y >= 0 && x >= 0 && y < height_ && x < width_);
+        assert(y >= 0 && x >= 0 && y < height_[lvl] && x < width_[lvl] && lvl >= 0 && lvl < data_.size());
 
-        data_[x + y * width_] = value;
+        data_[lvl][x + y * width_[lvl]] = value;
     }
 
-    Type GetTexel(int y, int x) const
+    Type GetTexel(int y, int x, int lvl) const
     {
-        assert(y >= 0 && x >= 0 && y < height_ && x < width_);
+        assert(y >= 0 && x >= 0 && y < height_[lvl] && x < width_[lvl] && lvl >= 0 && lvl < data_.size());
 
         // int address = x + y * width_;
-        return data_[x + y * width_];
+        return data_[lvl][x + y * width_[lvl]];
     }
 
-    Type Get(float norm_y, float norm_x) const
+    Type Get(float norm_y, float norm_x, int lvl) const
     {
         float wrapped_y = norm_y;
         float wrapped_x = norm_x;
@@ -126,31 +161,34 @@ protected:
             wrapped_y = 1.0 - (wrapped_y - 1.0);
         if (wrapped_x > 1.0)
             wrapped_x = 1.0 - (wrapped_x - 1.0);
-        float x = wrapped_x * (width_ - 1);
-        float y = wrapped_y * (height_ - 1);
-        return Bilinear(y, x);
+        float x = wrapped_x * (width_[lvl] - 1);
+        float y = wrapped_y * (height_[lvl] - 1);
+        return Bilinear(y, x, lvl);
     }
 
-    void fill(const Type &value)
+    void fill(int lvl, const Type &value)
     {
-        data_.fill(value);
+        data_[lvl].fill(value);
     }
 
-    TextureCPU<Type> GenerateMipmap()
+    BufferCPU<Type> GenerateMipmap(int lvl)
     {
-        TextureCPU<Type> mipmap(width_ / 2, height_ / 2, nodata_);
+        int width_lvl = width_[lvl];
+        int height_lvl = height_[lvl];
 
-        for (int y = 0; y < height_ / 2; y++)
+        BufferCPU<Type> mipmap(width_lvl * height_lvl);
+
+        for (int y = 0; y < height_lvl; y++)
         {
-            for (int x = 0; x < width_ / 2; x++)
+            for (int x = 0; x < width_lvl; x++)
             {
-                Type pixel = Area(y * 2, x * 2);
-                mipmap.SetTexel(pixel, y, x);
+                Type pixel = Area(y * 2, x * 2, lvl - 1);
+                mipmap[x + y * width_lvl] = pixel;
             }
         }
         return mipmap;
     }
-
+    /*
     template <typename type2>
     TextureCPU<type2> Convert() const
     {
@@ -166,14 +204,16 @@ protected:
             }
         return result;
     }
+    */
 
-    Type Bilinear(float y, float x) const
+    Type Bilinear(float y, float x, int lvl) const
     {
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > height_ - 2 || x > width_ - 2)
-            return GetTexel(int(y), int(x));
+        if (y > height_[lvl] - 2 ||
+            x > width_[lvl] - 2)
+            return GetTexel(int(y), int(x), lvl);
 
         float _x = floor(x);
         float _y = floor(y);
@@ -188,10 +228,10 @@ protected:
         int i_x = int(_x);
         int i_y = int(_y);
 
-        Type tl = GetTexel(_y, _x);
-        Type tr = GetTexel(_y, _x + 1);
-        Type bl = GetTexel(_y + 1, _x);
-        Type br = GetTexel(_y + 1, _x + 1);
+        Type tl = GetTexel(_y, _x, lvl);
+        Type tr = GetTexel(_y, _x + 1, lvl);
+        Type bl = GetTexel(_y + 1, _x, lvl);
+        Type br = GetTexel(_y + 1, _x + 1, lvl);
 
         if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
             return nodata_;
@@ -204,18 +244,18 @@ protected:
         return pix;
     }
 
-    Type Area(int y, int x) const
+    Type Area(int y, int x, int lvl) const
     {
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > height_ - 2 || x > width_ - 2)
+        if (y > height_[lvl] - 2 || x > width_[lvl] - 2)
             return GetTexel(y, x);
 
-        Type tl = GetTexel(y, x);
-        Type tr = GetTexel(y, x + 1);
-        Type bl = GetTexel(y + 1, x);
-        Type br = GetTexel(y + 1, x + 1);
+        Type tl = GetTexel(y, x, lvl);
+        Type tr = GetTexel(y, x + 1, lvl);
+        Type bl = GetTexel(y + 1, x, lvl);
+        Type br = GetTexel(y + 1, x + 1, lvl);
 
         if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
             return nodata_;
@@ -225,102 +265,8 @@ protected:
         return pix;
     }
 
-    BufferCPU<Type> data_;
-
-    unsigned int width_;
-    unsigned int height_;
+    std::vector<BufferCPU<Type>> data_;
+    std::vector<unsigned int> width_;
+    std::vector<unsigned int> height_;
     Type nodata_;
-};
-
-template <typename Type>
-class TextureMipMapCPU
-{
-public:
-    TextureMipMapCPU()
-    {
-    }
-
-    TextureMipMapCPU(int _width, int _height, Type _nodata_value)
-    {
-        int width = _width;
-        int height = _height;
-        nodata_ = _nodata_value;
-
-        while (true)
-        {
-            TextureCPU<Type> lvlData(width, height, nodata_);
-            data_.push_back(lvlData);
-
-            width = int(width / 2);
-            height = int(height / 2);
-
-            if (width <= 1 || height <= 1)
-                break;
-        }
-    }
-
-    TextureMipMapCPU(const TextureCPU<Type> image)
-    {
-        TextureCPU<Type> imageLoD = image;
-        nodata_ = image.nodata_;
-
-        while (true)
-        {
-            data_.push_back(imageLoD);
-            imageLoD = imageLoD.generateMipmap();
-
-            if (imageLoD.width_ <= 1 || imageLoD.height_ <= 1)
-                break;
-        }
-    }
-
-    TextureMipMapCPU(const TextureMipMapCPU &other)
-    {
-        nodata_ = other.nodata_;
-        for (size_t lvl = 0; lvl < other.data_.size(); lvl++)
-        {
-            data_.push_back(other.data_[lvl]);
-        }
-    }
-
-    TextureMipMapCPU &operator=(const TextureMipMapCPU &other)
-    {
-        if (this != &other)
-        {
-            nodata_ = other.nodata_;
-            data_.clear();
-
-            for (size_t lvl = 0; lvl < other.data_.size(); lvl++)
-            {
-                data_.push_back(other.data_[lvl]);
-            }
-        }
-        return *this;
-    }
-
-    /*
-    void SetToNoData(int lvl)
-    {
-        data_[lvl].set(nodata_);
-    }
-    */
-
-    void GenerateMipmaps(int baselvl = 0)
-    {
-        for (size_t lvl = baselvl + 1; lvl < data_.size(); lvl++)
-        {
-            TextureCPU<Type> d = data_[lvl - 1].generateMipmap();
-            data_[lvl] = d;
-        }
-    }
-
-    int GetLvls()
-    {
-        return data_.size();
-    }
-
-    Type nodata_;
-
-private:
-    std::vector<TextureCPU<Type>> data_;
 };

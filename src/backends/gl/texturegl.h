@@ -31,6 +31,7 @@ public:
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, type, nullptr);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
         nodata_ = nodata_value;
         width_ = width;
@@ -55,6 +56,7 @@ public:
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, type, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
         nodata_ = nodata_value;
         width_ = width;
@@ -85,7 +87,7 @@ public:
     }
     */
 
-    void FromCPU(const Type *data)
+    void FromCPU(int lvl, const Type *data)
     {
         int channels = cpu::getChannels<Type>();
 
@@ -94,10 +96,18 @@ public:
         GLenum type = GetGLType(GetTypeIndex<Type>());
 
         glBindTexture(GL_TEXTURE_2D, tex_);
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, static_cast<GLsizei>(width_), static_cast<GLsizei>(height_), 0, format, type, data);
+        glTexImage2D(GL_TEXTURE_2D,
+                     lvl,
+                     internal_format,
+                     static_cast<GLsizei>(width_ / std::pow(2, lvl)),
+                     static_cast<GLsizei>(height_ / std::pow(2, lvl)),
+                     0,
+                     format,
+                     type,
+                     data);
     }
 
-    void ToCPU(Type *data) const
+    void ToCPU(int lvl, Type *data) const
     {
         // data_.ToCPU(data);
 
@@ -107,20 +117,20 @@ public:
         GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);
-        glGetTexImage(GL_TEXTURE_2D, 0, format, type, data);
+        glGetTexImage(GL_TEXTURE_2D, lvl, format, type, data);
     }
 
-    unsigned int width() const
+    unsigned int width(int lvl) const
     {
-        return width_;
+        return int(width_ / std::pow(2, lvl));
     }
-    unsigned int height() const
+    unsigned int height(int lvl) const
     {
-        return height_;
+        return int(height_ / std::pow(2, lvl));
     }
-    unsigned int size() const
+    unsigned int size(int lvl) const
     {
-        return width_ * height_;
+        return int(width_ * height_ / std::pow(2, 2 * lvl));
     }
 
     Type nodata() const
