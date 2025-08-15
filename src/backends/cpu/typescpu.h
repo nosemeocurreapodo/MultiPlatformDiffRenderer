@@ -14,6 +14,7 @@
 namespace cpu
 {
     using Scalar = float;
+    using Int = int;
 
     template <typename Type, int rows>
     using Vec = Eigen::Matrix<Type, rows, 1>;
@@ -25,10 +26,10 @@ namespace cpu
     using Vec6 = Eigen::Matrix<Scalar, 6, 1>;
     using Vecx = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 
-    using Vec2i = Eigen::Matrix<int, 2, 1>;
-    using Vec3i = Eigen::Matrix<int, 3, 1>;
-    using Vec4i = Eigen::Matrix<int, 4, 1>;
-    using Vecxi = Eigen::Matrix<int, Eigen::Dynamic, 1>;
+    using Vec2i = Eigen::Matrix<Int, 2, 1>;
+    using Vec3i = Eigen::Matrix<Int, 3, 1>;
+    using Vec4i = Eigen::Matrix<Int, 4, 1>;
+    using Vecxi = Eigen::Matrix<Int, Eigen::Dynamic, 1>;
 
     template <typename type, int rows, int cols>
     using Mat = Eigen::Matrix<type, rows, cols>;
@@ -72,7 +73,8 @@ namespace cpu
         }
         else
         {
-            // static_assert(false, "Unsupported type for getChannels");
+            //static_assert(false, "Unsupported type for getChannels");
+            //assert(false);
             return 0; // Unreachable
         }
     }

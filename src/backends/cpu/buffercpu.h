@@ -70,7 +70,7 @@ public:
     {
         return data_[index];
     }
-
+    /*
     const Type *get() const
     {
         return data_.get();
@@ -80,7 +80,7 @@ public:
     {
         return data_.get();
     }
-
+    */
     unsigned int size() const
     {
         return size_;
@@ -91,12 +91,11 @@ unsigned int size() const override
 {
     return size_;
 }
-
-void fill(const Type &value) override
-{
-    std::fill_n(data_.get(), size_, value);
-}
 */
+    void fill(const Type &value)
+    {
+        std::fill_n(data_.get(), size_, value);
+    }
 
 private:
     std::unique_ptr<Type[]> data_;

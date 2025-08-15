@@ -9,6 +9,8 @@ class TextureCPU
     friend class BaseRendererCPU;
     friend class ImageRendererCPU;
     friend class DIDxyRendererCPU;
+    friend class JtraRendererCPU;
+    friend class JrotRendererCPU;
     friend class JPoseRendererCPU;
 
 public:
@@ -18,7 +20,7 @@ public:
     }
 
     TextureCPU(int width, int height, Type nodata_value)
-        : data_(width * height, nodata_value)
+        : data_(width * height)
     {
         nodata_ = nodata_value;
         width_ = width;
@@ -64,6 +66,7 @@ public:
         data_.ToCPU(data);
     }
 
+    /*
     const Type *get() const
     {
         return data_.get();
@@ -73,6 +76,7 @@ public:
     {
         return data_.get();
     }
+    */
 
     unsigned int width() const
     {
@@ -125,6 +129,11 @@ protected:
         float x = wrapped_x * (width_ - 1);
         float y = wrapped_y * (height_ - 1);
         return Bilinear(y, x);
+    }
+
+    void fill(const Type &value)
+    {
+        data_.fill(value);
     }
 
     TextureCPU<Type> GenerateMipmap()

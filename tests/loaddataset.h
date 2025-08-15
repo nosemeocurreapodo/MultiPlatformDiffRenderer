@@ -136,13 +136,13 @@ inline double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_g
     {
         for (int x = 0; x < image_est.cols; x++)
         {
-            Type est = image_est.at<Type>(y, x);
-            Type gt = image_gt.at<Type>(y, x);
+            double est = double(image_est.at<Type>(y, x));
+            double gt = double(image_gt.at<Type>(y, x));
 
             if (est == nodata_value || gt == nodata_value)
                 continue;
 
-            error += (est - gt) * (est - gt);
+            error += std::fabs(est - gt); // * (est - gt);
             count += 1;
         }
     }

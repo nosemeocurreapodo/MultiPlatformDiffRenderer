@@ -98,7 +98,7 @@ TEST_F(DataLoader, TestDepthRendererCPU)
     TextureCPU<float> depth(w, h, -1);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
-    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0);
+    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, depth, 0, 0);
 
     cv::Mat output_depthCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<float>(), 1));
 
@@ -166,7 +166,7 @@ TEST_F(DataLoader, TestImageRendererCPU)
     TextureCPU<cpu::ImageType> output(w, h, -1);
     image.FromCPU((cpu::ImageType *)image_src_CV.data);
 
-    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, output, 0);
+    renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, image, output, 0, 0);
 
     cv::Mat output_imageCV = cv::Mat(h, w, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
 
@@ -237,7 +237,7 @@ TEST_F(DataLoader, TestDIDxyRendererCPU)
 
     TextureCPU<cpu::Vec2> didxy(w, h, cpu::Vec2(0, 0));
 
-    didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0);
+    didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0, 0);
 
     std::vector<cpu::Vec2> output_data;
     output_data.resize(w * h);
@@ -320,11 +320,11 @@ TEST_F(DataLoader, TestJPoseRendererCPU)
 
     TextureCPU<cpu::Vec2> didxy(w, h, cpu::Vec2(0, 0));
 
-    didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0);
+    didxy_renderer.Render(mesh, cpu::SE3(), cam, image, didxy, 0, 0);
 
     TextureCPU<cpu::Vec6> jpose(w, h, cpu::Vec6(-1, -1, -1, -1, -1, -1));
 
-    jpose_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, didxy, jpose, 0);
+    jpose_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, didxy, jpose, 0, 0);
 
     std::vector<cpu::Vec6> output_data;
     output_data.resize(w * h);

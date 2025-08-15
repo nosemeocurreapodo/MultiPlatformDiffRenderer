@@ -162,16 +162,26 @@ public:
                 const cpu::Camera &cam,
                 const TextureCPU<InTexType> &in_texture,
                 TextureCPU<OutTexType> &out_texture,
-                int lvl)
+                int in_lvl,
+                int out_lvl)
     {
-        pose_ = pose;
-        cam_ = cam;
+        in_nodata_ = in_texture.nodata();
+
+        // out_texture.fill(out_texture.nodata());
+        for (int i = 0; i < out_texture.size(); ++i)
+        {
+            out_texture.data_[i] = out_texture.nodata();
+        }
 
         cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl * pose.matrix();
+        cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
+        cpu::Mat4 pose_matrix = pose.matrix();
+
+        fx = cam.GetParams()(0);
+        fy = cam.GetParams()(1);
 
         cpu::BoundingBoxType<int> viewport(0, out_texture.width() - 1, 0, out_texture.height() - 1);
 
@@ -217,7 +227,7 @@ public:
             w[2] = mesh.GetWeiBuffer()[i2];
 
             // Draw the triangle
-            draw_triangle(p, t, w, view_matrix, viewport, in_texture, out_texture);
+            draw_triangle(p, t, w, view_matrix, pose_matrix, viewport, in_texture, out_texture);
         }
     }
 
@@ -249,7 +259,8 @@ protected:
     virtual void vertex_shader(const cpu::Vec3 &inVertex,
                                const cpu::Vec2 &inTexCoord,
                                const float &inWeight,
-                               const cpu::Mat4 &tm,
+                               const cpu::Mat4 &view_matrix,
+                               const cpu::Mat4 &pose_matrix,
                                cpu::Vec4 &gl_Position,
                                VaryingType &outVarying) = 0;
 
@@ -264,7 +275,8 @@ protected:
     void draw_triangle(const cpu::Vec3 *verts,
                        const cpu::Vec2 *texcoords,
                        const float *weights,
-                       const cpu::Mat4 &tm,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
                        const cpu::BoundingBoxType<int> &viewport,
                        const TextureCPU<InTexType> &in_texture,
                        TextureCPU<OutTexType> &out_texture)
@@ -275,7 +287,7 @@ protected:
 
         for (int i = 0; i < 3; ++i)
         {
-            vertex_shader(verts[i], texcoords[i], weights[i], tm, gl_Position[i], perVertex[i]);
+            vertex_shader(verts[i], texcoords[i], weights[i], view_matrix, pose_matrix, gl_Position[i], perVertex[i]);
 
             // Perspective divide
             float invW = 1.0f / gl_Position[i](3);
@@ -370,7 +382,7 @@ protected:
                                       perspective(2) * perVertex[2];
 
                 // Run fragment shader
-                OutTexType outColor;
+                OutTexType outColor = out_texture.nodata();
                 fragment_shader(gl_FragCoord, varying, in_texture, outColor);
 
                 out_texture.SetTexel(outColor, py, px);
@@ -380,8 +392,9 @@ protected:
         }
     }
 
-    cpu::SE3 pose_;
-    cpu::Camera cam_;
+    InTexType in_nodata_;
+    float fx;
+    float fy;
 };
 
 // -----------------------------------------------------------------------------
@@ -401,11 +414,12 @@ public:
     void vertex_shader(const cpu::Vec3 &inVertex,
                        const cpu::Vec2 &inTexCoord,
                        const float &inWeight,
-                       const cpu::Mat4 &tm,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
                        cpu::Vec4 &gl_Position,
                        float &outVarying) override
     {
-        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = (view_matrix * pose_matrix) * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // No attributes in outVarying, so do nothing with it
         outVarying = inVertex(2); // example: store Z in outVarying
     }
@@ -439,11 +453,12 @@ public:
     void vertex_shader(const cpu::Vec3 &inVertex,
                        const cpu::Vec2 &inTexCoord,
                        const float &inWeight,
-                       const cpu::Mat4 &tm,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
                        cpu::Vec4 &gl_Position,
                        cpu::Vec2 &outVarying) override
     {
-        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = (view_matrix * pose_matrix) * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // We are using a "float" for VaryingType, so you can store something if needed
         outVarying = inTexCoord; // placeholder
     }
@@ -467,7 +482,7 @@ public:
 };
 
 class DIDxyRendererCPU
-    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, cpu::Vec2 /*VaryingType*/, cpu::Vec2 /*OutTexType*/>
+    : public BaseRendererCPU<cpu::ImageType /*InTexType*/, cpu::Vec2 /*VaryingType*/, cpu::Vec3 /*OutTexType*/>
 {
 public:
     DIDxyRendererCPU() = default;
@@ -479,45 +494,175 @@ public:
     void vertex_shader(const cpu::Vec3 &inVertex,
                        const cpu::Vec2 &inTexCoord,
                        const float &inWeight,
-                       const cpu::Mat4 &tm,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
                        cpu::Vec4 &gl_Position,
                        cpu::Vec2 &outVarying) override
     {
-        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying(0) = inTexCoord(0);
-        outVarying(1) = inTexCoord(1);
+        gl_Position = (view_matrix * pose_matrix) * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        outVarying = inTexCoord;
     }
 
     void fragment_shader(const cpu::Vec4 &gl_FragCoord,
                          const cpu::Vec2 &inVarying,
                          const TextureCPU<cpu::ImageType> &inTexture,
-                         cpu::Vec2 &outFragment) override
+                         cpu::Vec3 &outFragment) override
     {
         // outFragment = inVarying;
 
-        int x = int(inVarying(0) * inTexture.width());
-        int y = int(inVarying(1) * inTexture.height());
+        int height = inTexture.height();
+        int width = inTexture.width();
+        cpu::ImageType nodata = inTexture.nodata();
+
+        int x = int(inVarying(0) * (width - 1));
+        int y = int(inVarying(1) * (height - 1));
         int x_p = x + 1;
         int x_m = x - 1;
         int y_p = y + 1;
         int y_m = y - 1;
 
-        if (x_p >= inTexture.width() || x_m < 0 || y_p >= inTexture.height() || y_m < 0)
+        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0)
         {
-            outFragment(0) = 0.0f;
-            outFragment(1) = 0.0f;
+            // No need to explicitly set to nodata, it is already in the background color
+            // outFragment(0) = 0.0f;
+            // outFragment(1) = 0.0f;
+            // outFragment(2) = 0.0f;
+            return;
         }
-        else
+
+        float f_y_p = inTexture.GetTexel(y_p, x);
+        float f_y_m = inTexture.GetTexel(y_m, x);
+        float f_x_p = inTexture.GetTexel(y, x_p);
+        float f_x_m = inTexture.GetTexel(y, x_m);
+
+        if (f_x_p == nodata || f_x_m == nodata ||
+            f_y_p == nodata || f_y_m == nodata)
         {
-
-            float f_y_p = float(inTexture.GetTexel(y_p, x));
-            float f_y_m = float(inTexture.GetTexel(y_m, x));
-            float f_x_p = float(inTexture.GetTexel(y, x_p));
-            float f_x_m = float(inTexture.GetTexel(y, x_m));
-
-            outFragment(0) = (f_x_p - f_x_m) / 2.0f;
-            outFragment(1) = (f_y_p - f_y_m) / 2.0f;
+            // No need to explicitly set to nodata, it is already in the background color
+            // outFragment(0) = 0.0f;
+            // outFragment(1) = 0.0f;
+            // outFragment(2) = 0.0f;
+            return;
         }
+
+        outFragment(0) = (f_x_p - f_x_m) / 2.0f;
+        outFragment(1) = (f_y_p - f_y_m) / 2.0f;
+        outFragment(2) = 0.0f;
+    }
+};
+
+class JtraRendererCPU
+    : public BaseRendererCPU<cpu::Vec3 /*InTexType*/, cpu::Vec5 /*VaryingType*/, cpu::Vec3 /*OutTexType*/>
+{
+public:
+    JtraRendererCPU() = default;
+    ~JtraRendererCPU() override = default;
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
+                       cpu::Vec4 &gl_Position,
+                       cpu::Vec5 &outVarying) override
+    {
+        cpu::Vec4 f_ver = pose_matrix * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = view_matrix * f_ver;
+
+        outVarying(0) = f_ver(0);
+        outVarying(1) = f_ver(1);
+        outVarying(2) = f_ver(2);
+        outVarying(3) = inTexCoord(0);
+        outVarying(4) = inTexCoord(1);
+    }
+
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec5 &inVarying,
+                         const TextureCPU<cpu::Vec3> &inTexture,
+                         cpu::Vec3 &outFragment) override
+    {
+        // outFragment = inVarying;
+
+        cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
+        cpu::Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3));
+
+        float v0 = f_der(0) * fx / f_ver(2);
+        float v1 = f_der(1) * fy / f_ver(2);
+        float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);
+        // cpu::Vec3 d_f_i_d_rot = cpu::Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        outFragment(0) = d_f_i_d_tra(0);
+        outFragment(1) = d_f_i_d_tra(1);
+        outFragment(2) = d_f_i_d_tra(2);
+        // outFragment(3) = d_f_i_d_rot(0);
+        // outFragment(4) = d_f_i_d_rot(1);
+        // outFragment(5) = d_f_i_d_rot(2);
+    }
+};
+
+class JrotRendererCPU
+    : public BaseRendererCPU<cpu::Vec3 /*InTexType*/, cpu::Vec5 /*VaryingType*/, cpu::Vec3 /*OutTexType*/>
+{
+public:
+    JrotRendererCPU() = default;
+    ~JrotRendererCPU() override = default;
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const cpu::Vec3 &inVertex,
+                       const cpu::Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const cpu::Mat4 &view_matrix,
+                       const cpu::Mat4 &pose_matrix,
+                       cpu::Vec4 &gl_Position,
+                       cpu::Vec5 &outVarying) override
+    {
+        cpu::Vec4 f_ver = pose_matrix * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = view_matrix * f_ver;
+
+        outVarying(0) = f_ver(0);
+        outVarying(1) = f_ver(1);
+        outVarying(2) = f_ver(2);
+        outVarying(3) = inTexCoord(0);
+        outVarying(4) = inTexCoord(1);
+    }
+
+    void fragment_shader(const cpu::Vec4 &gl_FragCoord,
+                         const cpu::Vec5 &inVarying,
+                         const TextureCPU<cpu::Vec3> &inTexture,
+                         cpu::Vec3 &outFragment) override
+    {
+        // outFragment = inVarying;
+
+        cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
+        // cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
+
+        cpu::Vec3 v = inTexture.Get(inVarying(4), inVarying(3));
+
+        // float fx = cam_.GetParams()(0);
+        // float fy = cam_.GetParams()(1);
+
+        // float v0 = f_der(0) * fx * inTexture.width() / f_ver(2);
+        // float v1 = f_der(1) * fy * inTexture.height() / f_ver(2);
+        // float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        // cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);
+        cpu::Vec3 d_f_i_d_rot = cpu::Vec3(-f_ver(2) * v(1) + f_ver(1) * v(2),
+                                          f_ver(2) * v(0) - f_ver(0) * v(2),
+                                          -f_ver(1) * v(0) + f_ver(0) * v(1));
+
+        // outFragment(0) = d_f_i_d_tra(0);
+        // outFragment(1) = d_f_i_d_tra(1);
+        // outFragment(2) = d_f_i_d_tra(2);
+        outFragment(0) = d_f_i_d_rot(0);
+        outFragment(1) = d_f_i_d_rot(1);
+        outFragment(2) = d_f_i_d_rot(2);
     }
 };
 
@@ -534,12 +679,14 @@ public:
     void vertex_shader(const cpu::Vec3 &inVertex,
                        const cpu::Vec2 &inTexCoord,
                        const float &inWeight,
-                       const cpu::Mat4 &tm,
+                       const cpu::Mat4 &view_matrix,
+                          const cpu::Mat4 &pose_matrix,
                        cpu::Vec4 &gl_Position,
                        cpu::Vec5 &outVarying) override
     {
-        gl_Position = tm * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        cpu::Vec3 f_ver = pose_ * inVertex;
+        cpu::Vec4 f_ver = pose_matrix * cpu::Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = view_matrix * f_ver;
+        
         outVarying(0) = f_ver(0);
         outVarying(1) = f_ver(1);
         outVarying(2) = f_ver(2);
@@ -556,9 +703,6 @@ public:
 
         cpu::Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         cpu::Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
-
-        float fx = cam_.GetParams()(0);
-        float fy = cam_.GetParams()(1);
 
         float v0 = f_der(0) * fx * inTexture.width() / f_ver(2);
         float v1 = f_der(1) * fy * inTexture.height() / f_ver(2);

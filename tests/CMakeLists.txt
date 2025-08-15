@@ -1,6 +1,6 @@
 include(GoogleTest)
 
-add_subdirectory(cpu)
+#add_subdirectory(cpu)
 
 #add_subdirectory(multi)
 

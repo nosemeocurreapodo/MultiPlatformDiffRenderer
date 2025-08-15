@@ -210,11 +210,13 @@ inline GLint GetGLInternalFormat(std::type_index tindex)
     // static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
     static std::map<std::type_index, GLint> internal_format_map;
     internal_format_map[GetTypeIndex<float>()] = GL_R32F;
+    internal_format_map[GetTypeIndex<cpu::ImageType>()] = GL_R32F;
+    internal_format_map[GetTypeIndex<cpu::Scalar>()] = GL_R32F;
     internal_format_map[GetTypeIndex<cpu::Vec2>()] = GL_RG32F;
     internal_format_map[GetTypeIndex<cpu::Vec3>()] = GL_RGB32F;
     internal_format_map[GetTypeIndex<cpu::Vec4>()] = GL_RGBA32F;
 
-    internal_format_map[GetTypeIndex<int>()] = GL_R32I;
+    internal_format_map[GetTypeIndex<cpu::Int>()] = GL_R32I;
     internal_format_map[GetTypeIndex<cpu::Vec2i>()] = GL_RG32I;
     internal_format_map[GetTypeIndex<cpu::Vec3i>()] = GL_RGB32I;
     internal_format_map[GetTypeIndex<cpu::Vec4i>()] = GL_RGBA32I;
@@ -243,10 +245,12 @@ inline GLenum GetGLType(std::type_index tindex)
 {
     static std::map<std::type_index, GLenum> type_map;
     type_map[GetTypeIndex<float>()] = GL_FLOAT;
+    type_map[GetTypeIndex<cpu::ImageType>()] = GL_FLOAT;
+    type_map[GetTypeIndex<cpu::Scalar>()] = GL_FLOAT;
     type_map[GetTypeIndex<cpu::Vec2>()] = GL_FLOAT;
     type_map[GetTypeIndex<cpu::Vec3>()] = GL_FLOAT;
     type_map[GetTypeIndex<cpu::Vec4>()] = GL_FLOAT;
-    type_map[GetTypeIndex<int>()] = GL_INT;
+    type_map[GetTypeIndex<cpu::Int>()] = GL_INT;
     type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
     type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
     type_map[GetTypeIndex<cpu::Vec2i>()] = GL_INT;
