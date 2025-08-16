@@ -26,8 +26,6 @@ public:
                 int in_lvl,
                 int out_lvl)
     {
-        pose_ = pose;
-        cam_ = cam;
         in_nodata_ = texture_in.nodata();
         out_nodata_ = texture_out.nodata();
         int in_channels = cpu::getChannels<InTexType>();
@@ -56,7 +54,7 @@ public:
         }
 
         glDisable(GL_CULL_FACE);
-        glViewport(0, 0, int(texture_out.width_ / std::pow(2, out_lvl)), int(texture_out.height_ / std::pow(2, out_lvl)));
+        glViewport(0, 0, texture_out.width(out_lvl), texture_out.height(out_lvl));
 
         /*
         if (out_channels == 1)
@@ -210,8 +208,8 @@ protected:
     GLuint image_nodata_loc_;
     GLuint image_lvl_loc_;
 
-    cpu::SE3 pose_;
-    cpu::Camera cam_;
+    // cpu::SE3 pose_;
+    // cpu::Camera cam_;
     InTexType in_nodata_;
     OutTexType out_nodata_;
 };
@@ -258,6 +256,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -296,7 +296,7 @@ public:
 
             void main()
             {
-                a_output = texture(image, texcoord).r;
+                a_output = textureLod(image, texcoord, image_lvl).r;
             }
             )Shader";
 
@@ -306,6 +306,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -384,6 +386,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -405,16 +409,16 @@ public:
 
             out vec2 texcoord;
             out vec3 f_ver;
-            flat out float fx;
-            flat out float fy;
+            //flat out float fx;
+            //flat out float fy;
 
             void main() {
                 vec4 ver = pose_matrix * vec4(a_position, 1.0);
                 gl_Position = view_matrix * ver;
 
                 f_ver = ver.xyz;
-                fx = view_matrix[0][0] / 2.0f;
-                fy = view_matrix[1][1] / 2.0f;
+                //fx = view_matrix[0][0] / 2.0f;
+                //fy = view_matrix[1][1] / 2.0f;
                 
                 // Pass texture coordinates to fragment shader
                 texcoord = a_texcoord;
@@ -427,17 +431,29 @@ public:
             
             in vec2 texcoord;
             in vec3 f_ver;
-            flat in float fx;
-            flat in float fy;
+            //flat in float fx;
+            //flat in float fy;
 
             uniform sampler2D image;
-            uniform float image_nodata;
+            uniform vec3 image_nodata;
+            uniform int image_lvl;
+
+            uniform float fx;
+            uniform float fy;
+
             void main()
             {
-                vec3 didxy = texture(image, texcoord).xyz;
+                ivec2 tex_size = textureSize(image, image_lvl);
 
-                float v0 = didxy.x * fx / f_ver.z;
-                float v1 = didxy.y * fy / f_ver.z;
+                //vec3 didxy = texture(image, texcoord).xyz;
+                vec3 didxy = textureLod(image, texcoord, image_lvl).xyz;
+                //vec3 didxy = vec3(image_lvl, image_lvl, image_lvl);
+
+                if(didxy == image_nodata)
+                    return;
+
+                float v0 = didxy.x * fx * tex_size.x / f_ver.z;
+                float v1 = didxy.y * fy * tex_size.y / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 a_output = vec3(v0, v1, v2);
@@ -452,6 +468,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -499,11 +517,16 @@ public:
             //flat in float fy;
 
             uniform sampler2D image;
-            uniform float image_nodata;
+            uniform vec3 image_nodata;
+            uniform int image_lvl;
 
             void main()
             {
-                vec3 v = texture(image, texcoord).xyz;
+                //vec3 v = texture(image, texcoord).xyz;
+                vec3 v = textureLod(image, texcoord, image_lvl).xyz;
+
+                if(v == image_nodata)
+                    return;
 
                 //float v0 = didxy.x * fx / f_ver.z;
                 //float v1 = didxy.y * fy / f_ver.z;
@@ -521,6 +544,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -577,6 +602,8 @@ public:
         image_loc_ = glGetUniformLocation(shader_program_, "image");
         image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
         image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
+        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
+        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:

@@ -608,8 +608,8 @@ public:
         if (f_der == nodata)
             return;
 
-        float v0 = f_der(0) * fx / f_ver(2);
-        float v1 = f_der(1) * fy / f_ver(2);
+        float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
+        float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         cpu::Vec3 d_f_i_d_tra = cpu::Vec3(v0, v1, v2);

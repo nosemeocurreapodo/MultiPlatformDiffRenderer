@@ -99,12 +99,14 @@ public:
         glTexImage2D(GL_TEXTURE_2D,
                      lvl,
                      internal_format,
-                     static_cast<GLsizei>(width_ / std::pow(2, lvl)),
-                     static_cast<GLsizei>(height_ / std::pow(2, lvl)),
+                     static_cast<GLsizei>(width(lvl)),
+                     static_cast<GLsizei>(height(lvl)),
                      0,
                      format,
                      type,
                      data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
 
     void ToCPU(int lvl, Type *data) const

@@ -94,6 +94,11 @@ public:
     void FromCPU(int lvl, const Type *data)
     {
         data_[lvl].FromCPU(data);
+
+        for(int lod_lvl = lvl + 1; lod_lvl < data_.size(); lod_lvl++)
+        {
+            data_[lod_lvl] = GenerateMipmap(lod_lvl);
+        }
     }
 
     void ToCPU(int lvl, Type *data) const
@@ -250,7 +255,7 @@ protected:
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
         if (y > height_[lvl] - 2 || x > width_[lvl] - 2)
-            return GetTexel(y, x);
+            return GetTexel(y, x, lvl);
 
         Type tl = GetTexel(y, x, lvl);
         Type tr = GetTexel(y, x + 1, lvl);

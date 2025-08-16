@@ -146,14 +146,12 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
     int in_lvl = 1;
     int out_lvl = 1;
 
-    int in_w = w / std::pow(2, in_lvl);
-    int in_h = h / std::pow(2, in_lvl);
     int out_w = w / std::pow(2, out_lvl);
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(in_w, in_h, 0);
-    TextureCPU<float> depth_cpu(out_w, out_h, 0);
+    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
+    TextureCPU<float> depth_cpu(w, h, 0);
     input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
 
     DepthRendererCPU renderer_cpu;
@@ -164,8 +162,8 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
     // float cpu_error = ComputeImageError<float>(depth_dst_CV, output_cpu_CV, depth_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(in_w, in_h, 0);
-    TextureGL<float> depth_gl(in_w, in_h, 0);
+    TextureGL<cpu::ImageType> input_gl(w, h, 0);
+    TextureGL<float> depth_gl(w, h, 0);
     input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
 
     DepthRendererGL renderer_gl;
@@ -194,11 +192,9 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
 
 TEST_F(DataLoaderOneFrame, TestImageRenderer)
 {
-    int in_lvl = 0;
+    int in_lvl = 1;
     int out_lvl = 1;
 
-    int in_w = w / std::pow(2, in_lvl);
-    int in_h = h / std::pow(2, in_lvl);
     int out_w = w / std::pow(2, out_lvl);
     int out_h = h / std::pow(2, out_lvl);
 
@@ -241,11 +237,9 @@ TEST_F(DataLoaderOneFrame, TestImageRenderer)
 
 TEST_F(DataLoaderOneFrame, TestDIDxyRenderer)
 {
-    int in_lvl = 0;
+    int in_lvl = 1;
     int out_lvl = 1;
 
-    int in_w = w / std::pow(2, in_lvl);
-    int in_h = h / std::pow(2, in_lvl);
     int out_w = w / std::pow(2, out_lvl);
     int out_h = h / std::pow(2, out_lvl);
 
@@ -264,7 +258,7 @@ TEST_F(DataLoaderOneFrame, TestDIDxyRenderer)
     TextureGL<cpu::Vec3> output_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
     input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
     DIDxyRendererGL renderer_gl;
-    renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, output_gl, 0, 0);
+    renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, output_gl, in_lvl, out_lvl);
     cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
     output_gl.ToCPU(out_lvl, (cpu::Vec3 *)output_gl_CV.data);
     // float gl_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
@@ -288,11 +282,9 @@ TEST_F(DataLoaderOneFrame, TestDIDxyRenderer)
 
 TEST_F(DataLoaderOneFrame, TestJtraRenderer)
 {
-    int in_lvl = 0;
+    int in_lvl = 1;
     int out_lvl = 1;
 
-    int in_w = w / std::pow(2, in_lvl);
-    int in_h = h / std::pow(2, in_lvl);
     int out_w = w / std::pow(2, out_lvl);
     int out_h = h / std::pow(2, out_lvl);
 
@@ -306,7 +298,7 @@ TEST_F(DataLoaderOneFrame, TestJtraRenderer)
     JtraRendererCPU jtra_renderer_cpu;
 
     didxy_renderer_cpu.Render(mesh_cpu, cpu::SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
-    jtra_renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, in_lvl, out_lvl);
+    jtra_renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, out_lvl, out_lvl);
 
     cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
     jtra_cpu.ToCPU(out_lvl, (cpu::Vec3 *)output_cpu_CV.data);
@@ -322,7 +314,7 @@ TEST_F(DataLoaderOneFrame, TestJtraRenderer)
     JtraRendererGL jtra_renderer_gl;
 
     didxy_renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, didxy_gl, in_lvl, out_lvl);
-    jtra_renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, in_lvl, out_lvl);
+    jtra_renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, out_lvl, out_lvl);
 
     cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
     jtra_gl.ToCPU(out_lvl, (cpu::Vec3 *)output_gl_CV.data);
@@ -347,11 +339,9 @@ TEST_F(DataLoaderOneFrame, TestJtraRenderer)
 
 TEST_F(DataLoaderOneFrame, TestJrotRenderer)
 {
-    int in_lvl = 0;
+    int in_lvl = 1;
     int out_lvl = 1;
 
-    int in_w = w / std::pow(2, in_lvl);
-    int in_h = h / std::pow(2, in_lvl);
     int out_w = w / std::pow(2, out_lvl);
     int out_h = h / std::pow(2, out_lvl);
 
