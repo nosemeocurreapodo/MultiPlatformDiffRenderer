@@ -53,7 +53,13 @@ public:
             return;
         }
 
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
         glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_SCISSOR_TEST);
+
         glViewport(0, 0, texture_out.width(out_lvl), texture_out.height(out_lvl));
 
         /*
@@ -107,9 +113,8 @@ public:
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
 
-        glUniform1i(image_lvl_loc_, in_lvl);
-
-        // glUniform1i(image_loc, 0);
+        glUniform1i(image_loc_, 0);
+        glUniform1i(image_lvl_loc_, float(in_lvl));
 
         /*
         if (in_channels == 1)
@@ -243,6 +248,7 @@ public:
 
             //uniform sampler2D image;
             //uniform float image_nodata;
+            //uniform int image_lvl;
 
             void main()
             {
@@ -296,7 +302,7 @@ public:
 
             void main()
             {
-                a_output = textureLod(image, texcoord, image_lvl).r;
+                a_output = textureLod(image, texcoord, float(image_lvl)).r;
             }
             )Shader";
 
@@ -358,7 +364,7 @@ public:
                 {
                     //no need to explicitly set to nodata, it is already in the background color
                     //a_output = nodata;
-                    return;
+                    discard;
                 }
 
                 float f_x_p = texelFetch(image, ivec2(x_p, y), image_lvl).r;
@@ -371,7 +377,7 @@ public:
                 {
                     //no need to explicitly set to nodata, it is already in the background color
                     //a_output = nodata;
-                    return;
+                    discard;
                 }
 
                 a_output.x = (f_x_p - f_x_m) / 2.0f;
@@ -446,11 +452,15 @@ public:
                 ivec2 tex_size = textureSize(image, image_lvl);
 
                 //vec3 didxy = texture(image, texcoord).xyz;
-                vec3 didxy = textureLod(image, texcoord, image_lvl).xyz;
+                vec3 didxy = textureLod(image, texcoord, float(image_lvl)).xyz;
                 //vec3 didxy = vec3(image_lvl, image_lvl, image_lvl);
 
-                if(didxy == image_nodata)
-                    return;
+                //if(didxy == image_nodata)
+                //    discard;
+                if (didxy == vec3(0.0f, 0.0f, 0.0f))
+                {
+                    didxy = vec3(1.0f, 1.0f, 1.0f);
+                }
 
                 float v0 = didxy.x * fx * tex_size.x / f_ver.z;
                 float v1 = didxy.y * fy * tex_size.y / f_ver.z;
@@ -523,10 +533,10 @@ public:
             void main()
             {
                 //vec3 v = texture(image, texcoord).xyz;
-                vec3 v = textureLod(image, texcoord, image_lvl).xyz;
+                vec3 v = textureLod(image, texcoord, float(image_lvl)).xyz;
 
                 if(v == image_nodata)
-                    return;
+                    discard;
 
                 //float v0 = didxy.x * fx / f_ver.z;
                 //float v1 = didxy.y * fy / f_ver.z;
@@ -581,6 +591,7 @@ public:
 
             uniform sampler2D image;
             uniform float image_nodata;
+            uniform int image_lvl;
 
             void main()
             {
