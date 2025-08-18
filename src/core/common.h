@@ -2,7 +2,7 @@
 
 #include "core/delaunaytriangulation.h"
 
-static bool IsTriangleEqual(cpu::Vec3i tri_indices_1, cpu::Vec3i tri_indices_2)
+static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
 {
     bool isIndicePresent[3];
     for (int tri_indice = 0; tri_indice < 3; tri_indice++)
@@ -16,7 +16,7 @@ static bool IsTriangleEqual(cpu::Vec3i tri_indices_1, cpu::Vec3i tri_indices_2)
     return false;
 }
 
-static bool IsEdgeEqual(cpu::Vec2i edge_indices_1, cpu::Vec2i edge_indices_2)
+static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
 {
     bool isIndicePresent[2];
     for (int edge_indice = 0; edge_indice < 2; edge_indice++)
@@ -30,16 +30,16 @@ static bool IsEdgeEqual(cpu::Vec2i edge_indices_1, cpu::Vec2i edge_indices_2)
     return false;
 }
 
-inline std::vector<cpu::Vec2> UniformTexCoords(int width, int height)
+inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
-    std::vector<cpu::Vec2> texcoords;
+    std::vector<Vec2> texcoords;
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            cpu::Vec2 pix;
-            pix(0) = cpu::Scalar(x) / (width - 1);
-            pix(1) = cpu::Scalar(y) / (height - 1);
+            Vec2 pix;
+            pix(0) = Scalar(x) / (width - 1);
+            pix(1) = Scalar(y) / (height - 1);
 
             texcoords.push_back(pix);
         }
@@ -54,7 +54,7 @@ inline float RandomDepth(float min_depth, float max_depth)
     return depth;
 }
 
-inline float VerticallySmoothDepth(cpu::Vec2 pix, float min_depth, float max_depth)
+inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);

@@ -26,7 +26,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
-        int channels = cpu::getChannels<Type>();
+        int channels = getChannels<Type>();
 
         GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
         GLenum format = GetGLFormat(channels);
@@ -51,7 +51,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
-        int channels = cpu::getChannels<Type>();
+        int channels = getChannels<Type>();
 
         GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
         GLenum format = GetGLFormat(channels);
@@ -91,7 +91,7 @@ public:
 
     void FromCPU(int lvl, const Type *data)
     {
-        int channels = cpu::getChannels<Type>();
+        int channels = getChannels<Type>();
 
         GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>());
         GLenum format = GetGLFormat(channels);
@@ -117,7 +117,7 @@ public:
 
         // GLint internal_format = GetGLInternalFormat(GetTypeIndex<Type>(), channels);
 
-        int channels = cpu::getChannels<Type>();
+        int channels = getChannels<Type>();
         GLenum format = GetGLFormat(channels);
         GLenum type = GetGLType(GetTypeIndex<Type>());
         glBindTexture(GL_TEXTURE_2D, tex_);

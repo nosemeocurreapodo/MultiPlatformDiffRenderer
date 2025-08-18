@@ -3,8 +3,8 @@
 #include <opencv2/opencv.hpp>
 
 #include "core/format_converters.h"
+#include "core/types.h"
 
-#include "backends/cpu/typescpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
@@ -45,9 +45,9 @@ protected:
 
     std::vector<std::string> image_files;
     std::vector<std::string> depth_files;
-    std::vector<cpu::SE3> poses;
+    std::vector<SE3> poses;
     std::vector<double> timestamps;
-    cpu::Camera cam;
+    Camera cam;
     int w;
     int h;
 };
@@ -64,7 +64,7 @@ protected:
 
         std::vector<std::string> image_files = dataset.GetImageFiles();
         std::vector<std::string> depth_files = dataset.GetDepthFiles();
-        std::vector<cpu::SE3> poses = dataset.GetPoses();
+        std::vector<SE3> poses = dataset.GetPoses();
         std::vector<double> timestamps = dataset.GetTimestamps();
 
         cam = dataset.GetCamera();
@@ -95,26 +95,26 @@ protected:
         cv::morphologyEx(depth_dst_CV, depth_dst_CV, operation, element);
         pose_dst = poses[dst].inverse();
 
-        image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
+        image_src_CV.convertTo(image_src_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
         depth_src_CV.convertTo(depth_src_CV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
         depth_src_CV /= dataset.GetDepthFactor();
         depth_src_CV *= 100.0;
 
-        image_dst_CV.convertTo(image_dst_CV, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
+        image_dst_CV.convertTo(image_dst_CV, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
         depth_dst_CV.convertTo(depth_dst_CV, GetOpenCVFormat(GetTypeIndex<float>(), 1));
         depth_dst_CV /= dataset.GetDepthFactor();
         depth_dst_CV *= 100.0;
 
-        std::vector<cpu::Vec2> tex_coords = UniformTexCoords(32, 32);
-        for (cpu::Vec2 tex_coord : tex_coords)
+        std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
+        for (Vec2 tex_coord : tex_coords)
         {
-            cpu::Vec2 img_coord = cpu::Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
+            Vec2 img_coord = Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
             float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
             // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
             if (depth <= 0.0f)
                 continue;
-            cpu::Vec3 ray = cam.PixToRay(tex_coord);
-            cpu::Vec3 vertex = ray * depth;
+            Vec3 ray = cam.PixToRay(tex_coord);
+            Vec3 vertex = ray * depth;
             vertices.push_back(vertex(0));
             vertices.push_back(vertex(1));
             vertices.push_back(vertex(2));
@@ -126,15 +126,15 @@ protected:
 
     int w, h;
     float f;
-    cpu::Camera cam;
+    Camera cam;
 
     cv::Mat image_src_CV;
     cv::Mat depth_src_CV;
-    cpu::SE3 pose_src;
+    SE3 pose_src;
 
     cv::Mat image_dst_CV;
     cv::Mat depth_dst_CV;
-    cpu::SE3 pose_dst;
+    SE3 pose_dst;
 
     std::vector<float> texcoords;
     std::vector<float> vertices;
@@ -150,9 +150,9 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
+    TextureCPU<ImageType> input_cpu(w, h, 0);
     TextureCPU<float> depth_cpu(w, h, 0);
-    input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    input_cpu.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DepthRendererCPU renderer_cpu;
     renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, input_cpu, depth_cpu, in_lvl, out_lvl);
@@ -162,9 +162,9 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
     // float cpu_error = ComputeImageError<float>(depth_dst_CV, output_cpu_CV, depth_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(w, h, 0);
+    TextureGL<ImageType> input_gl(w, h, 0);
     TextureGL<float> depth_gl(w, h, 0);
-    input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    input_gl.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DepthRendererGL renderer_gl;
     renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, input_gl, depth_gl, in_lvl, out_lvl);
@@ -199,26 +199,26 @@ TEST_F(DataLoaderOneFrame, TestImageRenderer)
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
-    TextureCPU<cpu::ImageType> output_cpu(w, h, 0);
-    input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureCPU<ImageType> input_cpu(w, h, 0);
+    TextureCPU<ImageType> output_cpu(w, h, 0);
+    input_cpu.FromCPU(0, (ImageType *)image_src_CV.data);
     ImageRendererCPU renderer_cpu;
     renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, input_cpu, output_cpu, in_lvl, out_lvl);
-    cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
-    output_cpu.ToCPU(out_lvl, (cpu::ImageType *)output_cpu_CV.data);
-    //float cpu_error = ComputeImageError<cpu::ImageType>(image_dst_CV, output_cpu_CV, output_cpu.nodata());
+    cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    output_cpu.ToCPU(out_lvl, (ImageType *)output_cpu_CV.data);
+    //float cpu_error = ComputeImageError<ImageType>(image_dst_CV, output_cpu_CV, output_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(w, h, 0);
-    TextureGL<cpu::ImageType> output_gl(w, h, 0);
-    input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureGL<ImageType> input_gl(w, h, 0);
+    TextureGL<ImageType> output_gl(w, h, 0);
+    input_gl.FromCPU(0, (ImageType *)image_src_CV.data);
     ImageRendererGL renderer_gl;
     renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, input_gl, output_gl, in_lvl, out_lvl);
-    cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<cpu::ImageType>(), 1));
-    output_gl.ToCPU(out_lvl, (cpu::ImageType *)output_gl_CV.data);
-    //float gl_error = ComputeImageError<cpu::ImageType>(image_dst_CV, output_gl_CV, output_gl.nodata());
+    cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<ImageType>(), 1));
+    output_gl.ToCPU(out_lvl, (ImageType *)output_gl_CV.data);
+    //float gl_error = ComputeImageError<ImageType>(image_dst_CV, output_gl_CV, output_gl.nodata());
 
-    float cpu_gl_error = ComputeImageError<cpu::ImageType>(output_cpu_CV, output_gl_CV, output_gl.nodata());
+    float cpu_gl_error = ComputeImageError<ImageType>(output_cpu_CV, output_gl_CV, output_gl.nodata());
 
     cv::normalize(image_dst_CV, image_dst_CV, 0, 255, cv::NORM_MINMAX);
     cv::normalize(output_cpu_CV, output_cpu_CV, 0, 255, cv::NORM_MINMAX);
@@ -244,24 +244,24 @@ TEST_F(DataLoaderOneFrame, TestDIDxyRenderer)
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
-    TextureCPU<cpu::Vec3> output_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureCPU<ImageType> input_cpu(w, h, 0);
+    TextureCPU<Vec3> output_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_cpu.FromCPU(0, (ImageType *)image_src_CV.data);
     DIDxyRendererCPU renderer_cpu;
-    renderer_cpu.Render(mesh_cpu, cpu::SE3(), cam, input_cpu, output_cpu, in_lvl, out_lvl);
+    renderer_cpu.Render(mesh_cpu, SE3(), cam, input_cpu, output_cpu, in_lvl, out_lvl);
     cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    output_cpu.ToCPU(out_lvl, (cpu::Vec3 *)output_cpu_CV.data);
-    // float cpu_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
+    output_cpu.ToCPU(out_lvl, (Vec3 *)output_cpu_CV.data);
+    // float cpu_error = ComputeImageError<Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(w, h, 0);
-    TextureGL<cpu::Vec3> output_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureGL<ImageType> input_gl(w, h, 0);
+    TextureGL<Vec3> output_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_gl.FromCPU(0, (ImageType *)image_src_CV.data);
     DIDxyRendererGL renderer_gl;
-    renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, output_gl, in_lvl, out_lvl);
+    renderer_gl.Render(mesh_gl, SE3(), cam, input_gl, output_gl, in_lvl, out_lvl);
     cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    output_gl.ToCPU(out_lvl, (cpu::Vec3 *)output_gl_CV.data);
-    // float gl_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
+    output_gl.ToCPU(out_lvl, (Vec3 *)output_gl_CV.data);
+    // float gl_error = ComputeImageError<Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
 
     // float cpu_gl_error = ComputeImageError<float>(output_cpu_CV, output_gl_CV, output_gl.nodata());
 
@@ -289,36 +289,36 @@ TEST_F(DataLoaderOneFrame, TestJtraRenderer)
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
-    TextureCPU<cpu::Vec3> didxy_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<cpu::Vec3> jtra_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureCPU<ImageType> input_cpu(w, h, 0);
+    TextureCPU<Vec3> didxy_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3> jtra_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_cpu.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DIDxyRendererCPU didxy_renderer_cpu;
     JtraRendererCPU jtra_renderer_cpu;
 
-    didxy_renderer_cpu.Render(mesh_cpu, cpu::SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
+    didxy_renderer_cpu.Render(mesh_cpu, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
     jtra_renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, out_lvl, out_lvl);
 
     cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    jtra_cpu.ToCPU(out_lvl, (cpu::Vec3 *)output_cpu_CV.data);
-    // float cpu_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
+    jtra_cpu.ToCPU(out_lvl, (Vec3 *)output_cpu_CV.data);
+    // float cpu_error = ComputeImageError<Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(w, h, 0);
-    TextureGL<cpu::Vec3> didxy_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<cpu::Vec3> jtra_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureGL<ImageType> input_gl(w, h, 0);
+    TextureGL<Vec3> didxy_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3> jtra_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_gl.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DIDxyRendererGL didxy_renderer_gl;
     JtraRendererGL jtra_renderer_gl;
 
-    didxy_renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, didxy_gl, in_lvl, out_lvl);
+    didxy_renderer_gl.Render(mesh_gl, SE3(), cam, input_gl, didxy_gl, in_lvl, out_lvl);
     jtra_renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, out_lvl, out_lvl);
 
     cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    jtra_gl.ToCPU(out_lvl, (cpu::Vec3 *)output_gl_CV.data);
-    // float gl_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
+    jtra_gl.ToCPU(out_lvl, (Vec3 *)output_gl_CV.data);
+    // float gl_error = ComputeImageError<Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
 
     // float cpu_gl_error = ComputeImageError<float>(output_cpu_CV, output_gl_CV, output_gl.nodata());
 
@@ -346,42 +346,42 @@ TEST_F(DataLoaderOneFrame, TestJrotRenderer)
     int out_h = h / std::pow(2, out_lvl);
 
     MeshCPU mesh_cpu(vertices, texcoords, weights);
-    TextureCPU<cpu::ImageType> input_cpu(w, h, 0);
-    TextureCPU<cpu::Vec3> didxy_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<cpu::Vec3> jtra_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<cpu::Vec3> jrot_cpu(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_cpu.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureCPU<ImageType> input_cpu(w, h, 0);
+    TextureCPU<Vec3> didxy_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3> jtra_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3> jrot_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_cpu.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DIDxyRendererCPU didxy_renderer_cpu;
     JtraRendererCPU jtra_renderer_cpu;
     JrotRendererCPU jrot_renderer_cpu;
 
-    didxy_renderer_cpu.Render(mesh_cpu, cpu::SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
+    didxy_renderer_cpu.Render(mesh_cpu, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
     jtra_renderer_cpu.Render(mesh_cpu, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, in_lvl, out_lvl);
-    jtra_renderer_cpu.Render(mesh_cpu, cpu::SE3(), cam, jtra_cpu, jrot_cpu, in_lvl, out_lvl);
+    jtra_renderer_cpu.Render(mesh_cpu, SE3(), cam, jtra_cpu, jrot_cpu, in_lvl, out_lvl);
 
     cv::Mat output_cpu_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    jrot_cpu.ToCPU(out_lvl, (cpu::Vec3 *)output_cpu_CV.data);
-    // float cpu_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
+    jrot_cpu.ToCPU(out_lvl, (Vec3 *)output_cpu_CV.data);
+    // float cpu_error = ComputeImageError<Vec2>(depth_dst_CV, output_cpu_CV, output_cpu.nodata());
 
     MeshGL mesh_gl(vertices, texcoords, weights);
-    TextureGL<cpu::ImageType> input_gl(w, h, 0);
-    TextureGL<cpu::Vec3> didxy_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<cpu::Vec3> jtra_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<cpu::Vec3> jrot_gl(w, h, cpu::Vec3(0.0f, 0.0f, 0.0f));
-    input_gl.FromCPU(0, (cpu::ImageType *)image_src_CV.data);
+    TextureGL<ImageType> input_gl(w, h, 0);
+    TextureGL<Vec3> didxy_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3> jtra_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3> jrot_gl(w, h, Vec3(0.0f, 0.0f, 0.0f));
+    input_gl.FromCPU(0, (ImageType *)image_src_CV.data);
 
     DIDxyRendererGL didxy_renderer_gl;
     JtraRendererGL jtra_renderer_gl;
     JrotRendererGL jrot_renderer_gl;
 
-    didxy_renderer_gl.Render(mesh_gl, cpu::SE3(), cam, input_gl, didxy_gl, in_lvl, out_lvl);
+    didxy_renderer_gl.Render(mesh_gl, SE3(), cam, input_gl, didxy_gl, in_lvl, out_lvl);
     jtra_renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, in_lvl, out_lvl);
-    jrot_renderer_gl.Render(mesh_gl, cpu::SE3(), cam, jtra_gl, jrot_gl, in_lvl, out_lvl);
+    jrot_renderer_gl.Render(mesh_gl, SE3(), cam, jtra_gl, jrot_gl, in_lvl, out_lvl);
 
     cv::Mat output_gl_CV = cv::Mat(out_h, out_w, GetOpenCVFormat(GetTypeIndex<float>(), 3));
-    jrot_gl.ToCPU(out_lvl, (cpu::Vec3 *)output_gl_CV.data);
-    // float gl_error = ComputeImageError<cpu::Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
+    jrot_gl.ToCPU(out_lvl, (Vec3 *)output_gl_CV.data);
+    // float gl_error = ComputeImageError<Vec2>(depth_dst_CV, output_gl_CV, output_gl.nodata());
 
     // float cpu_gl_error = ComputeImageError<float>(output_cpu_CV, output_gl_CV, output_gl.nodata());
 

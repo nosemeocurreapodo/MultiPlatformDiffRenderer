@@ -19,8 +19,8 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const cpu::SE3 pose,
-                const cpu::Camera cam,
+                const SE3 pose,
+                const Camera cam,
                 const TextureGL<InTexType> &texture_in,
                 TextureGL<OutTexType> &texture_out,
                 int in_lvl,
@@ -28,8 +28,8 @@ public:
     {
         in_nodata_ = texture_in.nodata();
         out_nodata_ = texture_out.nodata();
-        int in_channels = cpu::getChannels<InTexType>();
-        int out_channels = cpu::getChannels<OutTexType>();
+        int in_channels = getChannels<InTexType>();
+        int out_channels = getChannels<OutTexType>();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
@@ -78,7 +78,7 @@ public:
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // int channels = cpu::getChannels<InTexType>();
+        // int channels = getChannels<InTexType>();
 
         // glActiveTexture(GL_TEXTURE0);
         // glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
@@ -89,12 +89,12 @@ public:
 
         glUseProgram(shader_program_);
 
-        cpu::Mat4 opencv2opengl = cpu::Mat4::Identity();
+        Mat4 opencv2opengl = Mat4::Identity();
         opencv2opengl(1, 1) = 1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        cpu::Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
-        cpu::Mat4 pose_matrix = pose.matrix();
+        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
+        Mat4 pose_matrix = pose.matrix();
 
         glUseProgram(shader_program_);
         GLfloat view_matrix_float[16];
@@ -213,8 +213,8 @@ protected:
     GLuint image_nodata_loc_;
     GLuint image_lvl_loc_;
 
-    // cpu::SE3 pose_;
-    // cpu::Camera cam_;
+    // SE3 pose_;
+    // Camera cam_;
     InTexType in_nodata_;
     OutTexType out_nodata_;
 };
@@ -269,7 +269,7 @@ public:
 private:
 };
 
-class ImageRendererGL : public BaseRendererGL<cpu::ImageType /*InTexType*/, cpu::ImageType /*OutTexType*/>
+class ImageRendererGL : public BaseRendererGL<ImageType /*InTexType*/, ImageType /*OutTexType*/>
 {
 public:
     ImageRendererGL() : BaseRendererGL()
@@ -319,7 +319,7 @@ public:
 private:
 };
 
-class DIDxyRendererGL : public BaseRendererGL<cpu::ImageType /*InTexType*/, cpu::Vec3 /*OutTexType*/>
+class DIDxyRendererGL : public BaseRendererGL<ImageType /*InTexType*/, Vec3 /*OutTexType*/>
 {
 public:
     DIDxyRendererGL() : BaseRendererGL()
@@ -399,7 +399,7 @@ public:
 private:
 };
 
-class JtraRendererGL : public BaseRendererGL<cpu::Vec3 /*InTexType*/, cpu::Vec3 /*OutTexType*/>
+class JtraRendererGL : public BaseRendererGL<Vec3 /*InTexType*/, Vec3 /*OutTexType*/>
 {
 public:
     JtraRendererGL() : BaseRendererGL()
@@ -485,7 +485,7 @@ public:
 private:
 };
 
-class JrotRendererGL : public BaseRendererGL<cpu::Vec3 /*InTexType*/, cpu::Vec3 /*OutTexType*/>
+class JrotRendererGL : public BaseRendererGL<Vec3 /*InTexType*/, Vec3 /*OutTexType*/>
 {
 public:
     JrotRendererGL() : BaseRendererGL()
@@ -561,7 +561,7 @@ public:
 private:
 };
 
-class JPoseRendererGL : public BaseRendererGL<cpu::Vec2 /*InTexType*/, float /*OutTexType*/>
+class JPoseRendererGL : public BaseRendererGL<Vec2 /*InTexType*/, float /*OutTexType*/>
 {
 public:
     JPoseRendererGL() : BaseRendererGL()
