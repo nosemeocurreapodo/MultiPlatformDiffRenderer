@@ -336,7 +336,8 @@ public:
             out vec2 texcoord;
 
             void main() {
-                gl_Position = view_matrix * pose_matrix * vec4(a_position, 1.0);
+                // gl_Position = view_matrix * pose_matrix * vec4(a_position, 1.0);
+                gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
                 texcoord = a_texcoord;
             }
             )Shader";

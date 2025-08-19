@@ -11,13 +11,15 @@ class TextureCPU
     friend class DIDxyRendererCPU;
     friend class JtraRendererCPU;
     friend class JrotRendererCPU;
-    friend class JPoseRendererCPU;
+    friend class JposeRendererCPU;
 
 public:
-    TextureCPU() : nodata_(0), width_(0), height_(0)
-    {
-        // data_ = nullptr;
-    }
+    /*
+        TextureCPU() : nodata_(0), width_(0), height_(0)
+        {
+            // data_ = nullptr;
+        }
+            */
 
     TextureCPU(int width, int height, Type nodata_value)
     {
@@ -95,7 +97,7 @@ public:
     {
         data_[lvl].FromCPU(data);
 
-        for(int lod_lvl = lvl + 1; lod_lvl < data_.size(); lod_lvl++)
+        for (int lod_lvl = lvl + 1; lod_lvl < data_.size(); lod_lvl++)
         {
             data_[lod_lvl] = GenerateMipmap(lod_lvl);
         }
@@ -129,6 +131,11 @@ public:
     unsigned int size(int lvl) const
     {
         return data_[lvl].size();
+    }
+
+    unsigned int lvls() const
+    {
+        return data_.size();
     }
 
     Type nodata() const

@@ -188,45 +188,45 @@ public:
         BoundingBoxType<int> viewport(0, out_texture.width(out_lvl) - 1, 0, out_texture.height(out_lvl) - 1);
 
         // Loop over triangles
-        for (int i = 0; i < mesh.GetEboBuffer().size(); i += 3)
+        for (int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
         {
             Vec3 p[3];
-            Vec2 t[3]; // if needed
-            float w[3];     // if needed
+            Vec2 t[3];
+            float w[3];
 
-            unsigned int i0 = mesh.GetEboBuffer()[i + 0];
-            unsigned int i1 = mesh.GetEboBuffer()[i + 1];
-            unsigned int i2 = mesh.GetEboBuffer()[i + 2];
+            unsigned int i0 = mesh.ebo_buffer_[i + 0];
+            unsigned int i1 = mesh.ebo_buffer_[i + 1];
+            unsigned int i2 = mesh.ebo_buffer_[i + 2];
 
             // Positions
-            p[0](0) = mesh.GetPosBuffer()[i0 * 3 + 0];
-            p[0](1) = mesh.GetPosBuffer()[i0 * 3 + 1];
-            p[0](2) = mesh.GetPosBuffer()[i0 * 3 + 2];
+            p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
+            p[0](1) = mesh.pos_buffer_[i0 * 3 + 1];
+            p[0](2) = mesh.pos_buffer_[i0 * 3 + 2];
 
-            p[1](0) = mesh.GetPosBuffer()[i1 * 3 + 0];
-            p[1](1) = mesh.GetPosBuffer()[i1 * 3 + 1];
-            p[1](2) = mesh.GetPosBuffer()[i1 * 3 + 2];
+            p[1](0) = mesh.pos_buffer_[i1 * 3 + 0];
+            p[1](1) = mesh.pos_buffer_[i1 * 3 + 1];
+            p[1](2) = mesh.pos_buffer_[i1 * 3 + 2];
 
-            p[2](0) = mesh.GetPosBuffer()[i2 * 3 + 0];
-            p[2](1) = mesh.GetPosBuffer()[i2 * 3 + 1];
-            p[2](2) = mesh.GetPosBuffer()[i2 * 3 + 2];
-
-            // Texcoords if needed (example):
-            t[0](0) = mesh.GetTexBuffer()[i0 * 2 + 0];
-            t[0](1) = mesh.GetTexBuffer()[i0 * 2 + 1];
-
-            t[1](0) = mesh.GetTexBuffer()[i1 * 2 + 0];
-            t[1](1) = mesh.GetTexBuffer()[i1 * 2 + 1];
-
-            t[2](0) = mesh.GetTexBuffer()[i2 * 2 + 0];
-            t[2](1) = mesh.GetTexBuffer()[i2 * 2 + 1];
+            p[2](0) = mesh.pos_buffer_[i2 * 3 + 0];
+            p[2](1) = mesh.pos_buffer_[i2 * 3 + 1];
+            p[2](2) = mesh.pos_buffer_[i2 * 3 + 2];
 
             // Texcoords if needed (example):
-            w[0] = mesh.GetWeiBuffer()[i0];
+            t[0](0) = mesh.tex_buffer_[i0 * 2 + 0];
+            t[0](1) = mesh.tex_buffer_[i0 * 2 + 1];
 
-            w[1] = mesh.GetWeiBuffer()[i1];
+            t[1](0) = mesh.tex_buffer_[i1 * 2 + 0];
+            t[1](1) = mesh.tex_buffer_[i1 * 2 + 1];
 
-            w[2] = mesh.GetWeiBuffer()[i2];
+            t[2](0) = mesh.tex_buffer_[i2 * 2 + 0];
+            t[2](1) = mesh.tex_buffer_[i2 * 2 + 1];
+
+            // Texcoords if needed (example):
+            w[0] = mesh.wei_buffer_[i0];
+
+            w[1] = mesh.wei_buffer_[i1];
+
+            w[2] = mesh.wei_buffer_[i2];
 
             // Draw the triangle
             draw_triangle(p, t, w, view_matrix, pose_matrix, viewport, in_texture, out_texture, in_lvl, out_lvl);
@@ -321,8 +321,8 @@ protected:
 
         // Step 2: find triangle bounding box in screen space
         BoundingBoxType<int> tri_bb(Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                         Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                         Vec2(gl_Position[2].x(), gl_Position[2].y()));
+                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
+                                    Vec2(gl_Position[2].x(), gl_Position[2].y()));
 
         // Intersect with the given viewport
         BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
@@ -349,17 +349,17 @@ protected:
 
                 // Barycentric coords in 2D
                 Vec3 barycentric = denom * Vec3(triangle_area(
-                                                              Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                              Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                              Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                          triangle_area(
-                                                              Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                              Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                              Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                          triangle_area(
-                                                              Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                              Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                              Vec2(gl_FragCoord(0), gl_FragCoord(1))));
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
+                                                triangle_area(
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
+                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
+                                                triangle_area(
+                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
+                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
+                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1))));
 
                 // Discard if outside the triangle
                 if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
@@ -509,7 +509,8 @@ public:
                        Vec4 &gl_Position,
                        Vec2 &outVarying) override
     {
-        gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        // gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = Vec4(2.0 * inTexCoord(0) - 1.0, 2.0 * inTexCoord(1) - 1.0, 0.0, 1.0);
         outVarying = inTexCoord;
     }
 
@@ -542,13 +543,14 @@ public:
             return;
         }
 
+        float f = inTexture.GetTexel(y, x, in_lvl);
         float f_y_p = inTexture.GetTexel(y_p, x, in_lvl);
         float f_y_m = inTexture.GetTexel(y_m, x, in_lvl);
         float f_x_p = inTexture.GetTexel(y, x_p, in_lvl);
         float f_x_m = inTexture.GetTexel(y, x_m, in_lvl);
 
         if (f_x_p == nodata || f_x_m == nodata ||
-            f_y_p == nodata || f_y_m == nodata)
+            f_y_p == nodata || f_y_m == nodata || f == nodata)
         {
             // No need to explicitly set to nodata, it is already in the background color
             // outFragment(0) = 0.0f;
@@ -559,7 +561,7 @@ public:
 
         outFragment(0) = (f_x_p - f_x_m) / 2.0f;
         outFragment(1) = (f_y_p - f_y_m) / 2.0f;
-        outFragment(2) = 0.0f;
+        outFragment(2) = 0.0;//f; // save the projected frame for later processing
     }
 };
 
@@ -603,7 +605,9 @@ public:
         Vec3 nodata = inTexture.nodata();
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        // take the derivative in frame coordinates (not projected)
+        // Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_der = inTexture.GetTexel(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (f_der == nodata)
             return;
@@ -680,8 +684,8 @@ public:
 
         // Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v(1) + f_ver(1) * v(2),
-                                          f_ver(2) * v(0) - f_ver(0) * v(2),
-                                          -f_ver(1) * v(0) + f_ver(0) * v(1));
+                                f_ver(2) * v(0) - f_ver(0) * v(2),
+                                -f_ver(1) * v(0) + f_ver(0) * v(1));
 
         // outFragment(0) = d_f_i_d_tra(0);
         // outFragment(1) = d_f_i_d_tra(1);
@@ -692,12 +696,12 @@ public:
     }
 };
 
-class JPoseRendererCPU
-    : public BaseRendererCPU<Vec2 /*InTexType*/, Vec5 /*VaryingType*/, Vec6 /*OutTexType*/>
+class JposeRendererCPU
+    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec3 /*OutTexType*/>
 {
 public:
-    JPoseRendererCPU() = default;
-    ~JPoseRendererCPU() override = default;
+    JposeRendererCPU() = default;
+    ~JposeRendererCPU() override = default;
 
     // -------------------------------------------------------------------------
     // Shaders
@@ -722,15 +726,15 @@ public:
 
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Vec5 &inVarying,
-                         const TextureCPU<Vec2> &inTexture,
-                         Vec6 &outFragment,
+                         const TextureCPU<Vec3> &inTexture,
+                         Vec3 &outFragment,
                          int in_lvl,
                          int out_lvl) override
     {
         // outFragment = inVarying;
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
 
         float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
         float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
@@ -739,11 +743,11 @@ public:
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        outFragment(0) = d_f_i_d_tra(0);
-        outFragment(1) = d_f_i_d_tra(1);
-        outFragment(2) = d_f_i_d_tra(2);
-        outFragment(3) = d_f_i_d_rot(0);
-        outFragment(4) = d_f_i_d_rot(1);
-        outFragment(5) = d_f_i_d_rot(2);
+        // outFragment(0) = d_f_i_d_tra(0);
+        // outFragment(1) = d_f_i_d_tra(1);
+        // outFragment(2) = d_f_i_d_tra(2);
+        outFragment(0) = d_f_i_d_rot(0);
+        outFragment(1) = d_f_i_d_rot(1);
+        outFragment(2) = d_f_i_d_rot(2);
     }
 };

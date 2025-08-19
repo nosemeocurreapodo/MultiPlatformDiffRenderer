@@ -10,19 +10,20 @@ class TextureGL
     friend class ImageRendererGL;
 
 public:
-    TextureGL() : nodata_(0), width_(0), height_(0)
-    {
-        // data_ = nullptr;
-    }
-
+    /*
+        TextureGL() : nodata_(0), width_(0), height_(0)
+        {
+            // data_ = nullptr;
+        }
+    */
     TextureGL(int width, int height, Type nodata_value)
     {
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
@@ -36,8 +37,24 @@ public:
         glGenerateMipmap(GL_TEXTURE_2D);
 
         nodata_ = nodata_value;
-        width_ = width;
-        height_ = height;
+
+        unsigned int width_lvl = width;
+        unsigned int height_lvl = height;
+
+        int lvl = 0;
+        while (true)
+        {
+            width_lvl = int(width / std::pow(2, lvl));
+            height_lvl = int(height / std::pow(2, lvl));
+
+            if (width_lvl == 0 || height_lvl == 0)
+                break;
+
+            width_.push_back(width_lvl);
+            height_.push_back(height_lvl);
+
+            lvl++;
+        }
 
         // data_.fill(nodata_value);
     }
@@ -61,8 +78,24 @@ public:
         glGenerateMipmap(GL_TEXTURE_2D);
 
         nodata_ = nodata_value;
-        width_ = width;
-        height_ = height;
+
+        unsigned int width_lvl = width;
+        unsigned int height_lvl = height;
+
+        int lvl = 0;
+        while (true)
+        {
+            width_lvl = int(width / std::pow(2, lvl));
+            height_lvl = int(height / std::pow(2, lvl));
+
+            if (width_lvl == 0 || height_lvl == 0)
+                break;
+
+            width_.push_back(width_lvl);
+            height_.push_back(height_lvl);
+
+            lvl++;
+        }
     }
 
     /*
@@ -126,15 +159,19 @@ public:
 
     unsigned int width(int lvl) const
     {
-        return int(width_ / std::pow(2, lvl));
+        return width_[lvl];
     }
     unsigned int height(int lvl) const
     {
-        return int(height_ / std::pow(2, lvl));
+        return height_[lvl];
     }
     unsigned int size(int lvl) const
     {
-        return int(width_ * height_ / std::pow(2, 2 * lvl));
+        return width_[lvl] * height_[lvl];
+    }
+    unsigned int lvls() const
+    {
+        return width_.size();
     }
 
     Type nodata() const
@@ -144,7 +181,7 @@ public:
 
 protected:
     GLuint tex_;
-    unsigned int width_;
-    unsigned int height_;
+    std::vector<unsigned int> width_;
+    std::vector<unsigned int> height_;
     Type nodata_;
 };
