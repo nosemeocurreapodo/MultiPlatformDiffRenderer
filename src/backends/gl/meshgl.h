@@ -10,6 +10,94 @@ class MeshGL
     friend class ImageRendererGL;
 
 public:
+    MeshGL()
+    {
+        std::vector<float> vertices;
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(-1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        std::vector<float> texcoords;
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(1.0);
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(1.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(1.0);
+
+        std::vector<float> weights;
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+
+        std::vector<unsigned int> triangles = BuildTriangles(texcoords);
+
+        glGenVertexArrays(1, &vao_);
+        glGenBuffers(1, &pos_bo_);
+        glGenBuffers(1, &tex_bo_);
+        glGenBuffers(1, &wei_bo_);
+        glGenBuffers(1, &ebo_);
+
+        glBindVertexArray(vao_);
+
+        glBindBuffer(GL_ARRAY_BUFFER, pos_bo_);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, tex_bo_);
+        glBufferData(GL_ARRAY_BUFFER, texcoords.size() * sizeof(float), texcoords.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glEnableVertexAttribArray(1);
+
+        glBindBuffer(GL_ARRAY_BUFFER, wei_bo_);
+        glBufferData(GL_ARRAY_BUFFER, weights.size() * sizeof(float), weights.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glEnableVertexAttribArray(2);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles.size() * sizeof(unsigned int), triangles.data(), GL_STATIC_DRAW);
+
+        glBindVertexArray(0);
+
+        ebo_size_ = triangles.size();
+    }
+
     MeshGL(std::vector<float> &vertices, std::vector<float> &tex_coords, std::vector<float> &weights)
     {
         std::vector<unsigned int> triangles = BuildTriangles(tex_coords);
@@ -39,9 +127,9 @@ public:
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles.size() * sizeof(unsigned int), triangles.data(), GL_STATIC_DRAW);
-        
+
         glBindVertexArray(0);
-        
+
         ebo_size_ = triangles.size();
     };
 

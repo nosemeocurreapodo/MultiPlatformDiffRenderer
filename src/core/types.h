@@ -48,7 +48,6 @@ using SIM3 = Sophus::Sim3<Scalar>;
 using Camera = PinholeCamera<Scalar, Vec2, Vec3, Vec4, Mat4, Mat23, Mat24>;
 template <typename Type>
 using BoundingBoxType = BoundingBox<Type, Vec2>;
-using ImageType = Scalar;
 
 template <typename Type>
 inline int getChannels()

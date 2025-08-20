@@ -449,7 +449,7 @@ public:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 class ImageRendererCPU
-    : public BaseRendererCPU<ImageType /*InTexType*/, Vec2 /*VaryingType*/, ImageType /*OutTexType*/>
+    : public BaseRendererCPU<float /*InTexType*/, Vec2 /*VaryingType*/, float /*OutTexType*/>
 {
 public:
     ImageRendererCPU() = default;
@@ -473,12 +473,12 @@ public:
 
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Vec2 &inVarying,
-                         const TextureCPU<ImageType> &inTexture,
-                         ImageType &outFragment,
+                         const TextureCPU<float> &inTexture,
+                         float &outFragment,
                          int in_lvl,
                          int out_lvl) override
     {
-        ImageType pix = inTexture.Get(inVarying(1), inVarying(0), in_lvl);
+        float pix = inTexture.Get(inVarying(1), inVarying(0), in_lvl);
         outFragment = pix;
 
         // Example: color = [checker pattern], ignoring inVarying
@@ -492,7 +492,7 @@ public:
 };
 
 class DIDxyRendererCPU
-    : public BaseRendererCPU<ImageType /*InTexType*/, Vec2 /*VaryingType*/, Vec3 /*OutTexType*/>
+    : public BaseRendererCPU<float /*InTexType*/, Vec2 /*VaryingType*/, Vec3 /*OutTexType*/>
 {
 public:
     DIDxyRendererCPU() = default;
@@ -516,7 +516,7 @@ public:
 
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Vec2 &inVarying,
-                         const TextureCPU<ImageType> &inTexture,
+                         const TextureCPU<float> &inTexture,
                          Vec3 &outFragment,
                          int in_lvl,
                          int out_lvl) override
@@ -525,7 +525,7 @@ public:
 
         int height = inTexture.height(in_lvl);
         int width = inTexture.width(in_lvl);
-        ImageType nodata = inTexture.nodata();
+        float nodata = inTexture.nodata();
 
         int x = int(inVarying(0) * (width - 1));
         int y = int(inVarying(1) * (height - 1));

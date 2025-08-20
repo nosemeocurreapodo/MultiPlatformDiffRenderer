@@ -269,7 +269,7 @@ public:
 private:
 };
 
-class ImageRendererGL : public BaseRendererGL<ImageType /*InTexType*/, ImageType /*OutTexType*/>
+class ImageRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
 {
 public:
     ImageRendererGL() : BaseRendererGL()
@@ -319,7 +319,7 @@ public:
 private:
 };
 
-class DIDxyRendererGL : public BaseRendererGL<ImageType /*InTexType*/, Vec3 /*OutTexType*/>
+class DIDxyRendererGL : public BaseRendererGL<float /*InTexType*/, Vec3 /*OutTexType*/>
 {
 public:
     DIDxyRendererGL() : BaseRendererGL()

@@ -10,6 +10,69 @@ class MeshCPU
     friend class BaseRendererCPU;
 
 public:
+    MeshCPU()
+    {
+        std::vector<float> vertices;
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(-1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(-1.0);
+        vertices.push_back(1.0);
+
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+        vertices.push_back(1.0);
+
+        std::vector<float> texcoords;
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(1.0);
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(0.0);
+        texcoords.push_back(1.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(0.0);
+
+        texcoords.push_back(1.0);
+        texcoords.push_back(1.0);
+
+        std::vector<float> weights;
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+        weights.push_back(1.0);
+
+        std::vector<unsigned int> triangles = BuildTriangles(texcoords);
+
+        pos_buffer_ = BufferCPU<float>(vertices);
+        tex_buffer_ = BufferCPU<float>(texcoords);
+        wei_buffer_ = BufferCPU<float>(weights);
+        ebo_buffer_ = BufferCPU<unsigned int>(triangles);
+    }
+
     MeshCPU(std::vector<float> &vertices, std::vector<float> &tex_coords, std::vector<float> &weights) : pos_buffer_(vertices),
                                                                                                          tex_buffer_(tex_coords),
                                                                                                          wei_buffer_(weights)
