@@ -1,103 +1,128 @@
 #pragma once
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <utility>
+#include <vector>
 
-#include "backends/cpu/devicecpu.h"
+#include "backends/base/MappedView.h" // your MappedView + NoopReleaser
 
-template <typename Type>
+template <typename T>
 class BufferCPU
 {
-
 public:
-    BufferCPU()
+    using value_type = T;
+    using size_type = std::size_t;
+
+    BufferCPU() = default;
+
+    explicit BufferCPU(size_type n)
+        : size_(n), data_(n ? std::make_unique<T[]>(n) : nullptr) {}
+
+    BufferCPU(size_type n, const T *src) : BufferCPU(n)
     {
-        size_ = 0;
-        data_ = nullptr;
+        if (size_)
+            std::copy_n(src, size_, data_.get());
     }
 
-    BufferCPU(unsigned int size)
-    {
-        size_ = size;
-        data_ = std::make_unique<Type[]>(size);
-    }
+    explicit BufferCPU(const std::vector<T> &v) : BufferCPU(v.size(), v.data()) {}
 
-    BufferCPU(unsigned int size, Type *data)
+    // Copy (deep) via copy-and-swap
+    BufferCPU(const BufferCPU &other) : BufferCPU(other.size_)
     {
-        size_ = size;
-        data_ = std::make_unique<Type[]>(size);
-        std::copy(data, data + size_, data_);
+        if (size_)
+            std::copy_n(other.data_.get(), size_, data_.get());
     }
-
-    BufferCPU(const std::vector<Type> &data)
-    {
-        size_ = data.size();
-        data_ = std::make_unique<Type[]>(size_);
-        std::copy(data.data(), data.data() + size_, data_.get());
-    }
-
-    BufferCPU(const BufferCPU &other)
-    {
-        size_ = other.size_;
-        data_ = std::make_unique<Type[]>(size_);
-        std::copy(other.data_.get(), other.data_.get() + size_, data_.get());
-    }
-
     BufferCPU &operator=(const BufferCPU &other)
     {
         if (this != &other)
         {
-            size_ = other.size_;
-            data_ = std::make_unique<Type[]>(size_);
-            std::copy(other.data_.get(), other.data_.get() + size_, data_.get());
+            BufferCPU tmp(other);
+            swap(tmp);
         }
         return *this;
     }
 
-    void FromCPU(const Type *data)
+    // Move (nothrow)
+    BufferCPU(BufferCPU &&) noexcept = default;
+    BufferCPU &operator=(BufferCPU &&) noexcept = default;
+
+    ~BufferCPU() = default;
+
+    // -------- capacity / info --------
+    size_type size() const noexcept { return size_; }
+    bool empty() const noexcept { return size_ == 0; }
+
+    // Discard old contents, allocate new size (does not preserve data)
+    void resize_and_discard(size_type n)
     {
-        std::copy(data, data + size_, data_.get());
+        if (n == size_)
+            return;
+        data_.reset(n ? new T[n] : nullptr);
+        size_ = n;
     }
 
-    void ToCPU(Type *data) const
+    // Assign from contiguous memory
+    void assign(const T *src, size_type n)
     {
-        std::copy(data_.get(), data_.get() + size_, data);
+        resize_and_discard(n);
+        if (n)
+            std::copy_n(src, n, data_.get());
+    }
+    void assign(const std::vector<T> &v) { assign(v.data(), v.size()); }
+
+    // -------- element / raw access --------
+    T &operator[](size_type i) noexcept
+    {
+        assert(i < size_);
+        return data_.get()[i];
+    }
+    const T &operator[](size_type i) const noexcept
+    {
+        assert(i < size_);
+        return data_.get()[i];
     }
 
-    Type &operator[](unsigned int index)
+    T *data() noexcept { return data_.get(); }
+    const T *data() const noexcept { return data_.get(); }
+
+    T *begin() noexcept { return data_.get(); }
+    T *end() noexcept { return data_.get() + size_; }
+    const T *begin() const noexcept { return data_.get(); }
+    const T *end() const noexcept { return data_.get() + size_; }
+    const T *cbegin() const noexcept { return data_.get(); }
+    const T *cend() const noexcept { return data_.get() + size_; }
+
+    void fill(const T &v)
     {
-        return data_[index];
+        if (size_)
+            std::fill_n(data_.get(), size_, v);
     }
 
-    const Type &operator[](unsigned int index) const
+    // -------- cross-backend style API --------
+    // On CPU, Map* returns a view with a no-op releaser.
+    [[nodiscard]] MappedView<const T> MapRead() const & noexcept
     {
-        return data_[index];
+        return MappedView<const T>(data_.get(), size_);
     }
-    /*
-    const Type *get() const
+    [[nodiscard]] MappedView<T> MapWrite() & noexcept
     {
-        return data_.get();
+        return MappedView<T>(data_.get(), size_);
     }
+    // forbid mapping temporaries (view would dangle)
+    MappedView<const T> MapRead() const && = delete;
+    MappedView<T> MapWrite() && = delete;
 
-    Type *get()
+    // -------- utilities --------
+    void swap(BufferCPU &o) noexcept
     {
-        return data_.get();
-    }
-    */
-    unsigned int size() const
-    {
-        return size_;
-    }
-
-    /*
-unsigned int size() const override
-{
-    return size_;
-}
-*/
-    void fill(const Type &value)
-    {
-        std::fill_n(data_.get(), size_, value);
+        using std::swap;
+        swap(data_, o.data_);
+        swap(size_, o.size_);
     }
 
 private:
-    std::unique_ptr<Type[]> data_;
-    unsigned int size_;
+    std::unique_ptr<T[]> data_;
+    size_type size_ = 0;
 };

@@ -1,284 +1,285 @@
 #pragma once
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <cmath>                    // std::floor, std::fmod
+#include "backends/cpu/buffercpu.h" // your MapRead/MapWrite version
 
-#include "backends/cpu/buffercpu.h"
+enum class AddressMode
+{
+    Repeat,
+    Clamp,
+    Mirror
+};
+enum class FilterMode
+{
+    Nearest,
+    Bilinear
+};
 
-template <typename Type>
+template <class T>
 class TextureCPU
 {
-    template <typename InTexType, typename VaryingType, typename OutTexType>
-    friend class BaseRendererCPU;
-    friend class ImageRendererCPU;
-    friend class DIDxyRendererCPU;
-    friend class JtraRendererCPU;
-    friend class JrotRendererCPU;
-    friend class JposeRendererCPU;
-
 public:
-    /*
-        TextureCPU() : nodata_(0), width_(0), height_(0)
-        {
-            // data_ = nullptr;
-        }
-            */
+    using value_type = T;
+    using size_type = std::size_t;
 
-    TextureCPU(int width, int height, Type nodata_value)
+    TextureCPU() = default;
+
+    // Create empty pyramid filled with nodata
+    TextureCPU(size_type w, size_type h, T nodata)
+        : nodata_(nodata)
     {
-        nodata_ = nodata_value;
-        // width_ = width;
-        // height_ = height;
-        //  data_.fill(nodata_value);
+        build_pyramid_(w, h);
+        // Fill base and all levels with nodata
+        for (size_type lvl = 0; lvl < levels(); ++lvl)
+            fill(lvl, nodata_);
+    }
 
-        int lvl = 0;
+    // Create and upload base level, auto-generate mipmaps
+    TextureCPU(size_type w, size_type h, T nodata, const T *base)
+        : nodata_(nodata)
+    {
+        build_pyramid_(w, h);
+        // write base
+        {
+            auto m = lvls_[0].buf.MapWrite();
+            std::copy_n(base, w * h, m.data());
+        }
+        // build lower levels
+        for (size_type lvl = 1; lvl < levels(); ++lvl)
+        {
+            generate_mipmap_(lvl);
+        }
+    }
+
+    // Rule of 5
+    TextureCPU(const TextureCPU &) = default;
+    TextureCPU &operator=(const TextureCPU &) = default;
+    TextureCPU(TextureCPU &&) noexcept = default;
+    TextureCPU &operator=(TextureCPU &&) noexcept = default;
+    ~TextureCPU() = default;
+
+    // Introspection
+    size_type width(size_type lvl) const { return lvls_[lvl].w; }
+    size_type height(size_type lvl) const { return lvls_[lvl].h; }
+    size_type levels() const { return lvls_.size(); }
+    T nodata() const { return nodata_; }
+
+    // Fill a level with a constant
+    void fill(size_type lvl, const T &v)
+    {
+        auto m = lvls_[lvl].buf.MapWrite();
+        std::fill(m.begin(), m.end(), v);
+    }
+
+    // Read/Write a single texel (bounds-checked in debug)
+    T texel(size_type y, size_type x, size_type lvl) const
+    {
+        assert(x < width(lvl) && y < height(lvl));
+        auto m = lvls_[lvl].buf.MapRead();
+        return m.data()[x + y * width(lvl)];
+    }
+    void set_texel(const T &v, size_type y, size_type x, size_type lvl)
+    {
+        assert(x < width(lvl) && y < height(lvl));
+        auto m = lvls_[lvl].buf.MapWrite();
+        m.data()[x + y * width(lvl)] = v;
+    }
+
+    // Normalized sampling in [0,1] (allows outside depending on address mode)
+    T sample(float u, float v,
+             size_type lvl = 0,
+             AddressMode addr = AddressMode::Clamp,
+             FilterMode filt = FilterMode::Bilinear) const
+    {
+        const auto w = static_cast<float>(width(lvl));
+        const auto h = static_cast<float>(height(lvl));
+
+        auto wrap = [&](float t)
+        {
+            switch (addr)
+            {
+            case AddressMode::Clamp:
+                return std::clamp(t, 0.0f, 1.0f);
+            case AddressMode::Repeat:
+            {
+                // wrap to [0,1)
+                float r = std::fmod(t, 1.0f);
+                if (r < 0.0f)
+                    r += 1.0f;
+                return r;
+            }
+            case AddressMode::Mirror:
+            {
+                // mirror every [0,1], 0..1..0..
+                float ip = std::floor(t);
+                float f = t - ip;
+                bool odd = static_cast<long>(ip) & 1L;
+                return odd ? (1.0f - f) : f;
+            }
+            }
+            return t; // unreachable
+        };
+
+        const float uu = wrap(u);
+        const float vv = wrap(v);
+
+        const float x = uu * (w - 1.0f);
+        const float y = vv * (h - 1.0f);
+
+        return (filt == FilterMode::Nearest)
+                   ? nearest_(y, x, lvl)
+                   : bilinear_(y, x, lvl);
+    }
+
+    // Expose map views for bulk ops / algorithms (cross-backend shape)
+    [[nodiscard]] MappedView<const T> MapRead(size_type lvl) const &
+    {
+        return lvls_[lvl].buf.MapRead();
+    }
+    [[nodiscard]] MappedView<T> MapWrite(size_type lvl) &
+    {
+        return lvls_[lvl].buf.MapWrite();
+    }
+
+private:
+    static constexpr size_type lvl_base = 0;
+
+    struct Level
+    {
+        size_type w{}, h{};
+        BufferCPU<T> buf; // owns w*h elements
+    };
+
+    std::vector<Level> lvls_;
+    T nodata_{};
+
+    void build_pyramid_(size_type w, size_type h)
+    {
+        lvls_.clear();
+        if (w == 0 || h == 0)
+            return;
+        // build until 1x1 (inclusive)
         while (true)
         {
-            int width_lvl = int(width / std::pow(2, lvl));
-            int height_lvl = int(height / std::pow(2, lvl));
-
-            if (width_lvl == 0 || height_lvl == 0)
+            lvls_.push_back(Level{w, h, BufferCPU<T>(w * h)});
+            if (w == 1 && h == 1)
                 break;
-
-            width_.push_back(width_lvl);
-            height_.push_back(height_lvl);
-
-            BufferCPU<Type> data_lvl(width_lvl * height_lvl);
-            data_.push_back(data_lvl);
-            lvl++;
+            w = std::max<size_type>(1, w >> 1);
+            h = std::max<size_type>(1, h >> 1);
         }
     }
 
-    TextureCPU(int width, int height, Type nodata_value, Type *data)
+    bool is_nodata_(const T &v) const
     {
-        nodata_ = nodata_value;
-
-        BufferCPU<Type> d(width * height, data);
-        data_.push_back(d);
-        width_.push_back(width);
-        height_.push_back(height);
-
-        int lvl = 1;
-        while (true)
+        if constexpr (std::is_floating_point_v<T>)
         {
-            int width_lvl = int(width / std::pow(2, lvl));
-            int height_lvl = int(height / std::pow(2, lvl));
-
-            if (width_lvl == 0 || height_lvl == 0)
-                break;
-
-            width_.push_back(width_lvl);
-            height_.push_back(height_lvl);
-
-            BufferCPU<Type> data_lvl = GenerateMipmap(lvl);
-            data_.push_back(data_lvl);
-            lvl++;
+            // exact compare is common for sentinel; tweak to epsilon if needed
+            return v == nodata_;
         }
-    }
-
-    TextureCPU(const TextureCPU &other)
-    {
-        nodata_ = other.nodata_;
-        width_ = other.width_;
-        height_ = other.height_;
-        data_ = other.data_;
-    }
-
-    TextureCPU &operator=(const TextureCPU &other)
-    {
-        if (this != &other)
+        else
         {
-            nodata_ = other.nodata_;
-            width_ = other.width_;
-            height_ = other.height_;
-            data_ = other.data_;
+            return v == nodata_;
         }
-        return *this;
     }
 
-    void FromCPU(int lvl, const Type *data)
+    // Safe fetch with clamping to edge
+    T fetch_(size_type y, size_type x, size_type lvl) const
     {
-        data_[lvl].FromCPU(data);
+        x = std::min(x, width(lvl) - 1);
+        y = std::min(y, height(lvl) - 1);
+        auto m = lvls_[lvl].buf.MapRead();
+        return m.data()[x + y * width(lvl)];
+    }
 
-        for (int lod_lvl = lvl + 1; lod_lvl < data_.size(); lod_lvl++)
+    T nearest_(float y, float x, size_type lvl) const
+    {
+        const auto xi = static_cast<size_type>(std::lround(x));
+        const auto yi = static_cast<size_type>(std::lround(y));
+        return fetch_(yi, xi, lvl);
+    }
+
+    T bilinear_(float y, float x, size_type lvl) const
+    {
+        const auto w = width(lvl);
+        const auto h = height(lvl);
+
+        const float xf = std::floor(x);
+        const float yf = std::floor(y);
+        const auto x0 = static_cast<size_type>(xf < 0.0f ? 0.0f : xf);
+        const auto y0 = static_cast<size_type>(yf < 0.0f ? 0.0f : yf);
+        const auto x1 = std::min(x0 + 1, w - 1);
+        const auto y1 = std::min(y0 + 1, h - 1);
+
+        const float dx = x - static_cast<float>(x0);
+        const float dy = y - static_cast<float>(y0);
+
+        auto m = lvls_[lvl].buf.MapRead(); // one mapping, four reads
+        const auto idx = [&](size_type yy, size_type xx)
         {
-            data_[lod_lvl] = GenerateMipmap(lod_lvl);
-        }
-    }
+            return m.data()[xx + yy * w];
+        };
 
-    void ToCPU(int lvl, Type *data) const
-    {
-        data_[lvl].ToCPU(data);
-    }
+        const T tl = idx(y0, x0);
+        const T tr = idx(y0, x1);
+        const T bl = idx(y1, x0);
+        const T br = idx(y1, x1);
 
-    /*
-    const Type *get() const
-    {
-        return data_.get();
-    }
-
-    Type *get()
-    {
-        return data_.get();
-    }
-    */
-
-    unsigned int width(int lvl) const
-    {
-        return width_[lvl];
-    }
-    unsigned int height(int lvl) const
-    {
-        return height_[lvl];
-    }
-    unsigned int size(int lvl) const
-    {
-        return data_[lvl].size();
-    }
-
-    unsigned int lvls() const
-    {
-        return data_.size();
-    }
-
-    Type nodata() const
-    {
-        return nodata_;
-    }
-
-protected:
-    void SetTexel(Type value, int y, int x, int lvl)
-    {
-        assert(y >= 0 && x >= 0 && y < height_[lvl] && x < width_[lvl] && lvl >= 0 && lvl < data_.size());
-
-        data_[lvl][x + y * width_[lvl]] = value;
-    }
-
-    Type GetTexel(int y, int x, int lvl) const
-    {
-        assert(y >= 0 && x >= 0 && y < height_[lvl] && x < width_[lvl] && lvl >= 0 && lvl < data_.size());
-
-        // int address = x + y * width_;
-        return data_[lvl][x + y * width_[lvl]];
-    }
-
-    Type Get(float norm_y, float norm_x, int lvl) const
-    {
-        float wrapped_y = norm_y;
-        float wrapped_x = norm_x;
-        if (wrapped_y < 0.0)
-            // wrapped_y = std::fabs(wrapped_y);
-            wrapped_y = -wrapped_y;
-        if (wrapped_x < 0.0)
-            // wrapped_x = std::fabs(wrapped_x);
-            wrapped_x = -wrapped_x;
-        if (wrapped_y > 1.0)
-            wrapped_y = 1.0 - (wrapped_y - 1.0);
-        if (wrapped_x > 1.0)
-            wrapped_x = 1.0 - (wrapped_x - 1.0);
-        float x = wrapped_x * (width_[lvl] - 1);
-        float y = wrapped_y * (height_[lvl] - 1);
-        return Bilinear(y, x, lvl);
-    }
-
-    void fill(int lvl, const Type &value)
-    {
-        data_[lvl].fill(value);
-    }
-
-    BufferCPU<Type> GenerateMipmap(int lvl)
-    {
-        int width_lvl = width_[lvl];
-        int height_lvl = height_[lvl];
-
-        BufferCPU<Type> mipmap(width_lvl * height_lvl);
-
-        for (int y = 0; y < height_lvl; y++)
-        {
-            for (int x = 0; x < width_lvl; x++)
-            {
-                Type pixel = Area(y * 2, x * 2, lvl - 1);
-                mipmap[x + y * width_lvl] = pixel;
-            }
-        }
-        return mipmap;
-    }
-    /*
-    template <typename type2>
-    TextureCPU<type2> Convert() const
-    {
-        TextureCPU<type2> result(width_, height_, type2(nodata_));
-        for (int y = 0; y < height_; y++)
-            for (int x = 0; x < width_; x++)
-            {
-                Type d = GetTexel(y, x);
-                if (d == nodata_)
-                    continue;
-                type2 res = type2(d);
-                result.SetTexel(res, y, x);
-            }
-        return result;
-    }
-    */
-
-    Type Bilinear(float y, float x, int lvl) const
-    {
-        // bilinear interpolation (-2 because the read the next pixel)
-        // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
-        // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > height_[lvl] - 2 ||
-            x > width_[lvl] - 2)
-            return GetTexel(int(y), int(x), lvl);
-
-        float _x = floor(x);
-        float _y = floor(y);
-        float dx = x - _x;
-        float dy = y - _y;
-
-        float weight_tl = (1.0 - dx) * (1.0 - dy);
-        float weight_tr = (dx) * (1.0 - dy);
-        float weight_bl = (1.0 - dx) * (dy);
-        float weight_br = (dx) * (dy);
-
-        int i_x = int(_x);
-        int i_y = int(_y);
-
-        Type tl = GetTexel(_y, _x, lvl);
-        Type tr = GetTexel(_y, _x + 1, lvl);
-        Type bl = GetTexel(_y + 1, _x, lvl);
-        Type br = GetTexel(_y + 1, _x + 1, lvl);
-
-        if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
+        if (is_nodata_(tl) || is_nodata_(tr) || is_nodata_(bl) || is_nodata_(br))
             return nodata_;
 
-        Type pix = Type(tl * weight_tl +
-                        tr * weight_tr +
-                        bl * weight_bl +
-                        br * weight_br);
+        const float w_tl = (1.0f - dx) * (1.0f - dy);
+        const float w_tr = (dx) * (1.0f - dy);
+        const float w_bl = (1.0f - dx) * (dy);
+        const float w_br = (dx) * (dy);
 
-        return pix;
+        return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
     }
 
-    Type Area(int y, int x, int lvl) const
+    void generate_mipmap_(size_type lvl)
     {
-        // bilinear interpolation (-2 because the read the next pixel)
-        // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
-        // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > height_[lvl] - 2 || x > width_[lvl] - 2)
-            return GetTexel(y, x, lvl);
+        // downsample from lvl-1 to lvl using 2x2 box, clamped at edges
+        const auto &src = lvls_[lvl - 1];
+        auto &dst = lvls_[lvl];
 
-        Type tl = GetTexel(y, x, lvl);
-        Type tr = GetTexel(y, x + 1, lvl);
-        Type bl = GetTexel(y + 1, x, lvl);
-        Type br = GetTexel(y + 1, x + 1, lvl);
+        const size_type sw = src.w, sh = src.h;
+        const size_type dw = dst.w, dh = dst.h;
 
-        if (tl == nodata_ || tr == nodata_ || bl == nodata_ || br == nodata_)
-            return nodata_;
+        auto s = src.buf.MapRead();
+        auto d = dst.buf.MapWrite();
 
-        Type pix = Type((tl + tr + bl + br) / 4.0f);
+        const auto s_idx = [&](size_type yy, size_type xx) -> T
+        {
+            yy = std::min(yy, sh - 1);
+            xx = std::min(xx, sw - 1);
+            return s.data()[xx + yy * sw];
+        };
 
-        return pix;
+        for (size_type y = 0; y < dh; ++y)
+        {
+            for (size_type x = 0; x < dw; ++x)
+            {
+                const size_type sx = x * 2;
+                const size_type sy = y * 2;
+
+                const T tl = s_idx(sy, sx);
+                const T tr = s_idx(sy, sx + 1);
+                const T bl = s_idx(sy + 1, sx);
+                const T br = s_idx(sy + 1, sx + 1);
+
+                if (is_nodata_(tl) || is_nodata_(tr) || is_nodata_(bl) || is_nodata_(br))
+                {
+                    d.data()[x + y * dw] = nodata_;
+                }
+                else
+                {
+                    d.data()[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                }
+            }
+        }
     }
-
-    std::vector<BufferCPU<Type>> data_;
-    std::vector<unsigned int> width_;
-    std::vector<unsigned int> height_;
-    Type nodata_;
 };
