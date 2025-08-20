@@ -253,8 +253,10 @@ protected:
             const float ndc_z = clip(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
             // pixel-space (don’t clamp here)
-            vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
-            vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
+            // vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
+            // vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
+            vout[i].screen(0) = viewport.min_x_ + (ndc_x * 0.5f + 0.5f) * (viewport.max_x_ - viewport.min_x_ + 1) - 0.5f;
+            vout[i].screen(1) = viewport.min_y_ + (ndc_y * 0.5f + 0.5f) * (viewport.max_y_ - viewport.min_y_ + 1) - 0.5f;
             vout[i].depth = ndc_z;
             vout[i].invW = invW;
             vout[i].var = var;
@@ -289,6 +291,9 @@ protected:
         const float xC = vout[2].screen(0), yC = vout[2].screen(1);
 
         const float area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
+        if (std::abs(area2) < 1e-8f)
+            return; // degenerate
+
         const float inv_area2 = 1.0f / area2;
 
         const bool tlAB = is_top_left(xA, yA, xB, yB);
@@ -304,12 +309,12 @@ protected:
         float eCA_row = edge_func(xC, yC, xA, yA, px0, py0);
 
         // Step increments when moving +1 in X or +1 in Y
-        const float eAB_dx = (yA - yB);
-        const float eAB_dy = (xB - xA);
-        const float eBC_dx = (yB - yC);
-        const float eBC_dy = (xC - xB);
-        const float eCA_dx = (yC - yA);
-        const float eCA_dy = (xA - xC);
+        const float eAB_dx = (yB - yA);
+        const float eAB_dy = (xA - xB);
+        const float eBC_dx = (yC - yB);
+        const float eBC_dy = (xB - xC);
+        const float eCA_dx = (yA - yC);
+        const float eCA_dy = (xC - xA);
 
         // Rasterize
         for (int y = y0; y <= y1; ++y)

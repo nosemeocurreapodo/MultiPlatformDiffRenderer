@@ -80,14 +80,16 @@ public:
     T texel(size_type y, size_type x, size_type lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
-        auto m = lvls_[lvl].buf.MapRead();
-        return m.data()[x + y * width(lvl)];
+        //auto m = lvls_[lvl].buf.MapRead();
+        //return m.data()[x + y * width(lvl)];
+        return lvls_[lvl].buf[x + y * width(lvl)];
     }
     void set_texel(const T &v, size_type y, size_type x, size_type lvl)
     {
         assert(x < width(lvl) && y < height(lvl));
-        auto m = lvls_[lvl].buf.MapWrite();
-        m.data()[x + y * width(lvl)] = v;
+        //auto m = lvls_[lvl].buf.MapWrite();
+        //m.data()[x + y * width(lvl)] = v;
+        lvls_[lvl].buf[x + y * width(lvl)] = v;
     }
 
     // Normalized sampling in [0,1] (allows outside depending on address mode)
@@ -192,8 +194,9 @@ private:
     {
         x = std::min(x, width(lvl) - 1);
         y = std::min(y, height(lvl) - 1);
-        auto m = lvls_[lvl].buf.MapRead();
-        return m.data()[x + y * width(lvl)];
+        //auto m = lvls_[lvl].buf.MapRead();
+        //return m.data()[x + y * width(lvl)];
+        return lvls_[lvl].buf[x + y * width(lvl)];
     }
 
     T nearest_(float y, float x, size_type lvl) const
@@ -218,10 +221,11 @@ private:
         const float dx = x - static_cast<float>(x0);
         const float dy = y - static_cast<float>(y0);
 
-        auto m = lvls_[lvl].buf.MapRead(); // one mapping, four reads
+        //auto m = lvls_[lvl].buf.MapRead(); // one mapping, four reads
         const auto idx = [&](size_type yy, size_type xx)
         {
-            return m.data()[xx + yy * w];
+            //return m.data()[xx + yy * w];
+            return lvls_[lvl].buf[xx + yy * w];
         };
 
         const T tl = idx(y0, x0);
@@ -249,14 +253,15 @@ private:
         const size_type sw = src.w, sh = src.h;
         const size_type dw = dst.w, dh = dst.h;
 
-        auto s = src.buf.MapRead();
-        auto d = dst.buf.MapWrite();
+        //auto s = src.buf.MapRead();
+        //auto d = dst.buf.MapWrite();
 
         const auto s_idx = [&](size_type yy, size_type xx) -> T
         {
             yy = std::min(yy, sh - 1);
             xx = std::min(xx, sw - 1);
-            return s.data()[xx + yy * sw];
+            //return s.data()[xx + yy * sw];
+            return src[xx + yy * sw];
         };
 
         for (size_type y = 0; y < dh; ++y)
@@ -273,11 +278,13 @@ private:
 
                 if (is_nodata_(tl) || is_nodata_(tr) || is_nodata_(bl) || is_nodata_(br))
                 {
-                    d.data()[x + y * dw] = nodata_;
+                    //d.data()[x + y * dw] = nodata_;
+                    dst[x + y * dw] = nodata_;
                 }
                 else
                 {
-                    d.data()[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                    //d.data()[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                    dst[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
                 }
             }
         }
