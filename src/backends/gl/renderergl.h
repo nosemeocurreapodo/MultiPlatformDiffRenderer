@@ -458,8 +458,9 @@ public:
                 ivec2 tex_size = textureSize(image, image_lvl);
 
                 //vec3 didxy = texture(image, texcoord).xyz;
-                vec3 didxy = textureLod(image, texcoord, float(image_lvl)).xyz;
-                //vec3 didxy = vec3(image_lvl, image_lvl, image_lvl);
+                //vec3 didxy = textureLod(image, texcoord, float(image_lvl)).xyz;
+                vec3 didxy = texelFetch(image, ivec2(gl_FragCoord.x, gl_FragCoord.y), image_lvl).xyz;
+                //vec3 didxy = vec3(1.0f, 1.0f, 1.0f);
 
                 //if(didxy == image_nodata)
                 //    discard;
@@ -532,7 +533,8 @@ public:
             void main()
             {
                 //vec3 v = texture(image, texcoord).xyz;
-                vec3 v = textureLod(image, texcoord, float(image_lvl)).xyz;
+                //vec3 v = textureLod(image, texcoord, float(image_lvl)).xyz;
+                vec3 v = texelFetch(image, ivec2(gl_FragCoord.x, gl_FragCoord.y), image_lvl).xyz;
 
                 if(v == image_nodata)
                     discard;

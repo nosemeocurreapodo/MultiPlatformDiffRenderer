@@ -587,7 +587,7 @@ public:
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // take the derivative in frame coordinates (not projected)
-        // Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        //Vec3 f_der = inTexture.sample(inVarying(4), inVarying(3), in_lvl);
         Vec3 f_der = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (f_der == nodata)
@@ -651,7 +651,8 @@ public:
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
-        Vec3 v = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
+        //Vec3 v = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
+        Vec3 v = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (v == nodata)
             return;

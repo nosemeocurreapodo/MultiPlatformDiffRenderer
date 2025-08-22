@@ -178,8 +178,8 @@ public:
 
         // Prefer bytes-per-pixel from GL format/T rather than sizeof(T)
         const auto compSize = (T_ == GL_FLOAT ? 4 : T_ == GL_UNSIGNED_BYTE ? 1
-                                                                                 :
-                                                                                 /* add other Ts as needed */ 4);
+                                                                           :
+                                                                           /* add other Ts as needed */ 4);
         const auto comps = (format_ == GL_RED ? 1 : format_ == GL_RG ? 2
                                                 : format_ == GL_RGB  ? 3
                                                 : format_ == GL_RGBA ? 4
@@ -359,7 +359,7 @@ private:
         glBindTexture(GL_TEXTURE_2D, tex_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         // Allocate level 0, and each mip to keep driver happy

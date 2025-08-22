@@ -388,32 +388,38 @@ TEST_F(DataLoaderOneFrame, TestJtraRenderer)
     const int out_w = lvl_dim(w, out_lvl);
     const int out_h = lvl_dim(h, out_lvl);
 
+    // Image-space quad
+    std::vector<float> quad_pos, quad_uv, quad_w;
+    make_screen_quad(quad_pos, quad_uv, quad_w);
+
+    MeshCPU mesh_img_cpu(quad_pos, quad_uv, quad_w);
     MeshCPU mesh(vertices, texcoords, weights);
 
     TextureCPU<float> input_cpu(w, h, 0.f);
     TextureCPU<Vec3> didxy_cpu(w, h, Vec3(0, 0, 0));
     TextureCPU<Vec3> jtra_cpu(w, h, Vec3(0, 0, 0));
-    upload_mat_to_texture(input_cpu, 0, image_src_CV);
+    upload_mat_to_texture(input_cpu, 0, image_dst_CV);
 
     DIDxyRendererCPU didxy_cpu_renderer;
     JtraRendererCPU jtra_cpu_renderer;
 
-    didxy_cpu_renderer.Render(mesh, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
+    didxy_cpu_renderer.Render(mesh_img_cpu, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
     jtra_cpu_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, out_lvl, out_lvl);
 
     cv::Mat jtra_cpu_cv = download_texture_to_mat<Vec3>(
         jtra_cpu, out_lvl, out_w, out_h, CV_32FC3);
 
+    MeshGL mesh_img_gl(quad_pos, quad_uv, quad_w);
     MeshGL mesh_gl(vertices, texcoords, weights);
     TextureGL<float> in_gl(w, h, 0.f);
     TextureGL<Vec3> didxy_gl(w, h, Vec3(0, 0, 0));
     TextureGL<Vec3> jtra_gl(w, h, Vec3(0, 0, 0));
     // in_gl.FromCPU(0, image_src_CV.ptr<float>());
-    upload_mat_to_texture(in_gl, 0, image_src_CV);
+    upload_mat_to_texture(in_gl, 0, image_dst_CV);
 
     DIDxyRendererGL didxy_gl_renderer;
     JtraRendererGL jtra_gl_renderer;
-    didxy_gl_renderer.Render(mesh_gl, SE3(), cam, in_gl, didxy_gl, in_lvl, out_lvl);
+    didxy_gl_renderer.Render(mesh_img_gl, SE3(), cam, in_gl, didxy_gl, in_lvl, out_lvl);
     jtra_gl_renderer.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, out_lvl, out_lvl);
 
     // cv::Mat jtra_gl_cv(out_h, out_w, CV_32FC3);
@@ -443,38 +449,44 @@ TEST_F(DataLoaderOneFrame, TestJrotRenderer)
     const int out_w = lvl_dim(w, out_lvl);
     const int out_h = lvl_dim(h, out_lvl);
 
+    // Image-space quad
+    std::vector<float> quad_pos, quad_uv, quad_w;
+    make_screen_quad(quad_pos, quad_uv, quad_w);
+
+    MeshCPU mesh_img_cpu(quad_pos, quad_uv, quad_w);
     MeshCPU mesh(vertices, texcoords, weights);
 
     TextureCPU<float> input_cpu(w, h, 0.f);
     TextureCPU<Vec3> didxy_cpu(w, h, Vec3(0, 0, 0));
     TextureCPU<Vec3> jtra_cpu(w, h, Vec3(0, 0, 0));
     TextureCPU<Vec3> jrot_cpu(w, h, Vec3(0, 0, 0));
-    upload_mat_to_texture(input_cpu, 0, image_src_CV);
+    upload_mat_to_texture(input_cpu, 0, image_dst_CV);
 
     DIDxyRendererCPU didxy_cpu_renderer;
     JtraRendererCPU jtra_cpu_renderer;
     JrotRendererCPU jrot_cpu_renderer;
-    didxy_cpu_renderer.Render(mesh, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
+    didxy_cpu_renderer.Render(mesh_img_cpu, SE3(), cam, input_cpu, didxy_cpu, in_lvl, out_lvl);
     jtra_cpu_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, didxy_cpu, jtra_cpu, in_lvl, out_lvl);
-    jrot_cpu_renderer.Render(mesh, SE3(), cam, jtra_cpu, jrot_cpu, in_lvl, out_lvl);
+    jrot_cpu_renderer.Render(mesh, pose_dst * pose_src.inverse(), cam, jtra_cpu, jrot_cpu, in_lvl, out_lvl);
 
     cv::Mat jrot_cpu_cv = download_texture_to_mat<Vec3>(
         jrot_cpu, out_lvl, out_w, out_h, CV_32FC3);
 
+    MeshGL mesh_img_gl(quad_pos, quad_uv, quad_w);
     MeshGL mesh_gl(vertices, texcoords, weights);
     TextureGL<float> in_gl(w, h, 0.f);
     TextureGL<Vec3> didxy_gl(w, h, Vec3(0, 0, 0));
     TextureGL<Vec3> jtra_gl(w, h, Vec3(0, 0, 0));
     TextureGL<Vec3> jrot_gl(w, h, Vec3(0, 0, 0));
     // in_gl.FromCPU(0, image_src_CV.ptr<float>());
-    upload_mat_to_texture(in_gl, 0, image_src_CV);
+    upload_mat_to_texture(in_gl, 0, image_dst_CV);
 
     DIDxyRendererGL didxy_gl_renderer;
     JtraRendererGL jtra_gl_renderer;
     JrotRendererGL jrot_gl_renderer;
-    didxy_gl_renderer.Render(mesh_gl, SE3(), cam, in_gl, didxy_gl, in_lvl, out_lvl);
+    didxy_gl_renderer.Render(mesh_img_gl, SE3(), cam, in_gl, didxy_gl, in_lvl, out_lvl);
     jtra_gl_renderer.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, didxy_gl, jtra_gl, in_lvl, out_lvl);
-    jrot_gl_renderer.Render(mesh_gl, SE3(), cam, jtra_gl, jrot_gl, in_lvl, out_lvl);
+    jrot_gl_renderer.Render(mesh_gl, pose_dst * pose_src.inverse(), cam, jtra_gl, jrot_gl, in_lvl, out_lvl);
 
     // cv::Mat jrot_gl_cv(out_h, out_w, CV_32FC3);
     //  jrot_gl.ToCPU(out_lvl, reinterpret_cast<Vec3*>(jrot_gl_cv.ptr<Vec3>()));

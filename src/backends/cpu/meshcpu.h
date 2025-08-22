@@ -16,6 +16,7 @@ public:
     using size_type = std::size_t;
 
     // Default: screen-aligned quad (two tris), z = 1
+    /*
     MeshCPU()
     {
         // 6 vertices (two triangles), pos as (x,y,z)
@@ -37,6 +38,7 @@ public:
 
         validate_();
     }
+    */
 
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
