@@ -46,8 +46,11 @@ static void upload_mat_to_texture(TextureCPU<T> &tex, int lvl, const cv::Mat &m)
 {
     // ASSERT_TRUE(m.isContinuous());
     const std::size_t n = static_cast<std::size_t>(m.total());
-    auto mw = tex.MapWrite(lvl);
-    std::memcpy(mw.data(), m.ptr(), n * sizeof(T));
+    {
+        auto mw = tex.MapWrite(lvl);
+        std::memcpy(mw.data(), m.ptr(), n * sizeof(T));
+    }
+    tex.generate_mipmaps(0);
 }
 
 template <class T>
@@ -65,8 +68,11 @@ static void upload_mat_to_texture(TextureGL<T> &tex, int lvl, const cv::Mat &m)
 {
     // ASSERT_TRUE(m.isContinuous());
     const std::size_t n = static_cast<std::size_t>(m.total());
-    auto mw = tex.MapWrite(lvl);
-    std::memcpy(mw.data(), m.ptr(), n * sizeof(T));
+    {
+        auto mw = tex.MapWrite(lvl);
+        std::memcpy(mw.data(), m.ptr(), n * sizeof(T));
+    }
+    tex.generate_mipmaps(0);
 }
 
 template <class T>
@@ -208,7 +214,7 @@ protected:
     std::vector<float> vertices;
     std::vector<float> weights;
 };
-/*
+
 // ----------------------------------
 // DepthRenderer test (CPU vs GL)
 // ----------------------------------
@@ -268,14 +274,14 @@ TEST_F(DataLoaderOneFrame, TestDepthRenderer)
     // const float cpu_gl_err = ComputeImageError<float>(depth_cpu_cv, depth_gl_cv, 0.f);
     // EXPECT_NEAR(cpu_gl_err, 0.0f, 0.5f);
 }
-*/
+
 // ----------------------------------
 // ImageRenderer test (CPU vs GL)
 // ----------------------------------
 TEST_F(DataLoaderOneFrame, TestImageRenderer)
 {
-    const int in_lvl = 0;
-    const int out_lvl = 0;
+    const int in_lvl = 1;
+    const int out_lvl = 1;
 
     const int out_w = lvl_dim(w, out_lvl);
     const int out_h = lvl_dim(h, out_lvl);
@@ -294,14 +300,14 @@ TEST_F(DataLoaderOneFrame, TestImageRenderer)
     MeshGL mesh_gl(vertices, texcoords, weights);
     TextureGL<float> input_gl(w, h, 0.f);
     TextureGL<float> output_gl_tex(w, h, 0.f);
-    //input_gl.FromCPU(0, image_src_CV.ptr<float>());
+    // input_gl.FromCPU(0, image_src_CV.ptr<float>());
     upload_mat_to_texture(input_gl, 0, image_src_CV);
 
     ImageRendererGL renderer_gl;
     renderer_gl.Render(mesh_gl, pose_dst * pose_src.inverse(), cam,
                        input_gl, output_gl_tex, in_lvl, out_lvl);
-    //cv::Mat out_gl_cv(out_h, out_w, CV_32FC1);
-    //output_gl_tex.ToCPU(out_lvl, out_gl_cv.ptr<float>());
+    // cv::Mat out_gl_cv(out_h, out_w, CV_32FC1);
+    // output_gl_tex.ToCPU(out_lvl, out_gl_cv.ptr<float>());
     cv::Mat out_gl_cv = download_texture_to_mat<float>(
         output_gl_tex, out_lvl, out_w, out_h, CV_32FC1);
 

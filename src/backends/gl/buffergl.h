@@ -22,18 +22,17 @@ struct GLUnmap {
 template <typename T, GLenum Target = GL_ARRAY_BUFFER, GLenum Usage = GL_STATIC_DRAW>
 class BufferGL {
 public:
-    using value_type = T;
-    using size_type  = std::size_t;
+    //using value_type = T;
 
     BufferGL() = default;
 
-    explicit BufferGL(size_type n) : size_(n) {
+    explicit BufferGL(std::size_t n) : size_(n) {
         glGenBuffers(1, &id_);
         glBindBuffer(Target, id_);
         glBufferData(Target, bytes(), nullptr, Usage);
     }
 
-    BufferGL(size_type n, const T* src) : BufferGL(n) {
+    BufferGL(std::size_t n, const T* src) : BufferGL(n) {
         if (n) {
             glBufferSubData(Target, 0, bytes(), src);
         }
@@ -93,7 +92,7 @@ public:
         return MappedView<T, GLUnmap>(static_cast<T*>(p), size_, GLUnmap{id_, Target});
     }
 
-    size_type size() const noexcept { return size_; }
+    std::size_t size() const noexcept { return size_; }
     GLuint    id()   const noexcept { return id_;  }
 
 private:
@@ -102,5 +101,5 @@ private:
     }
 
     GLuint    id_   = 0;
-    size_type size_ = 0;
+    std::size_t size_ = 0;
 };

@@ -8,6 +8,9 @@
 #include <cmath>                    // std::floor, std::fmod
 #include "backends/cpu/buffercpu.h" // your MapRead/MapWrite version
 
+// template <class In, class var, class Out>
+// class BaseRendererCPU;
+
 enum class AddressMode
 {
     Repeat,
@@ -24,35 +27,30 @@ template <class T>
 class TextureCPU
 {
 public:
-    using value_type = T;
-    using size_type = std::size_t;
+    // using value_type = T;
+    // using size_type = std::size_t;
 
     TextureCPU() = default;
 
     // Create empty pyramid filled with nodata
-    TextureCPU(size_type w, size_type h, T nodata)
+    TextureCPU(std::size_t w, std::size_t h, T nodata)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
         // Fill base and all levels with nodata
-        for (size_type lvl = 0; lvl < levels(); ++lvl)
-            fill(lvl, nodata_);
+        // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
+        //    fill(lvl, nodata_);
     }
 
     // Create and upload base level, auto-generate mipmaps
-    TextureCPU(size_type w, size_type h, T nodata, const T *base)
+    TextureCPU(std::size_t w, std::size_t h, T nodata, const T *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
         // write base
         {
-            auto m = lvls_[0].buf.MapWrite();
+            auto m = MapWrite(0);
             std::copy_n(base, w * h, m.data());
-        }
-        // build lower levels
-        for (size_type lvl = 1; lvl < levels(); ++lvl)
-        {
-            generate_mipmap_(lvl);
         }
     }
 
@@ -64,39 +62,112 @@ public:
     ~TextureCPU() = default;
 
     // Introspection
-    size_type width(size_type lvl) const { return lvls_[lvl].w; }
-    size_type height(size_type lvl) const { return lvls_[lvl].h; }
-    size_type levels() const { return lvls_.size(); }
+    std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
+    std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
+    std::size_t levels() const { return levels_.size(); }
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
-    void fill(size_type lvl, const T &v)
+    void fill(std::size_t lvl, const T &v)
     {
-        auto m = lvls_[lvl].buf.MapWrite();
-        std::fill(m.begin(), m.end(), v);
+        // auto m = lvls_[lvl].buf.MapWrite();
+        // std::fill(m.begin(), m.end(), v);
+
+        auto m = MapWrite(lvl);
+        std::fill(m.data(), m.data() + m.size(), v);
     }
 
-    // Read/Write a single texel (bounds-checked in debug)
-    T texel(size_type y, size_type x, size_type lvl) const
+    void generate_mipmaps(int base_lvl)
     {
-        assert(x < width(lvl) && y < height(lvl));
-        //auto m = lvls_[lvl].buf.MapRead();
-        //return m.data()[x + y * width(lvl)];
-        return lvls_[lvl].buf[x + y * width(lvl)];
+        // build lower levels
+        for (std::size_t lvl = base_lvl + 1; lvl < levels(); ++lvl)
+        {
+            generate_mipmap_(lvl);
+        }
     }
-    void set_texel(const T &v, size_type y, size_type x, size_type lvl)
+
+    /*
+    // Expose map views for bulk ops / algorithms (cross-backend shape)
+    [[nodiscard]] MappedView<const T> MapRead(size_type lvl) const &
+    {
+        return lvls_[lvl].buf.MapRead();
+    }
+    [[nodiscard]] MappedView<T> MapWrite(size_type lvl) &
+    {
+        return lvls_[lvl].buf.MapWrite();
+    }
+    */
+
+    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
+    {
+        const auto &L = levels_[lvl];
+        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.size);
+    }
+
+    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(int lvl)
+    {
+        const auto &L = levels_[lvl];
+        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.size);
+    }
+
+private:
+    template <class In, class Var, class Out>
+    friend class BaseRendererCPU;
+    friend class DepthRendererCPU;
+    friend class ImageRendererCPU;
+    friend class DIDxyRendererCPU;
+    friend class JtraRendererCPU;
+    friend class JrotRendererCPU;
+    friend class JposeRendererCPU;
+
+    // static constexpr size_type lvl_base = 0;
+
+    /*
+    struct Level
+    {
+        size_type w{}, h{};
+        BufferCPU<T> buf; // owns w*h elements
+    };
+    */
+
+    struct Level
+    {
+        std::size_t offset; // element offset in storage_
+        std::size_t size;   // elements at this level (w*h*channels)
+        int w, h;
+        // optional: std::size_t pitch; // elements per row if you pad rows
+    };
+
+    BufferCPU<T> storage_;
+    std::vector<Level> levels_;
+    // std::vector<Level> lvls_;
+    T nodata_{};
+
+    // Read/Write a single texel (bounds-checked in debug)
+    T texel_(std::size_t y, std::size_t x, std::size_t lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
-        //auto m = lvls_[lvl].buf.MapWrite();
-        //m.data()[x + y * width(lvl)] = v;
-        lvls_[lvl].buf[x + y * width(lvl)] = v;
+        // auto m = lvls_[lvl].buf.MapRead();
+        // return m.data()[x + y * width(lvl)];
+        // return MapRead(lvl)[x + y * width(lvl)];
+        const auto &L = levels_[lvl];
+        return storage_[L.offset + y * L.w + x];
+    }
+    void set_texel_(const T &v, std::size_t y, std::size_t x, std::size_t lvl)
+    {
+        assert(x < width(lvl) && y < height(lvl));
+        // auto m = lvls_[lvl].buf.MapWrite();
+        // m.data()[x + y * width(lvl)] = v;
+        // MapWrite(lvl)[x + y * width(lvl)] = v;
+        const auto &L = levels_[lvl];
+        storage_[L.offset + y * L.w + x] = v;
     }
 
     // Normalized sampling in [0,1] (allows outside depending on address mode)
-    T sample(float u, float v,
-             size_type lvl = 0,
-             AddressMode addr = AddressMode::Clamp,
-             FilterMode filt = FilterMode::Bilinear) const
+    T sample_(float v, float u,
+              std::size_t lvl = 0,
+              AddressMode addr = AddressMode::Clamp,
+              FilterMode filt = FilterMode::Bilinear) const
     {
         const auto w = static_cast<float>(width(lvl));
         const auto h = static_cast<float>(height(lvl));
@@ -138,42 +209,34 @@ public:
                    : bilinear_(y, x, lvl);
     }
 
-    // Expose map views for bulk ops / algorithms (cross-backend shape)
-    [[nodiscard]] MappedView<const T> MapRead(size_type lvl) const &
+    void build_pyramid_(std::size_t w, std::size_t h)
     {
-        return lvls_[lvl].buf.MapRead();
-    }
-    [[nodiscard]] MappedView<T> MapWrite(size_type lvl) &
-    {
-        return lvls_[lvl].buf.MapWrite();
-    }
-
-private:
-    static constexpr size_type lvl_base = 0;
-
-    struct Level
-    {
-        size_type w{}, h{};
-        BufferCPU<T> buf; // owns w*h elements
-    };
-
-    std::vector<Level> lvls_;
-    T nodata_{};
-
-    void build_pyramid_(size_type w, size_type h)
-    {
-        lvls_.clear();
+        levels_.clear();
         if (w == 0 || h == 0)
             return;
+
+        std::size_t running = 0;
         // build until 1x1 (inclusive)
         while (true)
         {
-            lvls_.push_back(Level{w, h, BufferCPU<T>(w * h)});
+            // levels_.push_back(Level{w, h, BufferCPU<T>(w * h)});
+            Level L;
+            L.w = w;
+            L.h = h;
+            L.size = std::size_t(w) * std::size_t(h);
+            L.offset = running;
+
+            levels_.push_back(L);
+            running += L.size;
+
             if (w == 1 && h == 1)
                 break;
-            w = std::max<size_type>(1, w >> 1);
-            h = std::max<size_type>(1, h >> 1);
+
+            w = std::max<std::size_t>(1, w >> 1);
+            h = std::max<std::size_t>(1, h >> 1);
         }
+
+        storage_ = BufferCPU<T>(running);
     }
 
     bool is_nodata_(const T &v) const
@@ -189,43 +252,46 @@ private:
         }
     }
 
+    /*
     // Safe fetch with clamping to edge
     T fetch_(size_type y, size_type x, size_type lvl) const
     {
         x = std::min(x, width(lvl) - 1);
         y = std::min(y, height(lvl) - 1);
-        //auto m = lvls_[lvl].buf.MapRead();
-        //return m.data()[x + y * width(lvl)];
+        // auto m = lvls_[lvl].buf.MapRead();
+        // return m.data()[x + y * width(lvl)];
         return lvls_[lvl].buf[x + y * width(lvl)];
     }
+    */
 
-    T nearest_(float y, float x, size_type lvl) const
+    T nearest_(float y, float x, std::size_t lvl) const
     {
-        const auto xi = static_cast<size_type>(std::lround(x));
-        const auto yi = static_cast<size_type>(std::lround(y));
-        return fetch_(yi, xi, lvl);
+        const auto xi = static_cast<std::size_t>(std::lround(x));
+        const auto yi = static_cast<std::size_t>(std::lround(y));
+        return texel_(yi, xi, lvl);
     }
 
-    T bilinear_(float y, float x, size_type lvl) const
+    T bilinear_(float y, float x, std::size_t lvl) const
     {
         const auto w = width(lvl);
         const auto h = height(lvl);
 
         const float xf = std::floor(x);
         const float yf = std::floor(y);
-        const auto x0 = static_cast<size_type>(xf < 0.0f ? 0.0f : xf);
-        const auto y0 = static_cast<size_type>(yf < 0.0f ? 0.0f : yf);
+        const auto x0 = static_cast<std::size_t>(xf < 0.0f ? 0.0f : xf);
+        const auto y0 = static_cast<std::size_t>(yf < 0.0f ? 0.0f : yf);
         const auto x1 = std::min(x0 + 1, w - 1);
         const auto y1 = std::min(y0 + 1, h - 1);
 
         const float dx = x - static_cast<float>(x0);
         const float dy = y - static_cast<float>(y0);
 
-        //auto m = lvls_[lvl].buf.MapRead(); // one mapping, four reads
-        const auto idx = [&](size_type yy, size_type xx)
+        // auto m = MapRead(lvl); // one mapping, four reads
+        const auto idx = [&](std::size_t yy, std::size_t xx)
         {
-            //return m.data()[xx + yy * w];
-            return lvls_[lvl].buf[xx + yy * w];
+            // return m[xx + yy * w];
+            //  return lvls_[lvl].buf[xx + yy * w];
+            return texel_(yy, xx, lvl);
         };
 
         const T tl = idx(y0, x0);
@@ -244,32 +310,32 @@ private:
         return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
     }
 
-    void generate_mipmap_(size_type lvl)
+    void generate_mipmap_(std::size_t lvl)
     {
         // downsample from lvl-1 to lvl using 2x2 box, clamped at edges
-        const auto &src = lvls_[lvl - 1];
-        auto &dst = lvls_[lvl];
+        // const auto &src = lvls_[lvl - 1];
+        // auto &dst = lvls_[lvl];
 
-        const size_type sw = src.w, sh = src.h;
-        const size_type dw = dst.w, dh = dst.h;
+        const std::size_t sw = levels_[lvl - 1].w, sh = levels_[lvl - 1].h;
+        const std::size_t dw = levels_[lvl].w, dh = levels_[lvl].h;
 
-        //auto s = src.buf.MapRead();
-        //auto d = dst.buf.MapWrite();
+        auto src = MapRead(lvl - 1);
+        auto dst = MapWrite(lvl);
 
-        const auto s_idx = [&](size_type yy, size_type xx) -> T
+        const auto s_idx = [&](std::size_t yy, std::size_t xx) -> T
         {
             yy = std::min(yy, sh - 1);
             xx = std::min(xx, sw - 1);
-            //return s.data()[xx + yy * sw];
+            // return s.data()[xx + yy * sw];
             return src[xx + yy * sw];
         };
 
-        for (size_type y = 0; y < dh; ++y)
+        for (std::size_t y = 0; y < dh; ++y)
         {
-            for (size_type x = 0; x < dw; ++x)
+            for (std::size_t x = 0; x < dw; ++x)
             {
-                const size_type sx = x * 2;
-                const size_type sy = y * 2;
+                const std::size_t sx = x * 2;
+                const std::size_t sy = y * 2;
 
                 const T tl = s_idx(sy, sx);
                 const T tr = s_idx(sy, sx + 1);
@@ -278,12 +344,12 @@ private:
 
                 if (is_nodata_(tl) || is_nodata_(tr) || is_nodata_(bl) || is_nodata_(br))
                 {
-                    //d.data()[x + y * dw] = nodata_;
+                    // d.data()[x + y * dw] = nodata_;
                     dst[x + y * dw] = nodata_;
                 }
                 else
                 {
-                    //d.data()[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                    // d.data()[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
                     dst[x + y * dw] = static_cast<T>((tl + tr + bl + br) * 0.25f);
                 }
             }

@@ -363,7 +363,7 @@ protected:
 
                     OutTexType outColor = out_texture.nodata();
                     fragment_shader(gl_FragCoord, varying_px, in_texture, outColor, in_lvl, out_lvl);
-                    out_texture.set_texel(outColor, y, x, out_lvl);
+                    out_texture.set_texel_(outColor, y, x, out_lvl);
                 }
 
                 // advance to x+1
@@ -459,7 +459,7 @@ public:
                          int in_lvl,
                          int out_lvl) override
     {
-        float pix = inTexture.sample(inVarying(1), inVarying(0), in_lvl);
+        float pix = inTexture.sample_(inVarying(1), inVarying(0), in_lvl);
         outFragment = pix;
 
         // Example: color = [checker pattern], ignoring inVarying
@@ -524,11 +524,11 @@ public:
             return;
         }
 
-        float f = inTexture.texel(y, x, in_lvl);
-        float f_y_p = inTexture.texel(y_p, x, in_lvl);
-        float f_y_m = inTexture.texel(y_m, x, in_lvl);
-        float f_x_p = inTexture.texel(y, x_p, in_lvl);
-        float f_x_m = inTexture.texel(y, x_m, in_lvl);
+        float f = inTexture.texel_(y, x, in_lvl);
+        float f_y_p = inTexture.texel_(y_p, x, in_lvl);
+        float f_y_m = inTexture.texel_(y_m, x, in_lvl);
+        float f_x_p = inTexture.texel_(y, x_p, in_lvl);
+        float f_x_m = inTexture.texel_(y, x_m, in_lvl);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -588,7 +588,7 @@ public:
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // take the derivative in frame coordinates (not projected)
         // Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
-        Vec3 f_der = inTexture.texel(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        Vec3 f_der = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (f_der == nodata)
             return;
@@ -651,7 +651,7 @@ public:
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
-        Vec3 v = inTexture.sample(inVarying(4), inVarying(3), in_lvl);
+        Vec3 v = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
 
         if (v == nodata)
             return;
@@ -715,7 +715,7 @@ public:
         // outFragment = inVarying;
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        Vec3 f_der = inTexture.sample(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_der = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
 
         float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
         float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);

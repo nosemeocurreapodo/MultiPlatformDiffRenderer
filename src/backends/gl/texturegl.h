@@ -9,6 +9,9 @@
 #include "backends/gl/devicegl_glad.h"
 #include "backends/base/MappedView.h"
 
+template <class In, class Out>
+class BaseRendererGL;
+
 struct GLPboUnmap
 {
     GLuint pbo{};
@@ -31,7 +34,7 @@ struct GLPboUpload
     GLint level{};
     GLint x{}, y{};
     GLsizei w{}, h{};
-    GLenum format{}, type{};
+    GLenum format{}, T{};
     GLuint pbo{}; // PBO id (bound to GL_PIXEL_UNPACK_BUFFER)
 
     void operator()() const noexcept
@@ -52,10 +55,16 @@ struct GLPboUpload
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
         // 4) upload from PBO (nullptr = offset 0)
-        glTexSubImage2D(texTarget, level, x, y, w, h, format, type, nullptr);
+        glTexSubImage2D(texTarget, level, x, y, w, h, format, T, nullptr);
 
-        // 5) restore & cleanup
+        // 5) restore
         glPixelStorei(GL_UNPACK_ALIGNMENT, prevAlign);
+
+        // gen mipmaps
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, level);
+        // glGenerateMipmap(GL_TEXTURE_2D);
+
+        // cleanip
         glBindTexture(texTarget, 0);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         glDeleteBuffers(1, &pbo);
@@ -63,20 +72,20 @@ struct GLPboUpload
 };
 
 // ----------------- TextureGL -----------------
-template <typename Type>
+template <typename T>
 class TextureGL
 {
 public:
-    using size_type = std::size_t;
+    // using size_T = std::size_t;
 
     TextureGL() = default;
 
-    TextureGL(int width, int height, Type nodata_value)
+    TextureGL(int width, int height, T nodata_value)
     {
         init_(width, height, nodata_value, /*data=*/nullptr);
     }
 
-    TextureGL(int width, int height, Type nodata_value, const Type *data)
+    TextureGL(int width, int height, T nodata_value, const T *data)
     {
         init_(width, height, nodata_value, data);
     }
@@ -91,7 +100,7 @@ public:
         : tex_(std::exchange(o.tex_, 0)),
           widths_(std::move(o.widths_)),
           heights_(std::move(o.heights_)),
-          internal_(o.internal_), format_(o.format_), type_(o.type_), nodata_(o.nodata_) {}
+          internal_(o.internal_), format_(o.format_), T_(o.T_), nodata_(o.nodata_) {}
 
     TextureGL &operator=(TextureGL &&o) noexcept
     {
@@ -104,7 +113,7 @@ public:
             heights_ = std::move(o.heights_);
             internal_ = o.internal_;
             format_ = o.format_;
-            type_ = o.type_;
+            T_ = o.T_;
             nodata_ = o.nodata_;
         }
         return *this;
@@ -113,39 +122,43 @@ public:
     TextureGL(const TextureGL &) = delete;
     TextureGL &operator=(const TextureGL &) = delete;
 
+    /*
     // Upload/Download (immutable storage friendly)
-    void FromCPU(int lvl, const Type *data)
+    void FromCPU(int lvl, const T *data)
     {
-        bind_();
+        glBindTexture(GL_TEXTURE_2D, tex_);
         glTexSubImage2D(GL_TEXTURE_2D, lvl, 0, 0,
                         static_cast<GLsizei>(width(lvl)),
                         static_cast<GLsizei>(height(lvl)),
-                        format_, type_, data);
+                        format_, T_, data);
         // If you updated base level and want chain rebuilt:
         if (lvl == 0)
             glGenerateMipmap(GL_TEXTURE_2D);
-        unbind_();
+        glBindTexture(GL_TEXTURE_2D, 0);
+        ;
     }
 
-    void ToCPU(int lvl, Type *out) const
+    void ToCPU(int lvl, T *out) const
     {
-        bind_();
+        glBindTexture(GL_TEXTURE_2D, tex_);
         // For GL 4.5 you could use glGetTextureSubImage without binding.
-        glGetTexImage(GL_TEXTURE_2D, lvl, format_, type_, out);
-        unbind_();
+        glGetTexImage(GL_TEXTURE_2D, lvl, format_, T_, out);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        ;
     }
+    */
 
-    [[nodiscard]] MappedView<const Type, GLPboUnmap> MapRead(int lvl) const
+    [[nodiscard]] MappedView<const T, GLPboUnmap> MapRead(int lvl) const
     {
-        const GLsizeiptr bytes = GLsizeiptr(size(lvl)) * GLsizeiptr(sizeof(Type));
+        const GLsizeiptr bytes = GLsizeiptr(size(lvl)) * GLsizeiptr(sizeof(T));
         GLuint pbo = 0;
         glGenBuffers(1, &pbo);
         glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_PACK_BUFFER, bytes, nullptr, GL_STREAM_READ);
 
-        bind_();
-        glGetTexImage(GL_TEXTURE_2D, lvl, format_, type_, nullptr); // -> PBO
-        unbind_();
+        glBindTexture(GL_TEXTURE_2D, tex_);
+        glGetTexImage(GL_TEXTURE_2D, lvl, format_, T_, nullptr); // -> PBO
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         void *ptr = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, bytes, GL_MAP_READ_BIT);
         if (!ptr)
@@ -155,18 +168,18 @@ public:
             throw std::runtime_error("MapRead PBO failed");
         }
 
-        return {static_cast<const Type *>(ptr), size(lvl), GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
+        return {static_cast<const T *>(ptr), size(lvl), GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
     }
 
-    [[nodiscard]] MappedView<Type, GLPboUpload> MapWrite(int lvl)
+    [[nodiscard]] MappedView<T, GLPboUpload> MapWrite(int lvl)
     {
         const GLsizei w = GLsizei(width(lvl));
         const GLsizei h = GLsizei(height(lvl));
 
-        // Prefer bytes-per-pixel from GL format/type rather than sizeof(Type)
-        const auto compSize = (type_ == GL_FLOAT ? 4 : type_ == GL_UNSIGNED_BYTE ? 1
+        // Prefer bytes-per-pixel from GL format/T rather than sizeof(T)
+        const auto compSize = (T_ == GL_FLOAT ? 4 : T_ == GL_UNSIGNED_BYTE ? 1
                                                                                  :
-                                                                                 /* add other types as needed */ 4);
+                                                                                 /* add other Ts as needed */ 4);
         const auto comps = (format_ == GL_RED ? 1 : format_ == GL_RG ? 2
                                                 : format_ == GL_RGB  ? 3
                                                 : format_ == GL_RGBA ? 4
@@ -174,10 +187,10 @@ public:
                                                                      /* add others if needed */ 1);
         const GLsizeiptr bytes = GLsizeiptr(w) * GLsizeiptr(h) * compSize * comps;
 
-        // If you insist on Type*: assert layout matches:
-        static_assert(std::is_trivially_copyable<Type>::value, "Type must be POD-like");
+        // If you insist on T*: assert layout matches:
+        static_assert(std::is_trivially_copyable<T>::value, "T must be POD-like");
         // OPTIONAL: runtime assert to catch padding issues early
-        // assert(sizeof(Type) == compSize * comps && "Type size mismatches GL format");
+        // assert(sizeof(T) == compSize * comps && "T size mismatches GL format");
 
         GLuint pbo = 0;
         glGenBuffers(1, &pbo);
@@ -192,32 +205,45 @@ public:
             throw std::runtime_error("MapWrite PBO failed");
         }
 
-        return {static_cast<Type *>(ptr), size(lvl),
-                GLPboUpload{tex_, GL_TEXTURE_2D, lvl, 0, 0, w, h, format_, type_, pbo}};
+        return {static_cast<T *>(ptr), size(lvl),
+                GLPboUpload{tex_, GL_TEXTURE_2D, lvl, 0, 0, w, h, format_, T_, pbo}};
     }
 
     // Info
-    unsigned int width(int lvl) const { return static_cast<unsigned int>(widths_[lvl]); }
-    unsigned int height(int lvl) const { return static_cast<unsigned int>(heights_[lvl]); }
-    unsigned int size(int lvl) const { return width(lvl) * height(lvl); }
-    unsigned int lvls() const { return static_cast<unsigned int>(widths_.size()); }
-    Type nodata() const { return nodata_; }
-    GLuint id() const { return tex_; }
+    std::size_t width(int lvl) const { return static_cast<std::size_t>(widths_[lvl]); }
+    std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
+    std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
+    std::size_t lvls() const { return static_cast<std::size_t>(widths_.size()); }
+    T nodata() const { return nodata_; }
+    // GLuint id() const { return tex_; }
 
+    /*
     // Optional: allow changing filter/wrap to match CPU sampling
     void SetFilter(GLint minf, GLint magf)
     {
-        bind_();
+        glBindTexture(GL_TEXTURE_2D, tex_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minf);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magf); // must be NEAREST/LINEAR
-        unbind_();
+        glBindTexture(GL_TEXTURE_2D, 0);;
     }
     void SetWrap(GLint s, GLint t)
     {
-        bind_();
+        glBindTexture(GL_TEXTURE_2D, tex_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, s);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, t);
-        unbind_();
+        glBindTexture(GL_TEXTURE_2D, 0);;
+    }
+    */
+
+    void generate_mipmaps(int base_lvl)
+    {
+        glBindTexture(GL_TEXTURE_2D, tex_);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, base_lvl);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        // cleanip
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
 private:
@@ -225,9 +251,10 @@ private:
     std::vector<std::size_t> widths_, heights_;
     GLint internal_{};
     GLenum format_{};
-    GLenum type_{};
-    Type nodata_{};
+    GLenum T_{};
+    T nodata_{};
 
+    /*
     static std::size_t mip_levels_(int w, int h)
     {
         std::size_t levels = 0;
@@ -240,6 +267,16 @@ private:
             H = std::max<std::size_t>(1, H >> 1);
         } while (W > 1 || H > 1);
         return levels;
+    }
+    */
+
+    template <class In, class Out>
+    friend class BaseRendererGL;
+
+    [[nodiscard]] GLuint id() const noexcept
+    {
+        assert(tex_ != 0 && "Texture not created");
+        return tex_;
     }
 
     void compute_dims_(int w, int h)
@@ -259,61 +296,64 @@ private:
         }
     }
 
-    void init_(int w, int h, Type nodata_val, const Type *base)
+    void init_(int w, int h, T nodata_val, const T *base)
     {
         nodata_ = nodata_val;
 
-        const int channels = getChannels<Type>();
-        internal_ = GetGLInternalFormat(GetTypeIndex<Type>());
+        const int channels = getChannels<T>();
+        internal_ = GetGLInternalFormat(GetTypeIndex<T>());
         format_ = GetGLFormat(channels);
-        type_ = GetGLType(GetTypeIndex<Type>());
+        T_ = GetGLType(GetTypeIndex<T>());
 
         compute_dims_(w, h);
 
-        // Create and allocate storage
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glCreateTextures(GL_TEXTURE_2D, 1, &tex_);
-            glTextureParameteri(tex_, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTextureParameteri(tex_, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTextureParameteri(tex_, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTextureParameteri(tex_, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // MAG must be NEAREST/LINEAR
+        /*
+                // Create and allocate storage
+        #if defined(GL_VERSION_4_5)
+                if (GLAD_GL_VERSION_4_5)
+                {
+                    glCreateTextures(GL_TEXTURE_2D, 1, &tex_);
+                    glTextureParameteri(tex_, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                    glTextureParameteri(tex_, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                    glTextureParameteri(tex_, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                    glTextureParameteri(tex_, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // MAG must be NEAREST/LINEAR
 
-            glTextureStorage2D(tex_, static_cast<GLint>(lvls()), internal_, w, h);
-            if (base)
-            {
-                glTextureSubImage2D(tex_, 0, 0, 0, w, h, format_, type_, base);
-                glGenerateTextureMipmap(tex_);
-            }
-            glTextureParameteri(tex_, GL_TEXTURE_BASE_LEVEL, 0);
-            glTextureParameteri(tex_, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(lvls()) - 1);
-            return;
-        }
-#endif
-        // Fallback: bind-based immutable or mutable allocation
-#ifdef GL_ARB_texture_storage
-        if (GLAD_GL_ARB_texture_storage)
-        {
-            glGenTextures(1, &tex_);
-            glBindTexture(GL_TEXTURE_2D, tex_);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTextureStorage2D(tex_, static_cast<GLint>(lvls()), internal_, w, h);
+                    if (base)
+                    {
+                        glTextureSubImage2D(tex_, 0, 0, 0, w, h, format_, T_, base);
+                        glGenerateTextureMipmap(tex_);
+                    }
+                    glTextureParameteri(tex_, GL_TEXTURE_BASE_LEVEL, 0);
+                    glTextureParameteri(tex_, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(lvls()) - 1);
+                    return;
+                }
+        #endif
+                // Fallback: bind-based immutable or mutable allocation
+        #ifdef GL_ARB_texture_storage
+                if (GLAD_GL_ARB_texture_storage)
+                {
+                    glGenTextures(1, &tex_);
+                    glBindTexture(GL_TEXTURE_2D, tex_);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            glTexStorage2D(GL_TEXTURE_2D, static_cast<GLint>(lvls()), internal_, w, h);
-            if (base)
-            {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, format_, type_, base);
-                glGenerateMipmap(GL_TEXTURE_2D);
-            }
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(lvls()) - 1);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            return;
-        }
-#endif
+                    glTexStorage2D(GL_TEXTURE_2D, static_cast<GLint>(lvls()), internal_, w, h);
+                    if (base)
+                    {
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, format_, T_, base);
+                        glGenerateMipmap(GL_TEXTURE_2D);
+                    }
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(lvls()) - 1);
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                    return;
+                }
+        #endif
+
+        */
         // Mutable fallback
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
@@ -323,12 +363,12 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         // Allocate level 0, and each mip to keep driver happy
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_, w, h, 0, format_, type_, base);
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_, w, h, 0, format_, T_, base);
         for (int lvl = 1, W = std::max(1, w >> 1), H = std::max(1, h >> 1);
              lvl < static_cast<int>(lvls());
              ++lvl, W = std::max(1, W >> 1), H = std::max(1, H >> 1))
         {
-            glTexImage2D(GL_TEXTURE_2D, lvl, internal_, W, H, 0, format_, type_, nullptr);
+            glTexImage2D(GL_TEXTURE_2D, lvl, internal_, W, H, 0, format_, T_, nullptr);
         }
         if (base)
             glGenerateMipmap(GL_TEXTURE_2D);
@@ -338,6 +378,6 @@ private:
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    void bind_() const { glBindTexture(GL_TEXTURE_2D, tex_); }
-    void unbind_() const { glBindTexture(GL_TEXTURE_2D, 0); }
+    // void bind_() const { glBindTexture(GL_TEXTURE_2D, tex_); }
+    // void unbind_() const { glBindTexture(GL_TEXTURE_2D, 0); }
 };
