@@ -1,9 +1,21 @@
 include(GoogleTest)
 
-#add_subdirectory(cpu)
+# Unit tests for individual backends
+add_subdirectory(unit)
 
-#add_subdirectory(multi)
+# Performance benchmarking tests
+add_subdirectory(performance)
 
+# Ground truth validation tests
+add_subdirectory(validation)
+
+# Integration tests for cross-backend comparison
+add_subdirectory(integration)
+
+# Edge case and error handling tests
+add_subdirectory(edge_cases)
+
+# Legacy GL tests (kept for compatibility)
 if(COMPILE_GL)
   add_subdirectory(gl)
 endif()
