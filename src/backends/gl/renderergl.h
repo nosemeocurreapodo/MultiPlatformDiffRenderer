@@ -72,8 +72,9 @@ public:
         {
             char log[2048];
             glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
-            std::cerr << "Program link failed:\n"
-                      << log << "\n";
+            glDeleteProgram(program_);
+            program_ = 0;
+            throw std::runtime_error(std::string("Program link failed:\n") + log);
         }
 
         // Common uniform locations (derived shaders should use these names)
@@ -121,12 +122,11 @@ public:
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE)
         {
-            std::cerr << "FBO incomplete (0x" << std::hex << status << std::dec << ")\n";
             // restore minimal state
             glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
             glUseProgram(prevProg);
             glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-            return;
+            throw std::runtime_error("Framebuffer is not complete!");
         }
 
         // ——— Fixed pipeline state for our pass ———
@@ -234,9 +234,9 @@ private:
         {
             char log[2048];
             glGetShaderInfoLog(id, sizeof(log), nullptr, log);
-            std::cerr << (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment")
-                      << " shader compilation failed:\n"
-                      << log << "\n";
+            std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
+            glDeleteShader(id);
+            throw std::runtime_error(shader_type + " shader compilation failed:\n" + log);
         }
         return id;
     }
