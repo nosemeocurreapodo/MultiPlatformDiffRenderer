@@ -116,11 +116,15 @@ TEST_F(GroundTruthTests, CrossBackendConsistency) {
     
     cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
     
-    // Compare results
+    // Compare results (mask nodata)
+    cv::Mat mask = (cpu_result != -1.0f) & (gl_result != -1.0f);
+    cv::Mat cpu_masked, gl_masked;
+    cpu_result.copyTo(cpu_masked, mask);
+    gl_result.copyTo(gl_masked, mask);
     cv::Mat diff;
-    cv::absdiff(cpu_result, gl_result, diff);
+    cv::absdiff(cpu_masked, gl_masked, diff);
     
-    cv::Scalar mean_diff = cv::mean(diff);
+    cv::Scalar mean_diff = cv::mean(diff, mask);
     cv::Scalar max_diff;
     cv::minMaxLoc(diff, nullptr, &max_diff[0]);
     

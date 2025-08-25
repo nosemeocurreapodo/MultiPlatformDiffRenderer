@@ -3,10 +3,12 @@
 #include <vector>
 #include <utility>
 #include <iostream>
+#include <type_traits>
 #include <cassert>
 
 #include "backends/gl/devicegl_glad.h"
 #include "core/format_converters.h"
+#include "core/types.h"
 #include "core/camera.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
@@ -138,9 +140,41 @@ public:
         const GLsizei H = static_cast<GLsizei>(texture_out.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        // If you want to clear to "nodata", map OutTexType to RGBA here.
-        glClearColor(0.f, 0.f, 0.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear to nodata matching the output texture type
+        {
+            float clear[4] = {0.f, 0.f, 0.f, 0.f};
+            if constexpr (std::is_same_v<OutTexType, float>)
+            {
+                clear[0] = texture_out.nodata();
+                clear[3] = 1.f;
+            }
+            else if constexpr (std::is_same_v<OutTexType, Vec3>)
+            {
+                auto nd = texture_out.nodata();
+                clear[0] = nd(0);
+                clear[1] = nd(1);
+                clear[2] = nd(2);
+                clear[3] = 1.f;
+            }
+            else if constexpr (std::is_same_v<OutTexType, Vec4>)
+            {
+                auto nd = texture_out.nodata();
+                clear[0] = nd(0);
+                clear[1] = nd(1);
+                clear[2] = nd(2);
+                clear[3] = nd(3);
+            }
+            else
+            {
+                clear[3] = 1.f;
+            }
+#if defined(GL_VERSION_3_0)
+            glClearBufferfv(GL_COLOR, 0, clear);
+#else
+            glClearColor(clear[0], clear[1], clear[2], clear[3]);
+            glClear(GL_COLOR_BUFFER_BIT);
+#endif
+        }
 
         // ——— Bind input texture on unit 0 ———
 #if defined(GL_VERSION_4_5)
