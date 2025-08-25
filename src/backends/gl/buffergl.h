@@ -1,122 +1,127 @@
 #pragma once
-
 #include "backends/gl/devicegl_glad.h"
+#include <cstddef>
+#include <utility>
+#include <vector>
+#include <stdexcept>
 
-template <typename Type, int buffer_type = GL_ARRAY_BUFFER, int usage = GL_STATIC_DRAW>
-class BufferGL : public Buffer<Type>
+// Releaser for mapped GL buffers (binds, unmaps on destruction)
+struct GLUnmap
 {
+    GLuint id{};
+    GLenum target{};
+    void operator()() const noexcept
+    {
+        if (!id)
+            return;
+        glBindBuffer(target, id);
+        glUnmapBuffer(target);
+    }
+};
 
+// MappedView<T, Releaser> same as in your CPU version:
+// template<class T, class Releaser = NoopReleaser> class MappedView { ... };
+
+template <typename T, GLenum Target = GL_ARRAY_BUFFER, GLenum Usage = GL_STATIC_DRAW>
+class BufferGL
+{
 public:
-/*
-    BufferGL()
+    // using value_type = T;
+
+    BufferGL() = default;
+
+    explicit BufferGL(std::size_t n) : size_(n)
     {
-        size_ = 0;
-        buffer_ = 0;
-    }
-*/
-    BufferGL(unsigned int size)
-    {
-        size_ = size;
-        glGenBuffers(1, &buffer_);
-        glBindBuffer(buffer_type, buffer_);
-        glBufferData(buffer_type, size_ * sizeof(Type), nullptr, usage);
+        glGenBuffers(1, &id_);
+        glBindBuffer(Target, id_);
+        glBufferData(Target, bytes(), nullptr, Usage);
     }
 
-    BufferGL(unsigned int size, const Type *data)
+    BufferGL(std::size_t n, const T *src) : BufferGL(n)
     {
-        size_ = size;
-        glGenBuffers(1, &buffer_);
-        glBindBuffer(buffer_type, buffer_);
-        glBufferData(buffer_type, size_ * sizeof(Type), data, usage);
-    }
-
-    BufferGL(const std::vector<Type> &data)
-    {
-        size_ = data.size();
-        glGenBuffers(1, &buffer_);
-        glBindBuffer(buffer_type, buffer_);
-        glBufferData(buffer_type, size_ * sizeof(Type), data.data(), usage);
-    }
-
-    BufferGL(const BufferGL &other)
-    {
-        glGenBuffers(1, &buffer_);
-        glBindBuffer(buffer_type, buffer_);
-        glBufferData(buffer_type, other.size_ * sizeof(Type), nullptr, usage);
-        // 1. Bind source as COPY_READ
-        glBindBuffer(GL_COPY_READ_BUFFER, other.buffer_);
-
-        // 2. Bind destination as COPY_WRITE
-        glBindBuffer(GL_COPY_WRITE_BUFFER, buffer_);
-        glCopyBufferSubData(
-            GL_COPY_READ_BUFFER,       // read target
-            GL_COPY_WRITE_BUFFER,      // write target
-            0,                         // source offset in bytes
-            0,                         // destination offset in bytes
-            other.size_ * sizeof(Type) // number of bytes to copy
-        );
-        size_ = other.size_;
-    }
-
-    BufferGL &operator=(const BufferGL &other)
-    {
-        if (this != &other)
+        if (n)
         {
-            glDeleteBuffers(1, &buffer_);
+            glBufferSubData(Target, 0, bytes(), src);
+        }
+    }
 
-            glGenBuffers(1, &buffer_);
-            glBindBuffer(buffer_type, buffer_);
-            glBufferData(buffer_type, other.size_ * sizeof(Type), nullptr, usage);
-            // 1. Bind source as COPY_READ
-            glBindBuffer(GL_COPY_READ_BUFFER, other.buffer_);
+    explicit BufferGL(const std::vector<T> &v) : BufferGL(v.size(), v.data()) {}
 
-            // 2. Bind destination as COPY_WRITE
-            glBindBuffer(GL_COPY_WRITE_BUFFER, buffer_);
-            glCopyBufferSubData(
-                GL_COPY_READ_BUFFER,       // read target
-                GL_COPY_WRITE_BUFFER,      // write target
-                0,                         // source offset in bytes
-                0,                         // destination offset in bytes
-                other.size_ * sizeof(Type) // number of bytes to copy
-            );
-            size_ = other.size_;
+    ~BufferGL()
+    {
+        if (id_)
+            glDeleteBuffers(1, &id_);
+    }
+
+    // --- Move only ---
+    BufferGL(BufferGL &&o) noexcept : id_(std::exchange(o.id_, 0)),
+                                      size_(std::exchange(o.size_, 0)) {}
+    BufferGL &operator=(BufferGL &&o) noexcept
+    {
+        if (this != &o)
+        {
+            if (id_)
+                glDeleteBuffers(1, &id_);
+            id_ = std::exchange(o.id_, 0);
+            size_ = std::exchange(o.size_, 0);
         }
         return *this;
     }
 
-    void FromCPU(const Type *data) override
+    BufferGL(const BufferGL &) = delete;
+    BufferGL &operator=(const BufferGL &) = delete;
+
+    /*
+    // Explicit clone if you *really* need a copy
+    void clone_from(const BufferGL& other) {
+        if (this == &other) return;
+        if (!id_) glGenBuffers(1, &id_);
+        size_ = other.size_;
+        glBindBuffer(Target, id_);
+        glBufferData(Target, bytes(), nullptr, Usage);
+        glBindBuffer(GL_COPY_READ_BUFFER,  other.id_);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, id_);
+        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, bytes());
+    }
+    */
+
+    // ---- Cross-backend style API ----
+    [[nodiscard]] MappedView<const T, GLUnmap> MapRead() const &
     {
-        glBindBuffer(buffer_type, buffer_);
-        glBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
+        if (!id_)
+            throw std::runtime_error("BufferGL::MapRead on empty buffer");
+        glBindBuffer(Target, id_);
+        void *p = glMapBufferRange(Target, 0, bytes(), GL_MAP_READ_BIT);
+        if (!p)
+            throw std::runtime_error("glMapBufferRange(read) failed");
+        return MappedView<const T, GLUnmap>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
     }
 
-    void ToCPU(Type *data) const override
+    [[nodiscard]] MappedView<T, GLUnmap> MapWrite() &
     {
-        glBindBuffer(buffer_type, buffer_);
-        glGetBufferSubData(buffer_type, 0, size_ * sizeof(Type), data);
-
-        /*
-        void* mappedPtr = glMapBufferRange(
-            GL_ARRAY_BUFFER,
-            0,               // offset in bytes
-            dataSize,        // size in bytes to map
-            GL_MAP_READ_BIT  // we only want to read from this buffer
-        );
-
-        if (mappedPtr) {
-            // 2) Copy from mappedPtr to outPtr
-            memcpy(outPtr, mappedPtr, dataSize);
-
-            // 3) Unmap
-            glUnmapBuffer(GL_ARRAY_BUFFER);
-        }
-        else {
-            // Handle error: mapping failed
-        }
-        */
+        if (!id_)
+            throw std::runtime_error("BufferGL::MapWrite on empty buffer");
+        glBindBuffer(Target, id_);
+        // If you need read-modify-write, add GL_MAP_READ_BIT.
+        void *p = glMapBufferRange(Target, 0, bytes(),
+                                   GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        if (!p)
+            throw std::runtime_error("glMapBufferRange(write) failed");
+        return MappedView<T, GLUnmap>(static_cast<T *>(p), size_, GLUnmap{id_, Target});
     }
 
-protected:
-    GLuint buffer_;
-    unsigned int size_;
+    std::size_t size() const noexcept { return size_; }
+
+private:
+    friend class MeshGL;
+
+    GLuint id() const noexcept { return id_; }
+
+    GLsizeiptr bytes() const noexcept
+    {
+        return static_cast<GLsizeiptr>(size_) * static_cast<GLsizeiptr>(sizeof(T));
+    }
+
+    GLuint id_ = 0;
+    std::size_t size_ = 0;
 };

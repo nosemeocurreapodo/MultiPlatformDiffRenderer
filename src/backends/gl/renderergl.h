@@ -1,8 +1,15 @@
 #pragma once
+#include <string>
+#include <vector>
+#include <utility>
+#include <iostream>
+#include <cassert>
 
 #include "backends/gl/devicegl_glad.h"
 #include "core/format_converters.h"
 #include "core/camera.h"
+#include "backends/gl/meshgl.h"
+#include "backends/gl/texturegl.h"
 
 template <typename InTexType, typename OutTexType>
 class BaseRendererGL
@@ -10,213 +17,239 @@ class BaseRendererGL
 public:
     BaseRendererGL()
     {
-        glGenFramebuffers(1, &fbo_);
-
-        // GLint internal_format = GetGLInternalFormat(GetTypeIndex<OutTexType>(), out_channels);
-        // GLenum format = GetGLFormat(texture.channels());
-        // GLenum type = GetGLType(GetTypeIndex<InTexType>());
-        // glTexImage2D(GL_TEXTURE_2D, 0, internal_format_, width_, height_, 0, format_, type_, nullptr);
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glCreateFramebuffers(1, &fbo_);
+        }
+        else
+#endif
+        {
+            glGenFramebuffers(1, &fbo_);
+        }
     }
 
+    // move-only RAII
+    BaseRendererGL(BaseRendererGL &&o) noexcept { *this = std::move(o); }
+    BaseRendererGL &operator=(BaseRendererGL &&o) noexcept
+    {
+        if (this != &o)
+        {
+            destroy_();
+            fbo_ = std::exchange(o.fbo_, 0);
+            program_ = std::exchange(o.program_, 0);
+            view_matrix_loc_ = o.view_matrix_loc_;
+            pose_matrix_loc_ = o.pose_matrix_loc_;
+            fx_loc_ = o.fx_loc_;
+            fy_loc_ = o.fy_loc_;
+            image_loc_ = o.image_loc_;
+            image_nodata_loc_ = o.image_nodata_loc_;
+            image_lvl_loc_ = o.image_lvl_loc_;
+        }
+        return *this;
+    }
+    BaseRendererGL(const BaseRendererGL &) = delete;
+    BaseRendererGL &operator=(const BaseRendererGL &) = delete;
+
+    virtual ~BaseRendererGL() { destroy_(); }
+
+    // Derived classes call this once after constructing to compile & link
+    void CompileShaders(const char *vs, const char *fs)
+    {
+        GLuint vsId = compile_shader_(GL_VERTEX_SHADER, vs);
+        GLuint fsId = compile_shader_(GL_FRAGMENT_SHADER, fs);
+
+        program_ = glCreateProgram();
+        glAttachShader(program_, vsId);
+        glAttachShader(program_, fsId);
+        glLinkProgram(program_);
+        glDeleteShader(vsId);
+        glDeleteShader(fsId);
+
+        GLint ok = GL_FALSE;
+        glGetProgramiv(program_, GL_LINK_STATUS, &ok);
+        if (!ok)
+        {
+            char log[2048];
+            glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
+            glDeleteProgram(program_);
+            program_ = 0;
+            throw std::runtime_error(std::string("Program link failed:\n") + log);
+        }
+
+        // Common uniform locations (derived shaders should use these names)
+        view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
+        pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
+        fx_loc_ = glGetUniformLocation(program_, "fx");
+        fy_loc_ = glGetUniformLocation(program_, "fy");
+        image_loc_ = glGetUniformLocation(program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
+    }
+
+    // Main draw
     void Render(const MeshGL &mesh,
-                const SE3 pose,
-                const Camera cam,
+                const SE3 &pose,
+                const Camera &cam,
                 const TextureGL<InTexType> &texture_in,
                 TextureGL<OutTexType> &texture_out,
                 int in_lvl,
                 int out_lvl)
     {
-        in_nodata_ = texture_in.nodata();
-        out_nodata_ = texture_out.nodata();
-        int in_channels = getChannels<InTexType>();
-        int out_channels = getChannels<OutTexType>();
+        // ——— Save a bit of state we touch ———
+        GLint prevFbo = 0, prevProg = 0, prevViewport[4];
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
+        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProg);
+        glGetIntegerv(GL_VIEWPORT, prevViewport);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-        // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, buffer.texture_id_, lvl);
-
-        // unsigned int drawbuffers[] = {GL_COLOR_ATTACHMENT0};
-        // glDrawBuffers(sizeof(drawbuffers) / sizeof(unsigned int), drawbuffers);
-        // if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        //     std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
-
-        // glFramebufferTexture2D(GL_FRAMEBUFFER,
-        //                        GL_COLOR_ATTACHMENT0,
-        //                        GL_TEXTURE_2D,
-        //                        texture_out.tex_,
-        //                        out_lvl);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.tex_, out_lvl);
-
-        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
+        // ——— Attach output level to our FBO ———
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
         {
-            std::cerr << "FBO incomplete, status = 0x" << std::hex << status << std::dec << "\n";
-            return;
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+            glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, texture_out.id(), out_lvl);
+        }
+        else
+#endif
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.id(), out_lvl);
         }
 
         const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs);
 
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            // restore minimal state
+            glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
+            glUseProgram(prevProg);
+            glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+            throw std::runtime_error("Framebuffer is not complete!");
+        }
+
+        // ——— Fixed pipeline state for our pass ———
         glDisable(GL_CULL_FACE);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_SCISSOR_TEST);
 
-        glViewport(0, 0, texture_out.width(out_lvl), texture_out.height(out_lvl));
+        const GLsizei W = static_cast<GLsizei>(texture_out.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(texture_out.height(out_lvl));
+        glViewport(0, 0, W, H);
 
-        /*
-        if (out_channels == 1)
-            glClearColor(out_nodata_, 0.0f, 0.0f, 1.0f);
-        else if (out_channels == 2)
-            glClearColor(out_nodata_(0), out_nodata_(1), 0.0f, 1.0f);
-        else if (out_channels == 3)
-            glClearColor(out_nodata_(0), out_nodata_(1), out_nodata_(2), 1.0f);
-        else if (out_channels == 4)
-            glClearColor(out_nodata_(0), out_nodata_(1), out_nodata_(2), out_nodata_(3));
-        else
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        */
-
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        // If you want to clear to "nodata", map OutTexType to RGBA here.
+        glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // int channels = getChannels<InTexType>();
-
-        // glActiveTexture(GL_TEXTURE0);
-        // glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture_in.tex_);
-        // glBindImageTexture(0, texture_in.tex_, in_lvl, GL_FALSE, 0, GL_READ_ONLY, GetGLInternalFormat(GetTypeIndex<InTexType>()));
-
-        glUseProgram(shader_program_);
-
-        Mat4 opencv2opengl = Mat4::Identity();
-        opencv2opengl(1, 1) = 1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
-        Mat4 pose_matrix = pose.matrix();
-
-        glUseProgram(shader_program_);
-        GLfloat view_matrix_float[16];
-        GLfloat pose_matrix_float[16];
-        for (int y = 0; y < 4; ++y)
+        // ——— Bind input texture on unit 0 ———
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
         {
-            for (int x = 0; x < 4; ++x)
-            {
-                view_matrix_float[x * 4 + y] = static_cast<GLfloat>(view_matrix(y, x));
-                pose_matrix_float[x * 4 + y] = static_cast<GLfloat>(pose_matrix(y, x));
-            }
+            glBindTextureUnit(0, texture_in.id());
         }
-        glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix_float);
-        glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix_float);
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_in.id());
+        }
 
-        glUniform1f(fx_loc_, cam.GetParams()(0));
-        glUniform1f(fy_loc_, cam.GetParams()(1));
+        // ——— Program + uniforms ———
+        glUseProgram(program_);
 
-        glUniform1i(image_loc_, 0);
-        glUniform1i(image_lvl_loc_, float(in_lvl));
+        // Matrices (column-major order, transpose = GL_FALSE)
+        Mat4 opencv2opengl = Mat4::Identity();
+        opencv2opengl(2, 2) = -1.0; // flip Z; (1,1) was already +1
+
+        const Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
+        const Mat4 pose_matrix = pose.matrix();
 
         /*
-        if (in_channels == 1)
-            glUniform1f(image_nodata_loc, static_cast<GLfloat>(in_nodata_(0)));
-        else if (in_channels == 2)
-            glUniform2f(image_nodata_loc,
-                        static_cast<GLfloat>(in_nodata_(0)),
-                        static_cast<GLfloat>(in_nodata_(1)));
-        else if (in_channels == 3)
-            glUniform3f(image_nodata_loc,
-                        static_cast<GLfloat>(in_nodata_(0)),
-                        static_cast<GLfloat>(in_nodata_(1)),
-                        static_cast<GLfloat>(in_nodata_(2)));
-        else if (in_channels == 4)
-            glUniform4f(image_nodata_loc,
-                        static_cast<GLfloat>(in_nodata_(0)),
-                        static_cast<GLfloat>(in_nodata_(1)),
-                        static_cast<GLfloat>(in_nodata_(2)),
-                        static_cast<GLfloat>(in_nodata_(3)));
+        GLfloat viewArr[16], poseArr[16];
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+            {
+                // column-major packing
+                viewArr[c * 4 + r] = static_cast<GLfloat>(view_matrix(r, c));
+                poseArr[c * 4 + r] = static_cast<GLfloat>(pose_matrix(r, c));
+            }
+
+        if (view_matrix_loc_ >= 0)
+            glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, viewArr);
+        if (pose_matrix_loc_ >= 0)
+            glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, poseArr);
         */
 
-        glBindVertexArray(mesh.vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.ebo_size_), GL_UNSIGNED_INT, 0);
+        if (view_matrix_loc_ >= 0)
+            glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
+        if (pose_matrix_loc_ >= 0)
+            glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
-        glBindVertexArray(0);
-        glUseProgram(0);
+        if (fx_loc_ >= 0)
+            glUniform1f(fx_loc_, static_cast<GLfloat>(cam.GetParams()(0)));
+        if (fy_loc_ >= 0)
+            glUniform1f(fy_loc_, static_cast<GLfloat>(cam.GetParams()(1)));
+
+        if (image_loc_ >= 0)
+            glUniform1i(image_loc_, 0); // texture unit
+        if (image_lvl_loc_ >= 0)
+            glUniform1i(image_lvl_loc_, in_lvl); // **int**, not float
+
+        // If you want to pass nodata for masking, set image_nodata_loc_ here based on InTexType.
+
+        // ——— Draw ———
+        mesh.bind();
+        mesh.draw();
+        mesh.unbind();
+
+        // ——— Restore previous state ———
+        glUseProgram(prevProg);
+        glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     }
 
 protected:
-    void CompileShaders(const char *vertex_shader, const char *fragment_shader)
+    GLuint program_ = 0;
+    GLuint fbo_ = 0;
+
+    // common uniform locations (optional to use in derived shaders)
+    GLint view_matrix_loc_ = -1;
+    GLint pose_matrix_loc_ = -1;
+    GLint fx_loc_ = -1;
+    GLint fy_loc_ = -1;
+    GLint image_loc_ = -1;
+    GLint image_nodata_loc_ = -1;
+    GLint image_lvl_loc_ = -1;
+
+private:
+    static GLuint compile_shader_(GLenum type, const char *src)
     {
-        // Build and compile our shader program
-        // ------------------------------------
-
-        // Create a vertex shader GL object
-        unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-
-        // Tell GL the source code to use
-        glShaderSource(vertexShader, 1, &vertex_shader, NULL);
-
-        // Actually compile the program
-        glCompileShader(vertexShader);
-
-        // Check if the compilation was successfull, and print anyn errors
-        int success;
-        char infoLog[512];
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-        if (!success)
+        GLuint id = glCreateShader(type);
+        glShaderSource(id, 1, &src, nullptr);
+        glCompileShader(id);
+        GLint ok = GL_FALSE;
+        glGetShaderiv(id, GL_COMPILE_STATUS, &ok);
+        if (!ok)
         {
-            glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
-                      << infoLog << std::endl;
+            char log[2048];
+            glGetShaderInfoLog(id, sizeof(log), nullptr, log);
+            std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
+            glDeleteShader(id);
+            throw std::runtime_error(shader_type + " shader compilation failed:\n" + log);
         }
-
-        // Repeat for the Fragment shader
-        unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fragment_shader, NULL);
-        glCompileShader(fragmentShader);
-        // check for shader compile errors
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-        if (!success)
-        {
-            glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
-                      << infoLog << std::endl;
-        }
-
-        // Link the vertex and fragment shaders into one complete program
-        shader_program_ = glCreateProgram();
-
-        glAttachShader(shader_program_, vertexShader);
-        glAttachShader(shader_program_, fragmentShader);
-        glLinkProgram(shader_program_);
-
-        // Check for linking errors
-        glGetProgramiv(shader_program_, GL_LINK_STATUS, &success);
-        if (!success)
-        {
-            glGetProgramInfoLog(shader_program_, 512, NULL, infoLog);
-            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
-                      << infoLog << std::endl;
-        }
-
-        // Delete the now unused shader objects
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+        return id;
     }
 
-    unsigned int shader_program_;
-    GLuint fbo_;
-    GLint view_matrix_loc_;
-    GLint pose_matrix_loc_;
-    GLint fx_loc_;
-    GLint fy_loc_;
-    GLuint image_loc_;
-    GLuint image_nodata_loc_;
-    GLuint image_lvl_loc_;
-
-    // SE3 pose_;
-    // Camera cam_;
-    InTexType in_nodata_;
-    OutTexType out_nodata_;
+    void destroy_()
+    {
+        if (program_)
+            glDeleteProgram(program_);
+        if (fbo_)
+            glDeleteFramebuffers(1, &fbo_);
+        program_ = 0;
+        fbo_ = 0;
+    }
 };
 
 class DepthRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
@@ -228,7 +261,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             out float depth;
             
@@ -257,13 +290,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -278,7 +304,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -307,13 +333,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -328,7 +347,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -388,13 +407,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -409,7 +421,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -453,8 +465,9 @@ public:
                 ivec2 tex_size = textureSize(image, image_lvl);
 
                 //vec3 didxy = texture(image, texcoord).xyz;
-                vec3 didxy = textureLod(image, texcoord, float(image_lvl)).xyz;
-                //vec3 didxy = vec3(image_lvl, image_lvl, image_lvl);
+                //vec3 didxy = textureLod(image, texcoord, float(image_lvl)).xyz;
+                vec3 didxy = texelFetch(image, ivec2(gl_FragCoord.x, gl_FragCoord.y), image_lvl).xyz;
+                //vec3 didxy = vec3(1.0f, 1.0f, 1.0f);
 
                 //if(didxy == image_nodata)
                 //    discard;
@@ -474,13 +487,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -495,7 +501,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -534,7 +540,8 @@ public:
             void main()
             {
                 //vec3 v = texture(image, texcoord).xyz;
-                vec3 v = textureLod(image, texcoord, float(image_lvl)).xyz;
+                //vec3 v = textureLod(image, texcoord, float(image_lvl)).xyz;
+                vec3 v = texelFetch(image, ivec2(gl_FragCoord.x, gl_FragCoord.y), image_lvl).xyz;
 
                 if(v == image_nodata)
                     discard;
@@ -550,13 +557,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:
@@ -571,7 +571,7 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in vec3 a_weight;
+            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -609,13 +609,6 @@ public:
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
-        view_matrix_loc_ = glGetUniformLocation(shader_program_, "view_matrix");
-        pose_matrix_loc_ = glGetUniformLocation(shader_program_, "pose_matrix");
-        image_loc_ = glGetUniformLocation(shader_program_, "image");
-        image_nodata_loc_ = glGetUniformLocation(shader_program_, "image_nodata");
-        image_lvl_loc_ = glGetUniformLocation(shader_program_, "image_lvl");
-        fx_loc_ = glGetUniformLocation(shader_program_, "fx");
-        fy_loc_ = glGetUniformLocation(shader_program_, "fy");
     }
 
 private:

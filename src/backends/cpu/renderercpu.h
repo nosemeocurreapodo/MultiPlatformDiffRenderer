@@ -118,36 +118,23 @@ int main(int argc, char *argv[]) {
 }
 */
 
-// 2D cross product:  (Ax * By - Ay * Bx)
-inline float cross(const Vec2 &a, const Vec2 &b)
+inline float cross(const Vec2 &a, const Vec2 &b) { return a(0) * b(1) - a(1) * b(0); }
+inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2) { return cross(p1 - p0, p2 - p0); }
+
+// Edge function E_ab(p) = (yb-ya)*px + (xa-xb)*py + (xb*ya - xa*yb)
+inline float edge_func(float ax, float ay, float bx, float by, float px, float py)
 {
-    return a(0) * b(1) - a(1) * b(0);
+    return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
 }
 
-// Convert linear float in [0,1] to sRGB8
-inline uint8_t linear_to_srgb8(float val)
+// Top-left test: returns true if edge is a "top" or "left" edge
+inline bool is_top_left(float ax, float ay, float bx, float by)
 {
-    float x = std::clamp(val, 0.0f, 1.0f);
-    return static_cast<uint8_t>(std::lround(x * 255.0f));
-}
-
-// Area of a 2D triangle
-inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2)
-{
-    return cross(p1 - p0, p2 - p0);
-}
-
-// Interpolate a member pointer p across 3 items using barycentric coords
-template <typename T, typename MemberPtr>
-auto interpolate(const T t[3], MemberPtr p, const Vec3 &coord)
-{
-    return coord(0) * (t[0].*p) +
-           coord(1) * (t[1].*p) +
-           coord(2) * (t[2].*p);
+    return (ay == by) ? (bx < ax) : (ay < by);
 }
 
 // -----------------------------------------------------------------------------
-// BaseRendererCPU
+// BaseRendererCPU (improved)
 // -----------------------------------------------------------------------------
 template <typename InTexType, typename VaryingType, typename OutTexType>
 class BaseRendererCPU
@@ -156,7 +143,6 @@ public:
     BaseRendererCPU() = default;
     virtual ~BaseRendererCPU() = default;
 
-    // Provide your own rendering routine
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
                 const Camera &cam,
@@ -166,98 +152,58 @@ public:
                 int out_lvl)
     {
         in_nodata_ = in_texture.nodata();
-
         out_texture.fill(out_lvl, out_texture.nodata());
-        /*
-        for (int i = 0; i < out_texture.size(); ++i)
-        {
-            out_texture.data_[i] = out_texture.nodata();
-        }
-        */
 
+        // Matrices
         Mat4 opencv2opengl = Mat4::Identity();
-        opencv2opengl(1, 1) = 1.0;
-        opencv2opengl(2, 2) = -1.0;
-
+        opencv2opengl(2, 2) = -1.0; // flip Z like your original intent
         Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
         Mat4 pose_matrix = pose.matrix();
 
         fx = cam.GetParams()(0);
         fy = cam.GetParams()(1);
 
-        BoundingBoxType<int> viewport(0, out_texture.width(out_lvl) - 1, 0, out_texture.height(out_lvl) - 1);
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        const BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+
+        // ---- Map mesh buffers (no copies) ----
+        auto pos = mesh.MapReadPositions(); // 3 floats/vertex
+        auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
+        auto wei = mesh.MapReadWeights();   // 1 float /vertex
+        auto idx = mesh.MapReadIndices();   // uint32_t indices
 
         // Loop over triangles
-        for (int i = 0; i < mesh.ebo_buffer_.size(); i += 3)
+        for (std::size_t i = 0; i + 2 < idx.size(); i += 3)
         {
-            Vec3 p[3];
-            Vec2 t[3];
-            float w[3];
+            const uint32_t i0 = idx[i + 0];
+            const uint32_t i1 = idx[i + 1];
+            const uint32_t i2 = idx[i + 2];
 
-            unsigned int i0 = mesh.ebo_buffer_[i + 0];
-            unsigned int i1 = mesh.ebo_buffer_[i + 1];
-            unsigned int i2 = mesh.ebo_buffer_[i + 2];
+            Vec3 v[3];
+            Vec2 uv[3];
+            float wght[3];
 
-            // Positions
-            p[0](0) = mesh.pos_buffer_[i0 * 3 + 0];
-            p[0](1) = mesh.pos_buffer_[i0 * 3 + 1];
-            p[0](2) = mesh.pos_buffer_[i0 * 3 + 2];
+            // gather
+            for (int k = 0; k < 3; ++k)
+            {
+                const uint32_t vi = (k == 0 ? i0 : k == 1 ? i1
+                                                          : i2);
+                v[k](0) = pos[vi * 3 + 0];
+                v[k](1) = pos[vi * 3 + 1];
+                v[k](2) = pos[vi * 3 + 2];
+                uv[k](0) = tex[vi * 2 + 0];
+                uv[k](1) = tex[vi * 2 + 1];
+                wght[k] = wei[vi];
+            }
 
-            p[1](0) = mesh.pos_buffer_[i1 * 3 + 0];
-            p[1](1) = mesh.pos_buffer_[i1 * 3 + 1];
-            p[1](2) = mesh.pos_buffer_[i1 * 3 + 2];
-
-            p[2](0) = mesh.pos_buffer_[i2 * 3 + 0];
-            p[2](1) = mesh.pos_buffer_[i2 * 3 + 1];
-            p[2](2) = mesh.pos_buffer_[i2 * 3 + 2];
-
-            // Texcoords if needed (example):
-            t[0](0) = mesh.tex_buffer_[i0 * 2 + 0];
-            t[0](1) = mesh.tex_buffer_[i0 * 2 + 1];
-
-            t[1](0) = mesh.tex_buffer_[i1 * 2 + 0];
-            t[1](1) = mesh.tex_buffer_[i1 * 2 + 1];
-
-            t[2](0) = mesh.tex_buffer_[i2 * 2 + 0];
-            t[2](1) = mesh.tex_buffer_[i2 * 2 + 1];
-
-            // Texcoords if needed (example):
-            w[0] = mesh.wei_buffer_[i0];
-
-            w[1] = mesh.wei_buffer_[i1];
-
-            w[2] = mesh.wei_buffer_[i2];
-
-            // Draw the triangle
-            draw_triangle(p, t, w, view_matrix, pose_matrix, viewport, in_texture, out_texture, in_lvl, out_lvl);
+            draw_triangle(v, uv, wght, view_matrix, pose_matrix, viewport,
+                          in_texture, out_texture, in_lvl, out_lvl);
         }
     }
 
 protected:
-    // -------------------------------------------------------------------------
-    // rop: "render output pipeline" for writing one RGBA pixel
-    // -------------------------------------------------------------------------
-    /*
-    void rop(TextureCPU<OutTexType> &buf, int x, int y, const OutTexType &c)
-    {
-        // Here we assume the output is an 8-bit RGBA buffer
-        // Adjust as needed if your OutTexType is different
-        uint8_t *p = reinterpret_cast<uint8_t *>(buf.data)
-                     + buf.ys * (buf.height_ - y - 1)
-                     + 4 * x;
-        p[0] = linear_to_srgb8(c.x());
-        p[1] = linear_to_srgb8(c.y());
-        p[2] = linear_to_srgb8(c.z());
-        p[3] = static_cast<uint8_t>(
-                   std::lround(std::clamp(c.w(), 0.0f, 1.0f) * 255.0f)
-               );
-    }
-    */
-
-    // The pipeline requires two shaders:
-    // 1) Vertex shader
-    // 2) Fragment shader
-    // They must be provided by derived classes.
+    // User-provided shaders
     virtual void vertex_shader(const Vec3 &inVertex,
                                const Vec2 &inTexCoord,
                                const float &inWeight,
@@ -273,9 +219,7 @@ protected:
                                  int in_lvl,
                                  int out_lvl) = 0;
 
-    // -------------------------------------------------------------------------
-    // draw_triangle: minimal CPU rasterizer for one triangle
-    // -------------------------------------------------------------------------
+    // Triangle rasterizer (top-left rule, perspective correct)
     void draw_triangle(const Vec3 *verts,
                        const Vec2 *texcoords,
                        const float *weights,
@@ -287,120 +231,157 @@ protected:
                        int in_lvl,
                        int out_lvl)
     {
-        // Step 1: transform each vertex
-        VaryingType perVertex[3];
-        Vec4 gl_Position[3];
+        // Vertex shading & clip → NDC → screen
+        struct VSOut
+        {
+            Vec2 screen;            // x,y in pixel space (float)
+            float depth;            // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+            float invW;             // 1 / clip.w
+            VaryingType var_over_w; // varyings multiplied by invW
+            VaryingType var;        // original varyings (for convenience)
+        } vout[3];
 
         for (int i = 0; i < 3; ++i)
         {
-            vertex_shader(verts[i], texcoords[i], weights[i], view_matrix, pose_matrix, gl_Position[i], perVertex[i]);
+            Vec4 clip;
+            VaryingType var;
+            vertex_shader(verts[i], texcoords[i], weights[i], view_matrix, pose_matrix, clip, var);
 
-            // Perspective divide
-            float invW = 1.0f / gl_Position[i](3);
-            gl_Position[i](0) *= invW;
-            gl_Position[i](1) *= invW;
-            gl_Position[i](2) *= invW;
-            gl_Position[i](3) = invW;
-            // gl_Position[i].w remains 1 or whatever you choose
+            const float invW = 1.0f / clip(3);
+            const float ndc_x = clip(0) * invW; // [-1,1]
+            const float ndc_y = clip(1) * invW;
+            const float ndc_z = clip(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
-            // NDC [-1,+1] to pixel coords [0, width], [0, height]
-            float x_ndc = 0.5f * (gl_Position[i](0) + 1.0f);
-            float y_ndc = 0.5f * (gl_Position[i](1) + 1.0f);
-
-            float x_screen = x_ndc * (float)(out_texture.width(out_lvl) - 1);
-            float y_screen = y_ndc * (float)(out_texture.height(out_lvl) - 1);
-
-            // Clamp to valid pixel range
-            x_screen = std::clamp(x_screen, 0.0f, float(out_texture.width(out_lvl) - 1));
-            y_screen = std::clamp(y_screen, 0.0f, float(out_texture.height(out_lvl) - 1));
-
-            // Overwrite gl_Position with final screen coords
-            gl_Position[i](0) = x_screen;
-            gl_Position[i](1) = y_screen;
+            // pixel-space (don’t clamp here)
+            // vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
+            // vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
+            vout[i].screen(0) = viewport.min_x_ + (ndc_x * 0.5f + 0.5f) * (viewport.max_x_ - viewport.min_x_ + 1) - 0.5f;
+            vout[i].screen(1) = viewport.min_y_ + (ndc_y * 0.5f + 0.5f) * (viewport.max_y_ - viewport.min_y_ + 1) - 0.5f;
+            vout[i].depth = ndc_z;
+            vout[i].invW = invW;
+            vout[i].var = var;
+            vout[i].var_over_w = var * invW; // requires scalar*VaryingType
         }
 
-        // Step 2: find triangle bounding box in screen space
-        BoundingBoxType<int> tri_bb(Vec2(gl_Position[0].x(), gl_Position[0].y()),
-                                    Vec2(gl_Position[1].x(), gl_Position[1].y()),
-                                    Vec2(gl_Position[2].x(), gl_Position[2].y()));
+        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+        const float area = triangle_area(
+            Vec2(vout[0].screen(0), vout[0].screen(1)),
+            Vec2(vout[1].screen(0), vout[1].screen(1)),
+            Vec2(vout[2].screen(0), vout[2].screen(1)));
+        if (std::abs(area) < 1e-8f)
+            return; // degenerate
+        // if (area <= 0) return;            // enable to cull backfaces
 
-        // Intersect with the given viewport
-        BoundingBoxType<int> screen_bb = tri_bb.Intersection(viewport);
+        // Triangle bounding box (float → int, clamp to viewport)
+        float minx = std::min({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
+        float maxx = std::max({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
+        float miny = std::min({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
+        float maxy = std::max({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
 
-        // Step 3: compute barycentric denominator
-        float area = triangle_area(
-            Vec2(gl_Position[0](0), gl_Position[0](1)),
-            Vec2(gl_Position[1](0), gl_Position[1](1)),
-            Vec2(gl_Position[2](0), gl_Position[2](1)));
-
-        if (area >= 0.0)
+        int x0 = std::max(viewport.min_x_, static_cast<int>(std::floor(minx)));
+        int x1 = std::min(viewport.max_x_, static_cast<int>(std::ceil(maxx)));
+        int y0 = std::max(viewport.min_y_, static_cast<int>(std::floor(miny)));
+        int y1 = std::min(viewport.max_y_, static_cast<int>(std::ceil(maxy)));
+        if (x0 > x1 || y0 > y1)
             return;
 
-        float denom = 1.0f / area;
+        // Edge setup (top-left rule)
+        const float xA = vout[0].screen(0), yA = vout[0].screen(1);
+        const float xB = vout[1].screen(0), yB = vout[1].screen(1);
+        const float xC = vout[2].screen(0), yC = vout[2].screen(1);
 
-        // Step 4: rasterize each pixel in bounding box
-        for (int py = screen_bb.min_y_ - 1; py < screen_bb.max_y_ + 1; ++py)
+        const float area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
+        if (std::abs(area2) < 1e-8f)
+            return; // degenerate
+
+        const float inv_area2 = 1.0f / area2;
+
+        const bool tlAB = is_top_left(xA, yA, xB, yB);
+        const bool tlBC = is_top_left(xB, yB, xC, yC);
+        const bool tlCA = is_top_left(xC, yC, xA, yA);
+
+        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
+        const float px0 = static_cast<float>(x0) + 0.5f;
+        const float py0 = static_cast<float>(y0) + 0.5f;
+
+        float eAB_row = edge_func(xA, yA, xB, yB, px0, py0);
+        float eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
+        float eCA_row = edge_func(xC, yC, xA, yA, px0, py0);
+
+        // Step increments when moving +1 in X or +1 in Y
+        const float eAB_dx = (yB - yA);
+        const float eAB_dy = (xA - xB);
+        const float eBC_dx = (yC - yB);
+        const float eBC_dy = (xB - xC);
+        const float eCA_dx = (yA - yC);
+        const float eCA_dy = (xC - xA);
+
+        // Rasterize
+        for (int y = y0; y <= y1; ++y)
         {
-            for (int px = screen_bb.min_x_ - 1; px < screen_bb.max_x_ + 1; ++px)
+            float eAB = eAB_row;
+            float eBC = eBC_row;
+            float eCA = eCA_row;
+
+            for (int x = x0; x <= x1; ++x)
             {
-                Vec4 gl_FragCoord;
-                gl_FragCoord(0) = float(px);
-                gl_FragCoord(1) = float(py);
+                // Top-left rule adjustments (include pixels on top/left edges)
+                const bool inside =
+                    (eAB > 0 || (eAB == 0 && tlAB)) &&
+                    (eBC > 0 || (eBC == 0 && tlBC)) &&
+                    (eCA > 0 || (eCA == 0 && tlCA));
 
-                // Barycentric coords in 2D
-                Vec3 barycentric = denom * Vec3(triangle_area(
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1)),
-                                                    Vec2(gl_Position[2](0), gl_Position[2](1))),
-                                                triangle_area(
-                                                    Vec2(gl_Position[0](0), gl_Position[0](1)),
-                                                    Vec2(gl_Position[1](0), gl_Position[1](1)),
-                                                    Vec2(gl_FragCoord(0), gl_FragCoord(1))));
+                if (inside)
+                {
+                    // Barycentric weights normalized
+                    const float w0 = eBC * inv_area2;
+                    const float w1 = eCA * inv_area2;
+                    const float w2 = eAB * inv_area2;
 
-                // Discard if outside the triangle
-                if (barycentric(0) < 0.f || barycentric(1) < 0.f || barycentric(2) < 0.f)
-                    continue;
+                    // Perspective: 1/w at pixel
+                    const float invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
 
-                // Interpolate Z if needed
-                gl_FragCoord(2) = barycentric(0) * gl_Position[0](2) +
-                                  barycentric(1) * gl_Position[1](2) +
-                                  barycentric(2) * gl_Position[2](2);
-                gl_FragCoord(3) = barycentric(0) * gl_Position[0](3) +
-                                  barycentric(1) * gl_Position[1](3) +
-                                  barycentric(2) * gl_Position[2](3);
+                    // Interpolate varyings divided by w, then divide by invW_px
+                    VaryingType var_over_w_px =
+                        w0 * vout[0].var_over_w +
+                        w1 * vout[1].var_over_w +
+                        w2 * vout[2].var_over_w;
+                    VaryingType varying_px = var_over_w_px * (1.0f / invW_px);
 
-                // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
-                if (gl_FragCoord(2) < 0 || gl_FragCoord(2) > 1)
-                    continue;
+                    // Depth (if needed; same trick)
+                    float depth_px = w0 * (vout[0].depth * vout[0].invW) +
+                                     w1 * (vout[1].depth * vout[1].invW) +
+                                     w2 * (vout[2].depth * vout[2].invW);
+                    depth_px *= (1.0f / invW_px);
+                    // Depth test could go here
 
-                // Depth test could go here if you keep a depth buffer
+                    Vec4 gl_FragCoord;
+                    gl_FragCoord(0) = static_cast<float>(x) + 0.5f;
+                    gl_FragCoord(1) = static_cast<float>(y) + 0.5f;
+                    gl_FragCoord(2) = depth_px;
+                    gl_FragCoord(3) = 1.0f / invW_px;
 
-                // Perspective-correct weighting (optional)
-                Vec3 perspective = (1.0 / gl_FragCoord(3)) * Vec3(barycentric(0) * gl_Position[0](3), barycentric(1) * gl_Position[1](3), barycentric(2) * gl_Position[2](3));
+                    OutTexType outColor = out_texture.nodata();
+                    fragment_shader(gl_FragCoord, varying_px, in_texture, outColor, in_lvl, out_lvl);
+                    out_texture.set_texel_(outColor, y, x, out_lvl);
+                }
 
-                // Interpolate any per-vertex attributes
-                VaryingType varying = perspective(0) * perVertex[0] +
-                                      perspective(1) * perVertex[1] +
-                                      perspective(2) * perVertex[2];
-
-                // Run fragment shader
-                OutTexType outColor = out_texture.nodata();
-                fragment_shader(gl_FragCoord, varying, in_texture, outColor, in_lvl, out_lvl);
-
-                out_texture.SetTexel(outColor, py, px, out_lvl);
-                // Write out to the color attachment
-                // rop(out_texture, px, py, outColor);
+                // advance to x+1
+                eAB += eAB_dx;
+                eBC += eBC_dx;
+                eCA += eCA_dx;
             }
+
+            // next row y+1: add dy increments and reset x terms
+            eAB_row += eAB_dy;
+            eBC_row += eBC_dy;
+            eCA_row += eCA_dy;
         }
     }
 
-    InTexType in_nodata_;
-    float fx;
-    float fy;
+    InTexType in_nodata_{};
+    float fx = 0.f;
+    float fy = 0.f;
 };
 
 // -----------------------------------------------------------------------------
@@ -478,7 +459,7 @@ public:
                          int in_lvl,
                          int out_lvl) override
     {
-        float pix = inTexture.Get(inVarying(1), inVarying(0), in_lvl);
+        float pix = inTexture.sample_(inVarying(1), inVarying(0), in_lvl);
         outFragment = pix;
 
         // Example: color = [checker pattern], ignoring inVarying
@@ -543,11 +524,11 @@ public:
             return;
         }
 
-        float f = inTexture.GetTexel(y, x, in_lvl);
-        float f_y_p = inTexture.GetTexel(y_p, x, in_lvl);
-        float f_y_m = inTexture.GetTexel(y_m, x, in_lvl);
-        float f_x_p = inTexture.GetTexel(y, x_p, in_lvl);
-        float f_x_m = inTexture.GetTexel(y, x_m, in_lvl);
+        float f = inTexture.texel_(y, x, in_lvl);
+        float f_y_p = inTexture.texel_(y_p, x, in_lvl);
+        float f_y_m = inTexture.texel_(y_m, x, in_lvl);
+        float f_x_p = inTexture.texel_(y, x_p, in_lvl);
+        float f_x_m = inTexture.texel_(y, x_m, in_lvl);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -561,7 +542,7 @@ public:
 
         outFragment(0) = (f_x_p - f_x_m) / 2.0f;
         outFragment(1) = (f_y_p - f_y_m) / 2.0f;
-        outFragment(2) = 0.0;//f; // save the projected frame for later processing
+        outFragment(2) = 0.0; // f; // save the projected frame for later processing
     }
 };
 
@@ -606,8 +587,8 @@ public:
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // take the derivative in frame coordinates (not projected)
-        // Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
-        Vec3 f_der = inTexture.GetTexel(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        // Vec3 f_der = inTexture.sample(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_der = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (f_der == nodata)
             return;
@@ -670,7 +651,8 @@ public:
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         // Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
-        Vec3 v = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        // Vec3 v = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
+        Vec3 v = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (v == nodata)
             return;
@@ -734,7 +716,7 @@ public:
         // outFragment = inVarying;
 
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        Vec3 f_der = inTexture.Get(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_der = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
 
         float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
         float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
