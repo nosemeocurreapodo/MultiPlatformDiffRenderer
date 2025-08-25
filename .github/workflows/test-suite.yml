@@ -67,10 +67,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+        token: ${{ secrets.HLSLINEARALGEBRA_TOKEN }}
+        persist-credentials: false
+
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -105,10 +107,12 @@ jobs:
     needs: [test-cpu, test-opengl]
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+        token: ${{ secrets.HLSLINEARALGEBRA_TOKEN }}
+        persist-credentials: false
+
     - name: Install dependencies
       run: |
         sudo apt-get update
