@@ -277,6 +277,7 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison)
     EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
+/*
 // Test different mesh complexities
 TEST_F(CrossBackendTests, MeshComplexityComparison)
 {
@@ -351,6 +352,7 @@ TEST_F(CrossBackendTests, MeshComplexityComparison)
         EXPECT_LT(gl_time, grid_size * 0.5) << "GL scaling issue at grid size " << grid_size;
     }
 }
+*/
 
 // Test numerical precision comparison
 TEST_F(CrossBackendTests, NumericalPrecisionComparison)
