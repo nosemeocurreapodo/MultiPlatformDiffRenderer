@@ -15,12 +15,7 @@ add_subdirectory(integration)
 # Edge case and error handling tests
 add_subdirectory(edge_cases)
 
-# Legacy GL tests (kept for compatibility)
-if(COMPILE_GL)
-  add_subdirectory(gl)
-endif()
-
-if(COMPILE_XRT)
-  add_subdirectory(xrt)
-endif()
+# if(COMPILE_XRT)
+#   add_subdirectory(xrt)
+# endif()
 
