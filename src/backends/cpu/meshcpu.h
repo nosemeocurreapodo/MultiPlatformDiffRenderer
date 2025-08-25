@@ -82,12 +82,12 @@ public:
     [[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadWeights() const & { return wei_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const std::size_t> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
+    [[nodiscard]] MappedView<const index_type> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
 
     [[nodiscard]] MappedView<float> MapWritePositions() { return pos_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteTexcoords() { return tex_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteWeights() { return wei_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<std::size_t> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
+    [[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
     std::size_t vertex_count() const noexcept { return pos_buffer_.size() / 3; }

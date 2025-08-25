@@ -370,12 +370,29 @@ public:
 // Validation thresholds
 struct ValidationThresholds
 {
-    double max_l2_error = 1.0;
-    double max_cross_backend_error = 0.5;
-    double max_execution_time_ms = 1000.0;
-    double max_performance_ratio = 2.0; // CPU vs GL performance ratio
+    double max_depth_error = 0.008;
+    double max_image_error = 5.0;
+    double max_didxy_error = 8.0;
+    double max_jtra_error = 3500.0;
+    double max_jrot_error = 4000.0;
+    double max_cpu_depth_time_ms = 53.0;
+    double max_gl_depth_time_ms = 4.0;
+    double max_cpu_image_time_ms = 350.0;
+    double max_gl_image_time_ms = 5.0;
+    double max_cpu_didxy_time_ms = 690.0;
+    double max_gl_didxy_time_ms = 5.0;
+    double max_cpu_jtra_time_ms = 1800.0;
+    double max_gl_jtra_time_ms = 11.0;
+    double max_cpu_jrot_time_ms = 1800.0;
+    double max_gl_jrot_time_ms = 11.0;
+
+    //double max_l2_error = 1.0;
+    //double max_cross_backend_error = 0.5;
+    //double max_execution_time_ms = 1000.0;
+    //double max_performance_ratio = 2.0; // CPU vs GL performance ratio
 };
 
+/*
 // Test result validation
 class TestValidator
 {
@@ -399,9 +416,9 @@ public:
     static void ValidatePerformance(double cpu_time, double gl_time,
                                     const ValidationThresholds &thresholds)
     {
-        EXPECT_LT(cpu_time, thresholds.max_execution_time_ms)
+        EXPECT_LT(cpu_time, thresholds.max_cpu_time_ms)
             << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-        EXPECT_LT(gl_time, thresholds.max_execution_time_ms)
+        EXPECT_LT(gl_time, thresholds.max_gl_time_ms)
             << "GL execution time exceeded threshold: " << gl_time << "ms";
 
         if (gl_time > 0)
@@ -412,3 +429,4 @@ public:
         }
     }
 };
+*/
