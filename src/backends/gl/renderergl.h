@@ -165,6 +165,7 @@ public:
         const Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl;
         const Mat4 pose_matrix = pose.matrix();
 
+        /*
         GLfloat viewArr[16], poseArr[16];
         for (int r = 0; r < 4; ++r)
             for (int c = 0; c < 4; ++c)
@@ -178,6 +179,12 @@ public:
             glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, viewArr);
         if (pose_matrix_loc_ >= 0)
             glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, poseArr);
+        */
+
+        if (view_matrix_loc_ >= 0)
+            glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
+        if (pose_matrix_loc_ >= 0)
+            glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         if (fx_loc_ >= 0)
             glUniform1f(fx_loc_, static_cast<GLfloat>(cam.GetParams()(0)));

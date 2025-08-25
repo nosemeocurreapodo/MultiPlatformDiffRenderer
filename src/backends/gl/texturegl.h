@@ -247,6 +247,11 @@ public:
     }
 
 private:
+    friend class MeshGL;
+
+    template <class In, class Out>
+    friend class BaseRendererGL;
+
     GLuint tex_ = 0;
     std::vector<std::size_t> widths_, heights_;
     GLint internal_{};
@@ -269,9 +274,6 @@ private:
         return levels;
     }
     */
-
-    template <class In, class Out>
-    friend class BaseRendererGL;
 
     [[nodiscard]] GLuint id() const noexcept
     {

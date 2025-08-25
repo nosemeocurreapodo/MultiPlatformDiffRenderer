@@ -61,20 +61,7 @@ public:
         return *this;
     }
 
-    // --- Draw ---
-    void bind() const { glBindVertexArray(vao_); }
-    void unbind() const { glBindVertexArray(0); }
-
-    void draw() const
-    {
-        glBindVertexArray(vao_);
-        glDrawElements(GL_TRIANGLES,
-                       static_cast<GLsizei>(index_count_),
-                       GL_UNSIGNED_INT,
-                       (void *)0);
-        glBindVertexArray(0);
-    }
-
+    /*
     // --- Whole-buffer updates via MapWrite (no global binds) ---
     void update_positions(const float *data, std::size_t count)
     {
@@ -100,13 +87,28 @@ public:
         auto m = ebo_.MapWrite();
         std::memcpy(m.data(), data, count * sizeof(index_type));
     }
+    */
+
+    // Cross-backend style mapped views (avoid storing the view)
+    [[nodiscard]] MappedView<const float, GLUnmap> MapReadPositions() const & { return vbo_pos_.MapRead(); }
+    [[nodiscard]] MappedView<const float, GLUnmap> MapReadTexcoords() const & { return vbo_uv_.MapRead(); }
+    [[nodiscard]] MappedView<const float, GLUnmap> MapReadWeights() const & { return vbo_w_.MapRead(); }
+    [[nodiscard]] MappedView<const index_type, GLUnmap> MapReadIndices() const & { return ebo_.MapRead(); }
+
+    [[nodiscard]] MappedView<float, GLUnmap> MapWritePositions() { return vbo_pos_.MapWrite(); }
+    [[nodiscard]] MappedView<float, GLUnmap> MapWriteTexcoords() { return vbo_uv_.MapWrite(); }
+    [[nodiscard]] MappedView<float, GLUnmap> MapWriteWeights() { return vbo_w_.MapWrite(); }
+    [[nodiscard]] MappedView<index_type, GLUnmap> MapWriteIndices() { return ebo_.MapWrite(); }
 
     // --- Info ---
     std::size_t vertex_count() const noexcept { return vertex_count_; }
     std::size_t index_count() const noexcept { return index_count_; }
-    GLuint vao() const noexcept { return vao_; }
+    std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
 private:
+    template <typename InTexType, typename OutTexType>
+    friend class BaseRendererGL;
+
     // Attribute locations (match your shaders)
     static constexpr GLuint ATTR_POS = 0;
     static constexpr GLuint ATTR_UV = 1;
@@ -121,6 +123,23 @@ private:
 
     std::size_t vertex_count_ = 0;
     std::size_t index_count_ = 0;
+
+    GLuint vao() const noexcept { return vao_; }
+
+    // --- Draw ---
+
+    void bind() const { glBindVertexArray(vao_); }
+    void unbind() const { glBindVertexArray(0); }
+
+    void draw() const
+    {
+        glBindVertexArray(vao_);
+        glDrawElements(GL_TRIANGLES,
+                       static_cast<GLsizei>(index_count_),
+                       GL_UNSIGNED_INT,
+                       (void *)0);
+        glBindVertexArray(0);
+    }
 
     void validate_(std::size_t posN, std::size_t uvN, std::size_t wN, std::size_t idxN)
     {
