@@ -44,21 +44,21 @@ public:
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &weights,   // 1 float  per vertex
-            const std::vector<std::size_t> &indices = {})
+            const std::vector<index_type> &indices = {})
         : pos_buffer_(positions),
           tex_buffer_(texcoords),
           wei_buffer_(weights)
     {
         if (!indices.empty())
         {
-            ebo_buffer_ = BufferCPU<std::size_t>(indices);
+            ebo_buffer_ = BufferCPU<index_type>(indices);
         }
         else
         {
             // Delaunay returns unsigned int; convert to std::size_t
             std::vector<unsigned int> tris = BuildTriangles(texcoords);
-            std::vector<std::size_t> idx(tris.begin(), tris.end());
-            ebo_buffer_ = BufferCPU<std::size_t>(idx);
+            std::vector<index_type> idx(tris.begin(), tris.end());
+            ebo_buffer_ = BufferCPU<index_type>(idx);
         }
         validate_();
     }
@@ -82,12 +82,12 @@ public:
     [[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadWeights() const & { return wei_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const std::size_t> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
+    [[nodiscard]] MappedView<const index_type> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
 
     [[nodiscard]] MappedView<float> MapWritePositions() { return pos_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteTexcoords() { return tex_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteWeights() { return wei_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<std::size_t> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
+    [[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
     std::size_t vertex_count() const noexcept { return pos_buffer_.size() / 3; }
@@ -141,5 +141,5 @@ private:
     BufferCPU<float> pos_buffer_;
     BufferCPU<float> tex_buffer_;
     BufferCPU<float> wei_buffer_;
-    BufferCPU<std::size_t> ebo_buffer_;
+    BufferCPU<index_type> ebo_buffer_;
 };

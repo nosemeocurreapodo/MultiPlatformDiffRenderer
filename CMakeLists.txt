@@ -18,6 +18,7 @@ include_directories(
         "tests"
         "HLSLinearAlgebra/src"
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+        ${PROJECT_SOURCE_DIR}/thirdparty
         ${EIGEN3_INCLUDE_DIR}
         ${OpenCV_INCLUDE_DIRS}
         )
@@ -30,6 +31,19 @@ FetchContent_Declare(
   GIT_TAG release-1.11.0)
 
 FetchContent_MakeAvailable(googletest)
+
+# Build glad library
+if(COMPILE_GL)
+    add_library(glad STATIC
+        thirdparty/glad/gl.c
+        thirdparty/glad/egl.c
+    )
+    target_include_directories(glad PUBLIC 
+        thirdparty
+        thirdparty/glad
+    )
+    target_include_directories(glad PRIVATE thirdparty)
+endif()
 
 include(CTest)
 enable_testing()

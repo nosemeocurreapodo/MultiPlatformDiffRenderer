@@ -252,11 +252,9 @@ protected:
             const float ndc_y = clip(1) * invW;
             const float ndc_z = clip(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
-            // pixel-space (don’t clamp here)
-            // vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
-            // vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
-            vout[i].screen(0) = viewport.min_x_ + (ndc_x * 0.5f + 0.5f) * (viewport.max_x_ - viewport.min_x_ + 1) - 0.5f;
-            vout[i].screen(1) = viewport.min_y_ + (ndc_y * 0.5f + 0.5f) * (viewport.max_y_ - viewport.min_y_ + 1) - 0.5f;
+            // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
+            vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
+            vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
             vout[i].depth = ndc_z;
             vout[i].invW = invW;
             vout[i].var = var;

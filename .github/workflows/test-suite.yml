@@ -1,0 +1,156 @@
+name: MultiPlatformRenderer Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-cpu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        token: ${{ secrets.HLSLINEARALGEBRA_TOKEN }}
+        persist-credentials: false
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          libeigen3-dev \
+          libopencv-dev \
+          libgtest-dev \
+          lcov
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCOMPILE_GL=OFF \
+          -DCOMPILE_XRT=OFF \
+          -DBUILD_TESTING=ON \
+          -DCMAKE_CXX_FLAGS="--coverage" \
+          -DCMAKE_C_FLAGS="--coverage"
+    
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
+    
+    - name: Run CPU Tests
+      run: |
+        cd build
+        ctest --output-on-failure -R "CPURendererTests"
+    
+    - name: Generate Coverage
+      if: matrix.build_type == 'Debug'
+      run: |
+        cd build
+        lcov --capture --directory . --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/tests/*' --output-file coverage.info
+        lcov --list coverage.info
+    
+    - name: Upload Coverage
+      if: matrix.build_type == 'Debug'
+      uses: codecov/codecov-action@v3
+      with:
+        file: build/coverage.info
+
+  test-opengl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        token: ${{ secrets.HLSLINEARALGEBRA_TOKEN }}
+        persist-credentials: false
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          libeigen3-dev \
+          libopencv-dev \
+          libgtest-dev \
+          libegl1-mesa-dev \
+          libgl1-mesa-dev \
+          xvfb
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCOMPILE_GL=ON \
+          -DCOMPILE_XRT=OFF \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
+    
+    - name: Run OpenGL Tests
+      run: |
+        cd build
+        xvfb-run -a ctest --output-on-failure -R "GLRendererTests"
+
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: [test-cpu, test-opengl]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        token: ${{ secrets.HLSLINEARALGEBRA_TOKEN }}
+        persist-credentials: false
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          libeigen3-dev \
+          libopencv-dev \
+          libgtest-dev \
+          libegl1-mesa-dev \
+          libgl1-mesa-dev \
+          xvfb
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCOMPILE_GL=ON \
+          -DCOMPILE_XRT=OFF \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
+    
+    - name: Run Integration Tests
+      run: |
+        cd build
+        xvfb-run -a ctest --output-on-failure -R "CrossBackend|Integration|Validation"
+    
+    - name: Generate Test Report
+      if: always()
+      run: |
+        cd build
+        ctest --output-junit test_results.xml || true
+    
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: build/test_results.xml
