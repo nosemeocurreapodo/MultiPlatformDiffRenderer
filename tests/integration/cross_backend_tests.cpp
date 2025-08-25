@@ -36,27 +36,27 @@ TEST_F(CrossBackendTests, DepthRenderingComparison) {
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
-    UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
     
     DepthRendererCPU renderer_cpu;
     timer_.Start();
     renderer_cpu.Render(mesh_cpu, pose_transform, cam_, input_cpu, output_cpu, in_lvl, out_lvl);
     double cpu_time = timer_.Stop();
     
-    cv::Mat cpu_result = DownloadTextureFromCPU(output_cpu, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
     
     // GL implementation
     MeshGL mesh_gl(vertices_, texcoords_, weights_);
     TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
-    UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+    UploadMatToTexture(input_gl, 0, image_src_cv_);
     
     DepthRendererGL renderer_gl;
     timer_.Start();
     renderer_gl.Render(mesh_gl, pose_transform, cam_, input_gl, output_gl, in_lvl, out_lvl);
     double gl_time = timer_.Stop();
     
-    cv::Mat gl_result = DownloadTextureFromGL(output_gl, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
     
     // Cross-backend validation
     TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
@@ -92,27 +92,27 @@ TEST_F(CrossBackendTests, ImageRenderingComparison) {
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
-    UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
     
     ImageRendererCPU renderer_cpu;
     timer_.Start();
     renderer_cpu.Render(mesh_cpu, pose_transform, cam_, input_cpu, output_cpu, in_lvl, out_lvl);
     double cpu_time = timer_.Stop();
     
-    cv::Mat cpu_result = DownloadTextureFromCPU(output_cpu, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
     
     // GL implementation
     MeshGL mesh_gl(vertices_, texcoords_, weights_);
     TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
-    UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+    UploadMatToTexture(input_gl, 0, image_src_cv_);
     
     ImageRendererGL renderer_gl;
     timer_.Start();
     renderer_gl.Render(mesh_gl, pose_transform, cam_, input_gl, output_gl, in_lvl, out_lvl);
     double gl_time = timer_.Stop();
     
-    cv::Mat gl_result = DownloadTextureFromGL(output_gl, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
     
     // Cross-backend validation
     TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
@@ -145,27 +145,27 @@ TEST_F(CrossBackendTests, GradientComputationComparison) {
     MeshCPU mesh_cpu(quad_pos, quad_uv, quad_weights);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<Vec3> output_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
     
     DIDxyRendererCPU renderer_cpu;
     timer_.Start();
     renderer_cpu.Render(mesh_cpu, SE3(), cam_, input_cpu, output_cpu, in_lvl, out_lvl);
     double cpu_time = timer_.Stop();
     
-    cv::Mat cpu_result = DownloadTextureFromCPU(output_cpu, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
     
     // GL implementation
     MeshGL mesh_gl(quad_pos, quad_uv, quad_weights);
     TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<Vec3> output_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+    UploadMatToTexture(input_gl, 0, image_src_cv_);
     
     DIDxyRendererGL renderer_gl;
     timer_.Start();
     renderer_gl.Render(mesh_gl, SE3(), cam_, input_gl, output_gl, in_lvl, out_lvl);
     double gl_time = timer_.Stop();
     
-    cv::Mat gl_result = DownloadTextureFromGL(output_gl, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC3);
     
     // Cross-backend validation for Vec3 data
     double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
@@ -202,7 +202,7 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison) {
     TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jtra_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jrot_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    UploadMatToTextureCPU(input_cpu, 0, image_dst_cv_);
+    UploadMatToTexture(input_cpu, 0, image_dst_cv_);
     
     DIDxyRendererCPU didxy_renderer_cpu;
     JtraRendererCPU jtra_renderer_cpu;
@@ -214,8 +214,8 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison) {
     jrot_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, jtra_cpu, jrot_cpu, out_lvl, out_lvl);
     double cpu_time = timer_.Stop();
     
-    cv::Mat cpu_jtra = DownloadTextureFromCPU(jtra_cpu, out_lvl, w_, h_, CV_32FC3);
-    cv::Mat cpu_jrot = DownloadTextureFromCPU(jrot_cpu, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);
+    cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, out_lvl, CV_32FC3);
     
     // GL pipeline
     MeshGL mesh_img_gl(quad_pos, quad_uv, quad_weights);
@@ -225,7 +225,7 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison) {
     TextureGL<Vec3> didxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> jtra_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> jrot_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    UploadMatToTextureGL(input_gl, 0, image_dst_cv_);
+    UploadMatToTexture(input_gl, 0, image_dst_cv_);
     
     DIDxyRendererGL didxy_renderer_gl;
     JtraRendererGL jtra_renderer_gl;
@@ -237,8 +237,8 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison) {
     jrot_renderer_gl.Render(mesh_gl, pose_transform, cam_, jtra_gl, jrot_gl, out_lvl, out_lvl);
     double gl_time = timer_.Stop();
     
-    cv::Mat gl_jtra = DownloadTextureFromGL(jtra_gl, out_lvl, w_, h_, CV_32FC3);
-    cv::Mat gl_jrot = DownloadTextureFromGL(jrot_gl, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat gl_jtra = DownloadTexture(jtra_gl, out_lvl, CV_32FC3);
+    cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
     
     // Validate both Jtra and Jrot
     double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
@@ -303,7 +303,7 @@ TEST_F(CrossBackendTests, MeshComplexityComparison) {
         MeshCPU mesh_cpu(test_vertices, test_texcoords, test_weights);
         TextureCPU<float> input_cpu(w_, h_, 0.0f);
         TextureCPU<float> output_cpu(w_, h_, 0.0f);
-        UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+        UploadMatToTexture(input_cpu, 0, image_src_cv_);
         
         DepthRendererCPU renderer_cpu;
         timer_.Start();
@@ -314,7 +314,7 @@ TEST_F(CrossBackendTests, MeshComplexityComparison) {
         MeshGL mesh_gl(test_vertices, test_texcoords, test_weights);
         TextureGL<float> input_gl(w_, h_, 0.0f);
         TextureGL<float> output_gl(w_, h_, 0.0f);
-        UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+        UploadMatToTexture(input_gl, 0, image_src_cv_);
         
         DepthRendererGL renderer_gl;
         timer_.Start();
@@ -348,21 +348,21 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison) {
         MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
         TextureCPU<float> input_cpu(w_, h_, 0.0f);
         TextureCPU<float> output_cpu(w_, h_, 0.0f);
-        UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+        UploadMatToTexture(input_cpu, 0, image_src_cv_);
         
         DepthRendererCPU renderer_cpu;
         renderer_cpu.Render(mesh_cpu, pose_transform, cam_, input_cpu, output_cpu, in_lvl, out_lvl);
-        cpu_results.push_back(DownloadTextureFromCPU(output_cpu, out_lvl, w_, h_, CV_32FC1));
+        cpu_results.push_back(DownloadTexture(output_cpu, out_lvl, CV_32FC1));
         
         // GL
         MeshGL mesh_gl(vertices_, texcoords_, weights_);
         TextureGL<float> input_gl(w_, h_, 0.0f);
         TextureGL<float> output_gl(w_, h_, 0.0f);
-        UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+        UploadMatToTexture(input_gl, 0, image_src_cv_);
         
         DepthRendererGL renderer_gl;
         renderer_gl.Render(mesh_gl, pose_transform, cam_, input_gl, output_gl, in_lvl, out_lvl);
-        gl_results.push_back(DownloadTextureFromGL(output_gl, out_lvl, w_, h_, CV_32FC1));
+        gl_results.push_back(DownloadTexture(output_gl, out_lvl, CV_32FC1));
     }
     
     // Check CPU consistency

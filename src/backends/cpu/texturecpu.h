@@ -65,6 +65,8 @@ public:
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
     std::size_t levels() const { return levels_.size(); }
+    std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
+    std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant

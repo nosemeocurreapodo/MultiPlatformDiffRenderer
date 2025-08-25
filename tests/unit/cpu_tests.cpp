@@ -16,14 +16,14 @@ TEST_F(CPURendererTests, DepthRendererBasicFunctionality) {
     TextureCPU<float> input(w_, h_, 0.0f);
     TextureCPU<float> output(w_, h_, -1.0f); // Use -1 as nodata
     
-    UploadMatToTextureCPU(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     DepthRendererCPU renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
     
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, cam_, input, output, in_lvl, out_lvl));
     
-    cv::Mat result = DownloadTextureFromCPU(output, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat result = DownloadTexture(output, out_lvl, CV_32FC1);
     
     // Validate output properties
     cv::Scalar mean_val, std_val;
@@ -58,14 +58,14 @@ TEST_F(CPURendererTests, ImageRendererBasicFunctionality) {
     TextureCPU<float> input(w_, h_, 0.0f);
     TextureCPU<float> output(w_, h_, -1.0f);
     
-    UploadMatToTextureCPU(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     ImageRendererCPU renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
     
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, cam_, input, output, in_lvl, out_lvl));
     
-    cv::Mat result = DownloadTextureFromCPU(output, out_lvl, w_, h_, CV_32FC1);
+    cv::Mat result = DownloadTexture(output, out_lvl, CV_32FC1);
     
     // Validate output properties
     cv::Scalar mean_val, std_val;
@@ -88,13 +88,13 @@ TEST_F(CPURendererTests, DIDxyRendererBasicFunctionality) {
     TextureCPU<float> input(w_, h_, 0.0f);
     TextureCPU<Vec3> output(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     
-    UploadMatToTextureCPU(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     DIDxyRendererCPU renderer;
     
     ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, in_lvl, out_lvl));
     
-    cv::Mat result = DownloadTextureFromCPU(output, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat result = DownloadTexture(output, out_lvl, CV_32FC3);
     
     // Check gradient properties
     cv::Mat channels[3];
@@ -129,7 +129,7 @@ TEST_F(CPURendererTests, JtraRendererBasicFunctionality) {
     TextureCPU<Vec3> didxy(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jtra(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     
-    UploadMatToTextureCPU(input, 0, image_dst_cv_);
+    UploadMatToTexture(input, 0, image_dst_cv_);
     
     DIDxyRendererCPU didxy_renderer;
     JtraRendererCPU jtra_renderer;
@@ -139,7 +139,7 @@ TEST_F(CPURendererTests, JtraRendererBasicFunctionality) {
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, SE3(), cam_, input, didxy, in_lvl, out_lvl));
     ASSERT_NO_THROW(jtra_renderer.Render(mesh, pose_transform, cam_, didxy, jtra, in_lvl, out_lvl));
     
-    cv::Mat result = DownloadTextureFromCPU(jtra, out_lvl, w_, h_, CV_32FC3);
+    cv::Mat result = DownloadTexture(jtra, out_lvl, CV_32FC3);
     
     // Check Jacobian properties
     cv::Scalar mean_jtra = cv::mean(result);
@@ -189,7 +189,7 @@ TEST_F(CPURendererTests, MemoryManagementTest) {
         TextureCPU<float> input(w_, h_, 0.0f);
         TextureCPU<float> output(w_, h_, -1.0f);
         
-        UploadMatToTextureCPU(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
@@ -208,7 +208,7 @@ TEST_F(CPURendererTests, NumericalPrecisionTest) {
     
     MeshCPU mesh(vertices_, texcoords_, weights_);
     TextureCPU<float> input(w_, h_, 0.0f);
-    UploadMatToTextureCPU(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     DepthRendererCPU renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
@@ -220,7 +220,7 @@ TEST_F(CPURendererTests, NumericalPrecisionTest) {
     for (int i = 0; i < iterations; ++i) {
         TextureCPU<float> output(w_, h_, -1.0f);
         renderer.Render(mesh, pose_transform, cam_, input, output, in_lvl, out_lvl);
-        results.push_back(DownloadTextureFromCPU(output, out_lvl, w_, h_, CV_32FC1));
+        results.push_back(DownloadTexture(output, out_lvl, CV_32FC1));
     }
     
     // Results should be identical (deterministic)

@@ -214,6 +214,7 @@ public:
     std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
     std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
     std::size_t lvls() const { return static_cast<std::size_t>(widths_.size()); }
+    std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
     // GLuint id() const { return tex_; }
 

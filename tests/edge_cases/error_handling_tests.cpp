@@ -32,7 +32,7 @@ TEST_F(ErrorHandlingTests, EmptyMeshHandling) {
         DepthRendererCPU renderer;
         ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, input, output, 0, 0));
         
-        cv::Mat result = DownloadTextureFromCPU(output, 0, w_, h_, CV_32FC1);
+        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
         // Should remain at nodata value
         cv::Scalar mean_val = cv::mean(result);
@@ -75,7 +75,7 @@ TEST_F(ErrorHandlingTests, DegenerateTriangleHandling) {
         ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
         
         // Should handle degenerate triangles gracefully
-        cv::Mat result = DownloadTextureFromCPU(output, 0, w_, h_, CV_32FC1);
+        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
         // Check for NaN or infinite values
         bool has_invalid = false;
@@ -120,12 +120,12 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling) {
     {
         TextureCPU<float> input(w_, h_, 0.0f);
         TextureCPU<float> output(w_, h_, -1.0f);
-        UploadMatToTextureCPU(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_cpu, large_scale, cam_, input, output, 0, 0));
         
-        cv::Mat result = DownloadTextureFromCPU(output, 0, w_, h_, CV_32FC1);
+        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
         // Check for invalid values
         bool has_invalid = false;
@@ -144,7 +144,7 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling) {
     {
         TextureGL<float> input(w_, h_, 0.0f);
         TextureGL<float> output(w_, h_, -1.0f);
-        UploadMatToTextureGL(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_gl, large_scale, cam_, input, output, 0, 0));
@@ -163,7 +163,7 @@ TEST_F(ErrorHandlingTests, InvalidMipmapLevels) {
     {
         TextureCPU<float> input(w_, h_, 0.0f);
         TextureCPU<float> output(w_, h_, -1.0f);
-        UploadMatToTextureCPU(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
         
@@ -177,7 +177,7 @@ TEST_F(ErrorHandlingTests, InvalidMipmapLevels) {
     {
         TextureGL<float> input(w_, h_, 0.0f);
         TextureGL<float> output(w_, h_, -1.0f);
-        UploadMatToTextureGL(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
         
@@ -204,12 +204,12 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch) {
         
         // Create small test image
         cv::Mat small_image(small_h, small_w, CV_32FC1, cv::Scalar(128.0f));
-        UploadMatToTextureCPU(small_input, 0, small_image);
+        UploadMatToTexture(small_input, 0, small_image);
         
         DepthRendererCPU renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, small_input, large_output, 0, 0));
         
-        cv::Mat result = DownloadTextureFromCPU(large_output, 0, large_w, large_h, CV_32FC1);
+        cv::Mat result = DownloadTexture(large_output, 0, CV_32FC1);
         
         // Should handle size mismatch gracefully
         cv::Scalar mean_val = cv::mean(result);
@@ -222,7 +222,7 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch) {
         TextureGL<float> large_output(large_w, large_h, -1.0f);
         
         cv::Mat small_image(small_h, small_w, CV_32FC1, cv::Scalar(128.0f));
-        UploadMatToTextureGL(small_input, 0, small_image);
+        UploadMatToTexture(small_input, 0, small_image);
         
         DepthRendererGL renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, small_input, large_output, 0, 0));
@@ -247,12 +247,12 @@ TEST_F(ErrorHandlingTests, CameraParameterEdgeCases) {
     {
         TextureCPU<float> input(w_, h_, 0.0f);
         TextureCPU<float> output(w_, h_, -1.0f);
-        UploadMatToTextureCPU(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), extreme_cam, input, output, 0, 0));
         
-        cv::Mat result = DownloadTextureFromCPU(output, 0, w_, h_, CV_32FC1);
+        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
         // Check for invalid values
         bool has_invalid = false;
@@ -271,7 +271,7 @@ TEST_F(ErrorHandlingTests, CameraParameterEdgeCases) {
     {
         TextureGL<float> input(w_, h_, 0.0f);
         TextureGL<float> output(w_, h_, -1.0f);
-        UploadMatToTextureGL(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
         ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), extreme_cam, input, output, 0, 0));
@@ -307,7 +307,7 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling) {
                     }
                 }
                 
-                UploadMatToTextureCPU(input, 0, large_image);
+                UploadMatToTexture(input, 0, large_image);
                 
                 DepthRendererCPU renderer;
                 ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
@@ -328,7 +328,7 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling) {
                     }
                 }
                 
-                UploadMatToTextureGL(input, 0, large_image);
+                UploadMatToTexture(input, 0, large_image);
                 
                 DepthRendererGL renderer;
                 ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
@@ -365,14 +365,14 @@ TEST_F(ErrorHandlingTests, ThreadSafetyBasics) {
         MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
         TextureCPU<float> input_cpu(w_, h_, 0.0f);
         TextureCPU<float> output_cpu(w_, h_, -1.0f);
-        UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
+        UploadMatToTexture(input_cpu, 0, image_src_cv_);
         
         ASSERT_NO_THROW(cpu_renderers[i]->Render(mesh_cpu, SE3(), cam_, input_cpu, output_cpu, 0, 0));
         
         MeshGL mesh_gl(vertices_, texcoords_, weights_);
         TextureGL<float> input_gl(w_, h_, 0.0f);
         TextureGL<float> output_gl(w_, h_, -1.0f);
-        UploadMatToTextureGL(input_gl, 0, image_src_cv_);
+        UploadMatToTexture(input_gl, 0, image_src_cv_);
         
         ASSERT_NO_THROW(gl_renderers[i]->Render(mesh_gl, SE3(), cam_, input_gl, output_gl, 0, 0));
         

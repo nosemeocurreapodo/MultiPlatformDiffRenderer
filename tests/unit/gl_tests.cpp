@@ -25,14 +25,14 @@ TEST_F(GLRendererTests, DepthRendererBasicFunctionality) {
     TextureGL<float> input(w_, h_, 0.0f);
     TextureGL<float> output(w_, h_, -1.0f);
     
-    UploadMatToTextureGL(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     DepthRendererGL renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
     
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, cam_, input, output, 0, 0));
     
-    cv::Mat result = DownloadTextureFromGL(output, 0, w_, h_, CV_32FC1);
+    cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
     
     // Validate output properties
     cv::Scalar mean_val, std_val;
@@ -82,7 +82,7 @@ TEST_F(GLRendererTests, FramebufferOperations) {
             }
         }
         
-        UploadMatToTextureGL(input, 0, test_image);
+        UploadMatToTexture(input, 0, test_image);
         
         DepthRendererGL renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
@@ -101,7 +101,7 @@ TEST_F(GLRendererTests, ResourceManagement) {
         TextureGL<float> input(w_, h_, 0.0f);
         TextureGL<float> output(w_, h_, -1.0f);
         
-        UploadMatToTextureGL(input, 0, image_src_cv_);
+        UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
@@ -119,7 +119,7 @@ TEST_F(GLRendererTests, PerformanceConsistency) {
     TextureGL<float> input(w_, h_, 0.0f);
     TextureGL<float> output(w_, h_, -1.0f);
     
-    UploadMatToTextureGL(input, 0, image_src_cv_);
+    UploadMatToTexture(input, 0, image_src_cv_);
     
     DepthRendererGL renderer;
     
