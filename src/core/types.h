@@ -27,6 +27,8 @@ using Vecx = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 using Vec2i = Eigen::Matrix<Int, 2, 1>;
 using Vec3i = Eigen::Matrix<Int, 3, 1>;
 using Vec4i = Eigen::Matrix<Int, 4, 1>;
+using Vec5i = Eigen::Matrix<Int, 5, 1>;
+using Vec6i = Eigen::Matrix<Int, 6, 1>;
 using Vecxi = Eigen::Matrix<Int, Eigen::Dynamic, 1>;
 
 template <typename type, int rows, int cols>
