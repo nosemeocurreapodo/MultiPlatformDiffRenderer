@@ -125,50 +125,6 @@ inline int getFile(std::string source, std::vector<std::string> &files)
     }
 }
 
-template <typename Type>
-inline double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt, Type nodata_value)
-{
-    assert(image_est.cols == image_gt.cols && image_est.rows == image_gt.rows);
-
-    double error = 0.0;
-    int count = 0;
-    for (int y = 0; y < image_est.rows; y++)
-    {
-        for (int x = 0; x < image_est.cols; x++)
-        {
-            double est = double(image_est.at<Type>(y, x));
-            double gt = double(image_gt.at<Type>(y, x));
-
-            if (est == nodata_value || gt == nodata_value)
-                continue;
-
-            error += std::fabs(est - gt); // * (est - gt);
-            count += 1;
-        }
-    }
-    return error / count;
-}
-
-// Function to compute error between two SE3 poses
-inline std::array<double, 2> ComputeSE3Error(const SE3 &pose_est, const SE3 &pose_gt)
-{
-    // Compute the relative transformation: error transformation T_error
-    SE3 T_error = pose_est.inverse() * pose_gt;
-
-    double translation_error = T_error.translation().norm();
-    double rotation_error = 0.0; // T_error.so3().log().norm();
-
-    std::array<double, 2> error = {translation_error, rotation_error};
-
-    return error;
-
-    // Convert T_error to a 6D vector (Lie algebra) representing the error
-    // vec6f error_vector = T_error.log();
-
-    // Return the norm of the error vector
-    // return error_vector.norm();
-}
-
 class LoadDatasetBase
 {
 public:
