@@ -1,6 +1,8 @@
 #pragma once
 
-#include "core/delaunaytriangulation.h"
+#include "core/types.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/meshcpu.h"
 
 static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
 {
