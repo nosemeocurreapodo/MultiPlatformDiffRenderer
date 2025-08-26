@@ -677,7 +677,7 @@ public:
 };
 
 class JposeRendererCPU
-    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec3 /*OutTexType*/>
+    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec6 /*OutTexType*/>
 {
 public:
     JposeRendererCPU() = default;
@@ -707,12 +707,10 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Vec5 &inVarying,
                          const TextureCPU<Vec3> &inTexture,
-                         Vec3 &outFragment,
+                         Vec6 &outFragment,
                          int in_lvl,
                          int out_lvl) override
     {
-        // outFragment = inVarying;
-
         Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
         Vec3 f_der = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
 
@@ -723,11 +721,11 @@ public:
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        // outFragment(0) = d_f_i_d_tra(0);
-        // outFragment(1) = d_f_i_d_tra(1);
-        // outFragment(2) = d_f_i_d_tra(2);
-        outFragment(0) = d_f_i_d_rot(0);
-        outFragment(1) = d_f_i_d_rot(1);
-        outFragment(2) = d_f_i_d_rot(2);
+        outFragment(0) = d_f_i_d_tra(0);
+        outFragment(1) = d_f_i_d_tra(1);
+        outFragment(2) = d_f_i_d_tra(2);
+        outFragment(3) = d_f_i_d_rot(0);
+        outFragment(4) = d_f_i_d_rot(1);
+        outFragment(5) = d_f_i_d_rot(2);
     }
 };
