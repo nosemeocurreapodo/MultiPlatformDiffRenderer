@@ -44,7 +44,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 
     DepthRendererCPU renderer_cpu;
     timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, input_cpu, output_cpu, in_lvl, out_lvl);
+    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
     double cpu_time = timer_.Stop();
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
@@ -159,7 +159,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 
     DIDxyRendererCPU renderer_cpu;
     timer_.Start();
-    renderer_cpu.Render(mesh_cpu, SE3(), cam_, input_cpu, output_cpu, in_lvl, out_lvl);
+    renderer_cpu.Render(mesh_cpu, SE3(), cam_, in_lvl, out_lvl, input_cpu, output_cpu);
     double cpu_time = timer_.Stop();
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
@@ -222,9 +222,9 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison)
     JrotRendererCPU jrot_renderer_cpu;
 
     timer_.Start();
-    didxy_renderer_cpu.Render(mesh_img_cpu, SE3(), cam_, input_cpu, didxy_cpu, in_lvl, out_lvl);
-    jtra_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, didxy_cpu, jtra_cpu, out_lvl, out_lvl);
-    jrot_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, jtra_cpu, jrot_cpu, out_lvl, out_lvl);
+    didxy_renderer_cpu.Render(mesh_img_cpu, SE3(), cam_, in_lvl, out_lvl, input_cpu, didxy_cpu);
+    jtra_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, out_lvl, didxy_cpu, jtra_cpu);
+    jrot_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, out_lvl,  jtra_cpu, jrot_cpu);
     double cpu_time = timer_.Stop();
 
     cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);

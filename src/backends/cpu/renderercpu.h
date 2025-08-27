@@ -136,23 +136,23 @@ inline bool is_top_left(float ax, float ay, float bx, float by)
 // -----------------------------------------------------------------------------
 // BaseRendererCPU (improved)
 // -----------------------------------------------------------------------------
-template <typename InTexType, typename VaryingType, typename OutTexType>
+template <class Derived, typename Varying>
 class BaseRendererCPU
 {
 public:
     BaseRendererCPU() = default;
     virtual ~BaseRendererCPU() = default;
 
+    template <class... Textures>
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
                 const Camera &cam,
-                const TextureCPU<InTexType> &in_texture,
-                TextureCPU<OutTexType> &out_texture,
                 int in_lvl,
-                int out_lvl)
+                int out_lvl,
+                Textures &...textures)
     {
-        in_nodata_ = in_texture.nodata();
-        out_texture.fill(out_lvl, out_texture.nodata());
+        // in_nodata_ = in_texture.nodata();
+        // out_texture.fill(out_lvl, out_texture.nodata());
 
         // Matrices
         Mat4 opencv2opengl = Mat4::Identity();
@@ -163,9 +163,12 @@ public:
         fx = cam.GetParams()(0);
         fy = cam.GetParams()(1);
 
-        const int W = static_cast<int>(out_texture.width(out_lvl));
-        const int H = static_cast<int>(out_texture.height(out_lvl));
-        const BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        //const int W = static_cast<int>(textures...[0].width(out_lvl));
+        //const int H = static_cast<int>(textures...[0].height(out_lvl));
+        //const BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+
+        BoundingBoxType<int> viewport = get_viewport(textures...);
+
 
         // ---- Map mesh buffers (no copies) ----
         auto pos = mesh.MapReadPositions(); // 3 floats/vertex
@@ -197,39 +200,38 @@ public:
                 wght[k] = wei[vi];
             }
 
-            draw_triangle(v, uv, wght, view_matrix, pose_matrix, viewport,
-                          in_texture, out_texture, in_lvl, out_lvl);
+            draw_triangle(in_lvl, out_lvl, v, uv, wght, view_matrix, pose_matrix, viewport,
+                          textures...);
         }
     }
 
 protected:
     // User-provided shaders
-    virtual void vertex_shader(const Vec3 &inVertex,
-                               const Vec2 &inTexCoord,
-                               const float &inWeight,
-                               const Mat4 &view_matrix,
-                               const Mat4 &pose_matrix,
-                               Vec4 &gl_Position,
-                               VaryingType &outVarying) = 0;
+    // virtual void vertex_shader(const Vec3 &inVertex,
+    //                           const Vec2 &inTexCoord,
+    //                           const float &inWeight,
+    //                           const Mat4 &view_matrix,
+    //                           const Mat4 &pose_matrix,
+    //                           Vec4 &gl_Position,
+    //                           VaryingType &outVarying) = 0;
 
-    virtual void fragment_shader(const Vec4 &gl_FragCoord,
-                                 const VaryingType &inVarying,
-                                 const TextureCPU<InTexType> &inTexture,
-                                 OutTexType &outFragment,
-                                 int in_lvl,
-                                 int out_lvl) = 0;
+    // virtual void fragment_shader(const Vec4 &gl_FragCoord,
+    //                              const VaryingType &inVarying,
+    //                              const TextureCPU<InTexType> &inTexture,
+    //                              OutTexType &outFragment,
+    //                              int in_lvl,
+    //                              int out_lvl) = 0;
 
     // Triangle rasterizer (top-left rule, perspective correct)
-    void draw_triangle(const Vec3 *verts,
+    template <class... Textures>
+    void draw_triangle(int in_lvl,
+                       int out_lvl, const Vec3 *verts,
                        const Vec2 *texcoords,
                        const float *weights,
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        const BoundingBoxType<int> &viewport,
-                       const TextureCPU<InTexType> &in_texture,
-                       TextureCPU<OutTexType> &out_texture,
-                       int in_lvl,
-                       int out_lvl)
+                       Textures &...textures)
     {
         // Vertex shading & clip → NDC → screen
         struct VSOut
@@ -237,15 +239,15 @@ protected:
             Vec2 screen;            // x,y in pixel space (float)
             float depth;            // z in [0,1] if your projection is like GL_ZERO_TO_ONE
             float invW;             // 1 / clip.w
-            VaryingType var_over_w; // varyings multiplied by invW
-            VaryingType var;        // original varyings (for convenience)
+            Varying var_over_w; // varyings multiplied by invW
+            Varying var;        // original varyings (for convenience)
         } vout[3];
 
         for (int i = 0; i < 3; ++i)
         {
             Vec4 clip;
-            VaryingType var;
-            vertex_shader(verts[i], texcoords[i], weights[i], view_matrix, pose_matrix, clip, var);
+            Varying var;
+            derived().vertex_shader(verts[i], texcoords[i], weights[i], view_matrix, pose_matrix, clip, var);
 
             const float invW = 1.0f / clip(3);
             const float ndc_x = clip(0) * invW; // [-1,1]
@@ -340,11 +342,11 @@ protected:
                     const float invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
 
                     // Interpolate varyings divided by w, then divide by invW_px
-                    VaryingType var_over_w_px =
+                    Varying var_over_w_px =
                         w0 * vout[0].var_over_w +
                         w1 * vout[1].var_over_w +
                         w2 * vout[2].var_over_w;
-                    VaryingType varying_px = var_over_w_px * (1.0f / invW_px);
+                    Varying varying_px = var_over_w_px * (1.0f / invW_px);
 
                     // Depth (if needed; same trick)
                     float depth_px = w0 * (vout[0].depth * vout[0].invW) +
@@ -359,9 +361,9 @@ protected:
                     gl_FragCoord(2) = depth_px;
                     gl_FragCoord(3) = 1.0f / invW_px;
 
-                    OutTexType outColor = out_texture.nodata();
-                    fragment_shader(gl_FragCoord, varying_px, in_texture, outColor, in_lvl, out_lvl);
-                    out_texture.set_texel_(outColor, y, x, out_lvl);
+                    //OutTexType outColor = out_texture.nodata();
+                    derived().fragment_shader(in_lvl, out_lvl, gl_FragCoord, varying_px, textures...);
+                    // out_texture.set_texel_(outColor, y, x, out_lvl);
                 }
 
                 // advance to x+1
@@ -377,7 +379,17 @@ protected:
         }
     }
 
-    InTexType in_nodata_{};
+    template<class Texture, class... Textures>
+    BoundingBoxType<int> get_viewport(Texture texture, Textures&... textures)
+    {
+        const int W = static_cast<int>(texture.width(0));
+        const int H = static_cast<int>(texture.height(0));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
+
+    Derived &derived() { return *static_cast<Derived *>(this); }
+    const Derived &derived() const { return *static_cast<const Derived *>(this); }
+
     float fx = 0.f;
     float fy = 0.f;
 };
@@ -387,7 +399,7 @@ protected:
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 class DepthRendererCPU
-    : public BaseRendererCPU<float /*InTexType*/, float /*VaryingType*/, float /*OutTexType*/>
+    : public BaseRendererCPU<DepthRendererCPU, float>
 {
 public:
     DepthRendererCPU() = default;
@@ -402,24 +414,24 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       float &outVarying) override
+                       float &outVarying)
     {
         gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // No attributes in outVarying, so do nothing with it
         outVarying = inVertex(2); // example: store Z in outVarying
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const float &inVarying,
-                         const TextureCPU<float> &inTexture,
-                         float &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(int in_lvl, int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const float &in_varying,
+                         const TextureCPU<float> &in_texture,
+                         TextureCPU<float> &out_texture)
     {
         // Example: store depth in outFragment as a float:
         // outFragment = gl_FragCoord.z();
-        outFragment = inVarying; // use the varying Z from vertex shader
+        // outFragment = inVarying; // use the varying Z from vertex shader
         // Could also do shading or sampling, but here we just store depth
+        out_texture.set_texel_(in_varying, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl);
     }
 };
 
@@ -428,7 +440,7 @@ public:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 class ImageRendererCPU
-    : public BaseRendererCPU<float /*InTexType*/, Vec2 /*VaryingType*/, float /*OutTexType*/>
+    : public BaseRendererCPU<ImageRendererCPU, Vec2>
 {
 public:
     ImageRendererCPU() = default;
@@ -443,22 +455,21 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       Vec2 &outVarying) override
+                       Vec2 &outVarying)
     {
         gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // We are using a "float" for VaryingType, so you can store something if needed
         outVarying = inTexCoord; // placeholder
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inVarying,
-                         const TextureCPU<float> &inTexture,
-                         float &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(int in_lvl, int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const Vec2 &in_varying,
+                         const TextureCPU<float> &in_texture,
+                         TextureCPU<float> &out_texture)
     {
-        float pix = inTexture.sample_(inVarying(1), inVarying(0), in_lvl);
-        outFragment = pix;
+        float pix = in_texture.sample_(in_varying(1), in_varying(0), in_lvl);
+        out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
 
         // Example: color = [checker pattern], ignoring inVarying
         // float fx = std::floor(gl_FragCoord.x() * 0.1f);
@@ -471,7 +482,7 @@ public:
 };
 
 class DIDxyRendererCPU
-    : public BaseRendererCPU<float /*InTexType*/, Vec2 /*VaryingType*/, Vec3 /*OutTexType*/>
+    : public BaseRendererCPU<DIDxyRendererCPU, Vec2>
 {
 public:
     DIDxyRendererCPU() = default;
@@ -486,28 +497,28 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       Vec2 &outVarying) override
+                       Vec2 &outVarying)
     {
         // gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = Vec4(2.0 * inTexCoord(0) - 1.0, 2.0 * inTexCoord(1) - 1.0, 0.0, 1.0);
         outVarying = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec2 &inVarying,
-                         const TextureCPU<float> &inTexture,
-                         Vec3 &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(int in_lvl,
+                         int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const Vec2 &in_varying,
+                         const TextureCPU<float> &in_texture,
+                         TextureCPU<Vec3> &out_texture)
     {
         // outFragment = inVarying;
 
-        int height = inTexture.height(in_lvl);
-        int width = inTexture.width(in_lvl);
-        float nodata = inTexture.nodata();
+        int height = in_texture.height(in_lvl);
+        int width = in_texture.width(in_lvl);
+        float nodata = in_texture.nodata();
 
-        int x = int(inVarying(0) * (width - 1));
-        int y = int(inVarying(1) * (height - 1));
+        int x = int(in_varying(0) * (width - 1));
+        int y = int(in_varying(1) * (height - 1));
         int x_p = x + 1;
         int x_m = x - 1;
         int y_p = y + 1;
@@ -522,11 +533,11 @@ public:
             return;
         }
 
-        float f = inTexture.texel_(y, x, in_lvl);
-        float f_y_p = inTexture.texel_(y_p, x, in_lvl);
-        float f_y_m = inTexture.texel_(y_m, x, in_lvl);
-        float f_x_p = inTexture.texel_(y, x_p, in_lvl);
-        float f_x_m = inTexture.texel_(y, x_m, in_lvl);
+        float f = in_texture.texel_(y, x, in_lvl);
+        float f_y_p = in_texture.texel_(y_p, x, in_lvl);
+        float f_y_m = in_texture.texel_(y_m, x, in_lvl);
+        float f_x_p = in_texture.texel_(y, x_p, in_lvl);
+        float f_x_m = in_texture.texel_(y, x_m, in_lvl);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -538,14 +549,17 @@ public:
             return;
         }
 
-        outFragment(0) = (f_x_p - f_x_m) / 2.0f;
-        outFragment(1) = (f_y_p - f_y_m) / 2.0f;
-        outFragment(2) = 0.0; // f; // save the projected frame for later processing
+        Vec3 out_fragment;
+        out_fragment(0) = (f_x_p - f_x_m) / 2.0f;
+        out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
+        out_fragment(2) = 0.0; // f; // save the projected frame for later processing
+
+        out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
 
 class JtraRendererCPU
-    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec3 /*OutTexType*/>
+    : public BaseRendererCPU<JtraRendererCPU, Vec5>
 {
 public:
     JtraRendererCPU() = default;
@@ -560,7 +574,7 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       Vec5 &outVarying) override
+                       Vec5 &outVarying)
     {
         Vec4 f_ver = pose_matrix * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix * f_ver;
@@ -572,43 +586,46 @@ public:
         outVarying(4) = inTexCoord(1);
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec5 &inVarying,
-                         const TextureCPU<Vec3> &inTexture,
-                         Vec3 &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(int in_lvl,
+                         int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const Vec5 &in_varying,
+                         const TextureCPU<Vec3> &in_texture,
+                         TextureCPU<Vec3> &out_texture)
     {
         // outFragment = inVarying;
 
-        Vec3 nodata = inTexture.nodata();
+        Vec3 nodata = in_texture.nodata();
 
-        Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
+        Vec3 f_ver(in_varying(0), in_varying(1), in_varying(2));
         // take the derivative in frame coordinates (not projected)
         // Vec3 f_der = inTexture.sample(inVarying(4), inVarying(3), in_lvl);
-        Vec3 f_der = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        Vec3 f_der = in_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (f_der == nodata)
             return;
 
-        float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
-        float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
+        float v0 = f_der(0) * fx * in_texture.width(in_lvl) / f_ver(2);
+        float v1 = f_der(1) * fy * in_texture.height(in_lvl) / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         // Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        outFragment(0) = d_f_i_d_tra(0);
-        outFragment(1) = d_f_i_d_tra(1);
-        outFragment(2) = d_f_i_d_tra(2);
+        Vec3 out_fragment;
+        out_fragment(0) = d_f_i_d_tra(0);
+        out_fragment(1) = d_f_i_d_tra(1);
+        out_fragment(2) = d_f_i_d_tra(2);
         // outFragment(3) = d_f_i_d_rot(0);
         // outFragment(4) = d_f_i_d_rot(1);
         // outFragment(5) = d_f_i_d_rot(2);
+
+        out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
 
 class JrotRendererCPU
-    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec3 /*OutTexType*/>
+    : public BaseRendererCPU<JrotRendererCPU, Vec5>
 {
 public:
     JrotRendererCPU() = default;
@@ -623,7 +640,7 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       Vec5 &outVarying) override
+                       Vec5 &outVarying)
     {
         Vec4 f_ver = pose_matrix * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix * f_ver;
@@ -635,22 +652,23 @@ public:
         outVarying(4) = inTexCoord(1);
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec5 &inVarying,
-                         const TextureCPU<Vec3> &inTexture,
-                         Vec3 &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(
+        int in_lvl,
+        int out_lvl,
+        const Vec4 &gl_FragCoord,
+        const Vec5 &in_varying,
+        const TextureCPU<Vec3> &in_texture,
+        TextureCPU<Vec3> &out_texture)
     {
         // outFragment = inVarying;
 
-        Vec3 nodata = inTexture.nodata();
+        Vec3 nodata = in_texture.nodata();
 
-        Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
+        Vec3 f_ver(in_varying(0), in_varying(1), in_varying(2));
         // Vec2 f_der = inTexture.Get(inVarying(4), inVarying(3));
 
         // Vec3 v = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
-        Vec3 v = inTexture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        Vec3 v = in_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
         if (v == nodata)
             return;
@@ -667,17 +685,20 @@ public:
                                 f_ver(2) * v(0) - f_ver(0) * v(2),
                                 -f_ver(1) * v(0) + f_ver(0) * v(1));
 
+        Vec3 out_fragment;
         // outFragment(0) = d_f_i_d_tra(0);
         // outFragment(1) = d_f_i_d_tra(1);
         // outFragment(2) = d_f_i_d_tra(2);
-        outFragment(0) = d_f_i_d_rot(0);
-        outFragment(1) = d_f_i_d_rot(1);
-        outFragment(2) = d_f_i_d_rot(2);
+        out_fragment(0) = d_f_i_d_rot(0);
+        out_fragment(1) = d_f_i_d_rot(1);
+        out_fragment(2) = d_f_i_d_rot(2);
+
+        out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
 
 class JposeRendererCPU
-    : public BaseRendererCPU<Vec3 /*InTexType*/, Vec5 /*VaryingType*/, Vec6 /*OutTexType*/>
+    : public BaseRendererCPU<JposeRendererCPU, Vec5>
 {
 public:
     JposeRendererCPU() = default;
@@ -692,7 +713,7 @@ public:
                        const Mat4 &view_matrix,
                        const Mat4 &pose_matrix,
                        Vec4 &gl_Position,
-                       Vec5 &outVarying) override
+                       Vec5 &outVarying)
     {
         Vec4 f_ver = pose_matrix * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix * f_ver;
@@ -704,28 +725,32 @@ public:
         outVarying(4) = inTexCoord(1);
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Vec5 &inVarying,
-                         const TextureCPU<Vec3> &inTexture,
-                         Vec6 &outFragment,
-                         int in_lvl,
-                         int out_lvl) override
+    void fragment_shader(
+        int in_lvl,
+        int out_lvl,
+        const Vec4 &gl_FragCoord,
+        const Vec5 &in_varying,
+        const TextureCPU<Vec3> &in_texture,
+        TextureCPU<Vec6> &out_texture)
     {
-        Vec3 f_ver(inVarying(0), inVarying(1), inVarying(2));
-        Vec3 f_der = inTexture.sample_(inVarying(4), inVarying(3), in_lvl);
+        Vec3 f_ver(in_varying(0), in_varying(1), in_varying(2));
+        Vec3 f_der = in_texture.sample_(in_varying(4), in_varying(3), in_lvl);
 
-        float v0 = f_der(0) * fx * inTexture.width(in_lvl) / f_ver(2);
-        float v1 = f_der(1) * fy * inTexture.height(in_lvl) / f_ver(2);
+        float v0 = f_der(0) * fx * in_texture.width(in_lvl) / f_ver(2);
+        float v1 = f_der(1) * fy * in_texture.height(in_lvl) / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        outFragment(0) = d_f_i_d_tra(0);
-        outFragment(1) = d_f_i_d_tra(1);
-        outFragment(2) = d_f_i_d_tra(2);
-        outFragment(3) = d_f_i_d_rot(0);
-        outFragment(4) = d_f_i_d_rot(1);
-        outFragment(5) = d_f_i_d_rot(2);
+        Vec6 out_fragment;
+        out_fragment(0) = d_f_i_d_tra(0);
+        out_fragment(1) = d_f_i_d_tra(1);
+        out_fragment(2) = d_f_i_d_tra(2);
+        out_fragment(3) = d_f_i_d_rot(0);
+        out_fragment(4) = d_f_i_d_rot(1);
+        out_fragment(5) = d_f_i_d_rot(2);
+
+        out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };

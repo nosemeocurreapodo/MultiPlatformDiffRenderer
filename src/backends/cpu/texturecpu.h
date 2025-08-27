@@ -113,7 +113,7 @@ public:
     }
 
 private:
-    template <class In, class Var, class Out>
+    template <class Derived, typename Varying>
     friend class BaseRendererCPU;
     friend class DepthRendererCPU;
     friend class ImageRendererCPU;

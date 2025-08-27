@@ -30,7 +30,7 @@ TEST_F(ErrorHandlingTests, EmptyMeshHandling) {
         TextureCPU<float> output(w_, h_, -1.0f);
         
         DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, 0, 0, input, output));
         
         cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
@@ -72,7 +72,7 @@ TEST_F(ErrorHandlingTests, DegenerateTriangleHandling) {
         TextureCPU<float> output(w_, h_, -1.0f);
         
         DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, 0, input, output));
         
         // Should handle degenerate triangles gracefully
         cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
