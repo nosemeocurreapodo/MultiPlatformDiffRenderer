@@ -46,7 +46,7 @@ TEST_F(ErrorHandlingTests, EmptyMeshHandling) {
         TextureGL<float> output(w_, h_, -1.0f);
         
         DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, 0, 0, input, output));
         
         // Check GL error state
         GLenum error = glGetError();
@@ -97,7 +97,7 @@ TEST_F(ErrorHandlingTests, DegenerateTriangleHandling) {
         TextureGL<float> output(w_, h_, -1.0f);
         
         DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, 0, input, output));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Degenerate triangles should not cause GL errors";
@@ -123,7 +123,7 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling) {
         UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, large_scale, cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_cpu, large_scale, cam_, 0, 0, input, output));
         
         cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
@@ -147,7 +147,7 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling) {
         UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, large_scale, cam_, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_gl, large_scale, cam_, 0, 0, input, output));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Extreme transformations should not cause GL errors";
@@ -169,8 +169,8 @@ TEST_F(ErrorHandlingTests, InvalidMipmapLevels) {
         
         // Test with level beyond texture size
         int max_level = static_cast<int>(std::log2(std::min(w_, h_))) + 1;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, input, output, 0, max_level));
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, input, output, max_level, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, 0, max_level, input, output));
+        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, max_level, 0, input, output));
     }
     
     // GL test with invalid levels
@@ -182,7 +182,7 @@ TEST_F(ErrorHandlingTests, InvalidMipmapLevels) {
         DepthRendererGL renderer;
         
         int max_level = static_cast<int>(std::log2(std::min(w_, h_))) + 1;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, input, output, 0, max_level));
+        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, 0, max_level, input, output));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Invalid mipmap levels should be handled gracefully";
@@ -207,7 +207,7 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch) {
         UploadMatToTexture(small_input, 0, small_image);
         
         DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, small_input, large_output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, 0, 0, small_input, large_output));
         
         cv::Mat result = DownloadTexture(large_output, 0, CV_32FC1);
         
@@ -225,7 +225,7 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch) {
         UploadMatToTexture(small_input, 0, small_image);
         
         DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, small_input, large_output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, 0, 0, small_input, large_output));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Texture size mismatch should not cause GL errors";
@@ -250,7 +250,7 @@ TEST_F(ErrorHandlingTests, CameraParameterEdgeCases) {
         UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), extreme_cam, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), extreme_cam, 0, 0, input, output));
         
         cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
         
@@ -274,7 +274,7 @@ TEST_F(ErrorHandlingTests, CameraParameterEdgeCases) {
         UploadMatToTexture(input, 0, image_src_cv_);
         
         DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), extreme_cam, input, output, 0, 0));
+        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), extreme_cam, 0, 0, input, output));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Extreme camera parameters should not cause GL errors";
@@ -310,7 +310,7 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling) {
                 UploadMatToTexture(input, 0, large_image);
                 
                 DepthRendererCPU renderer;
-                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
+                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, 0, input, output));
                 
                 std::cout << "  CPU " << size << "x" << size << ": OK\n";
             }
@@ -331,7 +331,7 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling) {
                 UploadMatToTexture(input, 0, large_image);
                 
                 DepthRendererGL renderer;
-                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, input, output, 0, 0));
+                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, 0, input, output));
                 
                 GLenum error = glGetError();
                 EXPECT_EQ(error, GL_NO_ERROR) << "Large texture should not cause GL errors";
@@ -367,14 +367,14 @@ TEST_F(ErrorHandlingTests, ThreadSafetyBasics) {
         TextureCPU<float> output_cpu(w_, h_, -1.0f);
         UploadMatToTexture(input_cpu, 0, image_src_cv_);
         
-        ASSERT_NO_THROW(cpu_renderers[i]->Render(mesh_cpu, SE3(), cam_, input_cpu, output_cpu, 0, 0));
+        ASSERT_NO_THROW(cpu_renderers[i]->Render(mesh_cpu, SE3(), cam_, 0, 0, input_cpu, output_cpu));
         
         MeshGL mesh_gl(vertices_, texcoords_, weights_);
         TextureGL<float> input_gl(w_, h_, 0.0f);
         TextureGL<float> output_gl(w_, h_, -1.0f);
         UploadMatToTexture(input_gl, 0, image_src_cv_);
         
-        ASSERT_NO_THROW(gl_renderers[i]->Render(mesh_gl, SE3(), cam_, input_gl, output_gl, 0, 0));
+        ASSERT_NO_THROW(gl_renderers[i]->Render(mesh_gl, SE3(), cam_, 0, 0, input_gl, output_gl));
         
         GLenum error = glGetError();
         EXPECT_EQ(error, GL_NO_ERROR) << "Multiple GL renderer instances should not interfere";

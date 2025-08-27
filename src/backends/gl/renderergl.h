@@ -13,7 +13,7 @@
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
 
-template <typename InTexType, typename OutTexType>
+template <class Derived>
 class BaseRendererGL
 {
 public:
@@ -90,13 +90,13 @@ public:
     }
 
     // Main draw
+    template <class... Textures>
     void Render(const MeshGL &mesh,
                 const SE3 &pose,
                 const Camera &cam,
-                const TextureGL<InTexType> &texture_in,
-                TextureGL<OutTexType> &texture_out,
                 int in_lvl,
-                int out_lvl)
+                int out_lvl,
+                Textures &...textures)
     {
         // ——— Save a bit of state we touch ———
         GLint prevFbo = 0, prevProg = 0, prevViewport[4];
@@ -105,21 +105,8 @@ public:
         glGetIntegerv(GL_VIEWPORT, prevViewport);
 
         // ——— Attach output level to our FBO ———
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-            glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, texture_out.id(), out_lvl);
-        }
-        else
-#endif
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.id(), out_lvl);
-        }
 
-        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
-        glDrawBuffers(1, bufs);
+        derived().clear_buffers(out_lvl, textures...);
 
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE)
@@ -136,58 +123,7 @@ public:
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_SCISSOR_TEST);
 
-        const GLsizei W = static_cast<GLsizei>(texture_out.width(out_lvl));
-        const GLsizei H = static_cast<GLsizei>(texture_out.height(out_lvl));
-        glViewport(0, 0, W, H);
-
-        // Clear to nodata matching the output texture type
-        {
-            float clear[4] = {0.f, 0.f, 0.f, 0.f};
-            if constexpr (std::is_same_v<OutTexType, float>)
-            {
-                clear[0] = texture_out.nodata();
-                clear[3] = 1.f;
-            }
-            else if constexpr (std::is_same_v<OutTexType, Vec3>)
-            {
-                auto nd = texture_out.nodata();
-                clear[0] = nd(0);
-                clear[1] = nd(1);
-                clear[2] = nd(2);
-                clear[3] = 1.f;
-            }
-            else if constexpr (std::is_same_v<OutTexType, Vec4>)
-            {
-                auto nd = texture_out.nodata();
-                clear[0] = nd(0);
-                clear[1] = nd(1);
-                clear[2] = nd(2);
-                clear[3] = nd(3);
-            }
-            else
-            {
-                clear[3] = 1.f;
-            }
-#if defined(GL_VERSION_3_0)
-            glClearBufferfv(GL_COLOR, 0, clear);
-#else
-            glClearColor(clear[0], clear[1], clear[2], clear[3]);
-            glClear(GL_COLOR_BUFFER_BIT);
-#endif
-        }
-
-        // ——— Bind input texture on unit 0 ———
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindTextureUnit(0, texture_in.id());
-        }
-        else
-#endif
-        {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture_in.id());
-        }
+        derived().set_viewport(out_lvl, textures...);
 
         // ——— Program + uniforms ———
         glUseProgram(program_);
@@ -256,6 +192,9 @@ protected:
     GLint image_nodata_loc_ = -1;
     GLint image_lvl_loc_ = -1;
 
+    Derived &derived() { return *static_cast<Derived *>(this); }
+    const Derived &derived() const { return *static_cast<const Derived *>(this); }
+
 private:
     static GLuint compile_shader_(GLenum type, const char *src)
     {
@@ -286,7 +225,7 @@ private:
     }
 };
 
-class DepthRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
+class DepthRendererGL : public BaseRendererGL<DepthRendererGL>
 {
 public:
     DepthRendererGL() : BaseRendererGL()
@@ -326,10 +265,51 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
+    void clear_buffers(int lvl,
+                       const TextureGL<float> &in_texture,
+                       TextureGL<float> &out_texture)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<float> &in_texture,
+                      TextureGL<float> &out_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
 private:
 };
 
-class ImageRendererGL : public BaseRendererGL<float /*InTexType*/, float /*OutTexType*/>
+class ImageRendererGL : public BaseRendererGL<ImageRendererGL>
 {
 public:
     ImageRendererGL() : BaseRendererGL()
@@ -369,10 +349,51 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
+    void clear_buffers(int lvl,
+                       const TextureGL<float> &texture_in,
+                       TextureGL<float> &texture_out)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<float> &in_texture,
+                      TextureGL<float> &out_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
 private:
 };
 
-class DIDxyRendererGL : public BaseRendererGL<float /*InTexType*/, Vec3 /*OutTexType*/>
+class DIDxyRendererGL : public BaseRendererGL<DIDxyRendererGL>
 {
 public:
     DIDxyRendererGL() : BaseRendererGL()
@@ -443,10 +464,52 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
+    void clear_buffers(int lvl,
+                       const TextureGL<float> &texture_in,
+                       TextureGL<Vec3> &texture_out)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<float> &in_texture,
+                      TextureGL<Vec3> &out_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        auto nd = out_texture.nodata();
+        float clear[4] = {nd(0), nd(1), nd(2), 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
 private:
 };
 
-class JtraRendererGL : public BaseRendererGL<Vec3 /*InTexType*/, Vec3 /*OutTexType*/>
+class JtraRendererGL : public BaseRendererGL<JtraRendererGL>
 {
 public:
     JtraRendererGL() : BaseRendererGL()
@@ -523,10 +586,52 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
+    void clear_buffers(int lvl,
+                       const TextureGL<Vec3> &texture_in,
+                       TextureGL<Vec3> &texture_out)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_out.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<Vec3> &in_texture,
+                      TextureGL<Vec3> &out_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        auto nd = out_texture.nodata();
+        float clear[4] = {nd(0), nd(1), nd(2), 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
 private:
 };
 
-class JrotRendererGL : public BaseRendererGL<Vec3 /*InTexType*/, Vec3 /*OutTexType*/>
+class JrotRendererGL : public BaseRendererGL<JrotRendererGL>
 {
 public:
     JrotRendererGL() : BaseRendererGL()
@@ -593,10 +698,52 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
+    void clear_buffers(int lvl,
+                       const TextureGL<Vec3> &in_texture,
+                       TextureGL<Vec3> &out_texture)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<Vec3> &in_texture,
+                      TextureGL<Vec3> &out_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        auto nd = out_texture.nodata();
+        float clear[4] = {nd(0), nd(1), nd(2), 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
 private:
 };
 
-class JPoseRendererGL : public BaseRendererGL<Vec2 /*InTexType*/, float /*OutTexType*/>
+class JPoseRendererGL : public BaseRendererGL<JPoseRendererGL>
 {
 public:
     JPoseRendererGL() : BaseRendererGL()
@@ -610,6 +757,7 @@ public:
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
 
+            out vec3 f_ver;
             out vec2 texcoord;
 
             void main() {
@@ -621,7 +769,10 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out float a_output;
+            layout(location = 0) out vec3 jtra_output;
+            layout(location = 1) out vec3 jrot_output;
+            
+            in vec3 f_ver;
             in vec2 texcoord;
 
             uniform sampler2D image;
@@ -630,7 +781,7 @@ public:
 
             void main()
             {
-                vec3 v = texture(image, texcoord).r;
+                vec3 f_der = texture(image, texcoord).r;
 
                 float v0 = f_der.x * fx * id;
                 float v1 = f_der.y * fy * id;
@@ -639,10 +790,56 @@ public:
                 vec3f d_f_i_d_tra = vec3f(v0, v1, v2);
                 vec3f d_f_i_d_rot(-f_ver(2) * v(1) + f_ver(1) * v(2), f_ver(2) * v(0) - f_ver(0) * v(2), -f_ver(1) * v(0) + f_ver(0) * v(1));
 
+                jtra_output = d_f_i_d_tra;
+                jrot_output = d_f_i_d_rot;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
+    }
+
+    void clear_buffers(int lvl,
+                       const TextureGL<Vec3> &in_texture,
+                       TextureGL<Vec3> &jtra_texture,
+                       TextureGL<Vec3> &jrot_texture)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, jrot_texture.id(), lvl);
+
+        const GLenum bufs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(2, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<Vec3> &in_texture,
+                      TextureGL<Vec3> &jtra_texture,
+                      TextureGL<Vec3> &jrot_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(jtra_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(jtra_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        auto nd = jtra_texture.nodata();
+        float clear[4] = {nd(0), nd(1), nd(2), 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
     }
 
 private:

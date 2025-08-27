@@ -106,7 +106,7 @@ public:
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
 private:
-    template <typename InTexType, typename OutTexType>
+    template <typename Derived>
     friend class BaseRendererGL;
 
     // Attribute locations (match your shaders)

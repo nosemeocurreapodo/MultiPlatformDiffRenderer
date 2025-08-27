@@ -9,9 +9,6 @@
 #include "backends/gl/devicegl_glad.h"
 #include "backends/base/MappedView.h"
 
-template <class In, class Out>
-class BaseRendererGL;
-
 struct GLPboUnmap
 {
     GLuint pbo{};
@@ -247,12 +244,24 @@ public:
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-private:
+protected:
     friend class MeshGL;
 
-    template <class In, class Out>
-    friend class BaseRendererGL;
+    template <class Derived>
+    friend class DepthRendererGL;
+    friend class ImageRendererGL;
+    friend class DIDxyRendererGL;
+    friend class JtraRendererGL;
+    friend class JrotRendererGL;
+    friend class JposeRendererGL;
 
+    [[nodiscard]] GLuint id() const noexcept
+    {
+        assert(tex_ != 0 && "Texture not created");
+        return tex_;
+    }
+
+private:
     GLuint tex_ = 0;
     std::vector<std::size_t> widths_, heights_;
     GLint internal_{};
@@ -275,12 +284,6 @@ private:
         return levels;
     }
     */
-
-    [[nodiscard]] GLuint id() const noexcept
-    {
-        assert(tex_ != 0 && "Texture not created");
-        return tex_;
-    }
 
     void compute_dims_(int w, int h)
     {

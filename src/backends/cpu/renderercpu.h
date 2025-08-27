@@ -151,8 +151,7 @@ public:
                 int out_lvl,
                 Textures &...textures)
     {
-        // in_nodata_ = in_texture.nodata();
-        // out_texture.fill(out_lvl, out_texture.nodata());
+        derived().clear_buffers(out_lvl, textures...);
 
         // Matrices
         Mat4 opencv2opengl = Mat4::Identity();
@@ -163,12 +162,7 @@ public:
         fx = cam.GetParams()(0);
         fy = cam.GetParams()(1);
 
-        //const int W = static_cast<int>(textures...[0].width(out_lvl));
-        //const int H = static_cast<int>(textures...[0].height(out_lvl));
-        //const BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
-
-        BoundingBoxType<int> viewport = get_viewport(textures...);
-
+        BoundingBoxType<int> viewport = derived().get_viewport(out_lvl, textures...);
 
         // ---- Map mesh buffers (no copies) ----
         auto pos = mesh.MapReadPositions(); // 3 floats/vertex
@@ -224,8 +218,8 @@ protected:
 
     // Triangle rasterizer (top-left rule, perspective correct)
     template <class... Textures>
-    void draw_triangle(int in_lvl,
-                       int out_lvl, const Vec3 *verts,
+    void draw_triangle(int in_lvl, int out_lvl,
+                       const Vec3 *verts,
                        const Vec2 *texcoords,
                        const float *weights,
                        const Mat4 &view_matrix,
@@ -236,9 +230,9 @@ protected:
         // Vertex shading & clip → NDC → screen
         struct VSOut
         {
-            Vec2 screen;            // x,y in pixel space (float)
-            float depth;            // z in [0,1] if your projection is like GL_ZERO_TO_ONE
-            float invW;             // 1 / clip.w
+            Vec2 screen;        // x,y in pixel space (float)
+            float depth;        // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+            float invW;         // 1 / clip.w
             Varying var_over_w; // varyings multiplied by invW
             Varying var;        // original varyings (for convenience)
         } vout[3];
@@ -361,7 +355,7 @@ protected:
                     gl_FragCoord(2) = depth_px;
                     gl_FragCoord(3) = 1.0f / invW_px;
 
-                    //OutTexType outColor = out_texture.nodata();
+                    // OutTexType outColor = out_texture.nodata();
                     derived().fragment_shader(in_lvl, out_lvl, gl_FragCoord, varying_px, textures...);
                     // out_texture.set_texel_(outColor, y, x, out_lvl);
                 }
@@ -379,11 +373,11 @@ protected:
         }
     }
 
-    template<class Texture, class... Textures>
-    BoundingBoxType<int> get_viewport(Texture texture, Textures&... textures)
+    template <class Texture, class... Textures>
+    BoundingBoxType<int> get_viewport(int lvl, Texture texture, Textures &...textures)
     {
-        const int W = static_cast<int>(texture.width(0));
-        const int H = static_cast<int>(texture.height(0));
+        const int W = static_cast<int>(texture.width(lvl));
+        const int H = static_cast<int>(texture.height(lvl));
         return BoundingBoxType<int>(0, W - 1, 0, H - 1);
     }
 
@@ -405,6 +399,21 @@ public:
     DepthRendererCPU() = default;
     ~DepthRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<float> &in_texture,
+                       TextureCPU<float> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<float> &in_texture,
+                                      TextureCPU<float> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
@@ -446,6 +455,21 @@ public:
     ImageRendererCPU() = default;
     ~ImageRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<float> &in_texture,
+                       TextureCPU<float> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<float> &in_texture,
+                                      TextureCPU<float> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
@@ -488,6 +512,21 @@ public:
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<float> &in_texture,
+                       TextureCPU<Vec3> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<float> &in_texture,
+                                      TextureCPU<Vec3> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
@@ -565,6 +604,21 @@ public:
     JtraRendererCPU() = default;
     ~JtraRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<Vec3> &in_texture,
+                       TextureCPU<Vec3> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<Vec3> &in_texture,
+                                      TextureCPU<Vec3> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
@@ -631,6 +685,21 @@ public:
     JrotRendererCPU() = default;
     ~JrotRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<Vec3> &in_texture,
+                       TextureCPU<Vec3> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<Vec3> &in_texture,
+                                      TextureCPU<Vec3> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
@@ -704,6 +773,21 @@ public:
     JposeRendererCPU() = default;
     ~JposeRendererCPU() override = default;
 
+    void clear_buffers(int lvl,
+                       const TextureCPU<Vec3> &in_texture,
+                       TextureCPU<Vec6> &out_texture)
+    {
+        out_texture.fill(lvl, out_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<Vec3> &in_texture,
+                                      TextureCPU<Vec6> &out_texture)
+    {
+        const int W = static_cast<int>(out_texture.width(lvl));
+        const int H = static_cast<int>(out_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
