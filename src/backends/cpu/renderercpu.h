@@ -901,7 +901,7 @@ public:
         if(kf == kf_texture.nodata() || f == f_texture.nodata() || f_der == dfdxy_texture.nodata())
             return;
 
-        float e = kf - f;
+        float e = f - kf;
 
         float v0 = f_der(0) * fx * width / f_ver(2);
         float v1 = f_der(1) * fy * height / f_ver(2);
