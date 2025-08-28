@@ -58,15 +58,12 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
-    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-
-    this->UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::DepthRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
-    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, output));
 
     cv::Mat result = this->DownloadTexture(output, out_lvl, CV_32FC1);
 
@@ -188,20 +185,19 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
 
     std::vector<float> empty_vertices, empty_texcoords, empty_weights;
     typename Traits::MeshT empty_mesh(empty_vertices, empty_texcoords, empty_weights);
-    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
 
-    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, in_lvl, out_lvl, input, output));
+    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, in_lvl, out_lvl, output));
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, in_lvl, out_lvl, input, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, in_lvl, out_lvl, output));
 
     if (this->w_ >= 4 && this->h_ >= 4)
     {
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 1, input, output));
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 1, 0, input, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 1, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 1, 0, output));
     }
 }
 
@@ -213,11 +209,9 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
     for (int i = 0; i < iterations; ++i)
     {
         typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
-        typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-        this->UploadMatToTexture(input, 0, this->image_src_cv_);
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, input, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, output));
     }
     SUCCEED();
 }
@@ -230,8 +224,6 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
     const int iterations = 5;
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
-    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
-    this->UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::DepthRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -241,7 +233,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
     for (int i = 0; i < iterations; ++i)
     {
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-        renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input, output);
+        renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, output);
         results.push_back(this->DownloadTexture(output, out_lvl, CV_32FC1));
     }
 
@@ -261,19 +253,11 @@ TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
     for (const auto &size : sizes)
     {
         int w = size.first, h = size.second;
-        typename Traits::template TextureT<float> input(w, h, 0.0f);
+
         typename Traits::template TextureT<float> output(w, h, -1.0f);
-        cv::Mat test_image(h, w, CV_32FC1);
-        for (int y = 0; y < h; ++y)
-        {
-            for (int x = 0; x < w; ++x)
-            {
-                test_image.at<float>(y, x) = static_cast<float>((x + y) % 256);
-            }
-        }
-        this->UploadMatToTexture(input, 0, test_image);
+
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, input, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, output));
         cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
         EXPECT_EQ(result.cols, w);
         EXPECT_EQ(result.rows, h);

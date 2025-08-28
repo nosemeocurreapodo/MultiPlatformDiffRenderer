@@ -44,20 +44,18 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 
     DepthRendererCPU renderer_cpu;
     timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, output_cpu);
     double cpu_time = timer_.Stop();
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
 
     // GL implementation
     MeshGL mesh_gl(vertices_, texcoords_, weights_);
-    TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
-    UploadMatToTexture(input_gl, 0, image_src_cv_);
 
     DepthRendererGL renderer_gl;
     timer_.Start();
-    renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
+    renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, output_gl);
     double gl_time = timer_.Stop();
 
     cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
@@ -370,22 +368,18 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
     {
         // CPU
         MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-        TextureCPU<float> input_cpu(w_, h_, 0.0f);
         TextureCPU<float> output_cpu(w_, h_, 0.0f);
-        UploadMatToTexture(input_cpu, 0, image_src_cv_);
 
         DepthRendererCPU renderer_cpu;
-        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, output_cpu);
         cpu_results.push_back(DownloadTexture(output_cpu, out_lvl, CV_32FC1));
 
         // GL
         MeshGL mesh_gl(vertices_, texcoords_, weights_);
-        TextureGL<float> input_gl(w_, h_, 0.0f);
         TextureGL<float> output_gl(w_, h_, 0.0f);
-        UploadMatToTexture(input_gl, 0, image_src_cv_);
 
         DepthRendererGL renderer_gl;
-        renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, output_gl);
         gl_results.push_back(DownloadTexture(output_gl, out_lvl, CV_32FC1));
     }
 

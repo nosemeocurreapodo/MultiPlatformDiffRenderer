@@ -26,17 +26,15 @@ protected:
 TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
 {
     MeshCPU mesh(vertices_, texcoords_, weights_);
-    TextureCPU<float> input(w_, h_, 0.0f);
-    TextureCPU<float> output(w_, h_, -1.0f);
 
-    UploadMatToTexture(input, 0, image_src_cv_);
+    TextureCPU<float> output(w_, h_, -1.0f);
 
     DepthRendererCPU renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     PerformanceTimer timer;
     timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, 0, input, output);
+    renderer.Render(mesh, pose_transform, cam_, 0, 0, output);
     timer.Stop();
 
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
@@ -62,17 +60,14 @@ TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
 TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
 {
     MeshGL mesh(vertices_, texcoords_, weights_);
-    TextureGL<float> input(w_, h_, 0.0f);
     TextureGL<float> output(w_, h_, -1.0f);
-
-    UploadMatToTexture(input, 0, image_src_cv_);
 
     DepthRendererGL renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     PerformanceTimer timer;
     timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, 0, input, output);
+    renderer.Render(mesh, pose_transform, cam_, 0, 0, output);
     timer.Stop();
 
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
@@ -99,26 +94,21 @@ TEST_F(GroundTruthTests, CrossBackendConsistency)
 {
     // CPU rendering
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    TextureCPU<float> input_cpu(w_, h_, 0.0f);
-    TextureCPU<float> output_cpu(w_, h_, -1.0f);
 
-    UploadMatToTexture(input_cpu, 0, image_src_cv_);
+    TextureCPU<float> output_cpu(w_, h_, -1.0f);
 
     DepthRendererCPU cpu_renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
-    cpu_renderer.Render(mesh_cpu, pose_transform, cam_, 0, 0, input_cpu, output_cpu);
+    cpu_renderer.Render(mesh_cpu, pose_transform, cam_, 0, 0, output_cpu);
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
 
     // GL rendering
     MeshGL mesh_gl(vertices_, texcoords_, weights_);
-    TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, -1.0f);
 
-    UploadMatToTexture(input_gl, 0, image_src_cv_);
-
     DepthRendererGL gl_renderer;
-    gl_renderer.Render(mesh_gl, pose_transform, cam_, 0, 0, input_gl, output_gl);
+    gl_renderer.Render(mesh_gl, pose_transform, cam_, 0, 0, output_gl);
 
     cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
@@ -153,15 +143,13 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
     for (int i = 0; i < num_runs; ++i)
     {
         MeshCPU mesh(vertices_, texcoords_, weights_);
-        TextureCPU<float> input(w_, h_, 0.0f);
-        TextureCPU<float> output(w_, h_, -1.0f);
 
-        UploadMatToTexture(input, 0, image_src_cv_);
+        TextureCPU<float> output(w_, h_, -1.0f);
 
         DepthRendererCPU renderer;
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, 0, input, output);
+        renderer.Render(mesh, SE3(), cam_, 0, 0, output);
         double cpu_time = timer.Stop();
         cpu_times.push_back(cpu_time);
     }
@@ -170,15 +158,13 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
     for (int i = 0; i < num_runs; ++i)
     {
         MeshGL mesh(vertices_, texcoords_, weights_);
-        TextureGL<float> input(w_, h_, 0.0f);
-        TextureGL<float> output(w_, h_, -1.0f);
 
-        UploadMatToTexture(input, 0, image_src_cv_);
+        TextureGL<float> output(w_, h_, -1.0f);
 
         DepthRendererGL renderer;
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, 0, input, output);
+        renderer.Render(mesh, SE3(), cam_, 0, 0, output);
         double gl_time = timer.Stop();
         gl_times.push_back(gl_time);
     }

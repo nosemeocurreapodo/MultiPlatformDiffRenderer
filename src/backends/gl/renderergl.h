@@ -265,9 +265,7 @@ public:
         CompileShaders(vertex_shader, fragment_shader);
     }
 
-    void clear_buffers(int lvl,
-                       const TextureGL<float> &in_texture,
-                       TextureGL<float> &out_texture)
+    void clear_buffers(int lvl, TextureGL<float> &out_texture)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), lvl);
@@ -276,9 +274,7 @@ public:
         glDrawBuffers(1, bufs);
     }
 
-    void set_viewport(int lvl,
-                      const TextureGL<float> &in_texture,
-                      TextureGL<float> &out_texture)
+    void set_viewport(int lvl, TextureGL<float> &out_texture)
     {
         const GLsizei W = static_cast<GLsizei>(out_texture.width(lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(lvl));
@@ -292,18 +288,6 @@ public:
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
 #endif
-
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindTextureUnit(0, in_texture.id());
-        }
-        else
-#endif
-        {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, in_texture.id());
-        }
     }
 
 private:
@@ -387,6 +371,97 @@ public:
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+    }
+
+private:
+};
+
+class ErrorRendererGL : public BaseRendererGL<ErrorRendererGL>
+{
+public:
+    ErrorRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in float a_weight;
+            
+            uniform mat4 view_matrix;
+            uniform mat4 pose_matrix;
+
+            out vec2 texcoord;
+
+            void main() {
+                gl_Position = view_matrix * pose_matrix * vec4(a_position, 1.0);
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out float a_output;
+            in vec2 texcoord;
+
+            uniform sampler2D kfimage;
+            uniform sampler2D image;
+            uniform float kimage_nodata;
+            uniform float image_nodata;
+            uniform int image_lvl;
+
+            void main()
+            {
+                a_output = textureLod(image, texcoord, float(image_lvl)).r;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+    }
+
+    void clear_buffers(int lvl,
+                       const TextureGL<float> &kf_texture,
+                       const TextureGL<float> &f_texture,
+                       TextureGL<float> &e_texture)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, e_texture.id(), lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+    }
+
+    void set_viewport(int lvl,
+                      const TextureGL<float> &kf_texture,
+                      const TextureGL<float> &f_texture,
+                      TextureGL<float> &e_texture)
+    {
+        const GLsizei W = static_cast<GLsizei>(e_texture.width(lvl));
+        const GLsizei H = static_cast<GLsizei>(e_texture.height(lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {e_texture.nodata(), 0.f, 0.f, 1.f};
+
+#if defined(GL_VERSION_3_0)
+        glClearBufferfv(GL_COLOR, 0, clear);
+#else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, kf_texture.id());
+            glBindTextureUnit(0, f_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, f_texture.id());
         }
     }
 

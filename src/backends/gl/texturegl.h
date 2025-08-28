@@ -248,6 +248,7 @@ protected:
     friend class MeshGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;
+    friend class ErrorRendererGL;
     friend class DIDxyRendererGL;
     friend class JtraRendererGL;
     friend class JrotRendererGL;

@@ -399,16 +399,12 @@ public:
     DepthRendererCPU() = default;
     ~DepthRendererCPU() override = default;
 
-    void clear_buffers(int lvl,
-                       const TextureCPU<float> &in_texture,
-                       TextureCPU<float> &out_texture)
+    void clear_buffers(int lvl, TextureCPU<float> &out_texture)
     {
         out_texture.fill(lvl, out_texture.nodata());
     }
 
-    BoundingBoxType<int> get_viewport(int lvl,
-                                      const TextureCPU<float> &in_texture,
-                                      TextureCPU<float> &out_texture)
+    BoundingBoxType<int> get_viewport(int lvl, TextureCPU<float> &out_texture)
     {
         const int W = static_cast<int>(out_texture.width(lvl));
         const int H = static_cast<int>(out_texture.height(lvl));
@@ -433,7 +429,6 @@ public:
     void fragment_shader(int in_lvl, int out_lvl,
                          const Vec4 &gl_FragCoord,
                          const float &in_varying,
-                         const TextureCPU<float> &in_texture,
                          TextureCPU<float> &out_texture)
     {
         // Example: store depth in outFragment as a float:
@@ -493,6 +488,8 @@ public:
                          TextureCPU<float> &out_texture)
     {
         float pix = in_texture.sample_(in_varying(1), in_varying(0), in_lvl);
+        if(pix == in_texture.nodata())
+            return;
         out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
 
         // Example: color = [checker pattern], ignoring inVarying
@@ -558,6 +555,9 @@ public:
     {
         float kf = kf_texture.sample_(in_varying(1), in_varying(0), in_lvl);
         float f = f_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        if(kf == kf_texture.nodata() || f == f_texture.nodata())
+            return;
+
         float e = kf - f;
         e_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
@@ -836,10 +836,12 @@ public:
                        const TextureCPU<float> &f_texture,
                        const TextureCPU<Vec3> &dfdxy_texture,
                        TextureCPU<Vec3> &jtra_texture,
-                       TextureCPU<Vec3> &jrot_texture)
+                       TextureCPU<Vec3> &jrot_texture,
+                    TextureCPU<float> &e_texture)
     {
         jtra_texture.fill(lvl, jtra_texture.nodata());
         jrot_texture.fill(lvl, jrot_texture.nodata());
+        e_texture.fill(lvl, e_texture.nodata());
     }
 
     BoundingBoxType<int> get_viewport(int lvl,
@@ -847,7 +849,8 @@ public:
                                       const TextureCPU<float> &f_texture,
                                       const TextureCPU<Vec3> &dfdxy_texture,
                                       TextureCPU<Vec3> &jtra_texture,
-                                      TextureCPU<Vec3> &jrot_texture)
+                                      TextureCPU<Vec3> &jrot_texture,
+                                    TextureCPU<float> &e_texture)
     {
         const int W = static_cast<int>(jtra_texture.width(lvl));
         const int H = static_cast<int>(jtra_texture.height(lvl));
@@ -883,7 +886,8 @@ public:
         const TextureCPU<float> &f_texture,
         const TextureCPU<Vec3> &dfdxy_texture,
         TextureCPU<Vec3> &jtra_texture,
-        TextureCPU<Vec3> &jrot_texture)
+        TextureCPU<Vec3> &jrot_texture,
+        TextureCPU<float> &e_texture)
     {
         int width = kf_texture.width(in_lvl);
         int height = kf_texture.height(in_lvl);
@@ -894,6 +898,11 @@ public:
         float f = f_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
         Vec3 f_der = dfdxy_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
 
+        if(kf == kf_texture.nodata() || f == f_texture.nodata() || f_der == dfdxy_texture.nodata())
+            return;
+
+        float e = kf - f;
+
         float v0 = f_der(0) * fx * width / f_ver(2);
         float v1 = f_der(1) * fy * height / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
@@ -903,5 +912,6 @@ public:
 
         jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
         jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+        e_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
