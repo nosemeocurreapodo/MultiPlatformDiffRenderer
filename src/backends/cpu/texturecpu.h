@@ -122,6 +122,7 @@ private:
     friend class JtraRendererCPU;
     friend class JrotRendererCPU;
     friend class JposeRendererCPU;
+    friend class JposeRendererCPU2;
 
     // static constexpr size_type lvl_base = 0;
 

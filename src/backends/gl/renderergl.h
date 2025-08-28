@@ -453,7 +453,7 @@ public:
         if (GLAD_GL_VERSION_4_5)
         {
             glBindTextureUnit(0, kf_texture.id());
-            glBindTextureUnit(0, f_texture.id());
+            glBindTextureUnit(1, f_texture.id());
         }
         else
 #endif
@@ -895,14 +895,30 @@ public:
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(lvl));
         glViewport(0, 0, W, H);
 
-        auto nd = jtra_texture.nodata();
-        float clear[4] = {nd(0), nd(1), nd(2), 1.f};
+        Vec3 jtra_nd = jtra_texture.nodata();
+        Vec3 jrot_nd = jrot_texture.nodata();
+        float jtra_clear[4] = {jtra_nd(0), jtra_nd(1), jtra_nd(2), 1.f};
+        float jrot_clear[4] = {jtra_nd(0), jtra_nd(1), jtra_nd(2), 1.f};
 
 #if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
+        glClearBufferfv(GL_COLOR, 0, jtra_clear);
+        glClearBufferfv(GL_COLOR, 1, jrot_clear);
 #else
-        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        // Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs0);
+        glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT1
+        const GLenum bufs1[1] = {GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(1, bufs1);
+        glClearColor(jrot_clear[0], jrot_clear[1], jrot_clear[2], jrot_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Restore glDrawBuffers for subsequent rendering.
+        // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
+        // as done in the clear_buffers function.
+        const GLenum bufs_restore[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(2, bufs_restore);
 #endif
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
