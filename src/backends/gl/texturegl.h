@@ -246,14 +246,12 @@ public:
 
 protected:
     friend class MeshGL;
-
-    template <class Derived>
     friend class DepthRendererGL;
     friend class ImageRendererGL;
     friend class DIDxyRendererGL;
     friend class JtraRendererGL;
     friend class JrotRendererGL;
-    friend class JposeRendererGL;
+    friend class JPoseRendererGL;
 
     [[nodiscard]] GLuint id() const noexcept
     {
