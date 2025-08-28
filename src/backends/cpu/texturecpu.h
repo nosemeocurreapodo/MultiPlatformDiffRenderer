@@ -117,6 +117,7 @@ private:
     friend class BaseRendererCPU;
     friend class DepthRendererCPU;
     friend class ImageRendererCPU;
+    friend class ErrorRendererCPU;
     friend class DIDxyRendererCPU;
     friend class JtraRendererCPU;
     friend class JrotRendererCPU;

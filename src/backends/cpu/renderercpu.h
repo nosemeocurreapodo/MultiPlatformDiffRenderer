@@ -505,6 +505,64 @@ public:
     }
 };
 
+// -----------------------------------------------------------------------------
+// ImageRendererCPU
+//   Another example derived class that might output color
+// -----------------------------------------------------------------------------
+class ErrorRendererCPU
+    : public BaseRendererCPU<ErrorRendererCPU, Vec2>
+{
+public:
+    ErrorRendererCPU() = default;
+    ~ErrorRendererCPU() override = default;
+
+    void clear_buffers(int lvl,
+                       const TextureCPU<float> &kf_texture,
+                       const TextureCPU<float> &f_texture,
+                       TextureCPU<float> &e_texture)
+    {
+        e_texture.fill(lvl, e_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<float> &kf_texture,
+                                      const TextureCPU<float> &f_texture,
+                                      TextureCPU<float> &e_texture)
+    {
+        const int W = static_cast<int>(e_texture.width(lvl));
+        const int H = static_cast<int>(e_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const Vec3 &inVertex,
+                       const Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const Mat4 &view_matrix,
+                       const Mat4 &pose_matrix,
+                       Vec4 &gl_Position,
+                       Vec2 &outVarying)
+    {
+        gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        // We are using a "float" for VaryingType, so you can store something if needed
+        outVarying = inTexCoord; // placeholder
+    }
+
+    void fragment_shader(int in_lvl, int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const Vec2 &in_varying,
+                         const TextureCPU<float> &kf_texture,
+                         const TextureCPU<float> &f_texture,
+                         TextureCPU<float> &e_texture)
+    {
+        float kf = kf_texture.sample_(in_varying(1), in_varying(0), in_lvl);
+        float f = f_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        float e = kf - f;
+        e_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+    }
+};
+
 class DIDxyRendererCPU
     : public BaseRendererCPU<DIDxyRendererCPU, Vec2>
 {
@@ -774,18 +832,25 @@ public:
     ~JposeRendererCPU() override = default;
 
     void clear_buffers(int lvl,
-                       const TextureCPU<Vec3> &in_texture,
-                       TextureCPU<Vec6> &out_texture)
+                       const TextureCPU<float> &kf_texture,
+                       const TextureCPU<float> &f_texture,
+                       const TextureCPU<Vec3> &dfdxy_texture,
+                       TextureCPU<Vec3> &jtra_texture,
+                       TextureCPU<Vec3> &jrot_texture)
     {
-        out_texture.fill(lvl, out_texture.nodata());
+        jtra_texture.fill(lvl, jtra_texture.nodata());
+        jrot_texture.fill(lvl, jrot_texture.nodata());
     }
 
     BoundingBoxType<int> get_viewport(int lvl,
-                                      const TextureCPU<Vec3> &in_texture,
-                                      TextureCPU<Vec6> &out_texture)
+                                      const TextureCPU<float> &kf_texture,
+                                      const TextureCPU<float> &f_texture,
+                                      const TextureCPU<Vec3> &dfdxy_texture,
+                                      TextureCPU<Vec3> &jtra_texture,
+                                      TextureCPU<Vec3> &jrot_texture)
     {
-        const int W = static_cast<int>(out_texture.width(lvl));
-        const int H = static_cast<int>(out_texture.height(lvl));
+        const int W = static_cast<int>(jtra_texture.width(lvl));
+        const int H = static_cast<int>(jtra_texture.height(lvl));
         return BoundingBoxType<int>(0, W - 1, 0, H - 1);
     }
     // -------------------------------------------------------------------------
@@ -814,27 +879,29 @@ public:
         int out_lvl,
         const Vec4 &gl_FragCoord,
         const Vec5 &in_varying,
-        const TextureCPU<Vec3> &in_texture,
-        TextureCPU<Vec6> &out_texture)
+        const TextureCPU<float> &kf_texture,
+        const TextureCPU<float> &f_texture,
+        const TextureCPU<Vec3> &dfdxy_texture,
+        TextureCPU<Vec3> &jtra_texture,
+        TextureCPU<Vec3> &jrot_texture)
     {
-        Vec3 f_ver(in_varying(0), in_varying(1), in_varying(2));
-        Vec3 f_der = in_texture.sample_(in_varying(4), in_varying(3), in_lvl);
+        int width = kf_texture.width(in_lvl);
+        int height = kf_texture.height(in_lvl);
 
-        float v0 = f_der(0) * fx * in_texture.width(in_lvl) / f_ver(2);
-        float v1 = f_der(1) * fy * in_texture.height(in_lvl) / f_ver(2);
+        Vec3 f_ver(in_varying(0), in_varying(1), in_varying(2));
+
+        float kf = kf_texture.sample_(in_varying(4), in_varying(3), in_lvl);
+        float f = f_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        Vec3 f_der = dfdxy_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+
+        float v0 = f_der(0) * fx * width / f_ver(2);
+        float v1 = f_der(1) * fy * height / f_ver(2);
         float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        Vec6 out_fragment;
-        out_fragment(0) = d_f_i_d_tra(0);
-        out_fragment(1) = d_f_i_d_tra(1);
-        out_fragment(2) = d_f_i_d_tra(2);
-        out_fragment(3) = d_f_i_d_rot(0);
-        out_fragment(4) = d_f_i_d_rot(1);
-        out_fragment(5) = d_f_i_d_rot(2);
-
-        out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+        jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+        jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
