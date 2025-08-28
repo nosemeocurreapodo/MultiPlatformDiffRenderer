@@ -275,6 +275,83 @@ TEST_F(CrossBackendTests, JacobianPipelineComparison)
     EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
+// Test full Jacobian pipeline comparison
+TEST_F(CrossBackendTests, JacobianPipelineComparison2)
+{
+    const int in_lvl = 0, out_lvl = 0;
+    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+
+    std::vector<float> quad_pos, quad_uv, quad_weights;
+    CreateScreenQuad(quad_pos, quad_uv, quad_weights);
+
+    // CPU pipeline
+    MeshCPU mesh_img_cpu(quad_pos, quad_uv, quad_weights);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+
+    TextureCPU<float> input_cpu(w_, h_, 0.0f);
+    TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3> jtra_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3> jrot_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    UploadMatToTexture(input_cpu, 0, image_dst_cv_);
+
+    DIDxyRendererCPU didxy_renderer_cpu;
+    JposeRendererCPU jpose_renderer_cpu;
+
+    timer_.Start();
+    didxy_renderer_cpu.Render(mesh_img_cpu, SE3(), cam_, in_lvl, out_lvl, input_cpu, didxy_cpu);
+    jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, out_lvl, didxy_cpu, jtra_cpu, jrot_cpu);
+    double cpu_time = timer_.Stop();
+
+    cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);
+    cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, out_lvl, CV_32FC3);
+
+    // GL pipeline
+    MeshGL mesh_img_gl(quad_pos, quad_uv, quad_weights);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+
+    TextureGL<float> input_gl(w_, h_, 0.0f);
+    TextureGL<Vec3> didxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3> jtra_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3> jrot_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    UploadMatToTexture(input_gl, 0, image_dst_cv_);
+
+    DIDxyRendererGL didxy_renderer_gl;
+    JtraRendererGL jtra_renderer_gl;
+    JrotRendererGL jrot_renderer_gl;
+
+    timer_.Start();
+    didxy_renderer_gl.Render(mesh_img_gl, SE3(), cam_, in_lvl, out_lvl, input_gl, didxy_gl);
+    jtra_renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, out_lvl, didxy_gl, jtra_gl);
+    jrot_renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, out_lvl, jtra_gl, jrot_gl);
+    double gl_time = timer_.Stop();
+
+    cv::Mat gl_jtra = DownloadTexture(jtra_gl, out_lvl, CV_32FC3);
+    cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
+
+    // Validate both Jtra and Jrot
+    double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
+    double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
+
+    SaveDebugImageColor(cpu_jtra, "cross_jtra_cpu_2.png");
+    SaveDebugImageColor(gl_jtra, "cross_jtra_gl_2.png");
+    SaveDebugImageColor(cpu_jrot, "cross_jrot_cpu_2.png");
+    SaveDebugImageColor(gl_jrot, "cross_jrot_gl_2.png");
+
+    std::cout << "Jacobian Pipeline Cross-Backend Comparison 2:\n";
+    std::cout << "  Jtra L2 Error: " << jtra_error << "\n";
+    std::cout << "  Jrot L2 Error: " << jrot_error << "\n";
+    std::cout << "  CPU Time: " << cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
+
+    EXPECT_LT(jtra_error, thresholds_.max_jtra_error) << "Jtra cross-backend error too high";
+    EXPECT_LT(jrot_error, thresholds_.max_jrot_error) << "Jrot cross-backend error too high";
+
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
 /*
 // Test different mesh complexities
 TEST_F(CrossBackendTests, MeshComplexityComparison)
