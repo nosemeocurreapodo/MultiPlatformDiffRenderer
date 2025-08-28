@@ -377,10 +377,10 @@ public:
 private:
 };
 
-class ErrorRendererGL : public BaseRendererGL<ErrorRendererGL>
+class ResidualRendererGL : public BaseRendererGL<ResidualRendererGL>
 {
 public:
-    ErrorRendererGL() : BaseRendererGL()
+    ResidualRendererGL() : BaseRendererGL()
     {
         const char *vertex_shader = R"Shader(
             #version 330 core

@@ -498,12 +498,73 @@ public:
 // ImageRendererCPU
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
-class ErrorRendererCPU
-    : public BaseRendererCPU<ErrorRendererCPU, Vec2>
+class ResidualRendererCPU
+    : public BaseRendererCPU<ResidualRendererCPU, Vec2>
 {
 public:
-    ErrorRendererCPU() = default;
-    ~ErrorRendererCPU() override = default;
+    ResidualRendererCPU() = default;
+    ~ResidualRendererCPU() override = default;
+
+    void clear_buffers(int lvl,
+                       const TextureCPU<float> &kf_texture,
+                       const TextureCPU<float> &f_texture,
+                       TextureCPU<float> &e_texture)
+    {
+        e_texture.fill(lvl, e_texture.nodata());
+    }
+
+    BoundingBoxType<int> get_viewport(int lvl,
+                                      const TextureCPU<float> &kf_texture,
+                                      const TextureCPU<float> &f_texture,
+                                      TextureCPU<float> &r_texture)
+    {
+        const int W = static_cast<int>(r_texture.width(lvl));
+        const int H = static_cast<int>(r_texture.height(lvl));
+        return BoundingBoxType<int>(0, W - 1, 0, H - 1);
+    }
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const Vec3 &inVertex,
+                       const Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const Mat4 &view_matrix,
+                       const Mat4 &pose_matrix,
+                       Vec4 &gl_Position,
+                       Vec2 &outVarying)
+    {
+        gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        // We are using a "float" for VaryingType, so you can store something if needed
+        outVarying = inTexCoord; // placeholder
+    }
+
+    void fragment_shader(int in_lvl, int out_lvl,
+                         const Vec4 &gl_FragCoord,
+                         const Vec2 &in_varying,
+                         const TextureCPU<float> &kf_texture,
+                         const TextureCPU<float> &f_texture,
+                         TextureCPU<float> &r_texture)
+    {
+        float kf = kf_texture.sample_(in_varying(1), in_varying(0), in_lvl);
+        float f = f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        if (kf == kf_texture.nodata() || f == f_texture.nodata())
+            return;
+
+        float e = f - kf;
+        r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+    }
+};
+
+// -----------------------------------------------------------------------------
+// ImageRendererCPU
+//   Another example derived class that might output color
+// -----------------------------------------------------------------------------
+class L2RendererCPU
+    : public BaseRendererCPU<L2RendererCPU, Vec2>
+{
+public:
+    L2RendererCPU() = default;
+    ~L2RendererCPU() override = default;
 
     void clear_buffers(int lvl,
                        const TextureCPU<float> &kf_texture,
@@ -546,12 +607,12 @@ public:
                          TextureCPU<float> &e_texture)
     {
         float kf = kf_texture.sample_(in_varying(1), in_varying(0), in_lvl);
-        float f = f_texture.sample_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
+        float f = f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl);
         if (kf == kf_texture.nodata() || f == f_texture.nodata())
             return;
 
-        float e = kf - f;
-        e_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
+        float e = f - kf;
+        e_texture.set_texel_(e*e, gl_FragCoord(1), gl_FragCoord(0), out_lvl);
     }
 };
 
