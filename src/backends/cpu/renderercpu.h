@@ -832,7 +832,7 @@ public:
 
     BoundingBoxType<int> get_viewport(int lvl,
                                       const TextureCPU<Vec3> &dfdxy_texture,
-                                      TextureCPU<Vec3> &jpose_texture)
+                                      TextureCPU<Vec6> &jpose_texture)
     {
         const int W = static_cast<int>(jpose_texture.width(lvl));
         const int H = static_cast<int>(jpose_texture.height(lvl));
