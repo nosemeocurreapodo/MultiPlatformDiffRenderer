@@ -34,7 +34,7 @@ TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
 
     PerformanceTimer timer;
     timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, 0, output);
+    renderer.Render(mesh, pose_transform, cam_, 0, output);
     timer.Stop();
 
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
@@ -67,7 +67,7 @@ TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
 
     PerformanceTimer timer;
     timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, 0, output);
+    renderer.Render(mesh, pose_transform, cam_, 0, output);
     timer.Stop();
 
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
@@ -99,7 +99,7 @@ TEST_F(GroundTruthTests, CrossBackendConsistency)
 
     DepthRendererCPU cpu_renderer;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
-    cpu_renderer.Render(mesh_cpu, pose_transform, cam_, 0, 0, output_cpu);
+    cpu_renderer.Render(mesh_cpu, pose_transform, cam_, 0, output_cpu);
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
 
@@ -108,7 +108,7 @@ TEST_F(GroundTruthTests, CrossBackendConsistency)
     TextureGL<float> output_gl(w_, h_, -1.0f);
 
     DepthRendererGL gl_renderer;
-    gl_renderer.Render(mesh_gl, pose_transform, cam_, 0, 0, output_gl);
+    gl_renderer.Render(mesh_gl, pose_transform, cam_, 0, output_gl);
 
     cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
@@ -149,7 +149,7 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
         DepthRendererCPU renderer;
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, 0, output);
+        renderer.Render(mesh, SE3(), cam_, 0, output);
         double cpu_time = timer.Stop();
         cpu_times.push_back(cpu_time);
     }
@@ -164,7 +164,7 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
         DepthRendererGL renderer;
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, 0, output);
+        renderer.Render(mesh, SE3(), cam_, 0, output);
         double gl_time = timer.Stop();
         gl_times.push_back(gl_time);
     }

@@ -113,17 +113,13 @@ public:
     }
 
 private:
-    template <class Derived, typename Varying>
-    friend class BaseRendererCPU;
     friend class DepthRendererCPU;
     friend class ImageRendererCPU;
     friend class ResidualRendererCPU;
     friend class L2RendererCPU;
     friend class DIDxyRendererCPU;
-    friend class JtraRendererCPU;
-    friend class JrotRendererCPU;
-    friend class JposeRendererCPU;
-    friend class JposeRendererCPU2;
+    friend class JPoseRendererCPU;
+    friend class JMapRendererCPU;
 
     // static constexpr size_type lvl_base = 0;
 

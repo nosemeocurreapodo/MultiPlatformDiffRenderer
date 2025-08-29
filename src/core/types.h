@@ -22,6 +22,8 @@ using Vec3 = Eigen::Matrix<Scalar, 3, 1>;
 using Vec4 = Eigen::Matrix<Scalar, 4, 1>;
 using Vec5 = Eigen::Matrix<Scalar, 5, 1>;
 using Vec6 = Eigen::Matrix<Scalar, 6, 1>;
+using Vec7 = Eigen::Matrix<Scalar, 7, 1>;
+using Vec8 = Eigen::Matrix<Scalar, 8, 1>;
 using Vecx = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 
 using Vec2i = Eigen::Matrix<Int, 2, 1>;

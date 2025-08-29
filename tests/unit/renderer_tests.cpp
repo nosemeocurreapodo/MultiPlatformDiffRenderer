@@ -20,8 +20,11 @@ struct CPUBackendTraits
     using TextureT = TextureCPU<T>;
     using DepthRendererT = DepthRendererCPU;
     using ImageRendererT = ImageRendererCPU;
+    using ResidualRendererT = ResidualRendererCPU;
+    using L2RendererT = L2RendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
-    using JtraRendererT = JtraRendererCPU;
+    using JPoseRendererT = JPoseRendererCPU;
+    using JMapRendererT = JMapRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -33,8 +36,11 @@ struct GLBackendTraits
     using TextureT = TextureGL<T>;
     using DepthRendererT = DepthRendererGL;
     using ImageRendererT = ImageRendererGL;
+    using ResidualRendererT = ResidualRendererGL;
+    using L2RendererT = L2RendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
-    using JtraRendererT = JtraRendererGL;
+    using JPoseRendererT = JPoseRendererGL;
+    using JMapRendererT = JMapRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
@@ -55,7 +61,7 @@ TYPED_TEST_SUITE_P(RendererTypedTests);
 TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
 {
     using Traits = TypeParam;
-    const int in_lvl = 0, out_lvl = 0;
+    const int out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -63,7 +69,7 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
     typename Traits::DepthRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
-    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output));
 
     cv::Mat result = this->DownloadTexture(output, out_lvl, CV_32FC1);
 
@@ -113,6 +119,56 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     EXPECT_LE(mean_val[0], 255.0) << "Mean intensity should be reasonable";
 }
 
+TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
+{
+    using Traits = TypeParam;
+    const int in_lvl = 0, out_lvl = 0;
+
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::template TextureT<float> input1(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> input2(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
+
+    this->UploadMatToTexture(input1, 0, this->image_src_cv_);
+    this->UploadMatToTexture(input2, 0, this->image_dst_cv_);
+
+    typename Traits::ResidualRendererT renderer;
+    SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+
+    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input1, input2, output));
+
+    cv::Mat result = this->DownloadTexture(output, out_lvl, CV_32FC1);
+    cv::Scalar mean_val, std_val;
+    cv::meanStdDev(result, mean_val, std_val);
+    EXPECT_GE(mean_val[0], 0.0) << "Mean intensity should be non-negative";
+    EXPECT_LE(mean_val[0], 255.0) << "Mean intensity should be reasonable";
+}
+
+TYPED_TEST_P(RendererTypedTests, L2RendererBasicFunctionality)
+{
+    using Traits = TypeParam;
+    const int in_lvl = 0, out_lvl = 0;
+
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::template TextureT<float> input1(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> input2(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
+
+    this->UploadMatToTexture(input1, 0, this->image_src_cv_);
+    this->UploadMatToTexture(input2, 0, this->image_dst_cv_);
+
+    typename Traits::L2RendererT renderer;
+    SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+
+    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input1, input2, output));
+
+    cv::Mat result = this->DownloadTexture(output, out_lvl, CV_32FC1);
+    cv::Scalar mean_val, std_val;
+    cv::meanStdDev(result, mean_val, std_val);
+    EXPECT_GE(mean_val[0], 0.0) << "Mean intensity should be non-negative";
+    EXPECT_LE(mean_val[0], 65025.0) << "Mean intensity should be reasonable";
+}
+
 // DIDxy renderer
 TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
 {
@@ -129,7 +185,7 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
     this->UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::DIDxyRendererT renderer;
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, in_lvl, out_lvl, input, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, in_lvl, out_lvl, input, output));
 
     cv::Mat result = this->DownloadTexture(output, out_lvl, CV_32FC3);
 
@@ -144,7 +200,7 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
 }
 
 // Jtra renderer depends on DIDxy
-TYPED_TEST_P(RendererTypedTests, JtraRendererBasicFunctionality)
+TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
 {
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
@@ -155,21 +211,63 @@ TYPED_TEST_P(RendererTypedTests, JtraRendererBasicFunctionality)
     typename Traits::MeshT mesh_img(quad_pos, quad_uv, quad_weights);
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
 
-    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
-    typename Traits::template TextureT<Vec3> didxy(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<Vec3> jtra(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<float> kf_tex(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> f_tex(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<Vec3> dfdxy_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3> jtra_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3> jrot_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
-    this->UploadMatToTexture(input, 0, this->image_dst_cv_);
+    this->UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
+    this->UploadMatToTexture(f_tex, 0, this->image_dst_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JtraRendererT jtra_renderer;
+    typename Traits::JPoseRendererT jpose_renderer;
 
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
-    ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, SE3(), this->cam_, in_lvl, out_lvl, input, didxy));
-    ASSERT_NO_THROW(jtra_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, didxy, jtra));
+    ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
+    ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, r_tex));
 
-    cv::Mat result = this->DownloadTexture(jtra, out_lvl, CV_32FC3);
+    cv::Mat result = this->DownloadTexture(jtra_tex, out_lvl, CV_32FC3);
+    cv::Scalar mean_jtra = cv::mean(result);
+    for (int i = 0; i < 3; ++i)
+    {
+        EXPECT_LT(std::abs(mean_jtra[i]), 1000.0) << "Jacobian component " << i << " too large";
+    }
+}
+
+// Jtra renderer depends on DIDxy
+TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
+{
+    using Traits = TypeParam;
+    const int in_lvl = 0, out_lvl = 0;
+
+    std::vector<float> quad_pos, quad_uv, quad_weights;
+    this->CreateScreenQuad(quad_pos, quad_uv, quad_weights);
+
+    typename Traits::MeshT mesh_img(quad_pos, quad_uv, quad_weights);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+
+    typename Traits::template TextureT<float> kf_tex(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> f_tex(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<Vec3> dfdxy_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3> jmap_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3i> pids_tex(this->w_, this->h_, Vec3i(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
+
+    this->UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
+    this->UploadMatToTexture(f_tex, 0, this->image_dst_cv_);
+
+    typename Traits::DIDxyRendererT didxy_renderer;
+    typename Traits::JMapRendererT jmap_renderer;
+
+    SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+
+    ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
+    ASSERT_NO_THROW(jmap_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jmap_tex, pids_tex, r_tex));
+
+    cv::Mat result = this->DownloadTexture(jmap_tex, out_lvl, CV_32FC3);
     cv::Scalar mean_jtra = cv::mean(result);
     for (int i = 0; i < 3; ++i)
     {
@@ -189,15 +287,15 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
 
     typename Traits::DepthRendererT renderer;
 
-    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, in_lvl, out_lvl, output));
+    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, out_lvl, output));
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, in_lvl, out_lvl, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, out_lvl, output));
 
     if (this->w_ >= 4 && this->h_ >= 4)
     {
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 1, output));
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 1, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 1, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
     }
 }
 
@@ -211,7 +309,7 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
         typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
     }
     SUCCEED();
 }
@@ -220,7 +318,7 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
 TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
 {
     using Traits = TypeParam;
-    const int in_lvl = 0, out_lvl = 0;
+    const int out_lvl = 0;
     const int iterations = 5;
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
@@ -233,7 +331,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
     for (int i = 0; i < iterations; ++i)
     {
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-        renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, output);
+        renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output);
         results.push_back(this->DownloadTexture(output, out_lvl, CV_32FC1));
     }
 
@@ -257,7 +355,7 @@ TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
         typename Traits::template TextureT<float> output(w, h, -1.0f);
 
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
         cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
         EXPECT_EQ(result.cols, w);
         EXPECT_EQ(result.rows, h);
@@ -268,8 +366,11 @@ REGISTER_TYPED_TEST_SUITE_P(
     RendererTypedTests,
     DepthRendererBasicFunctionality,
     ImageRendererBasicFunctionality,
+    ResidualRendererBasicFunctionality,
+    L2RendererBasicFunctionality,
     DIDxyRendererBasicFunctionality,
-    JtraRendererBasicFunctionality,
+    JPoseRendererBasicFunctionality,
+    JMapRendererBasicFunctionality,
     ErrorHandlingAndEdgeCases,
     ResourceManagement,
     NumericalPrecisionDeterminism,
