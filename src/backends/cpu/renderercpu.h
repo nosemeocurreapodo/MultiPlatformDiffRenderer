@@ -7,116 +7,9 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
+#include "core/render_constants.h"
+#include "core/error_handling.h"
 
-/*
-struct Renderbuffer { int w, h, ys; void *data; };
-struct Vert { vec4 position, texcoord, color; };
-struct Varying { vec4 texcoord, color; };
-
-void vertex_shader(const Vert &in, vec4 &gl_Position, Varying &OUT) {
-    OUT.texcoord = in.texcoord;
-    OUT.color = in.color;
-    gl_Position = vec4(in.position.x, in.position.y, -2*in.position.z - 2*in.position.w, -in.position.z);
-}
-
-void fragment_shader(vec4 &gl_FragCoord, const Varying &IN, vec4 &OUT) {
-    OUT = IN.color;
-    vec2 wrapped = IN.texcoord.xy - floor(IN.texcoord.xy);
-    bool brighter = (wrapped[0] < 0.5) != (wrapped[1] < 0.5);
-    if(!brighter)
-        OUT.rgb *= 0.5f;
-}
-
-// render output unit/render operations pipeline
-void rop(Renderbuffer &buf, int x, int y, const vec4 &c) {
-    uint8_t *p = (uint8_t*)buf.data + buf.ys*(buf.h - y - 1) + 4*x;
-    p[0] = linear_to_srgb8(c[0]);
-    p[1] = linear_to_srgb8(c[1]);
-    p[2] = linear_to_srgb8(c[2]);
-    p[3] = lround(c[3]*255);
-}
-
-void draw_triangle(Renderbuffer &color_attachment, const box2 &viewport, const Vert *verts) {
-    auto area = [](const vec2 &p0, const vec2 &p1, const vec2 &p2) { return cross(p1 - p0, p2 - p0); };
-    auto interpolate = [](const auto a[3], auto p, const vec3 &coord) { return coord.x*a[0].*p + coord.y*a[1].*p + coord.z*a[2].*p; };
-
-    Varying perVertex[3];
-    vec4 gl_Position[3];
-
-    box2 aabb = { viewport.hi, viewport.lo };
-    for(int i = 0; i < 3; ++i) {
-        vertex_shader(verts[i], gl_Position[i], perVertex[i]);
-
-        // convert to normalized device coordinates
-        gl_Position[i].w = 1/gl_Position[i].w;
-        gl_Position[i].xyz *= gl_Position[i].w;
-
-        // convert to window coordinates
-        gl_Position[i].xy = mix(viewport.lo, viewport.hi, 0.5f*(gl_Position[i].xy + 1.0f));
-        aabb = join(aabb, gl_Position[i].xy);
-    }
-
-    const float denom = 1/area(gl_Position[0].xy, gl_Position[1].xy, gl_Position[2].xy);
-
-    // loop over all pixels in the rectangle bounding the triangle
-    const ibox2 iaabb = lround(aabb);
-    for(int y = iaabb.lo.y; y < iaabb.hi.y; ++y)
-    for(int x = iaabb.lo.x; x < iaabb.hi.x; ++x)
-    {
-        vec4 gl_FragCoord;
-        gl_FragCoord.xy = vec2(x, y) + 0.5f;
-
-        // fragment barycentric coordinates in window coordinates
-        const vec3 barycentric = denom*vec3(
-            area(gl_FragCoord.xy, gl_Position[1].xy, gl_Position[2].xy),
-            area(gl_Position[0].xy, gl_FragCoord.xy, gl_Position[2].xy),
-            area(gl_Position[0].xy, gl_Position[1].xy, gl_FragCoord.xy)
-        );
-
-        // discard fragment outside the triangle. this doesn't handle edges correctly.
-        if(barycentric.x < 0 || barycentric.y < 0 || barycentric.z < 0)
-            continue;
-
-        // interpolate inverse depth linearly
-        gl_FragCoord.z = interpolate(gl_Position, &vec4::z, barycentric);
-        gl_FragCoord.w = interpolate(gl_Position, &vec4::w, barycentric);
-
-        // clip fragments to the near/far planes (as if by GL_ZERO_TO_ONE)
-        if(gl_FragCoord.z < 0 || gl_FragCoord.z > 1)
-            continue;
-
-        // convert to perspective correct (clip-space) barycentric
-        const vec3 perspective = 1/gl_FragCoord.w*barycentric*vec3(gl_Position[0].w, gl_Position[1].w, gl_Position[2].w);
-
-        // interpolate attributes
-        Varying varying = {
-            interpolate(perVertex, &Varying::texcoord, perspective),
-            interpolate(perVertex, &Varying::color, perspective),
-        };
-
-        vec4 color;
-        fragment_shader(gl_FragCoord, varying, color);
-        rop(color_attachment, x, y, color);
-    }
-}
-
-int main(int argc, char *argv[]) {
-    Renderbuffer buffer = { 512, 512, 512*4 };
-    buffer.data = calloc(buffer.ys, buffer.h);
-
-    // VAO interleaved attributes buffer
-    Vert verts[] = {
-        { { -1, -1, -2, 1 }, { 0, 0, 0, 1 }, { 0, 0, 1, 1 } },
-        { { 1, -1, -1, 1 }, { 10, 0, 0, 1 }, { 1, 0, 0, 1 } },
-        { { 0, 1, -1, 1 }, { 0, 10, 0, 1 }, { 0, 1, 0, 1 } },
-    };
-
-    box2 viewport = { 0, 0, buffer.w, buffer.h };
-    draw_triangle(buffer, viewport, verts);
-
-    stbi_write_png("out.png", buffer.w, buffer.h, 4, buffer.data, buffer.ys);
-}
-*/
 
 inline float cross(const Vec2 &a, const Vec2 &b) { return a(0) * b(1) - a(1) * b(0); }
 inline float triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2) { return cross(p1 - p0, p2 - p0); }
@@ -260,8 +153,7 @@ private:
             Vec2(vout[0].screen(0), vout[0].screen(1)),
             Vec2(vout[1].screen(0), vout[1].screen(1)),
             Vec2(vout[2].screen(0), vout[2].screen(1)));
-        if (std::abs(area) < 1e-8f)
-            return; // degenerate
+        ErrorHandling::ValidateTriangleArea(area);
         // if (area <= 0) return;            // enable to cull backfaces
 
         // Triangle bounding box (float → int, clamp to viewport)
@@ -283,8 +175,8 @@ private:
         const float xC = vout[2].screen(0), yC = vout[2].screen(1);
 
         const float area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
-        if (std::abs(area2) < 1e-8f)
-            return; // degenerate
+        ErrorHandling::ValidateTriangleArea(area2);
+        ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
         const float inv_area2 = 1.0f / area2;
 
@@ -293,8 +185,8 @@ private:
         const bool tlCA = is_top_left(xC, yC, xA, yA);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        const float px0 = static_cast<float>(x0) + 0.5f;
-        const float py0 = static_cast<float>(y0) + 0.5f;
+        const float px0 = static_cast<float>(x0) + RenderConstants::PIXEL_CENTER_OFFSET;
+        const float py0 = static_cast<float>(y0) + RenderConstants::PIXEL_CENTER_OFFSET;
 
         float eAB_row = edge_func(xA, yA, xB, yB, px0, py0);
         float eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
@@ -353,8 +245,8 @@ private:
                     // Depth test could go here
 
                     Vec4 gl_FragCoord;
-                    gl_FragCoord(0) = static_cast<float>(x) + 0.5f;
-                    gl_FragCoord(1) = static_cast<float>(y) + 0.5f;
+                    gl_FragCoord(0) = static_cast<float>(x) + RenderConstants::PIXEL_CENTER_OFFSET;
+                    gl_FragCoord(1) = static_cast<float>(y) + RenderConstants::PIXEL_CENTER_OFFSET;
                     gl_FragCoord(2) = depth_px;
                     gl_FragCoord(3) = 1.0f / invW_px;
 
@@ -403,9 +295,13 @@ public:
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
         out_texture_ = &out_texture;
 
@@ -490,7 +386,7 @@ public:
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         in_texture_ = &in_texture;
@@ -587,7 +483,7 @@ public:
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         kf_texture_ = &kf_texture;
@@ -679,7 +575,7 @@ public:
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         kf_texture_ = &kf_texture;
@@ -895,7 +791,7 @@ public:
         out_lvl_ = out_lvl;
         fx_ = cam.GetParams()(0);
         fy_ = cam.GetParams()(1);
-        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
+        view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
         kf_texture_ = &kf_texture;
         f_texture_ = &f_texture;
@@ -1029,7 +925,7 @@ public:
         out_lvl_ = out_lvl;
         fx_ = cam.GetParams()(0);
         fy_ = cam.GetParams()(1);
-        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
+        view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
         kf_texture_ = &kf_texture;
         f_texture_ = &f_texture;

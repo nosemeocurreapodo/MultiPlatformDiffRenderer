@@ -10,6 +10,8 @@
 #include "core/format_converters.h"
 #include "core/types.h"
 #include "core/camera.h"
+#include "core/render_constants.h"
+#include "core/error_handling.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
 
@@ -79,7 +81,7 @@ protected:
             glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
             glDeleteProgram(program_);
             program_ = 0;
-            throw std::runtime_error(std::string("Program link failed:\n") + log);
+            throw RendererExceptions::OpenGLException("shader program linking", 0);
         }
 
         // Common uniform locations (derived shaders should use these names)
@@ -115,7 +117,7 @@ protected:
             glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
             glDeleteProgram(program_);
             program_ = 0;
-            throw std::runtime_error(std::string("Program link failed:\n") + log);
+            throw RendererExceptions::OpenGLException("shader program linking", 0);
         }
 
         // Common uniform locations (derived shaders should use these names)
@@ -133,11 +135,7 @@ protected:
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE)
         {
-            // restore minimal state
-            // glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
-            // glUseProgram(prevProg);
-            // glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-            throw std::runtime_error("Framebuffer is not complete!");
+            throw RendererExceptions::OpenGLException("framebuffer setup", status);
         }
     }
 
@@ -189,7 +187,7 @@ private:
             glGetShaderInfoLog(id, sizeof(log), nullptr, log);
             std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
             glDeleteShader(id);
-            throw std::runtime_error(shader_type + " shader compilation failed:\n" + log);
+            throw RendererExceptions::OpenGLException(shader_type + " shader compilation", ok);
         }
         return id;
     }
@@ -252,6 +250,10 @@ public:
                 int out_lvl,
                 TextureGL<float> &depth_texture)
     {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(depth_texture.width(out_lvl), depth_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        
         save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
@@ -282,7 +284,7 @@ public:
         glUseProgram(program_);
         // set_uniforms();
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         mesh.bind();
@@ -394,7 +396,7 @@ public:
         glUseProgram(program_);
         // set_uniforms();
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(image_loc_, 0);                          // texture unit
@@ -529,7 +531,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
@@ -672,7 +674,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
+        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);                          // texture unit
@@ -1024,7 +1026,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
+        const Mat4 view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         const Mat4 pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -1323,7 +1325,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 view_matrix = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
+        const Mat4 view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         const Mat4 pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
