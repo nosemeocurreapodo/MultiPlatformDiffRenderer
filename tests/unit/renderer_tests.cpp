@@ -253,7 +253,7 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::template TextureT<float> f_tex(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<Vec3> dfdxy_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3> jmap_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<Vec3i> pids_tex(this->w_, this->h_, Vec3i(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3> pids_tex(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     this->UploadMatToTexture(kf_tex, 0, this->image_src_cv_);

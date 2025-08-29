@@ -140,7 +140,11 @@ template <class Derived, class Varyings>
 class BaseRendererCPU
 {
 public:
-    BaseRendererCPU() = default;
+    BaseRendererCPU()
+    {
+        opencv2opengl_ = Mat4::Identity();
+        opencv2opengl_(2, 2) = -1.0; // flip Z like your original intent
+    };
     virtual ~BaseRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
@@ -194,6 +198,9 @@ public:
         }
     }
 
+protected:
+    Mat4 opencv2opengl_;
+
 private:
     // User-provided shaders
     // virtual void vertex_shader(const Vec3 &inVertex,
@@ -232,7 +239,7 @@ private:
         {
             Vec4 gl_Position;
             Varyings varyings;
-            derived().vertex_shader(verts[i], texcoords[i], weights[i], vertexid, gl_Position, varyings);
+            derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid, gl_Position, varyings);
 
             const float invW = 1.0f / gl_Position(3);
             const float ndc_x = gl_Position(0) * invW; // [-1,1]
@@ -326,10 +333,10 @@ private:
                     // Perspective: 1/w at pixel
                     const float invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
 
-                    Varyings varying_px = derived().interpolate_varyings(w0, w1, w2,
-                                                                         vout[0].invW, vout[1].invW, vout[2].invW,
-                                                                         invW_px,
-                                                                         vout[0].var, vout[1].var, vout[2].var);
+                    Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
+                                                                          vout[0].invW, vout[1].invW, vout[2].invW,
+                                                                          invW_px,
+                                                                          vout[0].var, vout[1].var, vout[2].var);
 
                     // Interpolate varyings divided by w, then divide by invW_px
                     // Varyings var_over_w_px =
@@ -352,7 +359,7 @@ private:
                     gl_FragCoord(3) = 1.0f / invW_px;
 
                     // OutTexType outColor = out_texture.nodata();
-                    derived().fragment_shader(gl_FragCoord, varying_px);
+                    derived_().fragment_shader(gl_FragCoord, varying_px);
                     // out_texture.set_texel_(outColor, y, x, out_lvl);
                 }
 
@@ -369,8 +376,8 @@ private:
         }
     }
 
-    Derived &derived() { return *static_cast<Derived *>(this); }
-    const Derived &derived() const { return *static_cast<const Derived *>(this); }
+    Derived &derived_() { return *static_cast<Derived *>(this); }
+    const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 };
 
 // -----------------------------------------------------------------------------
@@ -398,7 +405,7 @@ public:
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
         out_texture_ = &out_texture;
 
@@ -483,7 +490,7 @@ public:
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         in_texture_ = &in_texture;
@@ -580,7 +587,7 @@ public:
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         kf_texture_ = &kf_texture;
@@ -672,7 +679,7 @@ public:
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         kf_texture_ = &kf_texture;
@@ -888,7 +895,7 @@ public:
         out_lvl_ = out_lvl;
         fx_ = cam.GetParams()(0);
         fy_ = cam.GetParams()(1);
-        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f);
+        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
         kf_texture_ = &kf_texture;
         f_texture_ = &f_texture;
@@ -1011,7 +1018,7 @@ public:
                 const TextureCPU<float> &f_texture,
                 const TextureCPU<Vec3> &dfdxy_texture,
                 TextureCPU<Vec3> &jmap_texture,
-                TextureCPU<Vec3i> &pids_texture,
+                TextureCPU<Vec3> &pids_texture,
                 TextureCPU<float> &r_texture)
     {
         jmap_texture.fill(out_lvl, jmap_texture.nodata());
@@ -1022,7 +1029,7 @@ public:
         out_lvl_ = out_lvl;
         fx_ = cam.GetParams()(0);
         fy_ = cam.GetParams()(1);
-        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f);
+        view_matrix_ = cam.GetProjectiveMatrix(0.01f, 100.0f) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
         kf_texture_ = &kf_texture;
         f_texture_ = &f_texture;
@@ -1130,9 +1137,10 @@ public:
         Vec3 d_depth_d_vert_depth = barycentric;
 
         Vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        Vec3 ids = Vec3(vertexid(0), vertexid(1), vertexid(2));
 
         jmap_texture_->set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        pids_texture_->set_texel_(vertexid, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        pids_texture_->set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         r_texture_->set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
@@ -1147,6 +1155,6 @@ private:
     const TextureCPU<float> *f_texture_;
     const TextureCPU<Vec3> *dfdxy_texture_;
     TextureCPU<Vec3> *jmap_texture_;
-    TextureCPU<Vec3i> *pids_texture_;
+    TextureCPU<Vec3> *pids_texture_;
     TextureCPU<float> *r_texture_;
 };
