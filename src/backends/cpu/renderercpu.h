@@ -456,8 +456,8 @@ private:
 };
 
 // -----------------------------------------------------------------------------
-// ImageRendererCPU
-//   Another example derived class that might output color
+// ResidualRendererCPU
+//   Example derived renderer that computes the residual between two frames.
 // -----------------------------------------------------------------------------
 
 struct ResidualVaryings
