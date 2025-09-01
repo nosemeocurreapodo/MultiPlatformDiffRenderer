@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include "backends/xrt/hls/typeshls.h"
 #include "backends/base/rendererbase.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
@@ -15,14 +16,14 @@
 // BaseRendererCPU (improved)
 // -----------------------------------------------------------------------------
 template <class Derived>
-class BaseRendererCPU : public BaseRenderer<Derived, int, float, Vec2, Vec3, Vec4, Vec3i, Mat4>
+class BaseRendererHLS : public BaseRenderer<Derived, hls::Vec2, hls::Vec3, hls::Vec4, hls::Vec3i, hls::Mat4>
 {
 public:
-    BaseRendererCPU() = default;
-    virtual ~BaseRendererCPU() = default;
+    BaseRendererHLS() : BaseRenderer() {};
+    virtual ~BaseRendererHLS() = default;
 
-    void Render(const MeshCPU &mesh,
-                const BoundingBoxType<int> &viewport)
+    void Render(const MeshHLS &mesh,
+                const hls::BoundingBoxType<hls::Int> &viewport)
     {
         // ---- Map mesh buffers (no copies) ----
         auto pos = mesh.MapReadPositions(); // 3 floats/vertex
@@ -37,8 +38,8 @@ public:
             const uint32_t i1 = idx[i + 1];
             const uint32_t i2 = idx[i + 2];
 
-            Vec3 v[3];
-            Vec2 uv[3];
+            hls::Vec3 v[3];
+            hls::Vec2 uv[3];
             float wght[3];
 
             // gather
@@ -54,9 +55,9 @@ public:
                 wght[k] = wei[vi];
             }
 
-            Vec3i vertexid(i0, i1, i2);
+            hls::Vec3i vertexid(i0, i1, i2);
 
-            this->draw_triangle_(v, uv, wght, vertexid, viewport);
+            draw_triangle_(v, uv, wght, vertexid, viewport);
         }
     }
 };
@@ -66,8 +67,8 @@ public:
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-class DepthRendererCPU
-    : public BaseRendererCPU<DepthRendererCPU>
+class DepthRendererHLS
+    : public BaseRendererHLS<DepthRendererHLS>
 {
 public:
     struct Varyings
@@ -78,15 +79,15 @@ public:
     DepthRendererCPU() = default;
     ~DepthRendererCPU() override = default;
 
-    void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+    void Render(const MeshHLS &mesh,
+                const hls::SE3 &pose,
+                const hls::Camera &cam,
                 int out_lvl,
-                TextureCPU<float> &out_texture)
+                TextureHLS<float> &out_texture)
     {
         // Validate inputs
-        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
-        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -98,15 +99,15 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        BaseRendererHLS::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.depth =
@@ -135,17 +136,13 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        // Example: store depth in outFragment as a float:
-        // outFragment = gl_FragCoord.z();
-        // outFragment = inVarying; // use the varying Z from vertex shader
-        // Could also do shading or sampling, but here we just store depth
         out_texture_->set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
 private:
-    Mat4 t_matrix_;
+    hls::Mat4 t_matrix_;
     int out_lvl_;
-    TextureCPU<float> *out_texture_;
+    TextureHLS<float> *out_texture_;
 };
 
 // -----------------------------------------------------------------------------
@@ -153,25 +150,25 @@ private:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 
-class ImageRendererCPU
-    : public BaseRendererCPU<ImageRendererCPU>
+class ImageRendererHLS
+    : public BaseRendererHLS<ImageRendererCPU>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
+        hls::Vec2 texcoord;
     };
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() override = default;
 
-    void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+    void Render(const MeshHLS &mesh,
+                const hls::SE3 &pose,
+                const hls::Camera &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &in_texture,
-                TextureCPU<float> &out_texture)
+                const TextureHLS<float> &in_texture,
+                TextureHLS<float> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -189,11 +186,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -212,7 +209,7 @@ public:
                        const float &inWeight,
                        const Vec3i &vertexid,
                        Vec4 &gl_Position,
-                       Varyings &outVarying)
+                       ImageVaryings &outVarying)
     {
         gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         // We are using a "float" for VaryingType, so you can store something if needed
@@ -220,20 +217,12 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const ImageVaryings &in_varying)
     {
         float pix = in_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         if (pix == in_texture_->nodata())
             return;
         out_texture_->set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-
-        // Example: color = [checker pattern], ignoring inVarying
-        // float fx = std::floor(gl_FragCoord.x() * 0.1f);
-        // float fy = std::floor(gl_FragCoord.y() * 0.1f);
-        // bool bright = (static_cast<int>(fx + fy) % 2 == 0);
-
-        // For demonstration, store a grayscale in float
-        // outFragment = bright ? 1.0f : 0.2f;
     }
 
 private:
@@ -249,8 +238,8 @@ private:
 //   Example derived renderer that computes the residual between two frames.
 // -----------------------------------------------------------------------------
 
-class ResidualRendererCPU
-    : public BaseRendererCPU<ResidualRendererCPU>
+class ResidualRendererHLS
+    : public BaseRendererHLS<ResidualRendererHLS>
 {
 public:
     struct Varyings
@@ -287,11 +276,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                          const float invW0, const float invW1, const float invW2,
-                                          const float invW_px,
-                                          const Varyings &varying_px0,
-                                          const Varyings &varying_px1,
-                                          const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -342,14 +331,13 @@ private:
 // -----------------------------------------------------------------------------
 
 class L2RendererCPU
-    : public BaseRendererCPU<L2RendererCPU>
+    : public BaseRendererCPU<L2RendererCPU, L2Varyings>
 {
 public:
-    struct Varyings
+    struct L2Varyings
     {
         Vec2 texcoord;
     };
-
     L2RendererCPU() = default;
     ~L2RendererCPU() override = default;
 
@@ -378,14 +366,14 @@ public:
         BaseRendererCPU::Render(mesh, viewport);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+    L2Varyings interpolate_varyings(const float w0, const float w1, const float w2,
                                     const float invW0, const float invW1, const float invW2,
                                     const float invW_px,
-                                    const Varyings &varying_px0,
-                                    const Varyings &varying_px1,
-                                    const Varyings &varying_px2)
+                                    const L2Varyings &varying_px0,
+                                    const L2Varyings &varying_px1,
+                                    const L2Varyings &varying_px2)
     {
-        Varyings var_over_w_px;
+        L2Varyings var_over_w_px;
         var_over_w_px.texcoord =
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
@@ -401,14 +389,14 @@ public:
                        const float &inWeight,
                        const Vec3i &vertexid,
                        Vec4 &gl_Position,
-                       Varyings &outVarying)
+                       L2Varyings &outVarying)
     {
         gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.texcoord = inTexCoord;
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const L2Varyings &in_varying)
     {
         float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), in_lvl_);
@@ -428,15 +416,15 @@ private:
     TextureCPU<float> *r_texture_;
 };
 
+struct DIDxyVaryings
+{
+    Vec2 texcoord;
+};
+
 class DIDxyRendererCPU
-    : public BaseRendererCPU<DIDxyRendererCPU>
+    : public BaseRendererCPU<DIDxyRendererCPU, DIDxyVaryings>
 {
 public:
-    struct Varyings
-    {
-        Vec2 texcoord;
-    };
-
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() override = default;
 
@@ -460,14 +448,14 @@ public:
         BaseRendererCPU::Render(mesh, viewport);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+    DIDxyVaryings interpolate_varyings(const float w0, const float w1, const float w2,
                                        const float invW0, const float invW1, const float invW2,
                                        const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                       const DIDxyVaryings &varying_px0,
+                                       const DIDxyVaryings &varying_px1,
+                                       const DIDxyVaryings &varying_px2)
     {
-        Varyings var_over_w_px;
+        DIDxyVaryings var_over_w_px;
         var_over_w_px.texcoord =
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
@@ -484,7 +472,7 @@ public:
                        const float &inWeight,
                        const Vec3i &vertexid,
                        Vec4 &gl_Position,
-                       Varyings &outVarying)
+                       DIDxyVaryings &outVarying)
     {
         // gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = Vec4(2.0 * inTexCoord(0) - 1.0, 2.0 * inTexCoord(1) - 1.0, 0.0, 1.0);
@@ -492,7 +480,7 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const DIDxyVaryings &in_varying)
     {
         // outFragment = inVarying;
 
@@ -547,16 +535,16 @@ private:
     TextureCPU<Vec3> *out_texture_;
 };
 
+struct JPoseVaryings
+{
+    Vec2 texcoord;
+    Vec3 f_ver;
+};
+
 class JPoseRendererCPU
-    : public BaseRendererCPU<JPoseRendererCPU>
+    : public BaseRendererCPU<JPoseRendererCPU, JPoseVaryings>
 {
 public:
-    struct Varyings
-    {
-        Vec2 texcoord;
-        Vec3 f_ver;
-    };
-
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() override = default;
 
@@ -596,14 +584,14 @@ public:
         BaseRendererCPU::Render(mesh, viewport);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+    JPoseVaryings interpolate_varyings(const float w0, const float w1, const float w2,
                                        const float invW0, const float invW1, const float invW2,
                                        const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                       const JPoseVaryings &varying_px0,
+                                       const JPoseVaryings &varying_px1,
+                                       const JPoseVaryings &varying_px2)
     {
-        Varyings var_over_w_px;
+        JPoseVaryings var_over_w_px;
         var_over_w_px.texcoord =
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
@@ -624,7 +612,7 @@ public:
                        const float &inWeight,
                        const Vec3i &vertexid,
                        Vec4 &gl_Position,
-                       Varyings &outVarying)
+                       JPoseVaryings &outVarying)
     {
         Vec4 f_ver = pose_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
@@ -634,7 +622,7 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const JPoseVaryings &in_varying)
     {
         int width = kf_texture_->width(in_lvl_);
         int height = kf_texture_->height(in_lvl_);
@@ -678,19 +666,19 @@ private:
     TextureCPU<float> *r_texture_;
 };
 
+struct JMapVaryings
+{
+    Vec2 texcoord;
+    Vec3 f_ver;
+    Vec3 kf_ray;
+    Vec3 barycentric;
+    Vec3i pids;
+};
+
 class JMapRendererCPU
-    : public BaseRendererCPU<JMapRendererCPU>
+    : public BaseRendererCPU<JMapRendererCPU, JMapVaryings>
 {
 public:
-    struct Varyings
-    {
-        Vec2 texcoord;
-        Vec3 f_ver;
-        Vec3 kf_ray;
-        Vec3 barycentric;
-        Vec3i pids;
-    };
-
     JMapRendererCPU() = default;
     ~JMapRendererCPU() override = default;
 
@@ -730,14 +718,14 @@ public:
         BaseRendererCPU::Render(mesh, viewport);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+    JMapVaryings interpolate_varyings(const float w0, const float w1, const float w2,
                                       const float invW0, const float invW1, const float invW2,
                                       const float invW_px,
-                                      const Varyings &varying_px0,
-                                      const Varyings &varying_px1,
-                                      const Varyings &varying_px2)
+                                      const JMapVaryings &varying_px0,
+                                      const JMapVaryings &varying_px1,
+                                      const JMapVaryings &varying_px2)
     {
-        Varyings var_over_w_px;
+        JMapVaryings var_over_w_px;
         var_over_w_px.texcoord =
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
@@ -771,7 +759,7 @@ public:
                        const float &inWeight,
                        const Vec3i &vertexid,
                        Vec4 &gl_Position,
-                       Varyings &outVarying)
+                       JMapVaryings &outVarying)
     {
         Vec4 f_ver = pose_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
@@ -787,7 +775,7 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const JMapVaryings &in_varying)
     {
         int width = kf_texture_->width(in_lvl_);
         int height = kf_texture_->height(in_lvl_);
