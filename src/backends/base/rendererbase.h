@@ -81,7 +81,7 @@ protected:
         }
 
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        const Scalar area = triangle_area<Scalar>(
+        const Scalar area = triangle_area<Scalar, Vec2>(
             Vec2(vout[0].screen(0), vout[0].screen(1)),
             Vec2(vout[1].screen(0), vout[1].screen(1)),
             Vec2(vout[2].screen(0), vout[2].screen(1)));

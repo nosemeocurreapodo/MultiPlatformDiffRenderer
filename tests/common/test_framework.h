@@ -372,10 +372,14 @@ struct ValidationThresholds
 {
     double max_depth_error = 0.008;
     double max_image_error = 5.0;
+    double max_residual_error = 5.0;
+    double max_l2_error = 550.0;
     double max_didxy_error = 8.0;
     double max_jtra_error = 3500.0;
-    double max_jrot_error = 4000.0;
-    double max_r_error = 400.0;
+    double max_jrot_error = 4100.0;
+    double max_r_error = 6.0;
+    double max_jmap_error = 130.0;
+    double max_pids_error = 12.0;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;

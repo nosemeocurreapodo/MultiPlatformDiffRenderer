@@ -15,31 +15,6 @@ public:
     using index_type = std::uint32_t;
     // using size_type = std::size_t;
 
-    // Default: screen-aligned quad (two tris), z = 1
-    /*
-    MeshCPU()
-    {
-        // 6 vertices (two triangles), pos as (x,y,z)
-        static constexpr float kPos[] = {
-            -1.f, 1.f, 1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
-            -1.f, 1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, 1.f};
-        static constexpr float kUV[] = {
-            0.f, 1.f, 0.f, 0.f, 1.f, 0.f,
-            0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
-        static constexpr float kW[] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
-
-        pos_buffer_ = BufferCPU<float>(std::size(kPos), kPos);
-        tex_buffer_ = BufferCPU<float>(std::size(kUV), kUV);
-        wei_buffer_ = BufferCPU<float>(std::size(kW), kW);
-
-        // Indices for the 6-vertex list above
-        static constexpr index_type kIdx[] = {0, 1, 2, 3, 4, 5};
-        ebo_buffer_ = BufferCPU<index_type>(std::size(kIdx), kIdx);
-
-        validate_();
-    }
-    */
-
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
@@ -143,46 +118,3 @@ private:
     BufferCPU<float> wei_buffer_;
     BufferCPU<index_type> ebo_buffer_;
 };
-
-inline MeshCPU CreateMesh(const TextureCPU<float> &depth, Camera &cam, int grid_size)
-{
-    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
-
-    std::vector<float> vertices, texcoords, weights;
-
-    vertices.clear();
-    texcoords.clear();
-    weights.clear();
-
-    vertices.reserve(grid_uv.size() * 3);
-    texcoords.reserve(grid_uv.size() * 2);
-    weights.reserve(grid_uv.size());
-
-    int w = depth.width(0);
-    int h = depth.height(0);
-    auto depth_mm = depth.MapRead(0);
-
-    for (const Vec2 &uv : grid_uv)
-    {
-        const float ix = uv(0) * (w - 1);
-        const float iy = uv(1) * (h - 1);
-        const int x = static_cast<int>(ix);
-        const int y = static_cast<int>(iy);
-        const float depth = depth_mm[y * w + x];
-
-        if (depth <= 0.0f)
-            continue;
-
-        const Vec3 ray = cam.PixToRay(uv);
-        const Vec3 vertex = ray * depth;
-
-        vertices.push_back(vertex(0));
-        vertices.push_back(vertex(1));
-        vertices.push_back(vertex(2));
-        texcoords.push_back(uv(0));
-        texcoords.push_back(uv(1));
-        weights.push_back(1.0f);
-    }
-
-    return MeshCPU(vertices, texcoords, weights);
-}

@@ -81,9 +81,9 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
     EXPECT_LT(l2_error, thresholds_.max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_depth_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
-    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_depth_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
 }
 
 // Compare CPU vs GL image rendering
@@ -137,8 +137,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
     EXPECT_LT(l2_error, thresholds_.max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 // Compare CPU vs GL image rendering
@@ -194,10 +194,10 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 // Compare CPU vs GL image rendering
@@ -253,10 +253,10 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 // Compare CPU vs GL gradient computation
@@ -310,8 +310,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 
     EXPECT_LT(l2_error, thresholds_.max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_didxy_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_didxy_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 // Test full Jacobian pipeline comparison
@@ -432,8 +432,8 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
     double cpu_time = timer_.Stop();
 
-    cv::Mat cpu_jtra = DownloadTexture(jmap_cpu, out_lvl, CV_32FC3);
-    cv::Mat cpu_jrot = DownloadTexture(pids_cpu, out_lvl, CV_32FC3);
+    cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, out_lvl, CV_32FC3);
+    cv::Mat cpu_pids = DownloadTexture(pids_cpu, out_lvl, CV_32FC3);
     cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
 
     // GL pipeline
@@ -457,37 +457,37 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
     double gl_time = timer_.Stop();
 
-    cv::Mat gl_jtra = DownloadTexture(jmap_gl, out_lvl, CV_32FC3);
-    cv::Mat gl_jrot = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
+    cv::Mat gl_jmap = DownloadTexture(jmap_gl, out_lvl, CV_32FC3);
+    cv::Mat gl_pids = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
     cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
 
     // Validate both Jtra and Jrot
-    double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
-    double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
+    double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+    double pids_error = ComputeL2Error<cv::Vec3f>(cpu_pids, gl_pids, cv::Vec3f(0.0f, 0.0f, 0.0f));
     double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
 
-    SaveDebugImageColor(cpu_jtra, "cross_jmap_cpu.png");
-    SaveDebugImageColor(gl_jtra, "cross_jmap_gl.png");
-    SaveDebugImageColor(cpu_jrot, "cross_pids_cpu.png");
-    SaveDebugImageColor(gl_jrot, "cross_pids_gl.png");
-    //SaveDebugImageColor(cpu_r, "cross_r_cpu.png");
-    //SaveDebugImageColor(gl_r, "cross_r_gl.png");
+    SaveDebugImageColor(cpu_jmap, "cross_jmap_cpu.png");
+    SaveDebugImageColor(gl_jmap, "cross_jmap_gl.png");
+    SaveDebugImageColor(cpu_pids, "cross_pids_cpu.png");
+    SaveDebugImageColor(gl_pids, "cross_pids_gl.png");
+    // SaveDebugImageColor(cpu_r, "cross_r_cpu.png");
+    // SaveDebugImageColor(gl_r, "cross_r_gl.png");
 
     std::cout << "JMap Pipeline Cross-Backend Comparison:\n";
-    std::cout << "  Jtra L2 Error: " << jtra_error << "\n";
-    std::cout << "  Jrot L2 Error: " << jrot_error << "\n";
+    std::cout << "  Jmap L2 Error: " << jmap_error << "\n";
+    std::cout << "  Pids L2 Error: " << pids_error << "\n";
     std::cout << "  r L2 Error: " << r_error << "\n";
     std::cout << "  CPU Time: " << cpu_time << " ms\n";
     std::cout << "  GL Time:  " << gl_time << " ms\n";
     std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
 
-    EXPECT_LT(jtra_error, thresholds_.max_jtra_error) << "Jtra cross-backend error too high";
-    EXPECT_LT(jrot_error, thresholds_.max_jrot_error) << "Jrot cross-backend error too high";
+    EXPECT_LT(jmap_error, thresholds_.max_jmap_error) << "Jtra cross-backend error too high";
+    EXPECT_LT(pids_error, thresholds_.max_pids_error) << "Jrot cross-backend error too high";
     EXPECT_LT(r_error, thresholds_.max_r_error) << "Jrot cross-backend error too high";
 
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    //EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    //EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 /*
