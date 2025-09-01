@@ -157,7 +157,7 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling)
         EXPECT_EQ(error, GL_NO_ERROR) << "Extreme transformations should not cause GL errors";
     }
 }
-/*
+
 // Test invalid mipmap levels
 TEST_F(ErrorHandlingTests, InvalidMipmapLevels)
 {
@@ -188,7 +188,7 @@ TEST_F(ErrorHandlingTests, InvalidMipmapLevels)
         EXPECT_EQ(error, GL_NO_ERROR) << "Invalid mipmap levels should be handled gracefully";
     }
 }
-*/
+
 // Test texture size mismatches
 TEST_F(ErrorHandlingTests, TextureSizeMismatch)
 {

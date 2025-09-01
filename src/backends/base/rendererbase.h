@@ -53,12 +53,15 @@ protected:
         // Vertex shading & clip → NDC → screen
         struct VSOut
         {
-            Vec2 screen; // x,y in pixel space (float)
+            Vec2 screen;  // x,y in pixel space (float)
             Scalar depth; // z in [0,1] if your projection is like GL_ZERO_TO_ONE
             Scalar invW;  // 1 / clip.w
             // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
             typename Derived::Varyings var; // original varyings (for convenience)
         } vout[3];
+
+        const Scalar vp_w = static_cast<Scalar>(viewport.max_x_ - viewport.min_x_);
+        const Scalar vp_h = static_cast<Scalar>(viewport.max_y_ - viewport.min_y_);
 
         for (int i = 0; i < 3; ++i)
         {
@@ -72,19 +75,18 @@ protected:
             const Scalar ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            vout[i].screen(0) = 0.5f * (ndc_x + 1.0f) * (viewport.max_x_ - viewport.min_x_);
-            vout[i].screen(1) = 0.5f * (ndc_y + 1.0f) * (viewport.max_y_ - viewport.min_y_);
-            vout[i].depth = ndc_z;
-            vout[i].invW = invW;
-            vout[i].var = varyings;
+            vout[i].screen(0) = viewport.min_x_ + Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w;
+            vout[i].screen(1) = viewport.min_y_ + Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h;
+            vout[i].depth     = ndc_z;
+            vout[i].invW      = invW;
+            vout[i].var       = varyings;
             // vout[i].var_over_w = varyings * invW; // requires scalar*VaryingType
         }
 
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        const Scalar area = triangle_area<Scalar, Vec2>(
-            Vec2(vout[0].screen(0), vout[0].screen(1)),
-            Vec2(vout[1].screen(0), vout[1].screen(1)),
-            Vec2(vout[2].screen(0), vout[2].screen(1)));
+        const Scalar area = triangle_area<Scalar, Vec2>(vout[0].screen,
+                                                        vout[1].screen,
+                                                        vout[2].screen);
         ErrorHandling::ValidateTriangleArea(area);
         // if (area <= 0) return;            // enable to cull backfaces
 
@@ -98,7 +100,7 @@ protected:
         Int x1 = std::min(viewport.max_x_, static_cast<Int>(std::ceil(maxx)));
         Int y0 = std::max(viewport.min_y_, static_cast<Int>(std::floor(miny)));
         Int y1 = std::min(viewport.max_y_, static_cast<Int>(std::ceil(maxy)));
-        if (x0 > x1 || y0 > y1)
+        if (x0 >= x1 || y0 >= y1)
             return;
 
         // Edge setup (top-left rule)
@@ -106,11 +108,11 @@ protected:
         const Scalar xB = vout[1].screen(0), yB = vout[1].screen(1);
         const Scalar xC = vout[2].screen(0), yC = vout[2].screen(1);
 
-        const Scalar area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
-        ErrorHandling::ValidateTriangleArea(area2);
-        ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
+        //const Scalar area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
+        //ErrorHandling::ValidateTriangleArea(area2);
+        //ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
-        const Scalar inv_area2 = 1.0f / area2;
+        const Scalar inv_area = 1.0f / area;
 
         const bool tlAB = is_top_left(xA, yA, xB, yB);
         const bool tlBC = is_top_left(xB, yB, xC, yC);
@@ -133,13 +135,13 @@ protected:
         const Scalar eCA_dy = (xC - xA);
 
         // Rasterize
-        for (int y = y0; y <= y1; ++y)
+        for (int y = y0; y < y1; ++y)
         {
             Scalar eAB = eAB_row;
             Scalar eBC = eBC_row;
             Scalar eCA = eCA_row;
 
-            for (int x = x0; x <= x1; ++x)
+            for (int x = x0; x < x1; ++x)
             {
                 // Top-left rule adjustments (include pixels on top/left edges)
                 const bool inside =
@@ -150,17 +152,17 @@ protected:
                 if (inside)
                 {
                     // Barycentric weights normalized
-                    const Scalar w0 = eBC * inv_area2;
-                    const Scalar w1 = eCA * inv_area2;
-                    const Scalar w2 = eAB * inv_area2;
+                    const Scalar w0 = eBC * inv_area;
+                    const Scalar w1 = eCA * inv_area;
+                    const Scalar w2 = eAB * inv_area;
 
                     // Perspective: 1/w at pixel
                     const Scalar invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
 
                     typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
-                                                                                   vout[0].invW, vout[1].invW, vout[2].invW,
-                                                                                   invW_px,
-                                                                                   vout[0].var, vout[1].var, vout[2].var);
+                                                                                            vout[0].invW, vout[1].invW, vout[2].invW,
+                                                                                            invW_px,
+                                                                                            vout[0].var, vout[1].var, vout[2].var);
 
                     // Interpolate varyings divided by w, then divide by invW_px
                     // Varyings var_over_w_px =
@@ -171,8 +173,8 @@ protected:
 
                     // Depth (if needed; same trick)
                     Scalar depth_px = w0 * (vout[0].depth * vout[0].invW) +
-                                     w1 * (vout[1].depth * vout[1].invW) +
-                                     w2 * (vout[2].depth * vout[2].invW);
+                                      w1 * (vout[1].depth * vout[1].invW) +
+                                      w2 * (vout[2].depth * vout[2].invW);
                     depth_px *= (1.0f / invW_px);
                     // Depth test could go here
 

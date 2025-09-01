@@ -96,7 +96,7 @@ public:
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -183,7 +183,7 @@ public:
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -281,7 +281,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -373,7 +373,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -455,7 +455,7 @@ public:
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -591,7 +591,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -725,7 +725,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W - 1, 0, H - 1);
+        BoundingBoxType<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
