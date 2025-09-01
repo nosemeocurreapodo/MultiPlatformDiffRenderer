@@ -375,6 +375,7 @@ struct ValidationThresholds
     double max_didxy_error = 8.0;
     double max_jtra_error = 3500.0;
     double max_jrot_error = 4000.0;
+    double max_r_error = 400.0;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;
