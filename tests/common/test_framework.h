@@ -64,7 +64,8 @@ protected:
     void SetUp() override
     {
         // Load test dataset
-        dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
+        // dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
+        dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
         depth_files_ = dataset_->GetDepthFiles();
@@ -253,7 +254,9 @@ protected:
 
 protected:
     // Dataset and test data
-    std::unique_ptr<LoadDatasetIclNuim> dataset_;
+    //std::unique_ptr<LoadDatasetIclNuim> dataset_;
+    std::unique_ptr<LoadDesktopDataset> dataset_;
+
     std::vector<std::string> image_files_, depth_files_;
     std::vector<SE3> poses_;
     Camera cam_;
@@ -391,10 +394,10 @@ struct ValidationThresholds
     double max_cpu_jrot_time_ms = 1800.0;
     double max_gl_jrot_time_ms = 11.0;
 
-    //double max_l2_error = 1.0;
-    //double max_cross_backend_error = 0.5;
-    //double max_execution_time_ms = 1000.0;
-    //double max_performance_ratio = 2.0; // CPU vs GL performance ratio
+    // double max_l2_error = 1.0;
+    // double max_cross_backend_error = 0.5;
+    // double max_execution_time_ms = 1000.0;
+    // double max_performance_ratio = 2.0; // CPU vs GL performance ratio
 };
 
 /*
