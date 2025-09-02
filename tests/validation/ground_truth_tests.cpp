@@ -72,9 +72,10 @@ TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
 
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
 
+    cv::Mat mask = (result != -1.0f);
     // Basic validation against expected properties
     cv::Scalar mean_val, std_val;
-    cv::meanStdDev(result, mean_val, std_val);
+    cv::meanStdDev(result, mean_val, std_val, mask);
 
     EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
     EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
