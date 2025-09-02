@@ -483,7 +483,7 @@ class LoadDesktopDataset : public LoadDatasetBase
 {
 public:
     LoadDesktopDataset(std::string test_data_path)
-        : LoadDatasetBase(481.20, -480.0, 319.5, 239.5, 640, 480)
+        : LoadDatasetBase(481.20, 480.0, 319.5, 239.5, 640, 480)
     {
         std::string dataset_path = test_data_path + "/desktop_dataset";
         std::string images_path = dataset_path + "/images";
