@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "core/common.h"
 #include "../common/test_framework.h"
 
 #ifdef COMPILE_GL
@@ -13,14 +14,14 @@ public:
 static ::testing::Environment *const gl_env =
     ::testing::AddGlobalTestEnvironment(new GLContextEnv());
 
-class CrossBackendTests : public RendererTestBase
+class CrossBackendTests : public TwoViewTests
 {
 protected:
     ValidationThresholds thresholds_;
 
     void SetUp() override
     {
-        RendererTestBase::SetUp();
+        TwoViewTests::SetUp();
 
         // Set cross-backend validation thresholds
         // thresholds_.max_l2_error = 1.5;
@@ -34,13 +35,12 @@ protected:
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
     const int out_lvl = 0;
+
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU implementation
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    TextureCPU<float> input_cpu(w_, h_, 0.0f);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(input_cpu, 0, image_src_cv_);
 
     DepthRendererCPU renderer_cpu;
     timer_.Start();
@@ -50,7 +50,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
 
     // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> output_gl(w_, h_, 0.0f);
 
     DepthRendererGL renderer_gl;
@@ -93,7 +93,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU implementation
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
@@ -106,7 +106,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
 
     // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
@@ -148,7 +148,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU implementation
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> input1_cpu(w_, h_, 0.0f);
     TextureCPU<float> input2_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
@@ -163,7 +163,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
 
     // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> input1_gl(w_, h_, 0.0f);
     TextureGL<float> input2_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
@@ -207,7 +207,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU implementation
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> input1_cpu(w_, h_, 0.0f);
     TextureCPU<float> input2_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
@@ -222,7 +222,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
 
     // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> input1_gl(w_, h_, 0.0f);
     TextureGL<float> input2_gl(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
@@ -264,11 +264,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 {
     const int in_lvl = 0, out_lvl = 0;
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
     // CPU implementation
-    MeshCPU mesh_cpu(quad_pos, quad_uv, quad_weights);
+    MeshCPU mesh_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<Vec3> output_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
@@ -281,7 +278,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
 
     // GL implementation
-    MeshGL mesh_gl(quad_pos, quad_uv, quad_weights);
+    MeshGL mesh_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
     TextureGL<float> input_gl(w_, h_, 0.0f);
     TextureGL<Vec3> output_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     UploadMatToTexture(input_gl, 0, image_src_cv_);
@@ -320,12 +317,9 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
     // CPU pipeline
-    MeshCPU mesh_img_cpu(quad_pos, quad_uv, quad_weights);
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
 
     TextureCPU<float> kf_cpu(w_, h_, 0.0f);
     TextureCPU<float> f_cpu(w_, h_, 0.0f);
@@ -349,8 +343,8 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
 
     // GL pipeline
-    MeshGL mesh_img_gl(quad_pos, quad_uv, quad_weights);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     TextureGL<float> kf_gl(w_, h_, 0.0f);
     TextureGL<float> f_gl(w_, h_, 0.0f);
@@ -408,12 +402,9 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
     // CPU pipeline
-    MeshCPU mesh_img_cpu(quad_pos, quad_uv, quad_weights);
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
 
     TextureCPU<float> kf_cpu(w_, h_, 0.0f);
     TextureCPU<float> f_cpu(w_, h_, 0.0f);
@@ -437,8 +428,8 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
 
     // GL pipeline
-    MeshGL mesh_img_gl(quad_pos, quad_uv, quad_weights);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     TextureGL<float> kf_gl(w_, h_, 0.0f);
     TextureGL<float> f_gl(w_, h_, 0.0f);
@@ -582,7 +573,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
     for (int i = 0; i < iterations; ++i)
     {
         // CPU
-        MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+        MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
         TextureCPU<float> output_cpu(w_, h_, 0.0f);
 
         DepthRendererCPU renderer_cpu;
@@ -590,7 +581,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
         cpu_results.push_back(DownloadTexture(output_cpu, out_lvl, CV_32FC1));
 
         // GL
-        MeshGL mesh_gl(vertices_, texcoords_, weights_);
+        MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
         TextureGL<float> output_gl(w_, h_, 0.0f);
 
         DepthRendererGL renderer_gl;

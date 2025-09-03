@@ -190,7 +190,7 @@ protected:
                 closest_diff = diff;
             }
         }
-        return closest_pose;
+        return closest_pose.inverse();
     }
 
     unsigned int w_, h_;

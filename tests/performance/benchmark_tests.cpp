@@ -28,7 +28,7 @@ TEST_F(RendererBenchmark, BenchmarkDepthRendererCPU) {
     const int iterations = 10;
     const int in_lvl = 0, out_lvl = 0;
     
-    MeshCPU mesh(vertices_, texcoords_, weights_);
+    MeshCPU mesh(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> input(w_, h_, 0.0f);
     TextureCPU<float> output(w_, h_, 0.0f);
     UploadMatToTextureCPU(input, 0, image_src_cv_);
@@ -71,7 +71,7 @@ TEST_F(RendererBenchmark, BenchmarkDepthRendererGL) {
     const int iterations = 10;
     const int in_lvl = 0, out_lvl = 0;
     
-    MeshGL mesh(vertices_, texcoords_, weights_);
+    MeshGL mesh(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> input(w_, h_, 0.0f);
     TextureGL<float> output(w_, h_, 0.0f);
     UploadMatToTextureGL(input, 0, image_src_cv_);
@@ -116,7 +116,7 @@ TEST_F(RendererBenchmark, ComparativePerformanceCPUvsGL) {
     const int in_lvl = 0, out_lvl = 0;
     
     // CPU setup
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     TextureCPU<float> input_cpu(w_, h_, 0.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
     UploadMatToTextureCPU(input_cpu, 0, image_src_cv_);
@@ -175,14 +175,10 @@ TEST_F(RendererBenchmark, MemoryUsageBenchmark) {
     for (int res : resolutions) {
         std::cout << "Testing resolution: " << res << "x" << res << "\n";
         
-        // Create test data
-        std::vector<float> test_vertices, test_texcoords, test_weights;
-        CreateScreenQuad(test_vertices, test_texcoords, test_weights);
-        
         // CPU memory usage
         timer_.Start();
         {
-            MeshCPU mesh_cpu(test_vertices, test_texcoords, test_weights);
+            MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
             TextureCPU<float> input_cpu(res, res, 0.0f);
             TextureCPU<float> output_cpu(res, res, 0.0f);
             
@@ -194,7 +190,7 @@ TEST_F(RendererBenchmark, MemoryUsageBenchmark) {
         // GL memory usage
         timer_.Start();
         {
-            MeshGL mesh_gl(test_vertices, test_texcoords, test_weights);
+            MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
             TextureGL<float> input_gl(res, res, 0.0f);
             TextureGL<float> output_gl(res, res, 0.0f);
             

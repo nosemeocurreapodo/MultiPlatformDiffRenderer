@@ -13,12 +13,12 @@ public:
 static ::testing::Environment *const gl_env =
     ::testing::AddGlobalTestEnvironment(new GLContextEnv());
 
-class ErrorHandlingTests : public RendererTestBase
+class ErrorHandlingTests : public TwoViewTests
 {
 protected:
     void SetUp() override
     {
-        RendererTestBase::SetUp();
+        TwoViewTests::SetUp();
     }
 };
 
@@ -26,10 +26,11 @@ protected:
 TEST_F(ErrorHandlingTests, EmptyMeshHandling)
 {
     std::vector<float> empty_vertices, empty_texcoords, empty_weights;
+    std::vector<unsigned int> empty_indices;
 
     // CPU test
     {
-        MeshCPU empty_mesh(empty_vertices, empty_texcoords, empty_weights);
+        MeshCPU empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
         TextureCPU<float> output(w_, h_, -1.0f);
 
         DepthRendererCPU renderer;
@@ -44,7 +45,7 @@ TEST_F(ErrorHandlingTests, EmptyMeshHandling)
 
     // GL test
     {
-        MeshGL empty_mesh(empty_vertices, empty_texcoords, empty_weights);
+        MeshGL empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
         TextureGL<float> output(w_, h_, -1.0f);
 
         DepthRendererGL renderer;
@@ -111,8 +112,8 @@ TEST_F(ErrorHandlingTests, DegenerateTriangleHandling)
 // Test extreme transformation matrices
 TEST_F(ErrorHandlingTests, ExtremeTransformationHandling)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     // Test with very large scale
     SE3 large_scale;
@@ -161,8 +162,8 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling)
 // Test invalid mipmap levels
 TEST_F(ErrorHandlingTests, InvalidMipmapLevels)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     // CPU test with invalid levels
     {
@@ -195,8 +196,8 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch)
     const int small_w = 64, small_h = 64;
     const int large_w = 512, large_h = 512;
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     // CPU test with size mismatch
     {
@@ -227,8 +228,8 @@ TEST_F(ErrorHandlingTests, TextureSizeMismatch)
 // Test camera parameter edge cases
 TEST_F(ErrorHandlingTests, CameraParameterEdgeCases)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
     // Create camera with extreme parameters
     Camera extreme_cam;
@@ -286,13 +287,14 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling)
 
         // Create large test data
         std::vector<float> large_vertices, large_texcoords, large_weights;
-        CreateScreenQuad(large_vertices, large_texcoords, large_weights);
+        std::vector<unsigned int> large_indices;
+        CreateScreenQuad(large_vertices, large_texcoords, large_weights, large_indices);
 
         try
         {
             // CPU test
             {
-                MeshCPU mesh(large_vertices, large_texcoords, large_weights);
+                MeshCPU mesh(large_vertices, large_texcoords, large_weights, large_indices);
 
                 TextureCPU<float> output(size, size, -1.0f);
 
@@ -304,7 +306,7 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling)
 
             // GL test
             {
-                MeshGL mesh(large_vertices, large_texcoords, large_weights);
+                MeshGL mesh(large_vertices, large_texcoords, large_weights, large_indices);
 
                 TextureGL<float> output(size, size, -1.0f);
 
@@ -344,12 +346,12 @@ TEST_F(ErrorHandlingTests, ThreadSafetyBasics)
     // Use them sequentially (not testing true concurrency, just multiple instances)
     for (int i = 0; i < num_instances; ++i)
     {
-        MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+        MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
         TextureCPU<float> output_cpu(w_, h_, -1.0f);
 
         ASSERT_NO_THROW(cpu_renderers[i]->Render(mesh_cpu, SE3(), cam_, 0, output_cpu));
 
-        MeshGL mesh_gl(vertices_, texcoords_, weights_);
+        MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
         TextureGL<float> output_gl(w_, h_, -1.0f);
 
         ASSERT_NO_THROW(gl_renderers[i]->Render(mesh_gl, SE3(), cam_, 0, output_gl));

@@ -5,7 +5,6 @@
 #include <cmath>
 
 #include "core/types.h"
-#include "core/common.h"
 
 class DelaunayTriangulation
 {
@@ -47,10 +46,10 @@ public:
         for (const auto &tri : badTriangles)
         {
             std::array<Vec2i, 3> edges;
-            //edges[0] = {tri(0), tri(1)};
-            //edges[1] = {tri(1), tri(2)};
-            //edges[2] = {tri(2), tri(0)};
-            
+            // edges[0] = {tri(0), tri(1)};
+            // edges[1] = {tri(1), tri(2)};
+            // edges[2] = {tri(2), tri(0)};
+
             edges[0] = Vec2i(tri(0), tri(1));
             edges[1] = Vec2i(tri(1), tri(2));
             edges[2] = Vec2i(tri(2), tri(0));
@@ -132,6 +131,33 @@ public:
     }
 
 private:
+    bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
+    {
+        bool isIndicePresent[3];
+        for (int tri_indice = 0; tri_indice < 3; tri_indice++)
+        {
+            isIndicePresent[tri_indice] = false;
+            if (tri_indices_1(tri_indice) == tri_indices_2(0) || tri_indices_1(tri_indice) == tri_indices_2(1) || tri_indices_1(tri_indice) == tri_indices_2(2))
+                isIndicePresent[tri_indice] = true;
+        }
+        if (isIndicePresent[0] && isIndicePresent[1] && isIndicePresent[2])
+            return true;
+        return false;
+    }
+
+    bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
+    {
+        bool isIndicePresent[2];
+        for (int edge_indice = 0; edge_indice < 2; edge_indice++)
+        {
+            isIndicePresent[edge_indice] = false;
+            if (edge_indices_1(edge_indice) == edge_indices_2(0) || edge_indices_1(edge_indice) == edge_indices_2(1))
+                isIndicePresent[edge_indice] = true;
+        }
+        if (isIndicePresent[0] && isIndicePresent[1])
+            return true;
+        return false;
+    }
     std::array<Vec2, 3> GetSuperTriangle()
     {
         double minX = std::numeric_limits<double>::max();
@@ -250,24 +276,3 @@ private:
     std::vector<Vec2> vertices_;
     std::vector<Vec3i> triangles_;
 };
-
-inline std::vector<unsigned int> BuildTriangles(std::vector<float> tex_coords)
-{
-    DelaunayTriangulation triangulator_;
-    std::vector<Vec2> tex_coords_2d;
-    for (size_t i = 0; i < tex_coords.size(); i += 2)
-    {
-        tex_coords_2d.push_back(Vec2(tex_coords[i], tex_coords[i + 1]));
-    }
-    triangulator_.LoadPoints(tex_coords_2d);
-    triangulator_.Triangulate();
-    std::vector<Vec3i> tris = triangulator_.GetTriangles();
-    std::vector<unsigned int> tris_f;
-    for (size_t i = 0; i < tris.size(); i++)
-    {
-        tris_f.push_back(tris[i](0));
-        tris_f.push_back(tris[i](1));
-        tris_f.push_back(tris[i](2));
-    }
-    return tris_f;
-}

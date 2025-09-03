@@ -19,22 +19,12 @@ public:
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &weights,   // 1 float  per vertex
-            const std::vector<index_type> &indices = {})
+            const std::vector<index_type> &indices)
         : pos_buffer_(positions),
           tex_buffer_(texcoords),
-          wei_buffer_(weights)
+          wei_buffer_(weights),
+          ebo_buffer_(indices)
     {
-        if (!indices.empty())
-        {
-            ebo_buffer_ = BufferCPU<index_type>(indices);
-        }
-        else
-        {
-            // Delaunay returns unsigned int; convert to std::size_t
-            std::vector<unsigned int> tris = BuildTriangles(texcoords);
-            std::vector<index_type> idx(tris.begin(), tris.end());
-            ebo_buffer_ = BufferCPU<index_type>(idx);
-        }
         validate_();
     }
 

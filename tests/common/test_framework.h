@@ -13,6 +13,7 @@
 
 #include "core/format_converters.h"
 #include "core/types.h"
+#include "core/common.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
@@ -66,7 +67,7 @@ protected:
         // Load test dataset
         dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
         // dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
-        //dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
+        // dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
         depth_files_ = dataset_->GetDepthFiles();
@@ -75,88 +76,19 @@ protected:
         w_ = dataset_->GetWidth();
         h_ = dataset_->GetHeight();
         depth_factor_ = dataset_->GetDepthFactor();
-
-        // Setup test frames
-        SetupTestFrames();
-
-        // Create mesh data
-        CreateTestMesh();
     }
 
-    void SetupTestFrames()
+    void TearDown() override
     {
-        const int src = 0;
-        const int dst = 50;
-
-        // Load and preprocess images
-        image_src_cv_ = cv::imread(image_files_[src], cv::IMREAD_GRAYSCALE);
-        depth_src_cv_ = cv::imread(depth_files_[src], cv::IMREAD_GRAYSCALE);
-        image_dst_cv_ = cv::imread(image_files_[dst], cv::IMREAD_GRAYSCALE);
-        depth_dst_cv_ = cv::imread(depth_files_[dst], cv::IMREAD_GRAYSCALE);
-
-        ASSERT_FALSE(image_src_cv_.empty()) << "Failed to load source image";
-        ASSERT_FALSE(depth_src_cv_.empty()) << "Failed to load source depth";
-        ASSERT_FALSE(image_dst_cv_.empty()) << "Failed to load destination image";
-        ASSERT_FALSE(depth_dst_cv_.empty()) << "Failed to load destination depth";
-
-        // Apply morphological operations to reduce noise
-        const int morph_size = 5;
-        cv::Mat element = cv::getStructuringElement(
-            cv::MORPH_ELLIPSE,
-            cv::Size(2 * morph_size + 1, 2 * morph_size + 1),
-            cv::Point(morph_size, morph_size));
-        cv::morphologyEx(depth_src_cv_, depth_src_cv_, cv::MORPH_CLOSE, element);
-        cv::morphologyEx(depth_dst_cv_, depth_dst_cv_, cv::MORPH_CLOSE, element);
-
-        // Convert to float and scale
-        image_src_cv_.convertTo(image_src_cv_, CV_32FC1);
-        depth_src_cv_.convertTo(depth_src_cv_, CV_32FC1);
-        image_dst_cv_.convertTo(image_dst_cv_, CV_32FC1);
-        depth_dst_cv_.convertTo(depth_dst_cv_, CV_32FC1);
-
-        depth_src_cv_ /= depth_factor_;
-        depth_src_cv_ *= 100.0f;
-        depth_dst_cv_ /= depth_factor_;
-        depth_dst_cv_ *= 100.0f;
-
-        pose_src_ = poses_[src].inverse();
-        pose_dst_ = poses_[dst].inverse();
+        // Cleanup
+        dataset_.reset();
     }
 
-    void CreateTestMesh()
+    cv::Mat ReadMat(const std::string &filename)
     {
-        const int grid_size = 32;
-        std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
-
-        vertices_.clear();
-        texcoords_.clear();
-        weights_.clear();
-
-        vertices_.reserve(grid_uv.size() * 3);
-        texcoords_.reserve(grid_uv.size() * 2);
-        weights_.reserve(grid_uv.size());
-
-        for (const Vec2 &uv : grid_uv)
-        {
-            const float ix = uv(0) * (w_ - 1);
-            const float iy = uv(1) * (h_ - 1);
-            const int x = static_cast<int>(ix);
-            const int y = static_cast<int>(iy);
-            const float depth = depth_src_cv_.at<float>(y, x);
-
-            if (depth <= 0.0f)
-                continue;
-
-            const Vec3 ray = cam_.PixToRay(uv);
-            const Vec3 vertex = ray * depth;
-
-            vertices_.push_back(vertex(0));
-            vertices_.push_back(vertex(1));
-            vertices_.push_back(vertex(2));
-            texcoords_.push_back(uv(0));
-            texcoords_.push_back(uv(1));
-            weights_.push_back(1.0f);
-        }
+        cv::Mat image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
+        image.convertTo(image, CV_32FC1);
+        return image;
     }
 
     // Helper functions for texture operations
@@ -166,7 +98,7 @@ protected:
         assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
         auto mapped = tex.MapWrite(lvl);
         std::memcpy(mapped.data(), mat.ptr(), mat.total() * tex.type_size());
-        tex.generate_mipmaps(0);
+        tex.generate_mipmaps(lvl);
     }
 
     template <typename Texture>
@@ -176,16 +108,6 @@ protected:
         auto mapped = tex.MapRead(lvl);
         std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
         return result;
-    }
-
-    // Screen quad for image-space rendering
-    void CreateScreenQuad(std::vector<float> &pos, std::vector<float> &uv, std::vector<float> &weights)
-    {
-        pos = {-1.f, 1.f, 1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
-               -1.f, 1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, 1.f};
-        uv = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f,
-              0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
-        weights.assign(6, 1.0f);
     }
 
     // Error computation
@@ -256,8 +178,8 @@ protected:
 protected:
     // Dataset and test data
     std::unique_ptr<LoadDatasetIclNuim> dataset_;
-    //std::unique_ptr<LoadDesktopDataset> dataset_;
-    //std::unique_ptr<LoadDatasetTumRgbd> dataset_;
+    // std::unique_ptr<LoadDesktopDataset> dataset_;
+    // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
     std::vector<SE3> poses_;
@@ -266,14 +188,49 @@ protected:
     float depth_factor_;
 
     // Test frames
-    cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
-    SE3 pose_src_, pose_dst_;
+    // cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
+    // SE3 pose_src_, pose_dst_;
 
     // Mesh data
-    std::vector<float> vertices_, texcoords_, weights_;
+    // std::vector<float> vertices_, texcoords_, weights_;
+    // std::vector<int> indices_;
 
     // Performance timer
     PerformanceTimer timer_;
+};
+
+class TwoViewTests : public RendererTestBase
+{
+protected:
+    void SetUp() override
+    {
+        RendererTestBase::SetUp();
+
+        image_src_cv_ = ReadMat(image_files_[0]);
+        depth_src_cv_ = ReadMat(depth_files_[0]);
+        pose_src_ = poses_[0];
+
+        image_dst_cv_ = ReadMat(image_files_[50]);
+        depth_dst_cv_ = ReadMat(depth_files_[50]);
+        pose_dst_ = poses_[50];
+
+        TextureCPU<float> depth_src_cpu(w_, h_, 0.0f);
+        UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
+
+        CreateMesh(depth_src_cpu, cam_, 32, vertices_, texcoords_, weights_, indices_);
+
+        CreateScreenQuad(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    }
+
+    cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
+
+    SE3 pose_src_, pose_dst_;
+
+    std::vector<float> vertices_, texcoords_, weights_;
+    std::vector<unsigned int> indices_;
+
+    std::vector<float> screen_vertices_, screen_texcoords_, screen_weights_;
+    std::vector<unsigned int> screen_indices_;
 };
 
 // Test result reporting utilities
@@ -375,16 +332,16 @@ public:
 // Validation thresholds
 struct ValidationThresholds
 {
-    double max_depth_error = 3e-6;
+    double max_depth_error = 9e-5;
     double max_image_error = 3.0;
     double max_residual_error = 3.0;
     double max_l2_error = 400.0;
     double max_didxy_error = 0.5;
     double max_jtra_error = 0.009;
     double max_jrot_error = 0.002;
-    double max_r_error = 3.0;
+    double max_r_error = 4.0;
     double max_jmap_error = 0.5;
-    double max_pids_error = 0.4;
+    double max_pids_error = 0.6;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;

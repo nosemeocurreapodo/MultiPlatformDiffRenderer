@@ -46,12 +46,12 @@ struct GLBackendTraits
 #endif
 
 template <typename Backend>
-class RendererTypedTests : public RendererTestBase
+class RendererTypedTests : public TwoViewTests
 {
 protected:
     void SetUp() override
     {
-        RendererTestBase::SetUp();
+        TwoViewTests::SetUp();
     }
 };
 
@@ -63,7 +63,7 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
     using Traits = TypeParam;
     const int out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
@@ -102,7 +102,7 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
@@ -126,7 +126,7 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     typename Traits::template TextureT<float> input1(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> input2(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -152,7 +152,7 @@ TYPED_TEST_P(RendererTypedTests, L2RendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     typename Traits::template TextureT<float> input1(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> input2(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -179,10 +179,7 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    this->CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
-    typename Traits::MeshT mesh(quad_pos, quad_uv, quad_weights);
+    typename Traits::MeshT mesh(this->screen_vertices_, this->screen_texcoords_, this->screen_weights_, this->screen_indices_);
     typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<Vec3> output(this->w_, this->h_, Vec3(0.0f, 0.0f, 0.0f));
 
@@ -212,11 +209,8 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    this->CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
-    typename Traits::MeshT mesh_img(quad_pos, quad_uv, quad_weights);
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh_img(this->screen_vertices_, this->screen_texcoords_, this->screen_weights_, this->screen_indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     typename Traits::template TextureT<float> kf_tex(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> f_tex(this->w_, this->h_, 0.0f);
@@ -261,11 +255,8 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    std::vector<float> quad_pos, quad_uv, quad_weights;
-    this->CreateScreenQuad(quad_pos, quad_uv, quad_weights);
-
-    typename Traits::MeshT mesh_img(quad_pos, quad_uv, quad_weights);
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh_img(this->screen_vertices_, this->screen_texcoords_, this->screen_weights_, this->screen_indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     typename Traits::template TextureT<float> kf_tex(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> f_tex(this->w_, this->h_, 0.0f);
@@ -311,14 +302,15 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
     const int in_lvl = 0, out_lvl = 0;
 
     std::vector<float> empty_vertices, empty_texcoords, empty_weights;
-    typename Traits::MeshT empty_mesh(empty_vertices, empty_texcoords, empty_weights);
+    std::vector<unsigned int> empty_indices;
+    typename Traits::MeshT empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
 
     ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, out_lvl, output));
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, out_lvl, output));
 
     if (this->w_ >= 4 && this->h_ >= 4)
@@ -335,7 +327,7 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
     const int iterations = 10;
     for (int i = 0; i < iterations; ++i)
     {
-        typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+        typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
         typename Traits::DepthRendererT renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
@@ -350,7 +342,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
     const int out_lvl = 0;
     const int iterations = 5;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     typename Traits::DepthRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -375,7 +367,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
 TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
 {
     using Traits = TypeParam;
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
     const std::vector<std::pair<int, int>> sizes = {{64, 64}, {128, 128}, {256, 256}};
     for (const auto &size : sizes)
     {

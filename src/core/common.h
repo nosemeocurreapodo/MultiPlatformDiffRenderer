@@ -1,36 +1,10 @@
 #pragma once
 
 #include "core/types.h"
+#include "core/delaunaytriangulation.h"
+#include "core/render_constants.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
-
-static bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
-{
-    bool isIndicePresent[3];
-    for (int tri_indice = 0; tri_indice < 3; tri_indice++)
-    {
-        isIndicePresent[tri_indice] = false;
-        if (tri_indices_1(tri_indice) == tri_indices_2(0) || tri_indices_1(tri_indice) == tri_indices_2(1) || tri_indices_1(tri_indice) == tri_indices_2(2))
-            isIndicePresent[tri_indice] = true;
-    }
-    if (isIndicePresent[0] && isIndicePresent[1] && isIndicePresent[2])
-        return true;
-    return false;
-}
-
-static bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
-{
-    bool isIndicePresent[2];
-    for (int edge_indice = 0; edge_indice < 2; edge_indice++)
-    {
-        isIndicePresent[edge_indice] = false;
-        if (edge_indices_1(edge_indice) == edge_indices_2(0) || edge_indices_1(edge_indice) == edge_indices_2(1))
-            isIndicePresent[edge_indice] = true;
-    }
-    if (isIndicePresent[0] && isIndicePresent[1])
-        return true;
-    return false;
-}
 
 inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
@@ -61,4 +35,122 @@ inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
     return depth;
+}
+
+inline std::vector<unsigned int> BuildTriangles(const std::vector<float> &tex_coords)
+{
+    DelaunayTriangulation triangulator_;
+    std::vector<Vec2> tex_coords_2d;
+    for (size_t i = 0; i < tex_coords.size(); i += 2)
+    {
+        tex_coords_2d.push_back(Vec2(tex_coords[i], tex_coords[i + 1]));
+    }
+    triangulator_.LoadPoints(tex_coords_2d);
+    triangulator_.Triangulate();
+    std::vector<Vec3i> tris = triangulator_.GetTriangles();
+    std::vector<unsigned int> tris_f;
+    for (size_t i = 0; i < tris.size(); i++)
+    {
+        tris_f.push_back(tris[i](0));
+        tris_f.push_back(tris[i](1));
+        tris_f.push_back(tris[i](2));
+    }
+    return tris_f;
+}
+
+// Screen quad for image-space rendering
+inline void CreateScreenQuad(std::vector<float> &pos,
+                             std::vector<float> &uv,
+                             std::vector<float> &weights,
+                             std::vector<unsigned int> &indices)
+{
+    pos = {-1.f, 1.f, 1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
+           -1.f, 1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, 1.f};
+    uv = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f,
+          0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
+    weights.assign(6, 1.0f);
+    //indices = {0, 1, 2, 0, 2, 3};
+    indices = BuildTriangles(uv);
+}
+
+inline void CreateMesh(const TextureCPU<float> &depth, Camera &cam, int grid_size,
+                       std::vector<float> &vertices,
+                       std::vector<float> &texcoords,
+                       std::vector<float> &weights,
+                       std::vector<unsigned int> &indices)
+{
+    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
+
+    vertices.clear();
+    texcoords.clear();
+    weights.clear();
+
+    vertices.reserve(grid_uv.size() * 3);
+    texcoords.reserve(grid_uv.size() * 2);
+    weights.reserve(grid_uv.size());
+
+    int w = depth.width(0);
+    int h = depth.height(0);
+    auto depth_mm = depth.MapRead(0);
+
+    for (const Vec2 &uv : grid_uv)
+    {
+        const float ix = uv(0) * (w - 1);
+        const float iy = uv(1) * (h - 1);
+        const int x = static_cast<int>(ix);
+        const int y = static_cast<int>(iy);
+        const float depth = depth_mm[y * w + x];
+
+        if (depth <= 0.0f)
+            continue;
+
+        const Vec3 ray = cam.PixToRay(uv);
+        const Vec3 vertex = ray * depth;
+
+        vertices.push_back(vertex(0));
+        vertices.push_back(vertex(1));
+        vertices.push_back(vertex(2));
+        texcoords.push_back(uv(0));
+        texcoords.push_back(uv(1));
+        weights.push_back(1.0f);
+    }
+
+    indices = BuildTriangles(texcoords);
+}
+
+inline void CreateMesh(Camera &cam, int grid_size,
+                       std::vector<float> &vertices,
+                       std::vector<float> &texcoords,
+                       std::vector<float> &weights,
+                       std::vector<unsigned int> &indices)
+{
+    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
+
+    vertices.clear();
+    texcoords.clear();
+    weights.clear();
+
+    vertices.reserve(grid_uv.size() * 3);
+    texcoords.reserve(grid_uv.size() * 2);
+    weights.reserve(grid_uv.size());
+
+    for (const Vec2 &uv : grid_uv)
+    {
+        const float depth = VerticallySmoothDepth(uv, RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        if (depth <= 0.0f)
+            continue;
+
+        const Vec3 ray = cam.PixToRay(uv);
+        const Vec3 vertex = ray * depth;
+
+        vertices.push_back(vertex(0));
+        vertices.push_back(vertex(1));
+        vertices.push_back(vertex(2));
+        texcoords.push_back(uv(0));
+        texcoords.push_back(uv(1));
+        weights.push_back(1.0f);
+    }
+
+    indices = BuildTriangles(texcoords);
 }

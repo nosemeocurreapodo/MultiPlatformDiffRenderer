@@ -13,19 +13,19 @@ public:
 static ::testing::Environment *const gl_env =
     ::testing::AddGlobalTestEnvironment(new GLContextEnv());
 
-class GroundTruthTests : public RendererTestBase
+class GroundTruthTests : public TwoViewTests
 {
 protected:
     void SetUp() override
     {
-        RendererTestBase::SetUp();
+        TwoViewTests::SetUp();
     }
 };
 
 // Test CPU depth renderer against ground truth
 TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
 {
-    MeshCPU mesh(vertices_, texcoords_, weights_);
+    MeshCPU mesh(vertices_, texcoords_, weights_, indices_);
 
     TextureCPU<float> output(w_, h_, -1.0f);
 
@@ -40,8 +40,9 @@ TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
     cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
 
     // Basic validation against expected properties
+    cv::Mat mask = (result != -1.0f);
     cv::Scalar mean_val, std_val;
-    cv::meanStdDev(result, mean_val, std_val);
+    cv::meanStdDev(result, mean_val, std_val, mask);
 
     EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
     EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
@@ -59,7 +60,7 @@ TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
 // Test GL depth renderer against ground truth
 TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
 {
-    MeshGL mesh(vertices_, texcoords_, weights_);
+    MeshGL mesh(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> output(w_, h_, -1.0f);
 
     DepthRendererGL renderer;
@@ -94,7 +95,7 @@ TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
 TEST_F(GroundTruthTests, CrossBackendConsistency)
 {
     // CPU rendering
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
 
     TextureCPU<float> output_cpu(w_, h_, -1.0f);
 
@@ -105,7 +106,7 @@ TEST_F(GroundTruthTests, CrossBackendConsistency)
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
 
     // GL rendering
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
     TextureGL<float> output_gl(w_, h_, -1.0f);
 
     DepthRendererGL gl_renderer;
@@ -143,7 +144,7 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
     // CPU performance
     for (int i = 0; i < num_runs; ++i)
     {
-        MeshCPU mesh(vertices_, texcoords_, weights_);
+        MeshCPU mesh(vertices_, texcoords_, weights_, indices_);
 
         TextureCPU<float> output(w_, h_, -1.0f);
 
@@ -158,7 +159,7 @@ TEST_F(GroundTruthTests, PerformanceThresholds)
     // GL performance
     for (int i = 0; i < num_runs; ++i)
     {
-        MeshGL mesh(vertices_, texcoords_, weights_);
+        MeshGL mesh(vertices_, texcoords_, weights_, indices_);
 
         TextureGL<float> output(w_, h_, -1.0f);
 
