@@ -65,9 +65,9 @@ protected:
     void SetUp() override
     {
         // Load test dataset
-        // dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
+        dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
         // dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
-        dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
+        // dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
         depth_files_ = dataset_->GetDepthFiles();
@@ -152,6 +152,37 @@ protected:
         return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
     }
 
+    // Error computation
+    template <typename Texture>
+    double RMSE(const Texture &tex1, const Texture &tex2, int lvl)
+    {
+        EXPECT_EQ(tex1.size(lvl), tex2.size(lvl));
+
+        double total_error = 0.0;
+        int valid_pixels = 0;
+
+        auto tx1_map = tex1.MapRead(lvl);
+        auto tx2_map = tex2.MapRead(lvl);
+
+        for (int i = 0; i < tex1.size(lvl); ++i)
+        {
+            auto val1 = tx1_map[i];
+            auto val2 = tx2_map[i];
+
+            if (val1 == tex1.nodata() || val2 == tex2.nodata())
+            {
+                continue;
+            }
+
+            auto diff = val1 - val2;
+            total_error += diff * diff;
+
+            valid_pixels++;
+        }
+
+        return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
+    }
+
     // Save debug images
     void SaveDebugImage(const cv::Mat &image, const std::string &filename)
     {
@@ -177,9 +208,9 @@ protected:
 
 protected:
     // Dataset and test data
-    // std::unique_ptr<LoadDatasetIclNuim> dataset_;
+    std::unique_ptr<LoadDatasetIclNuim> dataset_;
     // std::unique_ptr<LoadDesktopDataset> dataset_;
-    std::unique_ptr<LoadDatasetTumRgbd> dataset_;
+    // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
     std::vector<SE3> poses_;
@@ -206,12 +237,14 @@ protected:
     {
         RendererTestBase::SetUp();
 
+        float scale = 1.0f / depth_factor_;
+
         image_src_cv_ = ReadMat(image_files_[0]);
-        depth_src_cv_ = ReadMat(depth_files_[0]);
+        depth_src_cv_ = ReadMat(depth_files_[0]) * scale;
         pose_src_ = poses_[0];
 
         image_dst_cv_ = ReadMat(image_files_[50]);
-        depth_dst_cv_ = ReadMat(depth_files_[50]);
+        depth_dst_cv_ = ReadMat(depth_files_[50]) * scale;
         pose_dst_ = poses_[50];
 
         TextureCPU<float> depth_src_cpu(w_, h_, 0.0f);
@@ -332,16 +365,19 @@ public:
 // Validation thresholds
 struct ValidationThresholds
 {
-    double max_depth_error = 9e-5;
-    double max_image_error = 3.0;
-    double max_residual_error = 3.0;
-    double max_l2_error = 400.0;
-    double max_didxy_error = 0.5;
-    double max_jtra_error = 0.009;
-    double max_jrot_error = 0.002;
-    double max_r_error = 4.0;
-    double max_jmap_error = 0.5;
-    double max_pids_error = 0.6;
+    double gt_max_depth_error = 0.4;
+    double gt_max_image_error = 10.0;
+
+    double cr_max_depth_error = 9e-5;
+    double cr_max_image_error = 3.0;
+    double cr_max_residual_error = 3.5;
+    double cr_max_l2_error = 250.0;
+    double cr_max_didxy_error = 0.5;
+    double cr_max_jtra_error = 0.005;
+    double cr_max_jrot_error = 0.002;
+    double cr_max_r_error = 4.0;
+    double cr_max_jmap_error = 0.3;
+    double cr_max_pids_error = 0.4;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;

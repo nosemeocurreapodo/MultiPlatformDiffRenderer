@@ -210,7 +210,7 @@ public:
     std::size_t width(int lvl) const { return static_cast<std::size_t>(widths_[lvl]); }
     std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
     std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
-    std::size_t lvls() const { return static_cast<std::size_t>(widths_.size()); }
+    std::size_t levels() const { return static_cast<std::size_t>(widths_.size()); }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
     // GLuint id() const { return tex_; }
@@ -369,7 +369,7 @@ private:
         // Allocate level 0, and each mip to keep driver happy
         glTexImage2D(GL_TEXTURE_2D, 0, internal_, w, h, 0, format_, T_, base);
         for (int lvl = 1, W = std::max(1, w >> 1), H = std::max(1, h >> 1);
-             lvl < static_cast<int>(lvls());
+             lvl < static_cast<int>(levels());
              ++lvl, W = std::max(1, W >> 1), H = std::max(1, H >> 1))
         {
             glTexImage2D(GL_TEXTURE_2D, lvl, internal_, W, H, 0, format_, T_, nullptr);
@@ -378,7 +378,7 @@ private:
             glGenerateMipmap(GL_TEXTURE_2D);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(lvls()) - 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(levels()) - 1);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 

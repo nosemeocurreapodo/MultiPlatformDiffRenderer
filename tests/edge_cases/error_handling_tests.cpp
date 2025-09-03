@@ -13,6 +13,42 @@ public:
 static ::testing::Environment *const gl_env =
     ::testing::AddGlobalTestEnvironment(new GLContextEnv());
 
+#endif // COMPILE_GL
+
+// Backend trait structs to unify CPU and GL testing
+struct CPUBackendTraits
+{
+    using MeshT = MeshCPU;
+    template <typename T>
+    using TextureT = TextureCPU<T>;
+    using DepthRendererT = DepthRendererCPU;
+    using ImageRendererT = ImageRendererCPU;
+    using ResidualRendererT = ResidualRendererCPU;
+    using L2RendererT = L2RendererCPU;
+    using DIDxyRendererT = DIDxyRendererCPU;
+    using JPoseRendererT = JPoseRendererCPU;
+    using JMapRendererT = JMapRendererCPU;
+    static const char *Name() { return "CPU"; }
+};
+
+#ifdef COMPILE_GL
+struct GLBackendTraits
+{
+    using MeshT = MeshGL;
+    template <typename T>
+    using TextureT = TextureGL<T>;
+    using DepthRendererT = DepthRendererGL;
+    using ImageRendererT = ImageRendererGL;
+    using ResidualRendererT = ResidualRendererGL;
+    using L2RendererT = L2RendererGL;
+    using DIDxyRendererT = DIDxyRendererGL;
+    using JPoseRendererT = JPoseRendererGL;
+    using JMapRendererT = JMapRendererGL;
+    static const char *Name() { return "GL"; }
+};
+#endif
+
+template <typename Backend>
 class ErrorHandlingTests : public TwoViewTests
 {
 protected:
@@ -22,39 +58,27 @@ protected:
     }
 };
 
+TYPED_TEST_SUITE_P(ErrorHandlingTests);
+
 // Test empty mesh handling
-TEST_F(ErrorHandlingTests, EmptyMeshHandling)
+TYPED_TEST_P(ErrorHandlingTests, EmptyMeshHandling)
 {
+    using Traits = TypeParam;
+
     std::vector<float> empty_vertices, empty_texcoords, empty_weights;
     std::vector<unsigned int> empty_indices;
 
-    // CPU test
-    {
-        MeshCPU empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
-        TextureCPU<float> output(w_, h_, -1.0f);
+    typename Traits::MeshT empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
-        DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, 0, output));
+    typename Traits::DepthRendererT renderer;
+    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, 0, output));
 
-        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
 
-        // Should remain at nodata value
-        cv::Scalar mean_val = cv::mean(result);
-        EXPECT_NEAR(mean_val[0], -1.0f, 0.1f) << "Empty mesh should produce nodata output";
-    }
-
-    // GL test
-    {
-        MeshGL empty_mesh(empty_vertices, empty_texcoords, empty_weights, empty_indices);
-        TextureGL<float> output(w_, h_, -1.0f);
-
-        DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), cam_, 0, output));
-
-        // Check GL error state
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Empty mesh should not cause GL errors";
-    }
+    // Should remain at nodata value
+    cv::Scalar mean_val = cv::mean(result);
+    EXPECT_NEAR(mean_val[0], -1.0f, 0.1f) << "Empty mesh should produce nodata output";
 }
 /*
 // Test degenerate triangle handling
@@ -110,10 +134,11 @@ TEST_F(ErrorHandlingTests, DegenerateTriangleHandling)
 }
 */
 // Test extreme transformation matrices
-TEST_F(ErrorHandlingTests, ExtremeTransformationHandling)
+TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     // Test with very large scale
     SE3 large_scale;
@@ -122,202 +147,124 @@ TEST_F(ErrorHandlingTests, ExtremeTransformationHandling)
     // Apply large scale through pose
     Mat4 scale_matrix = Mat4::Identity() * 1000.0f;
 
-    // CPU test
+    typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
+
+    typename Traits::DepthRendererT renderer;
+    ASSERT_NO_THROW(renderer.Render(mesh, large_scale, this->cam_, 0, output));
+
+    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+
+    // Check for invalid values
+    bool has_invalid = false;
+    for (int y = 0; y < result.rows && !has_invalid; ++y)
     {
-        TextureCPU<float> output(w_, h_, -1.0f);
-
-        DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, large_scale, cam_, 0, output));
-
-        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
-
-        // Check for invalid values
-        bool has_invalid = false;
-        for (int y = 0; y < result.rows && !has_invalid; ++y)
+        for (int x = 0; x < result.cols && !has_invalid; ++x)
         {
-            for (int x = 0; x < result.cols && !has_invalid; ++x)
+            float val = result.at<float>(y, x);
+            if (!std::isfinite(val))
             {
-                float val = result.at<float>(y, x);
-                if (!std::isfinite(val))
-                {
-                    has_invalid = true;
-                }
+                has_invalid = true;
             }
         }
-        EXPECT_FALSE(has_invalid) << "Extreme transformations should not produce invalid values";
     }
-
-    // GL test
-    {
-        TextureGL<float> output(w_, h_, -1.0f);
-
-        DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, large_scale, cam_, 0, output));
-
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Extreme transformations should not cause GL errors";
-    }
+    EXPECT_FALSE(has_invalid) << "Extreme transformations should not produce invalid values";
 }
 
 // Test invalid mipmap levels
-TEST_F(ErrorHandlingTests, InvalidMipmapLevels)
+TYPED_TEST_P(ErrorHandlingTests, InvalidMipmapLevels)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    using Traits = TypeParam;
 
-    // CPU test with invalid levels
-    {
-        TextureCPU<float> output(w_, h_, -1.0f);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
-        DepthRendererCPU renderer;
+    typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
-        // Test with level beyond texture size
-        int max_level = static_cast<int>(std::log2(std::min(w_, h_))) + 1;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, max_level, output));
-    }
+    typename Traits::DepthRendererT renderer;
 
-    // GL test with invalid levels
-    {
-        TextureGL<float> output(w_, h_, -1.0f);
-
-        DepthRendererGL renderer;
-
-        int max_level = static_cast<int>(std::log2(std::min(w_, h_))) + 1;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, max_level, output));
-
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Invalid mipmap levels should be handled gracefully";
-    }
+    // Test with level beyond texture size
+    int max_level = static_cast<int>(std::log2(std::min(this->w_, this->h_))) + 1;
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, max_level, output));
 }
 
 // Test texture size mismatches
-TEST_F(ErrorHandlingTests, TextureSizeMismatch)
+TYPED_TEST_P(ErrorHandlingTests, TextureSizeMismatch)
 {
+    using Traits = TypeParam;
+
     const int small_w = 64, small_h = 64;
     const int large_w = 512, large_h = 512;
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
-    // CPU test with size mismatch
-    {
-        TextureCPU<float> large_output(large_w, large_h, -1.0f);
+    typename Traits::TextureT<float> large_output(large_w, large_h, -1.0f);
 
-        DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), cam_, 0, large_output));
+    typename Traits::DepthRendererT renderer;
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, large_output));
 
-        cv::Mat result = DownloadTexture(large_output, 0, CV_32FC1);
+    cv::Mat result = this->DownloadTexture(large_output, 0, CV_32FC1);
 
-        // Should handle size mismatch gracefully
-        cv::Scalar mean_val = cv::mean(result);
-        EXPECT_TRUE(std::isfinite(mean_val[0])) << "Size mismatch should not produce invalid values";
-    }
-
-    // GL test with size mismatch
-    {
-        TextureGL<float> large_output(large_w, large_h, -1.0f);
-
-        DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), cam_, 0, large_output));
-
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Texture size mismatch should not cause GL errors";
-    }
+    // Should handle size mismatch gracefully
+    cv::Scalar mean_val = cv::mean(result);
+    EXPECT_TRUE(std::isfinite(mean_val[0])) << "Size mismatch should not produce invalid values";
 }
 
 // Test camera parameter edge cases
-TEST_F(ErrorHandlingTests, CameraParameterEdgeCases)
+TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
 {
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     // Create camera with extreme parameters
     Camera extreme_cam;
     Vec4 extreme_params;
-    extreme_params << 1e6f, 1e6f, w_ / 2.0f, h_ / 2.0f; // Very high focal lengths
+    extreme_params << 1e6f, 1e6f, this->w_ / 2.0f, this->h_ / 2.0f; // Very high focal lengths
     extreme_cam.SetParams(extreme_params);
 
-    // CPU test
+    typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
+
+    typename Traits::DepthRendererT renderer;
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), extreme_cam, 0, output));
+
+    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+
+    // Check for invalid values
+    bool has_invalid = false;
+    for (int y = 0; y < result.rows && !has_invalid; ++y)
     {
-
-        TextureCPU<float> output(w_, h_, -1.0f);
-
-        DepthRendererCPU renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_cpu, SE3(), extreme_cam, 0, output));
-
-        cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
-
-        // Check for invalid values
-        bool has_invalid = false;
-        for (int y = 0; y < result.rows && !has_invalid; ++y)
+        for (int x = 0; x < result.cols && !has_invalid; ++x)
         {
-            for (int x = 0; x < result.cols && !has_invalid; ++x)
+            float val = result.at<float>(y, x);
+            if (!std::isfinite(val))
             {
-                float val = result.at<float>(y, x);
-                if (!std::isfinite(val))
-                {
-                    has_invalid = true;
-                }
+                has_invalid = true;
             }
         }
-        EXPECT_FALSE(has_invalid) << "Extreme camera parameters should not produce invalid values";
     }
-
-    // GL test
-    {
-
-        TextureGL<float> output(w_, h_, -1.0f);
-
-        DepthRendererGL renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh_gl, SE3(), extreme_cam, 0, output));
-
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Extreme camera parameters should not cause GL errors";
-    }
+    EXPECT_FALSE(has_invalid) << "Extreme camera parameters should not produce invalid values";
 }
 
 // Test memory pressure scenarios
-TEST_F(ErrorHandlingTests, MemoryPressureHandling)
+TYPED_TEST_P(ErrorHandlingTests, MemoryPressureHandling)
 {
+    using Traits = TypeParam;
+
     const std::vector<int> large_sizes = {1024, 2048, 4096};
 
     for (int size : large_sizes)
     {
         std::cout << "Testing memory pressure at " << size << "x" << size << "\n";
 
-        // Create large test data
-        std::vector<float> large_vertices, large_texcoords, large_weights;
-        std::vector<unsigned int> large_indices;
-        CreateScreenQuad(large_vertices, large_texcoords, large_weights, large_indices);
-
         try
         {
-            // CPU test
-            {
-                MeshCPU mesh(large_vertices, large_texcoords, large_weights, large_indices);
+            typename Traits::MeshT mesh(this->screen_vertices_, this->screen_texcoords_, this->screen_weights_, this->screen_indices_);
 
-                TextureCPU<float> output(size, size, -1.0f);
+            typename Traits::TextureT<float> output(size, size, -1.0f);
 
-                DepthRendererCPU renderer;
-                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, output));
+            typename Traits::DepthRendererT renderer;
+            ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
 
-                std::cout << "  CPU " << size << "x" << size << ": OK\n";
-            }
-
-            // GL test
-            {
-                MeshGL mesh(large_vertices, large_texcoords, large_weights, large_indices);
-
-                TextureGL<float> output(size, size, -1.0f);
-
-                DepthRendererGL renderer;
-                ASSERT_NO_THROW(renderer.Render(mesh, SE3(), cam_, 0, output));
-
-                GLenum error = glGetError();
-                EXPECT_EQ(error, GL_NO_ERROR) << "Large texture should not cause GL errors";
-
-                std::cout << "  GL " << size << "x" << size << ": OK\n";
-            }
+            std::cout << "  CPU " << size << "x" << size << ": OK\n";
         }
         catch (const std::exception &e)
         {
@@ -328,37 +275,46 @@ TEST_F(ErrorHandlingTests, MemoryPressureHandling)
 }
 
 // Test concurrent access (if applicable)
-TEST_F(ErrorHandlingTests, ThreadSafetyBasics)
+TYPED_TEST_P(ErrorHandlingTests, ThreadSafetyBasics)
 {
+    using Traits = TypeParam;
+
     // Basic test to ensure renderers don't crash with multiple instances
     const int num_instances = 4;
 
-    std::vector<std::unique_ptr<DepthRendererCPU>> cpu_renderers;
-    std::vector<std::unique_ptr<DepthRendererGL>> gl_renderers;
+    std::vector<std::unique_ptr<typename Traits::DepthRendererT>> renderers;
 
     // Create multiple renderer instances
     for (int i = 0; i < num_instances; ++i)
     {
-        cpu_renderers.push_back(std::make_unique<DepthRendererCPU>());
-        gl_renderers.push_back(std::make_unique<DepthRendererGL>());
+        renderers.push_back(std::make_unique<typename Traits::DepthRendererT>());
     }
 
     // Use them sequentially (not testing true concurrency, just multiple instances)
     for (int i = 0; i < num_instances; ++i)
     {
-        MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-        TextureCPU<float> output_cpu(w_, h_, -1.0f);
+        typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
+        typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
-        ASSERT_NO_THROW(cpu_renderers[i]->Render(mesh_cpu, SE3(), cam_, 0, output_cpu));
-
-        MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-        TextureGL<float> output_gl(w_, h_, -1.0f);
-
-        ASSERT_NO_THROW(gl_renderers[i]->Render(mesh_gl, SE3(), cam_, 0, output_gl));
-
-        GLenum error = glGetError();
-        EXPECT_EQ(error, GL_NO_ERROR) << "Multiple GL renderer instances should not interfere";
+        ASSERT_NO_THROW(renderers[i]->Render(mesh, SE3(), this->cam_, 0, output));
     }
 }
 
-#endif // COMPILE_GL
+REGISTER_TYPED_TEST_SUITE_P(
+    ErrorHandlingTests,
+    EmptyMeshHandling,
+    ExtremeTransformationHandling,
+    InvalidMipmapLevels,
+    TextureSizeMismatch,
+    CameraParameterEdgeCases,
+    MemoryPressureHandling,
+    ThreadSafetyBasics);
+
+using TestBackends = ::testing::Types<CPUBackendTraits
+#ifdef COMPILE_GL
+                                      ,
+                                      GLBackendTraits
+#endif
+                                      >;
+
+INSTANTIATE_TYPED_TEST_SUITE_P(AllBackends, ErrorHandlingTests, TestBackends);

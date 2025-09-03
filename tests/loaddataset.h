@@ -214,7 +214,7 @@ public:
         std::string depth_path = "/depth.txt";
         std::string pose_path = "/groundtruth.txt";
 
-        this->depth_factor_ = 5000.0;
+        this->depth_factor_ = 5000.0 / 275.0;
 
         // std::string poses_path = test_data_path + dataset_path + pose_path;
         // poses = getPosesFromFile(poses_path);
@@ -354,7 +354,7 @@ public:
         std::string assosiations_path = "/associations.txt";
         std::string pose_path = "/traj3.gt.freiburg";
 
-        this->depth_factor_ = 5000.0;
+        this->depth_factor_ = 5000.0 / 275.0;
 
         ReadAssociationsFile(dataset_path, assosiations_path, this->image_files_, this->depth_files_, this->time_stamps_);
 

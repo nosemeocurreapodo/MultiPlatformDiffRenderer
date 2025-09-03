@@ -80,7 +80,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_depth_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
@@ -135,7 +135,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -194,7 +194,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -253,7 +253,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -305,7 +305,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     std::cout << "  CPU Time: " << cpu_time << " ms\n";
     std::cout << "  GL Time:  " << gl_time << " ms\n";
 
-    EXPECT_LT(l2_error, thresholds_.max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_didxy_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -387,9 +387,9 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     std::cout << "  GL Time:  " << gl_time << " ms\n";
     std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
 
-    EXPECT_LT(jtra_error, thresholds_.max_jtra_error) << "Jtra cross-backend error too high";
-    EXPECT_LT(jrot_error, thresholds_.max_jrot_error) << "Jrot cross-backend error too high";
-    EXPECT_LT(r_error, thresholds_.max_r_error) << "Jrot cross-backend error too high";
+    EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high";
+    EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high";
+    EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
 
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     //EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
@@ -472,9 +472,9 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     std::cout << "  GL Time:  " << gl_time << " ms\n";
     std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
 
-    EXPECT_LT(jmap_error, thresholds_.max_jmap_error) << "Jtra cross-backend error too high";
-    EXPECT_LT(pids_error, thresholds_.max_pids_error) << "Jrot cross-backend error too high";
-    EXPECT_LT(r_error, thresholds_.max_r_error) << "Jrot cross-backend error too high";
+    EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high";
+    EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high";
+    EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
 
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     //EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
@@ -605,7 +605,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
 
     // Check cross-backend consistency
     double cross_error = ComputeL2Error<float>(cpu_results[0], gl_results[0], 0.0f);
-    EXPECT_LT(cross_error, thresholds_.max_depth_error)
+    EXPECT_LT(cross_error, thresholds_.cr_max_depth_error)
         << "Cross-backend precision error: " << cross_error;
 
     std::cout << "Numerical Precision Comparison:\n";
