@@ -2,7 +2,6 @@
 
 #include "core/types.h"
 #include "core/delaunaytriangulation.h"
-#include "core/render_constants.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 
@@ -69,11 +68,12 @@ inline void CreateScreenQuad(std::vector<float> &pos,
     uv = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f,
           0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
     weights.assign(6, 1.0f);
-    //indices = {0, 1, 2, 0, 2, 3};
+    // indices = {0, 1, 2, 0, 2, 3};
     indices = BuildTriangles(uv);
 }
 
-inline void CreateMesh(const TextureCPU<float> &depth, Camera &cam, int grid_size,
+inline void CreateMesh(const TextureCPU<float> &depth,
+                       Camera &cam, int grid_size,
                        std::vector<float> &vertices,
                        std::vector<float> &texcoords,
                        std::vector<float> &weights,
@@ -118,7 +118,8 @@ inline void CreateMesh(const TextureCPU<float> &depth, Camera &cam, int grid_siz
     indices = BuildTriangles(texcoords);
 }
 
-inline void CreateMesh(Camera &cam, int grid_size,
+inline void CreateMesh(float min_depth, float max_depth,
+                       Camera &cam, int grid_size,
                        std::vector<float> &vertices,
                        std::vector<float> &texcoords,
                        std::vector<float> &weights,
@@ -136,7 +137,7 @@ inline void CreateMesh(Camera &cam, int grid_size,
 
     for (const Vec2 &uv : grid_uv)
     {
-        const float depth = VerticallySmoothDepth(uv, RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
