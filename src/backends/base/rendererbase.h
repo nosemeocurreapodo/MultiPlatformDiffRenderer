@@ -47,7 +47,7 @@ protected:
     void draw_triangle_(const Vec3 *verts,
                         const Vec2 *texcoords,
                         const Scalar *weights,
-                        const Vec3i &vertexid,
+                        const unsigned int *vertexid,
                         const BoundingBoxType<Int> &viewport)
     {
         // Vertex shading & clip → NDC → screen
@@ -67,7 +67,7 @@ protected:
         {
             Vec4 gl_Position;
             typename Derived::Varyings varyings;
-            derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid, gl_Position, varyings);
+            derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid[i], gl_Position, varyings);
 
             const Scalar invW = 1.0f / gl_Position(3);
             const Scalar ndc_x = gl_Position(0) * invW; // [-1,1]

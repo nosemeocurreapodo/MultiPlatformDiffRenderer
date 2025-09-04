@@ -40,6 +40,11 @@ public:
             Vec3 v[3];
             Vec2 uv[3];
             float wght[3];
+            unsigned int id[3];
+            
+            id[0] = i0;
+            id[1] = i1;
+            id[2] = i2;
 
             // gather
             for (int k = 0; k < 3; ++k)
@@ -54,9 +59,7 @@ public:
                 wght[k] = wei[vi];
             }
 
-            Vec3i vertexid(i0, i1, i2);
-
-            this->draw_triangle_(v, uv, wght, vertexid, viewport);
+            this->draw_triangle_(v, uv, wght, id, viewport);
         }
     }
 };
@@ -123,7 +126,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -210,7 +213,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -307,7 +310,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -399,7 +402,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -482,7 +485,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -622,7 +625,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -687,7 +690,9 @@ public:
         Vec2 texcoord;
         Vec3 f_ver;
         Vec3 kf_ray;
+        float depth;
         Vec3 barycentric;
+        unsigned int vertexId;
         Vec3i pids;
     };
 
@@ -753,12 +758,12 @@ public:
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
             (1.0f / invW_px);
-        var_over_w_px.barycentric = Vec3(w0 * invW0,
-                                         w1 * invW1,
-                                         w2 * invW2) *
+        var_over_w_px.barycentric = Vec3(w0 * invW0 * varying_px0.depth,
+                                         w1 * invW1 * varying_px1.depth,
+                                         w2 * invW2 * varying_px2.depth) *
                                     (1.0f / invW_px);
 
-        var_over_w_px.pids = varying_px0.pids;
+        var_over_w_px.pids = Vec3i(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
     }
@@ -769,7 +774,7 @@ public:
     void vertex_shader(const Vec3 &inVertex,
                        const Vec2 &inTexCoord,
                        const float &inWeight,
-                       const Vec3i &vertexid,
+                       const unsigned int &vertexid,
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
@@ -782,7 +787,8 @@ public:
 
         outVarying.f_ver = Vec3(f_ver(0), f_ver(1), f_ver(2));
         outVarying.kf_ray = d_f_ver_d_kf_depth;
-        outVarying.pids = vertexid;
+        outVarying.depth = inVertex(2);
+        outVarying.vertexId = vertexid;
         outVarying.texcoord = inTexCoord;
     }
 
