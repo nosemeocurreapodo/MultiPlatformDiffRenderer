@@ -34,34 +34,39 @@ protected:
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
-    const int out_lvl = 0;
-
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    // CPU implementation
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    TextureCPU<float> output_cpu(w_, h_, 0.0f);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+
+    TextureCPU<float> output_cpu(w_, h_, -1.0f);
+    TextureGL<float> output_gl(w_, h_, -1.0f);
 
     DepthRendererCPU renderer_cpu;
-    timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, output_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
-
-    // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-    TextureGL<float> output_gl(w_, h_, 0.0f);
-
     DepthRendererGL renderer_gl;
-    timer_.Start();
-    renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, output_gl);
-    double gl_time = timer_.Stop();
 
-    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
 
-    // Detailed error analysis
-    double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, output_cpu);
+        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
+
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, output_gl);
+        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
+
+        // Detailed error analysis
+        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
+        EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+        acc_l2_error += l2_error;
+    }
+
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
     // Save comparison images
     SaveDebugImage(cpu_result, "cross_depth_cpu.png");
@@ -73,14 +78,14 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     SaveDebugImage(diff_image, "cross_depth_diff.png");
 
     std::cout << "Depth Rendering Cross-Backend Comparison:\n";
-    std::cout << "  L2 Error: " << l2_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    // EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_depth_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
@@ -89,36 +94,42 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    // CPU implementation
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    TextureCPU<float> input_cpu(w_, h_, 0.0f);
-    TextureCPU<float> output_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(input_cpu, 0, image_src_cv_);
-
-    ImageRendererCPU renderer_cpu;
-    timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
-
-    // GL implementation
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-    TextureGL<float> input_gl(w_, h_, 0.0f);
-    TextureGL<float> output_gl(w_, h_, 0.0f);
+
+    TextureCPU<float> input_cpu(w_, h_, -1.0f);
+    TextureGL<float> input_gl(w_, h_, -1.0f);
+
+    TextureCPU<float> output_cpu(w_, h_, -1.0f);
+    TextureGL<float> output_gl(w_, h_, -1.0f);
+
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
 
-    ImageRendererGL renderer_gl;
-    timer_.Start();
-    renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
-    double gl_time = timer_.Stop();
+    float acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        ImageRendererCPU renderer_cpu;
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input_cpu, output_cpu);
+        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
 
-    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+        ImageRendererGL renderer_gl;
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input_gl, output_gl);
+        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
 
-    double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+        acc_l2_error += l2_error;
+    }
+
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_image_cpu.png");
     SaveDebugImage(gl_result, "cross_image_gl.png");
@@ -128,14 +139,13 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     SaveDebugImage(diff_image, "cross_image_diff.png");
 
     std::cout << "Image Rendering Cross-Backend Comparison:\n";
-    std::cout << "  L2 Error: " << l2_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -144,40 +154,46 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, ResidualRenderingComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    // CPU implementation
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    TextureCPU<float> input1_cpu(w_, h_, 0.0f);
-    TextureCPU<float> input2_cpu(w_, h_, 0.0f);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+
+    TextureCPU<float> input1_cpu(w_, h_, -1.0f);
+    TextureGL<float> input1_gl(w_, h_, -1.0f);
+    TextureCPU<float> input2_cpu(w_, h_, -1.0f);
+    TextureGL<float> input2_gl(w_, h_, -1.0f);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
+    TextureGL<float> output_gl(w_, h_, 0.0f);
+
     UploadMatToTexture(input1_cpu, 0, image_src_cv_);
     UploadMatToTexture(input2_cpu, 0, image_dst_cv_);
-
-    ResidualRendererCPU renderer_cpu;
-    timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
-
-    // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-    TextureGL<float> input1_gl(w_, h_, 0.0f);
-    TextureGL<float> input2_gl(w_, h_, 0.0f);
-    TextureGL<float> output_gl(w_, h_, 0.0f);
     UploadMatToTexture(input1_gl, 0, image_src_cv_);
     UploadMatToTexture(input2_gl, 0, image_dst_cv_);
 
+    ResidualRendererCPU renderer_cpu;
     ResidualRendererGL renderer_gl;
-    timer_.Start();
-    renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
-    double gl_time = timer_.Stop();
 
-    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input1_cpu, input2_cpu, output_cpu);
+        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
 
-    double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input1_gl, input2_gl, output_gl);
+        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
+
+        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+        acc_l2_error += l2_error;
+    }
+
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
@@ -187,14 +203,13 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     SaveDebugImage(diff_image, "cross_residual_diff.png");
 
     std::cout << "Residual Rendering Cross-Backend Comparison:\n";
-    std::cout << "  L2 Error: " << l2_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -203,40 +218,48 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, L2RenderingComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
-    // CPU implementation
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    TextureCPU<float> input1_cpu(w_, h_, 0.0f);
-    TextureCPU<float> input2_cpu(w_, h_, 0.0f);
-    TextureCPU<float> output_cpu(w_, h_, 0.0f);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+
+    TextureCPU<float> input1_cpu(w_, h_, -1.0f);
+    TextureCPU<float> input2_cpu(w_, h_, -1.0f);
+    TextureCPU<float> output_cpu(w_, h_, -1.0f);
+
+    TextureGL<float> input1_gl(w_, h_, -1.0f);
+    TextureGL<float> input2_gl(w_, h_, -1.0f);
+    TextureGL<float> output_gl(w_, h_, -1.0f);
+
     UploadMatToTexture(input1_cpu, 0, image_src_cv_);
     UploadMatToTexture(input2_cpu, 0, image_dst_cv_);
 
-    L2RendererCPU renderer_cpu;
-    timer_.Start();
-    renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
-
-    // GL implementation
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-    TextureGL<float> input1_gl(w_, h_, 0.0f);
-    TextureGL<float> input2_gl(w_, h_, 0.0f);
-    TextureGL<float> output_gl(w_, h_, 0.0f);
     UploadMatToTexture(input1_gl, 0, image_src_cv_);
     UploadMatToTexture(input2_gl, 0, image_dst_cv_);
 
+    L2RendererCPU renderer_cpu;
     L2RendererGL renderer_gl;
-    timer_.Start();
-    renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
-    double gl_time = timer_.Stop();
 
-    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input1_cpu, input2_cpu, output_cpu);
+        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
 
-    double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input1_gl, input2_gl, output_gl);
+        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
+
+        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+        EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+        acc_l2_error += l2_error;
+    }
+
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_l2_cpu.png");
     SaveDebugImage(gl_result, "cross_l2_gl.png");
@@ -246,14 +269,13 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     SaveDebugImage(diff_image, "cross_l2_diff.png");
 
     std::cout << "L2 Rendering Cross-Backend Comparison:\n";
-    std::cout << "  L2 Error: " << l2_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // Cross-backend validation
     // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
-    EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -262,36 +284,42 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 // Compare CPU vs GL gradient computation
 TEST_F(CrossBackendTests, GradientComputationComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
 
-    // CPU implementation
     MeshCPU mesh_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    TextureCPU<float> input_cpu(w_, h_, 0.0f);
-    TextureCPU<Vec3> output_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    UploadMatToTexture(input_cpu, 0, image_src_cv_);
-
-    DIDxyRendererCPU renderer_cpu;
-    timer_.Start();
-    renderer_cpu.Render(mesh_cpu, in_lvl, out_lvl, input_cpu, output_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
-
-    // GL implementation
     MeshGL mesh_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    TextureGL<float> input_gl(w_, h_, 0.0f);
+
+    TextureCPU<float> input_cpu(w_, h_, -1.0f);
+    TextureCPU<Vec3> output_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<float> input_gl(w_, h_, -1.0f);
     TextureGL<Vec3> output_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
 
+    DIDxyRendererCPU renderer_cpu;
     DIDxyRendererGL renderer_gl;
-    timer_.Start();
-    renderer_gl.Render(mesh_gl, in_lvl, out_lvl, input_gl, output_gl);
-    double gl_time = timer_.Stop();
 
-    cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC3);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, lvl, lvl, input_cpu, output_cpu);
+        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC3);
+        acc_cpu_time += timer_.Stop();
 
-    // Cross-backend validation for Vec3 data
-    double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, lvl, lvl, input_gl, output_gl);
+        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC3);
+        acc_gl_time += timer_.Stop();
+
+        // Cross-backend validation for Vec3 data
+        double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+        acc_l2_error += l2_error;
+    }
+
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC3);
+    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC3);
 
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
@@ -301,11 +329,11 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
 
     std::cout << "Gradient Computation Cross-Backend Comparison:\n";
-    std::cout << "  L2 Error: " << l2_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
-    EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_didxy_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
@@ -314,63 +342,76 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 // Test full Jacobian pipeline comparison
 TEST_F(CrossBackendTests, JPosePipelineComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
-    TextureCPU<float> kf_cpu(w_, h_, 0.0f);
-    TextureCPU<float> f_cpu(w_, h_, 0.0f);
+    TextureCPU<float> kf_cpu(w_, h_, -1.0f);
+    TextureCPU<float> f_cpu(w_, h_, -1.0f);
     TextureCPU<Vec3> dfdxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jtra_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jrot_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(kf_cpu, 0, image_src_cv_);
-    UploadMatToTexture(f_cpu, 0, image_dst_cv_);
 
-    DIDxyRendererCPU didxy_renderer_cpu;
-    JPoseRendererCPU jpose_renderer_cpu;
-
-    timer_.Start();
-    didxy_renderer_cpu.Render(mesh_img_cpu, in_lvl, out_lvl, f_cpu, dfdxy_cpu);
-    jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);
-    cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, out_lvl, CV_32FC3);
-    cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
-
-    // GL pipeline
-    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-
-    TextureGL<float> kf_gl(w_, h_, 0.0f);
-    TextureGL<float> f_gl(w_, h_, 0.0f);
+    TextureGL<float> kf_gl(w_, h_, -1.0f);
+    TextureGL<float> f_gl(w_, h_, -1.0f);
     TextureGL<Vec3> dfdxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> jtra_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> jrot_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
+
+    UploadMatToTexture(kf_cpu, 0, image_src_cv_);
+    UploadMatToTexture(f_cpu, 0, image_dst_cv_);
     UploadMatToTexture(kf_gl, 0, image_src_cv_);
     UploadMatToTexture(f_gl, 0, image_dst_cv_);
 
+    DIDxyRendererCPU didxy_renderer_cpu;
+    JPoseRendererCPU jpose_renderer_cpu;
     DIDxyRendererGL didxy_renderer_gl;
     JPoseRendererGL jpose_renderer_gl;
 
-    timer_.Start();
-    didxy_renderer_gl.Render(mesh_img_gl, out_lvl, out_lvl, f_gl, dfdxy_gl);
-    jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
-    double gl_time = timer_.Stop();
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
+    for (int lvl = 0; lvl < kf_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
+        jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
+        cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, lvl, CV_32FC3);
+        cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, lvl, CV_32FC3);
+        cv::Mat cpu_r = DownloadTexture(r_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
 
-    cv::Mat gl_jtra = DownloadTexture(jtra_gl, out_lvl, CV_32FC3);
-    cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
-    cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+        timer_.Start();
+        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
+        jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
+        cv::Mat gl_jtra = DownloadTexture(jtra_gl, lvl, CV_32FC3);
+        cv::Mat gl_jrot = DownloadTexture(jrot_gl, lvl, CV_32FC3);
+        cv::Mat gl_r = DownloadTexture(r_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
 
-    // Validate both Jtra and Jrot
-    double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
-    double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
-    double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+        // Validate both Jtra and Jrot
+        double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+
+        EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high";
+        EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high";
+        EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+        acc_jtra_error += jtra_error;
+        acc_jrot_error += jrot_error;
+        acc_r_error += r_error;
+    }
+
+    cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, 0, CV_32FC3);
+    cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, 0, CV_32FC3);
+    cv::Mat cpu_r = DownloadTexture(r_cpu, 0, CV_32FC1);
+    cv::Mat gl_jtra = DownloadTexture(jtra_gl, 0, CV_32FC3);
+    cv::Mat gl_jrot = DownloadTexture(jrot_gl, 0, CV_32FC3);
+    cv::Mat gl_r = DownloadTexture(r_gl, 0, CV_32FC1);
 
     SaveDebugImageColor(cpu_jtra, "cross_jtra_cpu.png");
     SaveDebugImageColor(gl_jtra, "cross_jtra_gl.png");
@@ -380,82 +421,91 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     SaveDebugImageColor(gl_r, "cross_r_gl.png");
 
     std::cout << "Jacobian Pipeline Cross-Backend Comparison:\n";
-    std::cout << "  Jtra L2 Error: " << jtra_error << "\n";
-    std::cout << "  Jrot L2 Error: " << jrot_error << "\n";
-    std::cout << "  r L2 Error: " << r_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
-
-    EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high";
-    EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high";
-    EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+    std::cout << "  Jtra L2 Error: " << acc_jtra_error << "\n";
+    std::cout << "  Jrot L2 Error: " << acc_jrot_error << "\n";
+    std::cout << "  r L2 Error: " << acc_r_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    //EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    //EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 // Test full Jacobian pipeline comparison
 TEST_F(CrossBackendTests, JMapPipelineComparison)
 {
-    const int in_lvl = 0, out_lvl = 0;
     SE3 pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
-    TextureCPU<float> kf_cpu(w_, h_, 0.0f);
-    TextureCPU<float> f_cpu(w_, h_, 0.0f);
+    TextureCPU<float> kf_cpu(w_, h_, -1.0f);
+    TextureCPU<float> f_cpu(w_, h_, -1.0f);
     TextureCPU<Vec3> dfdxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jmap_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> pids_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(kf_cpu, 0, image_src_cv_);
-    UploadMatToTexture(f_cpu, 0, image_dst_cv_);
-
-    DIDxyRendererCPU didxy_renderer_cpu;
-    JMapRendererCPU jpose_renderer_cpu;
-
-    timer_.Start();
-    didxy_renderer_cpu.Render(mesh_img_cpu, in_lvl, out_lvl, f_cpu, dfdxy_cpu);
-    jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
-    double cpu_time = timer_.Stop();
-
-    cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, out_lvl, CV_32FC3);
-    cv::Mat cpu_pids = DownloadTexture(pids_cpu, out_lvl, CV_32FC3);
-    cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
-
-    // GL pipeline
-    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
-
-    TextureGL<float> kf_gl(w_, h_, 0.0f);
-    TextureGL<float> f_gl(w_, h_, 0.0f);
+    TextureGL<float> kf_gl(w_, h_, -1.0f);
+    TextureGL<float> f_gl(w_, h_, -1.0f);
     TextureGL<Vec3> dfdxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> jmap_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3> pids_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
+
+    UploadMatToTexture(kf_cpu, 0, image_src_cv_);
+    UploadMatToTexture(f_cpu, 0, image_dst_cv_);
     UploadMatToTexture(kf_gl, 0, image_src_cv_);
     UploadMatToTexture(f_gl, 0, image_dst_cv_);
 
+    DIDxyRendererCPU didxy_renderer_cpu;
+    JMapRendererCPU jpose_renderer_cpu;
     DIDxyRendererGL didxy_renderer_gl;
     JMapRendererGL jpose_renderer_gl;
 
-    timer_.Start();
-    didxy_renderer_gl.Render(mesh_img_gl, out_lvl, out_lvl, f_gl, dfdxy_gl);
-    jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
-    double gl_time = timer_.Stop();
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jmap_error = 0.0, acc_pids_error = 0.0, acc_r_error = 0.0;
+    for (int lvl = 0; lvl < kf_cpu.levels(); ++lvl)
+    {
+        timer_.Start();
+        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
+        jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
+        cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, lvl, CV_32FC3);
+        cv::Mat cpu_pids = DownloadTexture(pids_cpu, lvl, CV_32FC3);
+        cv::Mat cpu_r = DownloadTexture(r_cpu, lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
 
-    cv::Mat gl_jmap = DownloadTexture(jmap_gl, out_lvl, CV_32FC3);
-    cv::Mat gl_pids = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
-    cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+        timer_.Start();
+        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
+        jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
+        cv::Mat gl_jmap = DownloadTexture(jmap_gl, lvl, CV_32FC3);
+        cv::Mat gl_pids = DownloadTexture(pids_gl, lvl, CV_32FC3);
+        cv::Mat gl_r = DownloadTexture(r_gl, lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
 
-    // Validate both Jtra and Jrot
-    double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
-    double pids_error = ComputeL2Error<cv::Vec3f>(cpu_pids, gl_pids, cv::Vec3f(0.0f, 0.0f, 0.0f));
-    double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+        // Validate both Jtra and Jrot
+        double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        double pids_error = ComputeL2Error<cv::Vec3f>(cpu_pids, gl_pids, cv::Vec3f(0.0f, 0.0f, 0.0f));
+        double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+
+        EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high";
+        EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high";
+        EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+        
+        acc_jmap_error += jmap_error;
+        acc_pids_error += pids_error;
+        acc_r_error += r_error;
+    }
+
+    cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, 0, CV_32FC3);
+    cv::Mat cpu_pids = DownloadTexture(pids_cpu, 0, CV_32FC3);
+    cv::Mat cpu_r = DownloadTexture(r_cpu, 0, CV_32FC1);
+    cv::Mat gl_jmap = DownloadTexture(jmap_gl, 0, CV_32FC3);
+    cv::Mat gl_pids = DownloadTexture(pids_gl, 0, CV_32FC3);
+    cv::Mat gl_r = DownloadTexture(r_gl, 0, CV_32FC1);
 
     SaveDebugImageColor(cpu_jmap, "cross_jmap_cpu.png");
     SaveDebugImageColor(gl_jmap, "cross_jmap_gl.png");
@@ -465,20 +515,16 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     // SaveDebugImageColor(gl_r, "cross_r_gl.png");
 
     std::cout << "JMap Pipeline Cross-Backend Comparison:\n";
-    std::cout << "  Jmap L2 Error: " << jmap_error << "\n";
-    std::cout << "  Pids L2 Error: " << pids_error << "\n";
-    std::cout << "  r L2 Error: " << r_error << "\n";
-    std::cout << "  CPU Time: " << cpu_time << " ms\n";
-    std::cout << "  GL Time:  " << gl_time << " ms\n";
-    std::cout << "  Speedup:  " << (cpu_time / gl_time) << "x\n";
-
-    EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high";
-    EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high";
-    EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+    std::cout << "  Jmap L2 Error: " << acc_jmap_error << "\n";
+    std::cout << "  Pids L2 Error: " << acc_pids_error << "\n";
+    std::cout << "  r L2 Error: " << acc_r_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
 
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
-    //EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
-    //EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 /*
