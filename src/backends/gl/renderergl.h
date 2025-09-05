@@ -253,7 +253,7 @@ public:
         // Validate inputs
         ErrorHandling::ValidateTextureDimensions(depth_texture.width(out_lvl), depth_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-        
+
         save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
@@ -274,15 +274,14 @@ public:
 
         float clear[4] = {depth_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
         glUseProgram(program_);
-        // set_uniforms();
 
         const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
@@ -374,12 +373,12 @@ public:
 
         float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
 
-//#if defined(GL_VERSION_3_0)
-//        glClearBufferfv(GL_COLOR, 0, clear);
-//#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-//#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -394,7 +393,6 @@ public:
         }
 
         glUseProgram(program_);
-        // set_uniforms();
 
         const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
@@ -507,12 +505,12 @@ public:
 
         float clear[4] = {r_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -650,12 +648,12 @@ public:
 
         float clear[4] = {r_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -683,7 +681,7 @@ public:
 
         glUniform1i(f_image_loc_, 1);                         // texture unit
         glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
-        glUniform1i(f_image_lvl_loc_, out_lvl);                // **int**, not float
+        glUniform1i(f_image_lvl_loc_, out_lvl);               // **int**, not float
 
         mesh.bind();
         mesh.draw();
@@ -803,12 +801,12 @@ public:
         Vec3 nodata = out_texture.nodata();
         float clear[4] = {nodata(0), nodata(1), nodata(2), 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -979,12 +977,12 @@ public:
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, jtra_clear);
-        glClearBufferfv(GL_COLOR, 1, jrot_clear);
-        glClearBufferfv(GL_COLOR, 2, r_clear);
-#else
-        // Clear GL_COLOR_ATTACHMENT0
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jtra_clear);
+        //         glClearBufferfv(GL_COLOR, 1, jrot_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
         glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
@@ -1002,9 +1000,9 @@ public:
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(2, bufs_restore);
-#endif
+        const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, bufs_restore);
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -1278,11 +1276,11 @@ public:
         float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, jmap_clear);
-        glClearBufferfv(GL_COLOR, 1, pids_clear);
-        glClearBufferfv(GL_COLOR, 2, r_clear);
-#else
+//#if defined(GL_VERSION_3_0)
+//        glClearBufferfv(GL_COLOR, 0, jmap_clear);
+//        glClearBufferfv(GL_COLOR, 1, pids_clear);
+//        glClearBufferfv(GL_COLOR, 2, r_clear);
+//#else
         // Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
@@ -1301,9 +1299,9 @@ public:
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(2, bufs_restore);
-#endif
+        const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, bufs_restore);
+//#endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -1340,7 +1338,7 @@ public:
         glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
-        //glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
+        // glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
         glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
