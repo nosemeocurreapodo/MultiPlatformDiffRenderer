@@ -109,23 +109,27 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     UploadMatToTexture(input_gl, 0, image_src_cv_);
 
     float acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
-    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
-        ImageRendererCPU renderer_cpu;
-        timer_.Start();
-        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input_cpu, output_cpu);
-        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
-        acc_cpu_time += timer_.Stop();
+        // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            ImageRendererCPU renderer_cpu;
+            timer_.Start();
+            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            acc_cpu_time += timer_.Stop();
 
-        ImageRendererGL renderer_gl;
-        timer_.Start();
-        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input_gl, output_gl);
-        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
-        acc_gl_time += timer_.Stop();
+            ImageRendererGL renderer_gl;
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
+            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            acc_gl_time += timer_.Stop();
 
-        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
-        EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
-        acc_l2_error += l2_error;
+            double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+            EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+            acc_l2_error += l2_error;
+        }
     }
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
@@ -175,21 +179,25 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     ResidualRendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
-    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
-        timer_.Start();
-        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input1_cpu, input2_cpu, output_cpu);
-        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
-        acc_cpu_time += timer_.Stop();
+        // for (int in_lvl = 0; in_lvl < input1_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            timer_.Start();
+            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
+            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            acc_cpu_time += timer_.Stop();
 
-        timer_.Start();
-        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input1_gl, input2_gl, output_gl);
-        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
-        acc_gl_time += timer_.Stop();
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
+            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            acc_gl_time += timer_.Stop();
 
-        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
-        EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
-        acc_l2_error += l2_error;
+            double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+            EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+            acc_l2_error += l2_error;
+        }
     }
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
@@ -241,21 +249,25 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     L2RendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
-    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
-        timer_.Start();
-        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, input1_cpu, input2_cpu, output_cpu);
-        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
-        acc_cpu_time += timer_.Stop();
+        // for (int in_lvl = 0; in_lvl < output_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            timer_.Start();
+            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
+            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            acc_cpu_time += timer_.Stop();
 
-        timer_.Start();
-        renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, input1_gl, input2_gl, output_gl);
-        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
-        acc_gl_time += timer_.Stop();
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
+            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            acc_gl_time += timer_.Stop();
 
-        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
-        EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
-        acc_l2_error += l2_error;
+            double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
+            EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+            acc_l2_error += l2_error;
+        }
     }
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
@@ -300,22 +312,26 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     DIDxyRendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
-    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
-        timer_.Start();
-        renderer_cpu.Render(mesh_cpu, lvl, lvl, input_cpu, output_cpu);
-        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC3);
-        acc_cpu_time += timer_.Stop();
+        // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            timer_.Start();
+            renderer_cpu.Render(mesh_cpu, in_lvl, out_lvl, input_cpu, output_cpu);
+            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
+            acc_cpu_time += timer_.Stop();
 
-        timer_.Start();
-        renderer_gl.Render(mesh_gl, lvl, lvl, input_gl, output_gl);
-        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC3);
-        acc_gl_time += timer_.Stop();
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, in_lvl, out_lvl, input_gl, output_gl);
+            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC3);
+            acc_gl_time += timer_.Stop();
 
-        // Cross-backend validation for Vec3 data
-        double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
-        EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
-        acc_l2_error += l2_error;
+            // Cross-backend validation for Vec3 data
+            double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+            acc_l2_error += l2_error;
+        }
     }
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC3);
@@ -374,36 +390,44 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     DIDxyRendererGL didxy_renderer_gl;
     JPoseRendererGL jpose_renderer_gl;
 
-    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
-    for (int lvl = 0; lvl < kf_cpu.levels(); ++lvl)
+    for (int lvl = 0; lvl < f_cpu.levels(); ++lvl)
     {
-        timer_.Start();
         didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
-        jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
-        cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, lvl, CV_32FC3);
-        cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, lvl, CV_32FC3);
-        cv::Mat cpu_r = DownloadTexture(r_cpu, lvl, CV_32FC1);
-        acc_cpu_time += timer_.Stop();
-
-        timer_.Start();
         didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
-        jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
-        cv::Mat gl_jtra = DownloadTexture(jtra_gl, lvl, CV_32FC3);
-        cv::Mat gl_jrot = DownloadTexture(jrot_gl, lvl, CV_32FC3);
-        cv::Mat gl_r = DownloadTexture(r_gl, lvl, CV_32FC1);
-        acc_gl_time += timer_.Stop();
+    }
 
-        // Validate both Jtra and Jrot
-        double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
-        double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
-        double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
+    for (int out_lvl = 0; out_lvl < jtra_cpu.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            timer_.Start();
+            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
+            cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
+            acc_cpu_time += timer_.Stop();
 
-        EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high";
-        EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high";
-        EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
-        acc_jtra_error += jtra_error;
-        acc_jrot_error += jrot_error;
-        acc_r_error += r_error;
+            timer_.Start();
+            jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
+            cv::Mat gl_jtra = DownloadTexture(jtra_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+            acc_gl_time += timer_.Stop();
+
+            // Validate both Jtra and Jrot
+            double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            double jrot_error = ComputeL2Error<cv::Vec3f>(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+
+            EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high";
+            EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high";
+            EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+            acc_jtra_error += jtra_error;
+            acc_jrot_error += jrot_error;
+            acc_r_error += r_error;
+        }
     }
 
     cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, 0, CV_32FC3);
@@ -467,37 +491,45 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     DIDxyRendererGL didxy_renderer_gl;
     JMapRendererGL jpose_renderer_gl;
 
-    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jmap_error = 0.0, acc_pids_error = 0.0, acc_r_error = 0.0;
-    for (int lvl = 0; lvl < kf_cpu.levels(); ++lvl)
+    for (int lvl = 0; lvl < f_cpu.levels(); ++lvl)
     {
-        timer_.Start();
         didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
-        jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
-        cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, lvl, CV_32FC3);
-        cv::Mat cpu_pids = DownloadTexture(pids_cpu, lvl, CV_32FC3);
-        cv::Mat cpu_r = DownloadTexture(r_cpu, lvl, CV_32FC1);
-        acc_cpu_time += timer_.Stop();
-
-        timer_.Start();
         didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
-        jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
-        cv::Mat gl_jmap = DownloadTexture(jmap_gl, lvl, CV_32FC3);
-        cv::Mat gl_pids = DownloadTexture(pids_gl, lvl, CV_32FC3);
-        cv::Mat gl_r = DownloadTexture(r_gl, lvl, CV_32FC1);
-        acc_gl_time += timer_.Stop();
+    }
 
-        // Validate both Jtra and Jrot
-        double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
-        double pids_error = ComputeL2Error<cv::Vec3f>(cpu_pids, gl_pids, cv::Vec3f(0.0f, 0.0f, 0.0f));
-        double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jmap_error = 0.0, acc_pids_error = 0.0, acc_r_error = 0.0;
+    for (int out_lvl = 0; out_lvl < jmap_cpu.levels(); ++out_lvl)
+    {
+        //for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            timer_.Start();
+            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
+            cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_pids = DownloadTexture(pids_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
+            acc_cpu_time += timer_.Stop();
 
-        EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high";
-        EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high";
-        EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
-        
-        acc_jmap_error += jmap_error;
-        acc_pids_error += pids_error;
-        acc_r_error += r_error;
+            timer_.Start();
+            jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
+            cv::Mat gl_jmap = DownloadTexture(jmap_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_pids = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+            acc_gl_time += timer_.Stop();
+
+            // Validate both Jtra and Jrot
+            double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            double pids_error = ComputeL2Error<cv::Vec3f>(cpu_pids, gl_pids, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            double r_error = ComputeL2Error<float>(cpu_r, gl_r, 0.0);
+
+            EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high";
+            EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high";
+            EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high";
+
+            acc_jmap_error += jmap_error;
+            acc_pids_error += pids_error;
+            acc_r_error += r_error;
+        }
     }
 
     cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, 0, CV_32FC3);

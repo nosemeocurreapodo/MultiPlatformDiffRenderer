@@ -540,7 +540,7 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         mesh.bind();
         mesh.draw();
@@ -683,7 +683,7 @@ public:
 
         glUniform1i(f_image_loc_, 1);                         // texture unit
         glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
-        glUniform1i(f_image_lvl_loc_, in_lvl);                // **int**, not float
+        glUniform1i(f_image_lvl_loc_, out_lvl);                // **int**, not float
 
         mesh.bind();
         mesh.draw();
@@ -1038,11 +1038,11 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform1f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
+        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1337,11 +1337,11 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         //glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
+        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
