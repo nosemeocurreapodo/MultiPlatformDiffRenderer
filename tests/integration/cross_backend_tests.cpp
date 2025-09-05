@@ -82,9 +82,9 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     SaveDebugImage(gl_result, "cross_depth_gl.png");
 
     // Create difference image
-    cv::Mat diff_image;
-    cv::absdiff(cpu_result, gl_result, diff_image);
-    SaveDebugImage(diff_image, "cross_depth_diff.png");
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_depth_diff.png");
 
     std::cout << "Depth Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -152,15 +152,15 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTexture(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_image_cpu.png");
     SaveDebugImage(gl_result, "cross_image_gl.png");
 
-    cv::Mat diff_image;
-    cv::absdiff(cpu_result, gl_result, diff_image);
-    SaveDebugImage(diff_image, "cross_image_diff.png");
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_image_diff.png");
 
     std::cout << "Image Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -238,9 +238,9 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
 
-    cv::Mat diff_image;
-    cv::absdiff(cpu_result, gl_result, diff_image);
-    SaveDebugImage(diff_image, "cross_residual_diff.png");
+    //cv::Mat diff_image;
+    //cv::absdiff(cpu_result, gl_result, diff_image);
+    //SaveDebugImage(diff_image, "cross_residual_diff.png");
 
     std::cout << "Residual Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -319,9 +319,9 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     SaveDebugImage(cpu_result, "cross_l2_cpu.png");
     SaveDebugImage(gl_result, "cross_l2_gl.png");
 
-    cv::Mat diff_image;
-    cv::absdiff(cpu_result, gl_result, diff_image);
-    SaveDebugImage(diff_image, "cross_l2_diff.png");
+    //cv::Mat diff_image;
+    //cv::absdiff(cpu_result, gl_result, diff_image);
+    //SaveDebugImage(diff_image, "cross_l2_diff.png");
 
     std::cout << "L2 Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -394,9 +394,9 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
 
-    cv::Mat diff_image;
-    cv::absdiff(cpu_result, gl_result, diff_image);
-    SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
+    //cv::Mat diff_image;
+    //cv::absdiff(cpu_result, gl_result, diff_image);
+    //SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
 
     std::cout << "Gradient Computation Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";

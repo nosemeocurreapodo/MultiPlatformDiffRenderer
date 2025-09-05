@@ -380,13 +380,13 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
         // #endif
 
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindTextureUnit(0, in_texture.id());
-        }
-        else
-#endif
+//#if defined(GL_VERSION_4_5)
+//        if (GLAD_GL_VERSION_4_5)
+//        {
+//            glBindTextureUnit(0, in_texture.id());
+//        }
+//        else
+//#endif
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, in_texture.id());

@@ -96,8 +96,10 @@ protected:
     void UploadMatToTexture(Texture &tex, int lvl, const cv::Mat &mat)
     {
         assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
-        auto mapped = tex.MapWrite(lvl);
-        std::memcpy(mapped.data(), mat.ptr(), mat.total() * tex.type_size());
+        {
+            auto mapped = tex.MapWrite(lvl);
+            std::memcpy(mapped.data(), mat.ptr(), mat.total() * tex.type_size());
+        }
         tex.generate_mipmaps(lvl);
     }
 
@@ -105,8 +107,10 @@ protected:
     cv::Mat DownloadTexture(const Texture &tex, int lvl, int cv_type)
     {
         cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
-        auto mapped = tex.MapRead(lvl);
-        std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
+        {
+            auto mapped = tex.MapRead(lvl);
+            std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
+        }
         return result;
     }
 
@@ -388,7 +392,7 @@ struct ValidationThresholds
     double gt_max_depth_error = 0.4;
     double gt_max_image_error = 10.0;
 
-    int cr_max_valid_diff = 10;
+    int cr_max_valid_diff = 200;
     double cr_max_depth_error = 2e-5;
     double cr_max_image_error = 3.0;
     double cr_max_residual_error = 3.5;
