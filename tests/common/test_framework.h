@@ -153,8 +153,8 @@ protected:
     }
 
     // Error computation
-    template <typename Texture>
-    double RMSE(const Texture &tex1, const Texture &tex2, int lvl)
+    template <typename Texture1, typename Texture2>
+    double RMSE(const Texture1 &tex1, const Texture2 &tex2, int lvl)
     {
         EXPECT_EQ(tex1.size(lvl), tex2.size(lvl));
 
@@ -181,6 +181,26 @@ protected:
         }
 
         return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
+    }
+
+    template <typename Texture>
+    int CountValid(const Texture &tex, int lvl)
+    {
+        int valid_pixels = 0;
+        auto tx_map = tex.MapRead(lvl);
+
+        for (int i = 0; i < tex.size(lvl); ++i)
+        {
+            auto val = tx_map[i];
+            if (val == tex.nodata())
+            {
+                continue;
+            }
+
+            valid_pixels++;
+        }
+
+        return valid_pixels;
     }
 
     // Save debug images
@@ -368,6 +388,7 @@ struct ValidationThresholds
     double gt_max_depth_error = 0.4;
     double gt_max_image_error = 10.0;
 
+    int cr_max_valid_diff = 500;
     double cr_max_depth_error = 9e-5;
     double cr_max_image_error = 3.0;
     double cr_max_residual_error = 3.5;

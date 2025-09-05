@@ -202,8 +202,10 @@ private:
         const float uu = wrap(u);
         const float vv = wrap(v);
 
-        const float x = uu * (w - 1.0f);
-        const float y = vv * (h - 1.0f);
+        //const float x = uu * (w - 1.0f);
+        //const float y = vv * (h - 1.0f);
+        const float x = uu * w - 0.5f;
+        const float y = vv * h - 0.5f;
 
         return (filt == FilterMode::Nearest)
                    ? nearest_(y, x, lvl)
@@ -303,12 +305,16 @@ private:
         if (is_nodata_(tl) || is_nodata_(tr) || is_nodata_(bl) || is_nodata_(br))
             return nodata_;
 
-        const float w_tl = (1.0f - dx) * (1.0f - dy);
-        const float w_tr = (dx) * (1.0f - dy);
-        const float w_bl = (1.0f - dx) * (dy);
-        const float w_br = (dx) * (dy);
+        //const float w_tl = (1.0f - dx) * (1.0f - dy);
+        //const float w_tr = (dx) * (1.0f - dy);
+        //const float w_bl = (1.0f - dx) * (dy);
+        //const float w_br = (dx) * (dy);
 
-        return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
+        //return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
+
+        const T Cx0 = tl * (1.0f - dx) + tr * dx;
+        const T Cx1 = bl * (1.0f - dx) + br * dx;
+        return static_cast<T>(Cx0 * (1.0f - dy) + Cx1 * dy);
     }
 
     void generate_mipmap_(std::size_t lvl)

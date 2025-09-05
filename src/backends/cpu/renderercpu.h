@@ -41,7 +41,7 @@ public:
             Vec2 uv[3];
             float wght[3];
             unsigned int id[3];
-            
+
             id[0] = i0;
             id[1] = i1;
             id[2] = i2;
@@ -105,11 +105,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.depth =
@@ -131,17 +131,12 @@ public:
                        Varyings &outVarying)
     {
         gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        // No attributes in outVarying, so do nothing with it
-        outVarying.depth = inVertex(2); // example: store Z in outVarying
+        outVarying.depth = inVertex(2);
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        // Example: store depth in outFragment as a float:
-        // outFragment = gl_FragCoord.z();
-        // outFragment = inVarying; // use the varying Z from vertex shader
-        // Could also do shading or sampling, but here we just store depth
         out_texture_->set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
@@ -192,11 +187,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -218,8 +213,7 @@ public:
                        Varyings &outVarying)
     {
         gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        // We are using a "float" for VaryingType, so you can store something if needed
-        outVarying.texcoord = inTexCoord; // placeholder
+        outVarying.texcoord = inTexCoord;
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
@@ -229,14 +223,6 @@ public:
         if (pix == in_texture_->nodata())
             return;
         out_texture_->set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-
-        // Example: color = [checker pattern], ignoring inVarying
-        // float fx = std::floor(gl_FragCoord.x() * 0.1f);
-        // float fy = std::floor(gl_FragCoord.y() * 0.1f);
-        // bool bright = (static_cast<int>(fx + fy) % 2 == 0);
-
-        // For demonstration, store a grayscale in float
-        // outFragment = bright ? 1.0f : 0.2f;
     }
 
 private:
@@ -290,11 +276,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                          const float invW0, const float invW1, const float invW2,
-                                          const float invW_px,
-                                          const Varyings &varying_px0,
-                                          const Varyings &varying_px1,
-                                          const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -321,8 +307,15 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
+        int width = kf_texture_->width(out_lvl_);
+        int height = kf_texture_->height(out_lvl_);
+
+        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+
         float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), out_lvl_);
+
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata())
             return;
 
@@ -382,11 +375,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                    const float invW0, const float invW1, const float invW2,
-                                    const float invW_px,
-                                    const Varyings &varying_px0,
-                                    const Varyings &varying_px1,
-                                    const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -413,8 +406,15 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
+        int width = kf_texture_->width(out_lvl_);
+        int height = kf_texture_->height(out_lvl_);
+
+        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+
         float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata())
             return;
 
@@ -464,11 +464,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -499,8 +499,8 @@ public:
     {
         // outFragment = inVarying;
 
-        int height = in_texture_->height(in_lvl_);
-        int width = in_texture_->width(in_lvl_);
+        int height = in_texture_->height(out_lvl_);
+        int width = in_texture_->width(out_lvl_);
         float nodata = in_texture_->nodata();
 
         int x = int(in_varying.texcoord(0) * (width - 1));
@@ -519,11 +519,11 @@ public:
             return;
         }
 
-        float f = in_texture_->texel_(y, x, in_lvl_);
-        float f_y_p = in_texture_->texel_(y_p, x, in_lvl_);
-        float f_y_m = in_texture_->texel_(y_m, x, in_lvl_);
-        float f_x_p = in_texture_->texel_(y, x_p, in_lvl_);
-        float f_x_m = in_texture_->texel_(y, x_m, in_lvl_);
+        float f = in_texture_->texel_(y, x, out_lvl_);
+        float f_y_p = in_texture_->texel_(y_p, x, out_lvl_);
+        float f_y_m = in_texture_->texel_(y_m, x, out_lvl_);
+        float f_x_p = in_texture_->texel_(y, x_p, out_lvl_);
+        float f_x_m = in_texture_->texel_(y, x_m, out_lvl_);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -600,11 +600,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                       const float invW0, const float invW1, const float invW2,
-                                       const float invW_px,
-                                       const Varyings &varying_px0,
-                                       const Varyings &varying_px1,
-                                       const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -639,15 +639,19 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        int width = kf_texture_->width(in_lvl_);
-        int height = kf_texture_->height(in_lvl_);
+        int width = kf_texture_->width(out_lvl_);
+        int height = kf_texture_->height(out_lvl_);
+
+        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
         Vec3 f_ver = in_varying.f_ver;
         Vec2 texcoord = in_varying.texcoord;
 
         float kf = kf_texture_->sample_(texcoord(1), texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata() || f_der == dfdxy_texture_->nodata())
             return;
@@ -736,11 +740,11 @@ public:
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                      const float invW0, const float invW1, const float invW2,
-                                      const float invW_px,
-                                      const Varyings &varying_px0,
-                                      const Varyings &varying_px1,
-                                      const Varyings &varying_px2)
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -795,8 +799,10 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        int width = kf_texture_->width(in_lvl_);
-        int height = kf_texture_->height(in_lvl_);
+        int width = jmap_texture_->width(out_lvl_);
+        int height = jmap_texture_->height(out_lvl_);
+
+        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
         Vec3 f_ver = in_varying.f_ver;
         Vec3 kf_ray = in_varying.kf_ray;
@@ -805,8 +811,10 @@ public:
         Vec3i vertexid = in_varying.pids;
 
         float kf = kf_texture_->sample_(texcoord(1), texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata() || f_der == dfdxy_texture_->nodata())
             return;

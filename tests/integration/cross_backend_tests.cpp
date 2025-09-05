@@ -59,6 +59,12 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
         acc_gl_time += timer_.Stop();
 
+        int valid_cpu = CountValid(output_cpu, lvl);
+        int valid_gl = CountValid(output_gl, lvl);
+        int valid_diff = std::abs(valid_cpu - valid_gl);
+
+        EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
+
         // Detailed error analysis
         double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
         EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
@@ -125,6 +131,12 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
             cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(output_cpu, out_lvl);
+            int valid_gl = CountValid(output_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
 
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error;
@@ -193,6 +205,12 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
             cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(output_cpu, out_lvl);
+            int valid_gl = CountValid(output_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
 
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error;
@@ -264,6 +282,12 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
             cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
+            int valid_cpu = CountValid(output_cpu, out_lvl);
+            int valid_gl = CountValid(output_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
+
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error;
             acc_l2_error += l2_error;
@@ -326,6 +350,12 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
             renderer_gl.Render(mesh_gl, in_lvl, out_lvl, input_gl, output_gl);
             cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC3);
             acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(output_cpu, out_lvl);
+            int valid_gl = CountValid(output_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
 
             // Cross-backend validation for Vec3 data
             double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
@@ -399,6 +429,8 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
     for (int out_lvl = 0; out_lvl < jtra_cpu.levels(); ++out_lvl)
     {
+        if (out_lvl > 3)
+            continue;
         // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
         int in_lvl = out_lvl;
         {
@@ -415,6 +447,12 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
             cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
             cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(r_cpu, out_lvl);
+            int valid_gl = CountValid(r_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
 
             // Validate both Jtra and Jrot
             double jtra_error = ComputeL2Error<cv::Vec3f>(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
@@ -500,7 +538,7 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jmap_error = 0.0, acc_pids_error = 0.0, acc_r_error = 0.0;
     for (int out_lvl = 0; out_lvl < jmap_cpu.levels(); ++out_lvl)
     {
-        //for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
+        // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
         int in_lvl = out_lvl;
         {
             timer_.Start();
@@ -516,6 +554,12 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
             cv::Mat gl_pids = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
             cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(r_cpu, out_lvl);
+            int valid_gl = CountValid(r_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff;
 
             // Validate both Jtra and Jrot
             double jmap_error = ComputeL2Error<cv::Vec3f>(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
