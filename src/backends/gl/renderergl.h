@@ -374,12 +374,12 @@ public:
 
         float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+//#if defined(GL_VERSION_3_0)
+//        glClearBufferfv(GL_COLOR, 0, clear);
+//#else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+//#endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)

@@ -65,8 +65,8 @@ protected:
     void SetUp() override
     {
         // Load test dataset
-        // dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
-        dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
+        dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
+        // dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
         // dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
@@ -228,8 +228,8 @@ protected:
 
 protected:
     // Dataset and test data
-    // std::unique_ptr<LoadDatasetIclNuim> dataset_;
-    std::unique_ptr<LoadDesktopDataset> dataset_;
+    std::unique_ptr<LoadDatasetIclNuim> dataset_;
+    // std::unique_ptr<LoadDesktopDataset> dataset_;
     // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
@@ -388,8 +388,8 @@ struct ValidationThresholds
     double gt_max_depth_error = 0.4;
     double gt_max_image_error = 10.0;
 
-    int cr_max_valid_diff = 500;
-    double cr_max_depth_error = 9e-5;
+    int cr_max_valid_diff = 10;
+    double cr_max_depth_error = 2e-5;
     double cr_max_image_error = 3.0;
     double cr_max_residual_error = 3.5;
     double cr_max_l2_error = 250.0;
