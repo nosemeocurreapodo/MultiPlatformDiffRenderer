@@ -490,10 +490,10 @@ public:
         std::string depth_path = dataset_path + "/depths";
         std::string poses_path = dataset_path + "/poses";
 
-        this->depth_factor_ = 27.0; 
+        this->depth_factor_ = 3.0;
 
         getdir(images_path, this->image_files_);
-        getdir(depth_path, this->depth_files_);
+        // getdir(depth_path, this->depth_files_);
         std::vector<std::string> pose_files;
         getdir(poses_path, pose_files);
 

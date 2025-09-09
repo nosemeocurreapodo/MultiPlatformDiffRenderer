@@ -313,8 +313,8 @@ public:
         Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
         float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata())
             return;
@@ -811,10 +811,10 @@ public:
         Vec3i vertexid = in_varying.pids;
 
         float kf = kf_texture_->sample_(texcoord(1), texcoord(0), in_lvl_);
-        // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        // Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
-        Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        // Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == kf_texture_->nodata() || f == f_texture_->nodata() || f_der == dfdxy_texture_->nodata())
             return;
