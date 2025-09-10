@@ -7,6 +7,8 @@
 #include <vector>
 #include <cmath> // std::floor, std::fmod
 
+#include "core/types.h"
+
 enum class AddressMode
 {
     Repeat,
@@ -19,40 +21,42 @@ enum class FilterMode
     Bilinear
 };
 
-template <class T>
+template <class Derived, class T>
 class TextureBase
 {
 public:
-    TextureBase() = default;
+    /*
+        TextureBase() = default;
 
-    // Create empty pyramid filled with nodata
-    TextureBase(std::size_t w, std::size_t h, T nodata)
-        : nodata_(nodata)
-    {
-        build_pyramid_(w, h);
-        // Fill base and all levels with nodata
-        // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
-        //    fill(lvl, nodata_);
-    }
-
-    // Create and upload base level, auto-generate mipmaps
-    TextureBase(std::size_t w, std::size_t h, T nodata, const T *base)
-        : nodata_(nodata)
-    {
-        build_pyramid_(w, h);
-        // write base
+        // Create empty pyramid filled with nodata
+        TextureBase(std::size_t w, std::size_t h, T nodata)
+            : nodata_(nodata)
         {
-            auto m = MapWrite(0);
-            std::copy_n(base, w * h, m.data());
+            build_pyramid_(w, h);
+            // Fill base and all levels with nodata
+            // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
+            //    fill(lvl, nodata_);
         }
-    }
 
-    // Rule of 5
-    TextureBase(const TextureBase &) = default;
-    TextureBase &operator=(const TextureBase &) = default;
-    TextureBase(TextureBase &&) noexcept = default;
-    TextureBase &operator=(TextureBase &&) noexcept = default;
-    ~TextureBase() = default;
+        // Create and upload base level, auto-generate mipmaps
+        TextureBase(std::size_t w, std::size_t h, T nodata, const T *base)
+            : nodata_(nodata)
+        {
+            build_pyramid_(w, h);
+            // write base
+            {
+                auto m = MapWrite(0);
+                std::copy_n(base, w * h, m.data());
+            }
+        }
+
+        // Rule of 5
+        TextureBase(const TextureBase &) = default;
+        TextureBase &operator=(const TextureBase &) = default;
+        TextureBase(TextureBase &&) noexcept = default;
+        TextureBase &operator=(TextureBase &&) noexcept = default;
+        ~TextureBase() = default;
+        */
 
     // Introspection
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
@@ -62,6 +66,7 @@ public:
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
+    /*
     // Fill a level with a constant
     void fill(std::size_t lvl, const T &v)
     {
@@ -71,38 +76,15 @@ public:
         auto m = MapWrite(lvl);
         std::fill(m.data(), m.data() + m.size(), v);
     }
+    */
 
     void generate_mipmaps(int base_lvl)
     {
         // build lower levels
         for (std::size_t lvl = base_lvl + 1; lvl < levels(); ++lvl)
         {
-            generate_mipmap_(lvl);
+            derived_().generate_mipmap_(lvl);
         }
-    }
-
-    /*
-    // Expose map views for bulk ops / algorithms (cross-backend shape)
-    [[nodiscard]] MappedView<const T> MapRead(size_type lvl) const &
-    {
-        return lvls_[lvl].buf.MapRead();
-    }
-    [[nodiscard]] MappedView<T> MapWrite(size_type lvl) &
-    {
-        return lvls_[lvl].buf.MapWrite();
-    }
-    */
-
-    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
-    {
-        const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.size);
-    }
-
-    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(int lvl)
-    {
-        const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.size);
     }
 
 protected:
@@ -114,41 +96,33 @@ protected:
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    BufferCPU<T> storage_;
     std::vector<Level> levels_;
-    // std::vector<Level> lvls_;
     T nodata_{};
 
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(std::size_t y, std::size_t x, std::size_t lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
-        // auto m = lvls_[lvl].buf.MapRead();
-        // return m.data()[x + y * width(lvl)];
-        // return MapRead(lvl)[x + y * width(lvl)];
         const auto &L = levels_[lvl];
-        return storage_[L.offset + y * L.w + x];
+        return derived_()[L.offset + y * L.w + x]
     }
     void set_texel_(const T &v, std::size_t y, std::size_t x, std::size_t lvl)
     {
         assert(x < width(lvl) && y < height(lvl));
-        // auto m = lvls_[lvl].buf.MapWrite();
-        // m.data()[x + y * width(lvl)] = v;
-        // MapWrite(lvl)[x + y * width(lvl)] = v;
         const auto &L = levels_[lvl];
-        storage_[L.offset + y * L.w + x] = v;
+        derived_()[L.offset + y * L.w + x] = v;
     }
 
     // Normalized sampling in [0,1] (allows outside depending on address mode)
-    T sample_(float v, float u,
+    T sample_(Scalar v, Scalar u,
               std::size_t lvl = 0,
               AddressMode addr = AddressMode::Clamp,
               FilterMode filt = FilterMode::Bilinear) const
     {
-        const auto w = static_cast<float>(width(lvl));
-        const auto h = static_cast<float>(height(lvl));
+        const Scalar w = static_cast<Scalar>(width(lvl));
+        const Scalar h = static_cast<Scalar>(height(lvl));
 
-        auto wrap = [&](float t)
+        auto wrap = [&](Scalar t)
         {
             switch (addr)
             {
@@ -157,7 +131,7 @@ protected:
             case AddressMode::Repeat:
             {
                 // wrap to [0,1)
-                float r = std::fmod(t, 1.0f);
+                Scalar r = std::fmod(t, 1.0f);
                 if (r < 0.0f)
                     r += 1.0f;
                 return r;
@@ -165,8 +139,8 @@ protected:
             case AddressMode::Mirror:
             {
                 // mirror every [0,1], 0..1..0..
-                float ip = std::floor(t);
-                float f = t - ip;
+                Scalar ip = std::floor(t);
+                Scalar f = t - ip;
                 bool odd = static_cast<long>(ip) & 1L;
                 return odd ? (1.0f - f) : f;
             }
@@ -174,11 +148,11 @@ protected:
             return t; // unreachable
         };
 
-        const float uu = wrap(u);
-        const float vv = wrap(v);
+        const Scalar uu = wrap(u);
+        const Scalar vv = wrap(v);
 
-        const float x = uu * (w - 1.0f);
-        const float y = vv * (h - 1.0f);
+        const Scalar x = uu * (w - 1.0f);
+        const Scalar y = vv * (h - 1.0f);
 
         return (filt == FilterMode::Nearest)
                    ? nearest_(y, x, lvl)
@@ -240,7 +214,7 @@ protected:
     }
     */
 
-    T nearest_(float y, float x, std::size_t lvl) const
+    T nearest_(Scalar y, Scalar x, std::size_t lvl) const
     {
         const auto xi = static_cast<std::size_t>(std::lround(x));
         const auto yi = static_cast<std::size_t>(std::lround(y));
@@ -331,4 +305,7 @@ protected:
             }
         }
     }
+
+    Derived &derived_() { return *static_cast<Derived *>(this); }
+    const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 };

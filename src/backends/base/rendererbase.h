@@ -28,18 +28,62 @@ inline bool is_top_left(Scalar ax, Scalar ay, Scalar bx, Scalar by)
 }
 
 // -----------------------------------------------------------------------------
-// BaseRendererCPU (improved)
+// RendererBase
 // -----------------------------------------------------------------------------
 template <class Derived>
-class BaseRenderer
+class RendererBase
 {
 public:
-    BaseRenderer()
+    RendererBase()
     {
         opencv2opengl_ = Mat4::Identity();
         opencv2opengl_(2, 2) = -1.0; // flip Z like your original intent
     };
-    virtual ~BaseRenderer() = default;
+    // virtual ~RendererBase() = default;
+    ~RendererBase() = default;
+
+    template <typename Mesh>
+    void Render(const Mesh &mesh,
+                const BoundingBox<Int> &viewport)
+    {
+        // ---- Map mesh buffers (no copies) ----
+        auto pos = mesh.MapReadPositions(); // 3 floats/vertex
+        auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
+        auto wei = mesh.MapReadWeights();   // 1 float /vertex
+        auto idx = mesh.MapReadIndices();   // uint32_t indices
+
+        // Loop over triangles
+        for (std::size_t i = 0; i + 2 < idx.size(); i += 3)
+        {
+            const uint32_t i0 = idx[i + 0];
+            const uint32_t i1 = idx[i + 1];
+            const uint32_t i2 = idx[i + 2];
+
+            Vec3 v[3];
+            Vec2 uv[3];
+            Scalar wght[3];
+            UInt id[3];
+
+            id[0] = i0;
+            id[1] = i1;
+            id[2] = i2;
+
+            // gather
+            for (int k = 0; k < 3; ++k)
+            {
+                const uint32_t vi = (k == 0 ? i0 : k == 1 ? i1
+                                                          : i2);
+                v[k](0) = pos[vi * 3 + 0];
+                v[k](1) = pos[vi * 3 + 1];
+                v[k](2) = pos[vi * 3 + 2];
+                uv[k](0) = tex[vi * 2 + 0];
+                uv[k](1) = tex[vi * 2 + 1];
+                wght[k] = wei[vi];
+            }
+
+            this->draw_triangle_(v, uv, wght, id, viewport);
+        }
+    }
 
 protected:
     // Triangle rasterizer (top-left rule, perspective correct)
@@ -205,4 +249,173 @@ protected:
     const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
     Mat4 opencv2opengl_;
+};
+
+// -----------------------------------------------------------------------------
+// DepthRenderer
+//   Example derived renderer that outputs a "depth" or modifies Z
+// -----------------------------------------------------------------------------
+
+template <class Mesh, class Texture>
+class DepthRendererBase
+    : public RendererBase<DepthRendererBase<Mesh, Texture>>
+{
+public:
+    struct Varyings
+    {
+        float depth;
+    };
+
+    DepthRendererBase() = default;
+    ~DepthRendererBase() = default;
+
+    void Render(const Mesh &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int out_lvl,
+                Texture &out_texture)
+    {
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<Mesh, Texture>>::opencv2opengl_ * pose.matrix();
+        out_lvl_ = out_lvl;
+        out_texture_ = &out_texture;
+
+        const Int W = static_cast<Int>(out_texture.width(out_lvl));
+        const Int H = static_cast<Int>(out_texture.height(out_lvl));
+        BoundingBox<Int> viewport(0, W, 0, H);
+
+        RendererBase<DepthRendererBase<Mesh, Texture>>::Render(mesh, viewport);
+    }
+
+    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.depth =
+            (w0 * varying_px0.depth * invW0 +
+             w1 * varying_px1.depth * invW1 +
+             w2 * varying_px2.depth * invW2) *
+            (1.0f / invW_px);
+        return var_over_w_px;
+    }
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const Vec3 &inVertex,
+                       const Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const unsigned int &vertexid,
+                       Vec4 &gl_Position,
+                       Varyings &outVarying)
+    {
+        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        outVarying.depth = inVertex(2);
+    }
+
+    void fragment_shader(const Vec4 &gl_FragCoord,
+                         const Varyings &in_varying)
+    {
+        out_texture_->set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+    }
+
+private:
+    Mat4 t_matrix_;
+    int out_lvl_;
+    Texture *out_texture_;
+};
+
+// -----------------------------------------------------------------------------
+// ImageRendererBase
+//   Another example derived class that might output color
+// -----------------------------------------------------------------------------
+
+template <class Mesh, class TextureIn, class TextureOut>
+class ImageRendererBase
+    : public RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>
+{
+public:
+    struct Varyings
+    {
+        Vec2 texcoord;
+    };
+
+    ImageRendererBase() = default;
+    ~ImageRendererBase() = default;
+
+    void Render(const Mesh &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureIn &in_texture,
+                TextureOut &out_texture)
+    {
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                    RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>::opencv2opengl_ *
+                    pose.matrix();
+        in_lvl_ = in_lvl;
+        out_lvl_ = out_lvl;
+        in_texture_ = &in_texture;
+        out_texture_ = &out_texture;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>::Render(mesh, viewport);
+    }
+
+    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
+                                  const float invW0, const float invW1, const float invW2,
+                                  const float invW_px,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.texcoord =
+            (w0 * varying_px0.texcoord * invW0 +
+             w1 * varying_px1.texcoord * invW1 +
+             w2 * varying_px2.texcoord * invW2) *
+            (1.0f / invW_px);
+        return var_over_w_px;
+    }
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const Vec3 &inVertex,
+                       const Vec2 &inTexCoord,
+                       const float &inWeight,
+                       const unsigned int &vertexid,
+                       Vec4 &gl_Position,
+                       Varyings &outVarying)
+    {
+        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        outVarying.texcoord = inTexCoord;
+    }
+
+    void fragment_shader(const Vec4 &gl_FragCoord,
+                         const Varyings &in_varying)
+    {
+        float pix = in_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        if (pix == in_texture_->nodata())
+            return;
+        out_texture_->set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+private:
+    Mat4 t_matrix_;
+    int in_lvl_;
+    int out_lvl_;
+    const TextureIn *in_texture_;
+    TextureOut *out_texture_;
 };

@@ -1,8 +1,8 @@
 #pragma once
 
-//#include <algorithm>
-//#include <cmath>
-//#include <cstdint>
+// #include <algorithm>
+// #include <cmath>
+// #include <cstdint>
 #include "core/types.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
@@ -15,74 +15,16 @@
 #include "backends/cpu/meshcpu.h"
 
 // -----------------------------------------------------------------------------
-// BaseRendererCPU (improved)
-// -----------------------------------------------------------------------------
-template <class Derived>
-class BaseRendererCPU : public BaseRenderer<Derived>
-{
-public:
-    BaseRendererCPU() = default;
-    virtual ~BaseRendererCPU() = default;
-
-    void Render(const MeshCPU &mesh,
-                const BoundingBox<Int> &viewport)
-    {
-        // ---- Map mesh buffers (no copies) ----
-        auto pos = mesh.MapReadPositions(); // 3 floats/vertex
-        auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
-        auto wei = mesh.MapReadWeights();   // 1 float /vertex
-        auto idx = mesh.MapReadIndices();   // uint32_t indices
-
-        // Loop over triangles
-        for (std::size_t i = 0; i + 2 < idx.size(); i += 3)
-        {
-            const uint32_t i0 = idx[i + 0];
-            const uint32_t i1 = idx[i + 1];
-            const uint32_t i2 = idx[i + 2];
-
-            Vec3 v[3];
-            Vec2 uv[3];
-            Scalar wght[3];
-            UInt id[3];
-
-            id[0] = i0;
-            id[1] = i1;
-            id[2] = i2;
-
-            // gather
-            for (int k = 0; k < 3; ++k)
-            {
-                const uint32_t vi = (k == 0 ? i0 : k == 1 ? i1
-                                                          : i2);
-                v[k](0) = pos[vi * 3 + 0];
-                v[k](1) = pos[vi * 3 + 1];
-                v[k](2) = pos[vi * 3 + 2];
-                uv[k](0) = tex[vi * 2 + 0];
-                uv[k](1) = tex[vi * 2 + 1];
-                wght[k] = wei[vi];
-            }
-
-            this->draw_triangle_(v, uv, wght, id, viewport);
-        }
-    }
-};
-
-// -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public BaseRendererCPU<DepthRendererCPU>
+    : public DepthRendererBase<MeshCPU, TextureCPU<float>>
 {
 public:
-    struct Varyings
-    {
-        float depth;
-    };
-
     DepthRendererCPU() = default;
-    ~DepthRendererCPU() override = default;
+    ~DepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -94,59 +36,10 @@ public:
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        out_texture.fill(out_lvl, out_texture.nodata());
-
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
-        out_lvl_ = out_lvl;
-        out_texture_ = &out_texture;
-
-        const Int W = static_cast<Int>(out_texture.width(out_lvl));
-        const Int H = static_cast<Int>(out_texture.height(out_lvl));
-        BoundingBox<Int> viewport(0, W, 0, H);
-
-        BaseRendererCPU::Render(mesh, viewport);
-    }
-
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
-                                  const Varyings &varying_px0,
-                                  const Varyings &varying_px1,
-                                  const Varyings &varying_px2)
-    {
-        Varyings var_over_w_px;
-        var_over_w_px.depth =
-            (w0 * varying_px0.depth * invW0 +
-             w1 * varying_px1.depth * invW1 +
-             w2 * varying_px2.depth * invW2) *
-            (1.0f / invW_px);
-        return var_over_w_px;
-    }
-
-    // -------------------------------------------------------------------------
-    // Shaders
-    // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
-                       const unsigned int &vertexid,
-                       Vec4 &gl_Position,
-                       Varyings &outVarying)
-    {
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.depth = inVertex(2);
-    }
-
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
-    {
-        out_texture_->set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
     }
 
 private:
-    Mat4 t_matrix_;
-    int out_lvl_;
-    TextureCPU<float> *out_texture_;
 };
 
 // -----------------------------------------------------------------------------
@@ -155,16 +48,11 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public BaseRendererCPU<ImageRendererCPU>
+    : public ImageRendererBase<MeshCPU, TextureCPU<float>, TextureCPU<float>>
 {
 public:
-    struct Varyings
-    {
-        Vec2 texcoord;
-    };
-
     ImageRendererCPU() = default;
-    ~ImageRendererCPU() override = default;
+    ~ImageRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -174,66 +62,13 @@ public:
                 const TextureCPU<float> &in_texture,
                 TextureCPU<float> &out_texture)
     {
-        out_texture.fill(out_lvl, out_texture.nodata());
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
-        in_lvl_ = in_lvl;
-        out_lvl_ = out_lvl;
-        in_texture_ = &in_texture;
-        out_texture_ = &out_texture;
-
-        const int W = static_cast<int>(out_texture.width(out_lvl));
-        const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
-
-        BaseRendererCPU::Render(mesh, viewport);
-    }
-
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
-                                  const Varyings &varying_px0,
-                                  const Varyings &varying_px1,
-                                  const Varyings &varying_px2)
-    {
-        Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
-        return var_over_w_px;
-    }
-
-    // -------------------------------------------------------------------------
-    // Shaders
-    // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
-                       const unsigned int &vertexid,
-                       Vec4 &gl_Position,
-                       Varyings &outVarying)
-    {
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.texcoord = inTexCoord;
-    }
-
-    void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
-    {
-        float pix = in_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        if (pix == in_texture_->nodata())
-            return;
-        out_texture_->set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }
 
 private:
-    Mat4 t_matrix_;
-    int in_lvl_;
-    int out_lvl_;
-    const TextureCPU<float> *in_texture_;
-    TextureCPU<float> *out_texture_;
 };
 
 // -----------------------------------------------------------------------------
@@ -242,7 +77,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public BaseRendererCPU<ResidualRendererCPU>
+    : public RendererBase<ResidualRendererCPU>
 {
 public:
     struct Varyings
@@ -251,7 +86,7 @@ public:
     };
 
     ResidualRendererCPU() = default;
-    ~ResidualRendererCPU() override = default;
+    ~ResidualRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -275,7 +110,7 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        RendererBase::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -341,7 +176,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class L2RendererCPU
-    : public BaseRendererCPU<L2RendererCPU>
+    : public RendererBase<L2RendererCPU>
 {
 public:
     struct Varyings
@@ -350,7 +185,7 @@ public:
     };
 
     L2RendererCPU() = default;
-    ~L2RendererCPU() override = default;
+    ~L2RendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -374,7 +209,7 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        RendererBase::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -435,7 +270,7 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public BaseRendererCPU<DIDxyRendererCPU>
+    : public RendererBase<DIDxyRendererCPU>
 {
 public:
     struct Varyings
@@ -444,7 +279,7 @@ public:
     };
 
     DIDxyRendererCPU() = default;
-    ~DIDxyRendererCPU() override = default;
+    ~DIDxyRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 int in_lvl,
@@ -463,7 +298,7 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        RendererBase::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -554,7 +389,7 @@ private:
 };
 
 class JPoseRendererCPU
-    : public BaseRendererCPU<JPoseRendererCPU>
+    : public RendererBase<JPoseRendererCPU>
 {
 public:
     struct Varyings
@@ -564,7 +399,7 @@ public:
     };
 
     JPoseRendererCPU() = default;
-    ~JPoseRendererCPU() override = default;
+    ~JPoseRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -599,7 +434,7 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        RendererBase::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -689,7 +524,7 @@ private:
 };
 
 class JMapRendererCPU
-    : public BaseRendererCPU<JMapRendererCPU>
+    : public RendererBase<JMapRendererCPU>
 {
 public:
     struct Varyings
@@ -704,7 +539,7 @@ public:
     };
 
     JMapRendererCPU() = default;
-    ~JMapRendererCPU() override = default;
+    ~JMapRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3 &pose,
@@ -739,7 +574,7 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        BaseRendererCPU::Render(mesh, viewport);
+        RendererBase::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,

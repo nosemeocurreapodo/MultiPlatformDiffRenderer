@@ -2,7 +2,7 @@
 
 #include "bufferfpga.h"
 
-class MeshFPGA
+class MeshHLS
 {
 template <typename  InTexType,
           typename  VaryingType,
@@ -11,7 +11,7 @@ template <typename  InTexType,
 friend class BaseRendererFPGA;
 
 public:
-    MeshFPGA(const BufferFPGA<fpga::Scalar> &pos_buffer,
+    MeshHLS(const BufferFPGA<fpga::Scalar> &pos_buffer,
              const BufferFPGA<fpga::Scalar> &tex_buffer,
              const BufferFPGA<fpga::Scalar> &wei_buffer,
              const BufferFPGA<fpga::UInt> &ebo_buffer)
@@ -22,7 +22,7 @@ public:
 
           };
 
-    MeshFPGA(const MeshFPGA &other)
+    MeshHLS(const MeshHLS &other)
         : pos_buffer_(other.pos_buffer_),
           tex_buffer_(other.tex_buffer_),
           wei_buffer_(other.wei_buffer_),
@@ -30,7 +30,7 @@ public:
     {
     }
 
-    MeshFPGA &operator=(const MeshFPGA &other)
+    MeshHLS &operator=(const MeshHLS &other)
     {
         if (this != &other)
         {
