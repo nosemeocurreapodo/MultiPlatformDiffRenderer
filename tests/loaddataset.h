@@ -569,11 +569,11 @@ private:
                 cam_dir_str = cam_dir_str.substr(0, cam_dir_str.find("]"));
 
                 iss.str(cam_dir_str);
-                iss >> direction.x();
+                iss >> direction(0);//.x();
                 iss.ignore(1, ',');
-                iss >> direction.z();
+                iss >> direction(2);//.z();
                 iss.ignore(1, ',');
-                iss >> direction.y();
+                iss >> direction(1);//.y();
                 iss.ignore(1, ',');
             }
 
@@ -586,11 +586,11 @@ private:
                 cam_up_str = cam_up_str.substr(0, cam_up_str.find("]"));
 
                 iss.str(cam_up_str);
-                iss >> upvector.x();
+                iss >> upvector(0);//.x();
                 iss.ignore(1, ',');
-                iss >> upvector.z();
+                iss >> upvector(2);//.z();
                 iss.ignore(1, ',');
-                iss >> upvector.y();
+                iss >> upvector(1);//.y();
                 iss.ignore(1, ',');
             }
 
@@ -607,11 +607,11 @@ private:
                 //            cout << cam_pos_str << endl;
 
                 iss.str(cam_pos_str);
-                iss >> posvector.x();
+                iss >> posvector(0);//.x();
                 iss.ignore(1, ',');
-                iss >> posvector.z();
+                iss >> posvector(2);//.z();
                 iss.ignore(1, ',');
-                iss >> posvector.y();
+                iss >> posvector(1);//.y();
                 iss.ignore(1, ',');
                 //             cout << "position: "<<posvector.x<< ", "<< posvector.y << ", "<< posvector.z << endl;
             }
@@ -623,16 +623,31 @@ private:
         //    R.row(2)=Mat(direction).t();
 
         Mat3 Rot;
-        Rot.row(0) = (direction.cross(upvector)).transpose();
-        Rot.row(1) = (-upvector).transpose();
-        Rot.row(2) = direction.transpose();
+        //Rot.row(0) = (direction.cross(upvector)).transpose();
+        //Rot.row(1) = (-upvector).transpose();
+        //Rot.row(2) = direction.transpose();
+        Vec3 row0 = (direction.cross(upvector));
+        Vec3 row1 = -upvector;
+        Vec3 row2 = direction;
+
+        Rot(0, 0) = row0(0);
+        Rot(0, 1) = row0(1);
+        Rot(0, 2) = row0(2);
+        Rot(1, 0) = row1(0);
+        Rot(1, 1) = row1(1);
+        Rot(1, 2) = row1(2);
+        Rot(2, 0) = row2(0);
+        Rot(2, 1) = row2(1);
+        Rot(2, 2) = row2(2);
+
+
 
         // T=-R*Mat(posvector);
 
         Vec3 Tra;
         Tra = -Rot * posvector;
 
-        SE3 pose = SE3(Rot, Tra / 100.0);
+        SE3 pose = SE3(Rot, Tra);
 
         /*
         std::ofstream myfile;

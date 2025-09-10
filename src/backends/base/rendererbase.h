@@ -1,8 +1,9 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
+// #include <algorithm>
+// #include <cmath>
+// #include <cstdint>
+#include "core/types.h"
 #include "core/render_constants.h"
 #include "core/error_handling.h"
 
@@ -29,7 +30,7 @@ inline bool is_top_left(Scalar ax, Scalar ay, Scalar bx, Scalar by)
 // -----------------------------------------------------------------------------
 // BaseRendererCPU (improved)
 // -----------------------------------------------------------------------------
-template <class Derived, class Int, class Scalar, class Vec2, class Vec3, class Vec4, class Vec3i, class Mat4>
+template <class Derived>
 class BaseRenderer
 {
 public:
@@ -41,14 +42,12 @@ public:
     virtual ~BaseRenderer() = default;
 
 protected:
-    Mat4 opencv2opengl_;
-
     // Triangle rasterizer (top-left rule, perspective correct)
     void draw_triangle_(const Vec3 *verts,
                         const Vec2 *texcoords,
                         const Scalar *weights,
-                        const unsigned int *vertexid,
-                        const BoundingBoxType<Int> &viewport)
+                        const UInt *vertexid,
+                        const BoundingBox<Int> &viewport)
     {
         // Vertex shading & clip → NDC → screen
         struct VSOut
@@ -77,9 +76,9 @@ protected:
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
             vout[i].screen(0) = viewport.min_x_ + Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w;
             vout[i].screen(1) = viewport.min_y_ + Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h;
-            vout[i].depth     = ndc_z;
-            vout[i].invW      = invW;
-            vout[i].var       = varyings;
+            vout[i].depth = ndc_z;
+            vout[i].invW = invW;
+            vout[i].var = varyings;
             // vout[i].var_over_w = varyings * invW; // requires scalar*VaryingType
         }
 
@@ -108,9 +107,9 @@ protected:
         const Scalar xB = vout[1].screen(0), yB = vout[1].screen(1);
         const Scalar xC = vout[2].screen(0), yC = vout[2].screen(1);
 
-        //const Scalar area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
-        //ErrorHandling::ValidateTriangleArea(area2);
-        //ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
+        // const Scalar area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
+        // ErrorHandling::ValidateTriangleArea(area2);
+        // ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
         const Scalar inv_area = 1.0f / area;
 
@@ -135,7 +134,7 @@ protected:
         const Scalar eCA_dy = (xC - xA);
 
         // Rasterize
-        for (int y = y0; y < y1; ++y)
+        for (Int y = y0; y < y1; ++y)
         {
             Scalar eAB = eAB_row;
             Scalar eBC = eBC_row;
@@ -204,4 +203,6 @@ protected:
 
     Derived &derived_() { return *static_cast<Derived *>(this); }
     const Derived &derived_() const { return *static_cast<const Derived *>(this); }
+
+    Mat4 opencv2opengl_;
 };

@@ -1,28 +1,31 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
+//#include <algorithm>
+//#include <cmath>
+//#include <cstdint>
+#include "core/types.h"
+#include "core/camera.h"
+#include "core/boundingbox.h"
+#include "core/render_constants.h"
+#include "core/error_handling.h"
 #include "backends/base/rendererbase.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
-#include "core/render_constants.h"
-#include "core/error_handling.h"
 
 // -----------------------------------------------------------------------------
 // BaseRendererCPU (improved)
 // -----------------------------------------------------------------------------
 template <class Derived>
-class BaseRendererCPU : public BaseRenderer<Derived, int, float, Vec2, Vec3, Vec4, Vec3i, Mat4>
+class BaseRendererCPU : public BaseRenderer<Derived>
 {
 public:
     BaseRendererCPU() = default;
     virtual ~BaseRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const BoundingBoxType<int> &viewport)
+                const BoundingBox<Int> &viewport)
     {
         // ---- Map mesh buffers (no copies) ----
         auto pos = mesh.MapReadPositions(); // 3 floats/vertex
@@ -39,8 +42,8 @@ public:
 
             Vec3 v[3];
             Vec2 uv[3];
-            float wght[3];
-            unsigned int id[3];
+            Scalar wght[3];
+            UInt id[3];
 
             id[0] = i0;
             id[1] = i1;
@@ -97,9 +100,9 @@ public:
         out_lvl_ = out_lvl;
         out_texture_ = &out_texture;
 
-        const int W = static_cast<int>(out_texture.width(out_lvl));
-        const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        const Int W = static_cast<Int>(out_texture.width(out_lvl));
+        const Int H = static_cast<Int>(out_texture.height(out_lvl));
+        BoundingBox<Int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -181,7 +184,7 @@ public:
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -270,7 +273,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -369,7 +372,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -458,7 +461,7 @@ public:
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -594,7 +597,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }
@@ -734,7 +737,7 @@ public:
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBoxType<int> viewport(0, W, 0, H);
+        BoundingBox<int> viewport(0, W, 0, H);
 
         BaseRendererCPU::Render(mesh, viewport);
     }

@@ -6,16 +6,16 @@
 #include <array>
 #include <algorithm>
 
-#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/bufferxrt.h"
 
-class MeshCPU
+class MeshXRT
 {
 public:
     using index_type = std::uint32_t;
     // using size_type = std::size_t;
 
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
-    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
+    MeshXRT(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &weights,   // 1 float  per vertex
             const std::vector<index_type> &indices)
@@ -28,11 +28,11 @@ public:
     }
 
     // Copy/move
-    MeshCPU(const MeshCPU &) = default;
-    MeshCPU &operator=(const MeshCPU &) = default;
-    MeshCPU(MeshCPU &&) noexcept = default;
-    MeshCPU &operator=(MeshCPU &&) noexcept = default;
-    ~MeshCPU() = default;
+    MeshXRT(const MeshXRT &) = default;
+    MeshXRT &operator=(const MeshXRT &) = default;
+    MeshXRT(MeshXRT &&) noexcept = default;
+    MeshXRT &operator=(MeshXRT &&) noexcept = default;
+    ~MeshXRT() = default;
 
     /*
     // Read-only access to buffers (keeps ownership internal)
@@ -102,8 +102,8 @@ private:
 #endif
     }
 
-    BufferCPU<float> pos_buffer_;
-    BufferCPU<float> tex_buffer_;
-    BufferCPU<float> wei_buffer_;
-    BufferCPU<index_type> ebo_buffer_;
+    BufferXRT<float> pos_buffer_;
+    BufferXRT<float> tex_buffer_;
+    BufferXRT<float> wei_buffer_;
+    BufferXRT<index_type> ebo_buffer_;
 };

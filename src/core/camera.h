@@ -1,9 +1,13 @@
 #pragma once
 
-#include <cassert>
-#include <vector>
+// #include <cassert>
+// #include <vector>
+#include "core/types.h"
 
-template <typename Type, typename Vec2Type, typename Vec3Type, typename Vec4Type, typename Mat4Type, typename Mat23Type, typename Mat24Type>
+class PinholeCamera;
+
+using Camera = PinholeCamera;
+
 class PinholeCamera
 {
 public:
@@ -14,7 +18,7 @@ public:
         cx_ = 0;
         cy_ = 0;
     }
-    PinholeCamera(Type fx, Type fy, Type cx, Type cy, unsigned int width, unsigned int height)
+    PinholeCamera(Scalar fx, Scalar fy, Scalar cx, Scalar cy, UInt width, UInt height)
     {
         fx_ = fx / width;
         fy_ = fy / height;
@@ -25,14 +29,14 @@ public:
         // float beta = imageExp(1);
         // imageType f_i_cor = alpha * (f_i - beta);
     }
-    PinholeCamera(Type fx, Type fy, Type cx, Type cy)
+    PinholeCamera(Scalar fx, Scalar fy, Scalar cx, Scalar cy)
     {
         fx_ = fx;
         fy_ = fy;
         cx_ = cx;
         cy_ = cy;
     }
-    PinholeCamera(Type *data)
+    PinholeCamera(Scalar *data)
     {
         fx_ = data[0];
         fy_ = data[1];
@@ -60,29 +64,29 @@ public:
         return *this;
     }
 
-    Mat4Type GetProjectiveMatrix(Type znear, Type zfar) const
+    Mat4 GetProjectiveMatrix(Scalar znear, Scalar zfar) const
     {
-        Mat4Type projmat = Mat4Type::Zero();
+        Mat4 projmat = Mat4::Zero();
 
-        projmat(0, 0) = Type(2) * fx_;
-        projmat(1, 1) = Type(2) * fy_;
-        projmat(0, 2) = Type(1) - Type(2) * cx_;
-        projmat(1, 2) = -Type(1) + Type(2) * cy_;
+        projmat(0, 0) = Scalar(2) * fx_;
+        projmat(1, 1) = Scalar(2) * fy_;
+        projmat(0, 2) = Scalar(1) - Scalar(2) * cx_;
+        projmat(1, 2) = -Scalar(1) + Scalar(2) * cy_;
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
-        projmat(3, 2) = -Type(1);
-        projmat(2, 3) = -Type(2) * zfar * znear / (zfar - znear);
+        projmat(3, 2) = -Scalar(1);
+        projmat(2, 3) = -Scalar(2) * zfar * znear / (zfar - znear);
 
         return projmat;
     }
 
-    bool IsPixVisible(Vec2Type pix) const
+    bool IsPixVisible(Vec2 pix) const
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
         // so here the max is one more than the last pixel
         // if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
         //    return false;
-        if (pix(0) < Type(0) || pix(0) > Type(1) || pix(1) < Type(0) || pix(1) > Type(1))
+        if (pix(0) < Scalar(0) || pix(0) > Scalar(1) || pix(1) < Scalar(0) || pix(1) > Scalar(1))
             return false;
         return true;
     }
@@ -97,53 +101,53 @@ public:
     }
     */
 
-    Vec2Type RayToPix(Vec3Type ray) const
+    Vec2 RayToPix(Vec3 ray) const
     {
-        Vec2Type pix;
+        Vec2 pix;
         pix(0) = fx_ * ray(0) + cx_;
         pix(1) = fy_ * ray(1) + cy_;
         return pix;
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    Mat23Type d_pix_d_ver(Vec3Type ver) const
+    Mat23 d_pix_d_ver(Vec3 ver) const
     {
-        Mat23Type d_pix_d_ver;
+        Mat23 d_pix_d_ver;
 
         d_pix_d_ver(0, 0) = fx_ / ver(2);
-        d_pix_d_ver(0, 1) = Type(0);
+        d_pix_d_ver(0, 1) = Scalar(0);
         d_pix_d_ver(0, 2) = -fx_ * ver(0) / (ver(2) * ver(2));
 
-        d_pix_d_ver(1, 0) = Type(0);
+        d_pix_d_ver(1, 0) = Scalar(0);
         d_pix_d_ver(1, 1) = fy_ / ver(2);
         d_pix_d_ver(1, 2) = -fy_ * ver(1) / (ver(2) * ver(2));
 
         return d_pix_d_ver;
     }
 
-    Mat24Type d_pix_d_intrinsics(Vec3Type ray) const
+    Mat24 d_pix_d_intrinsics(Vec3 ray) const
     {
-        Mat24Type d_pix_d_int;
+        Mat24 d_pix_d_int;
 
         d_pix_d_int(0, 0) = ray(0);
-        d_pix_d_int(0, 1) = Type(0);
-        d_pix_d_int(0, 2) = Type(1);
-        d_pix_d_int(0, 3) = Type(0);
+        d_pix_d_int(0, 1) = Scalar(0);
+        d_pix_d_int(0, 2) = Scalar(1);
+        d_pix_d_int(0, 3) = Scalar(0);
 
-        d_pix_d_int(1, 0) = Type(0);
+        d_pix_d_int(1, 0) = Scalar(0);
         d_pix_d_int(1, 1) = ray(1);
-        d_pix_d_int(1, 2) = Type(0);
-        d_pix_d_int(1, 3) = Type(1);
+        d_pix_d_int(1, 2) = Scalar(0);
+        d_pix_d_int(1, 3) = Scalar(1);
 
         return d_pix_d_int;
     }
 
-    Vec3Type PixToRay(Vec2Type pix) const
+    Vec3 PixToRay(Vec2 pix) const
     {
-        Vec3Type ray;
+        Vec3 ray;
         ray(0) = (pix(0) - cx_) / fx_;
         ray(1) = (pix(1) - cy_) / fy_;
-        ray(2) = Type(1);
+        ray(2) = Scalar(1);
         return ray;
     }
 
@@ -171,12 +175,12 @@ public:
     }
     */
 
-    Vec4Type GetParams() const
+    Vec4 GetParams() const
     {
-        return Vec4Type(fx_, fy_, cx_, cy_);
+        return Vec4(fx_, fy_, cx_, cy_);
     }
 
-    void SetParams(Vec4Type params)
+    void SetParams(Vec4 params)
     {
         fx_ = params(0);
         fy_ = params(1);
@@ -194,10 +198,10 @@ public:
     */
 
 private:
-    Type fx_;
-    Type fy_;
-    Type cx_;
-    Type cy_;
+    Scalar fx_;
+    Scalar fy_;
+    Scalar cx_;
+    Scalar cy_;
 };
 
 /*

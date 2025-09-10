@@ -8,14 +8,14 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
-#include "core/camera.h"
-#include "core/boundingbox.h"
+#ifndef USE_EIGEN
 
 using Scalar = float;
 using Int = int;
+using UInt = unsigned int;
 
-template <typename Type, int rows>
-using Vec = Eigen::Matrix<Type, rows, 1>;
+template <typename T, int rows>
+using Vec = Eigen::Matrix<T, rows, 1>;
 
 using Vec2 = Eigen::Matrix<Scalar, 2, 1>;
 using Vec3 = Eigen::Matrix<Scalar, 3, 1>;
@@ -33,8 +33,8 @@ using Vec5i = Eigen::Matrix<Int, 5, 1>;
 using Vec6i = Eigen::Matrix<Int, 6, 1>;
 using Vecxi = Eigen::Matrix<Int, Eigen::Dynamic, 1>;
 
-template <typename type, int rows, int cols>
-using Mat = Eigen::Matrix<type, rows, cols>;
+//template <typename type, int rows, int cols>
+//using Mat = Eigen::Matrix<type, rows, cols>;
 
 using Mat3 = Eigen::Matrix<Scalar, 3, 3>;
 using Mat4 = Eigen::Matrix<Scalar, 4, 4>;
@@ -49,26 +49,77 @@ using Quaternion = Eigen::Quaternion<Scalar>;
 using SE3 = Sophus::SE3<Scalar>;
 using SIM3 = Sophus::Sim3<Scalar>;
 
-using Camera = PinholeCamera<Scalar, Vec2, Vec3, Vec4, Mat4, Mat23, Mat24>;
-template <typename Type>
-using BoundingBoxType = BoundingBox<Type, Vec2>;
+#else
+#include "linalg/linalg.h"
 
-template <typename Type>
+using Int = int;
+// using Int = short int;
+// using Int = ap_int<16>;
+using UInt = unsigned int;
+// using UInt = unsigned short int;
+// using UInt = ap_uint<16>;
+using Scalar = float;
+// using Scalar = half;
+// using Scalar = Posit<16, 1>;
+// using Scalar = ap_fixed<32, 16>;
+// using Scalar = ap_float<16, 8>;
+
+template <typename T, int rows>
+using Vec = linalg::Mat<T, rows, 1>;
+
+using Vec2 = linalg::Vec2<Scalar>;
+using Vec3 = linalg::Vec3<Scalar>;
+using Vec4 = linalg::Vec4<Scalar>;
+using Vec5 = linalg::Vec5<Scalar>;
+using Vec6 = linalg::Vec6<Scalar>;
+// using Vecx = linalg::Vecx<RealType>;
+
+using Vec2i = linalg::Vec2<Int>;
+using Vec3i = linalg::Vec3<Int>;
+using Vec4i = linalg::Vec4<Int>;
+// using Vecxi = linalg::vecx<int>;
+
+template <typename T, int rows, int cols>
+using Mat = linalg::Mat<T, rows, cols>;
+
+using Mat3 = linalg::Mat<Scalar, 3, 3>;
+using Mat4 = linalg::Mat<Scalar, 4, 4>;
+using Mat6 = linalg::Mat<Scalar, 6, 6>;
+
+using Mat23 = linalg::Mat<Scalar, 2, 3>;
+using Mat24 = linalg::Mat<Scalar, 2, 4>;
+
+// using Matx = linalg::matx<RealType>;
+
+using Quaternion = linalg::Quaternion<Scalar>;
+
+using SO3 = linalg::SO3<Scalar>;
+using SE3 = linalg::SE3<Scalar>;
+// using SIM3 = Sim3<RealType>;
+
+//using Camera = PinholeCamera<Scalar, Vec2, Vec3, Vec4, Mat4, Mat23, Mat24>;
+//template <typename Type>
+//using BoundingBoxType = BoundingBox<Type, Vec2>;
+// using ImageType = Scalar;
+
+#endif
+
+template <typename T>
 inline int getChannels()
 {
-    if constexpr (std::is_same_v<Type, Scalar>)
+    if constexpr (std::is_same_v<T, Scalar>)
     {
         return 1;
     }
-    else if constexpr (std::is_same_v<Type, Vec2>)
+    else if constexpr (std::is_same_v<T, Vec2>)
     {
         return 2;
     }
-    else if constexpr (std::is_same_v<Type, Vec3>)
+    else if constexpr (std::is_same_v<T, Vec3>)
     {
         return 3;
     }
-    else if constexpr (std::is_same_v<Type, Vec4>)
+    else if constexpr (std::is_same_v<T, Vec4>)
     {
         return 4;
     }

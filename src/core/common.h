@@ -1,9 +1,28 @@
 #pragma once
 
 #include "core/types.h"
+#include "core/camera.h"
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
+
+template <typename Type>
+inline Type min(Type a, Type b)
+{
+    return a < b ? a : b;
+}
+
+template <typename Type>
+inline Type max(Type a, Type b)
+{
+    return a > b ? a : b;
+}
+
+template <typename Type>
+inline Type clamp(Type a, Type _min, Type _max)
+{
+    return min(max(a, _min), _max);
+}
 
 inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
@@ -178,7 +197,8 @@ inline void CreateSphereMesh(float depth,
         if (depth <= 0.0f)
             continue;
 
-        const Vec3 ray = cam.PixToRay(uv).normalized();
+        Vec3 ray = cam.PixToRay(uv);
+        ray = ray / ray.norm();
         const Vec3 vertex = ray * depth;
 
         vertices.push_back(vertex(0));
