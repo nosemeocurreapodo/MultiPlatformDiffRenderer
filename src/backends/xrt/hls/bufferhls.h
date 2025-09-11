@@ -1,6 +1,6 @@
 #pragma once
 
-#include "backends/base/MappedView.h"
+#include "core/types.h"
 
 template <typename T>
 class BufferHLS
@@ -11,13 +11,15 @@ public:
 
     BufferHLS() = default;
 
+    /*
     BufferHLS(std::size_t n, const T *src)
     {
         size_ = n;
         data_ = src;
     }
+    */
 
-    BufferHLS(std::size_t n, T *src)
+    BufferHLS(UInt n, T *src)
     {
         size_ = n;
         data_ = src;
@@ -26,7 +28,7 @@ public:
     ~BufferHLS() = default;
 
     // -------- capacity / info --------
-    std::size_t size() const noexcept { return size_; }
+    UInt size() const noexcept { return size_; }
 
 protected:
     template <class T2>
@@ -38,17 +40,17 @@ protected:
     const T *data() const noexcept { return data_; }
 
     // -------- element / raw access --------
-    T &operator[](std::size_t i) noexcept
+    T &operator[](UInt i) noexcept
     {
         assert(i < size_);
         return data_[i];
     }
-    const T &operator[](std::size_t i) const noexcept
+    const T &operator[](UInt i) const noexcept
     {
         assert(i < size_);
         return data_[i];
     }
 
     T *data_;
-    std::size_t size_ = 0;
+    UInt size_ = 0;
 };

@@ -6,6 +6,33 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 
+template <typename T>
+inline int getChannels()
+{
+    if constexpr (std::is_same_v<T, Scalar>)
+    {
+        return 1;
+    }
+    else if constexpr (std::is_same_v<T, Vec2>)
+    {
+        return 2;
+    }
+    else if constexpr (std::is_same_v<T, Vec3>)
+    {
+        return 3;
+    }
+    else if constexpr (std::is_same_v<T, Vec4>)
+    {
+        return 4;
+    }
+    else
+    {
+        // static_assert(false, "Unsupported type for getChannels");
+        // assert(false);
+        return 0; // Unreachable
+    }
+}
+
 inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
     std::vector<Vec2> texcoords;

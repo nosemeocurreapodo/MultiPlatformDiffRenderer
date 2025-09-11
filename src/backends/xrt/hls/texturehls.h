@@ -13,6 +13,7 @@ public:
     TextureHLS(std::size_t w, std::size_t h, T nodata, const T *base)
         : nodata_(nodata), storage_(w * h, const_cast<T *>(base))
     {
+        build_pyramid_(w, h);
     }
 
     // Rule of 5
@@ -33,8 +34,10 @@ public:
     // Fill a level with a constant
     void fill(std::size_t lvl, const T &v)
     {
-        auto m = MapWrite(lvl);
-        std::fill(m.data(), m.data() + m.size(), v);
+        for (int i = 0; i < size(lvl); i++)
+        {
+            storage_[i] = v;
+        }
     }
 
     // Read/Write a single texel (bounds-checked in debug)
@@ -75,9 +78,38 @@ protected:
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    std::vector<Level> levels_;
+    Level levels_[9];
 
     BufferHLS<T> storage_;
 
     T nodata_{};
+
+    void build_pyramid_(std::size_t w, std::size_t h)
+    {
+        if (w == 0 || h == 0)
+            return;
+
+        std::size_t running = 0;
+        // build until 1x1 (inclusive)
+        int i = 0;
+        while (true)
+        {
+            // levels_.push_back(Level{w, h, BufferCPU<T>(w * h)});
+            Level L;
+            L.w = w;
+            L.h = h;
+            L.size = std::size_t(w) * std::size_t(h);
+            L.offset = running;
+
+            levels_[i] = L;
+            running += L.size;
+            i++;
+
+            if (w == 1 && h == 1)
+                break;
+
+            w = std::max<std::size_t>(1, w >> 1);
+            h = std::max<std::size_t>(1, h >> 1);
+        }
+    }
 };

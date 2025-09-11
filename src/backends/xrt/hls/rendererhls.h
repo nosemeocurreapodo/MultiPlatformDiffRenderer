@@ -18,7 +18,7 @@
 // -----------------------------------------------------------------------------
 
 class DepthRendererHLS
-    : public DepthRendererBase<MeshHLS, TextureHLS<float>>
+    : public DepthRendererBase<MeshHLS, TextureHLS<Scalar>>
 {
 public:
     DepthRendererHLS() = default;
@@ -28,7 +28,7 @@ public:
                 const SE3 &pose,
                 const Camera &cam,
                 int out_lvl,
-                TextureHLS<float> &out_texture)
+                TextureHLS<Scalar> &out_texture)
     {
         DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
     }
@@ -42,19 +42,19 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererHLS
-    : public ImageRendererBase<MeshHLS, TextureHLS<float>, TextureHLS<float>>
+    : public ImageRendererBase<MeshHLS, TextureHLS<Scalar>, TextureHLS<Scalar>>
 {
 public:
-    ImageRendererCPU() = default;
-    ~ImageRendererCPU() = default;
+    ImageRendererHLS() = default;
+    ~ImageRendererHLS() = default;
 
     void Render(const MeshHLS &mesh,
                 const SE3 &pose,
                 const Camera &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureHLS<float> &in_texture,
-                TextureHLS<float> &out_texture)
+                const TextureHLS<Scalar> &in_texture,
+                TextureHLS<Scalar> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }

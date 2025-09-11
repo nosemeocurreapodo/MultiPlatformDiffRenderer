@@ -6,7 +6,7 @@
 #include <array>
 #include <algorithm>
 
-#include "backends/cpu/bufferxrt.h"
+#include "backends/xrt/bufferxrt.h"
 
 class MeshXRT
 {

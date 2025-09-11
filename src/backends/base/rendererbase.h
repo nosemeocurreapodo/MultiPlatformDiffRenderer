@@ -5,7 +5,7 @@
 // #include <cstdint>
 #include "core/types.h"
 #include "core/render_constants.h"
-#include "core/error_handling.h"
+//#include "core/error_handling.h"
 
 template <typename Scalar, typename Vec2>
 inline Scalar cross(const Vec2 &a, const Vec2 &b) { return a(0) * b(1) - a(1) * b(0); }
@@ -135,19 +135,19 @@ protected:
         const Scalar area = triangle_area<Scalar, Vec2>(vout[0].screen,
                                                         vout[1].screen,
                                                         vout[2].screen);
-        ErrorHandling::ValidateTriangleArea(area);
+        //ErrorHandling::ValidateTriangleArea(area);
         // if (area <= 0) return;            // enable to cull backfaces
 
         // Triangle bounding box (float → int, clamp to viewport)
-        Scalar minx = std::min({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
-        Scalar maxx = std::max({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
-        Scalar miny = std::min({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
-        Scalar maxy = std::max({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
+        Scalar minx = min({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
+        Scalar maxx = max({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
+        Scalar miny = min({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
+        Scalar maxy = max({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
 
-        Int x0 = std::max(viewport.min_x_, static_cast<Int>(std::floor(minx)));
-        Int x1 = std::min(viewport.max_x_, static_cast<Int>(std::ceil(maxx)));
-        Int y0 = std::max(viewport.min_y_, static_cast<Int>(std::floor(miny)));
-        Int y1 = std::min(viewport.max_y_, static_cast<Int>(std::ceil(maxy)));
+        Int x0 = max(viewport.min_x_, static_cast<Int>(floor(minx)));
+        Int x1 = min(viewport.max_x_, static_cast<Int>(ceil(maxx)));
+        Int y0 = max(viewport.min_y_, static_cast<Int>(floor(miny)));
+        Int y1 = min(viewport.max_y_, static_cast<Int>(ceil(maxy)));
         if (x0 >= x1 || y0 >= y1)
             return;
 
