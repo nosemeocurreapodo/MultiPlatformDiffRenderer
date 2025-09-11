@@ -1,7 +1,9 @@
-#include "bufferfpga.h"
-#include "texturefpga.h"
-#include "meshfpga.h"
-#include "rendererfpga.h"
+#include "backends/xrt/hls/depthrendererhls.h"
+#include "backends/core/Camera.h"
+#include "backends/xrt/hls/bufferhls.h"
+#include "backends/xrt/hls/texturehls.h"
+#include "backends/xrt/hls/meshhls.h"
+#include "backends/xrt/hls/rendererhls.h"
 
 extern "C"
 {
@@ -39,12 +41,11 @@ extern "C"
         BufferHLS<Scalar> wei_buffer(wei_buffer_size, wei_buffer_data);
         BufferHLS<UInt> ebo_buffer(ebo_buffer_size, ebo_buffer_data);
         MeshHLS mesh(pos_buffer, tex_buffer, wei_buffer, ebo_buffer);
-        TextureFPGA<Scalar> out_texture(out_texture_width, out_texture_height, out_texture_channels, out_nodata_value, out_texture_data);
-        SE3 pose(SO3(fpga::Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));
+        TextureHLS<Scalar> out_texture(out_texture_width, out_texture_height, out_texture_channels, out_nodata_value, out_texture_data);
+        SE3 pose(SO3(Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));
         Camera cam(fx, fy, cx, cy);
 
         DepthRendererHLS renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
-
     }
 }

@@ -1,32 +1,28 @@
-#include "typesfpga.h"
-#include "bufferfpga.h"
-#include "texturefpga.h"
-#include "meshfpga.h"
-#include "rendererfpga.h"
+#include "backends/xrt/hls/imagerendererhls.h"
 
 extern "C"
 {
-    void ImageRenderFPGA(fpga::Scalar *pos_buffer_data,
-                         fpga::Scalar *tex_buffer_data,
-                         fpga::Scalar *wei_buffer_data,
-                         fpga::UInt *ebo_buffer_data,
-                         fpga::ImageType *in_texture_data,
-                         fpga::Scalar *out_texture_data,
-                         fpga::UInt pos_buffer_size,
-                         fpga::UInt tex_buffer_size,
-                         fpga::UInt wei_buffer_size,
-                         fpga::UInt ebo_buffer_size,
-                         fpga::UInt in_texture_width,
-                         fpga::UInt in_texture_height,
-                         fpga::UInt in_texture_channels,
-                         fpga::ImageType in_nodata_value,
-                         fpga::UInt out_texture_width,
-                         fpga::UInt out_texture_height,
-                         fpga::UInt out_texture_channels,
-                         fpga::Scalar out_nodata_value,
-                         fpga::Scalar q_x, fpga::Scalar q_y, fpga::Scalar q_z, fpga::Scalar q_w,
-                         fpga::Scalar t_x, fpga::Scalar t_y, fpga::Scalar t_z,
-                         fpga::Scalar fx, fpga::Scalar fy, fpga::Scalar cx, fpga::Scalar cy)
+    void ImageRenderFPGA(Scalar *pos_buffer_data,
+                         Scalar *tex_buffer_data,
+                         Scalar *wei_buffer_data,
+                         UInt *ebo_buffer_data,
+                         ImageType *in_texture_data,
+                         Scalar *out_texture_data,
+                         UInt pos_buffer_size,
+                         UInt tex_buffer_size,
+                         UInt wei_buffer_size,
+                         UInt ebo_buffer_size,
+                         UInt in_texture_width,
+                         UInt in_texture_height,
+                         UInt in_texture_channels,
+                         ImageType in_nodata_value,
+                         UInt out_texture_width,
+                         UInt out_texture_height,
+                         UInt out_texture_channels,
+                         Scalar out_nodata_value,
+                         Scalar q_x, Scalar q_y, Scalar q_z, Scalar q_w,
+                         Scalar t_x, Scalar t_y, Scalar t_z,
+                         Scalar fx, Scalar fy, Scalar cx, Scalar cy)
     {
 #pragma HLS INTERFACE m_axi port = pos_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0
