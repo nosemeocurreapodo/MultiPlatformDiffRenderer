@@ -6,24 +6,6 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 
-template <typename Type>
-inline Type min(Type a, Type b)
-{
-    return a < b ? a : b;
-}
-
-template <typename Type>
-inline Type max(Type a, Type b)
-{
-    return a > b ? a : b;
-}
-
-template <typename Type>
-inline Type clamp(Type a, Type _min, Type _max)
-{
-    return min(max(a, _min), _max);
-}
-
 inline std::vector<Vec2> UniformTexCoords(int width, int height)
 {
     std::vector<Vec2> texcoords;

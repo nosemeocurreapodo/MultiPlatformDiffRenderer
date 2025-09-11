@@ -1,61 +1,54 @@
 #pragma once
 
-template <typename Type>
-class BufferFPGA
+#include "backends/base/MappedView.h"
+
+template <typename T>
+class BufferHLS
 {
-template <typename  InTexType,
-          typename  VaryingType,
-          typename  OutTexType,
-          typename  Derived>   
-    friend class BaseRendererFPGA;
-    
 public:
-    /*
-    BufferFPGA()
-        {
-    buffer_ = nullptr;
-            size_ = 0;
-        }
-            */
+    // using value_type = T;
+    // using size_type = std::size_t;
 
-    BufferFPGA(int size, Type *data)
+    BufferHLS() = default;
+
+    BufferHLS(std::size_t n, const T *src)
     {
-        size_ = size;
-        buffer_ = data;
+        size_ = n;
+        data_ = src;
     }
 
-    BufferFPGA(const BufferFPGA &other)
+    BufferHLS(std::size_t n, T *src)
     {
-        size_ = other.size_;
-        buffer_ = other.buffer_;
+        size_ = n;
+        data_ = src;
     }
 
-    BufferFPGA &operator=(const BufferFPGA &other)
-    {
-        //if (this != &other)
-        {
-            size_ = other.size_;
-            buffer_ = other.buffer_;
-        }
-        return *this;
-    }
+    ~BufferHLS() = default;
 
-    int size() const
-    {
-        return size_;
-    }
+    // -------- capacity / info --------
+    std::size_t size() const noexcept { return size_; }
 
 protected:
-    Type &operator[](int index)
+    template <class T2>
+    friend class TextureHLS;
+    template <class Derived>
+    friend class RendererBase;
+
+    T *data() noexcept { return data_; }
+    const T *data() const noexcept { return data_; }
+
+    // -------- element / raw access --------
+    T &operator[](std::size_t i) noexcept
     {
-        return buffer_[index];
+        assert(i < size_);
+        return data_[i];
+    }
+    const T &operator[](std::size_t i) const noexcept
+    {
+        assert(i < size_);
+        return data_[i];
     }
 
-    const Type &operator[](int index) const
-    {
-        return buffer_[index];
-    }
-
-    Type *buffer_;
-    unsigned int size_;
+    T *data_;
+    std::size_t size_ = 0;
 };

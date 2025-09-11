@@ -47,10 +47,15 @@ public:
                 const BoundingBox<Int> &viewport)
     {
         // ---- Map mesh buffers (no copies) ----
-        auto pos = mesh.MapReadPositions(); // 3 floats/vertex
-        auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
-        auto wei = mesh.MapReadWeights();   // 1 float /vertex
-        auto idx = mesh.MapReadIndices();   // uint32_t indices
+        //auto pos = mesh.MapReadPositions(); // 3 floats/vertex
+        //auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
+        //auto wei = mesh.MapReadWeights();   // 1 float /vertex
+        //auto idx = mesh.MapReadIndices();   // uint32_t indices
+
+        const auto pos = mesh.Positions(); // 3 floats/vertex
+        const auto tex = mesh.Texcoords(); // 2 floats/vertex
+        const auto wei = mesh.Weights();   // 1 float /vertex
+        const auto idx = mesh.Indices();   // uint32_t indices
 
         // Loop over triangles
         for (std::size_t i = 0; i + 2 < idx.size(); i += 3)

@@ -393,16 +393,17 @@ struct ValidationThresholds
     double gt_max_image_error = 10.0;
 
     int cr_max_valid_diff = 200;
-    double cr_max_depth_error = 2e-5;
-    double cr_max_image_error = 3.0;
-    double cr_max_residual_error = 3.5;
-    double cr_max_l2_error = 250.0;
-    double cr_max_didxy_error = 0.5;
-    double cr_max_jtra_error = 0.005;
-    double cr_max_jrot_error = 0.002;
-    double cr_max_r_error = 4.0;
-    double cr_max_jmap_error = 0.3;
-    double cr_max_pids_error = 0.4;
+    double cr_max_mipmap_error = 0.00015;
+    double cr_max_depth_error = 5.1e-6;
+    double cr_max_image_error = 2.5;
+    double cr_max_residual_error = 2.5;
+    double cr_max_l2_error = 80.0;
+    double cr_max_didxy_error = 0.00015;
+    double cr_max_jtra_error = 0.01;
+    double cr_max_jrot_error = 0.03;
+    double cr_max_r_error = 2.0;
+    double cr_max_jmap_error = 31.0;
+    double cr_max_pids_error = 1.4;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;

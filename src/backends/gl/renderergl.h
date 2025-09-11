@@ -380,13 +380,13 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
         // #endif
 
-//#if defined(GL_VERSION_4_5)
-//        if (GLAD_GL_VERSION_4_5)
-//        {
-//            glBindTextureUnit(0, in_texture.id());
-//        }
-//        else
-//#endif
+        // #if defined(GL_VERSION_4_5)
+        //         if (GLAD_GL_VERSION_4_5)
+        //         {
+        //             glBindTextureUnit(0, in_texture.id());
+        //         }
+        //         else
+        // #endif
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, in_texture.id());
@@ -1276,12 +1276,12 @@ public:
         float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
-//#if defined(GL_VERSION_3_0)
-//        glClearBufferfv(GL_COLOR, 0, jmap_clear);
-//        glClearBufferfv(GL_COLOR, 1, pids_clear);
-//        glClearBufferfv(GL_COLOR, 2, r_clear);
-//#else
-        // Clear GL_COLOR_ATTACHMENT0
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
+        //         glClearBufferfv(GL_COLOR, 1, pids_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
         glClearColor(jmap_clear[0], jmap_clear[1], jmap_clear[2], jmap_clear[3]);
@@ -1301,7 +1301,7 @@ public:
         // as done in the clear_buffers function.
         const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
         glDrawBuffers(3, bufs_restore);
-//#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)

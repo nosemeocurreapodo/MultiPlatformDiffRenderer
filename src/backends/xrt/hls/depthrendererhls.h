@@ -2,7 +2,7 @@
 
 extern "C"
 {
-    void DepthRenderFPGA(Scalar *pos_buffer_data,
+    void DepthRenderHLS(Scalar *pos_buffer_data,
                          Scalar *tex_buffer_data,
                          Scalar *wei_buffer_data,
                          UInt *ebo_buffer_data,

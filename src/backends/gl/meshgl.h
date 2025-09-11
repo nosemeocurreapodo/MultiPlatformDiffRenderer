@@ -53,34 +53,6 @@ public:
         return *this;
     }
 
-    /*
-    // --- Whole-buffer updates via MapWrite (no global binds) ---
-    void update_positions(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_ * 3);
-        auto m = vbo_pos_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_texcoords(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_ * 2);
-        auto m = vbo_uv_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_weights(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_);
-        auto m = vbo_w_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_indices(const index_type *data, std::size_t count)
-    {
-        index_count_ = count;
-        auto m = ebo_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(index_type));
-    }
-    */
-
     // Cross-backend style mapped views (avoid storing the view)
     [[nodiscard]] MappedView<const float, GLUnmap> MapReadPositions() const & { return vbo_pos_.MapRead(); }
     [[nodiscard]] MappedView<const float, GLUnmap> MapReadTexcoords() const & { return vbo_uv_.MapRead(); }

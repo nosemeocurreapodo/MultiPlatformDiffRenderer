@@ -1,10 +1,4 @@
 #pragma once
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <vector>
-#include <array>
-#include <algorithm>
 
 #include "backends/cpu/buffercpu.h"
 
@@ -34,14 +28,6 @@ public:
     MeshCPU &operator=(MeshCPU &&) noexcept = default;
     ~MeshCPU() = default;
 
-    /*
-    // Read-only access to buffers (keeps ownership internal)
-    const BufferCPU<float> &positions() const noexcept { return pos_buffer_; }
-    const BufferCPU<float> &texcoords() const noexcept { return tex_buffer_; }
-    const BufferCPU<float> &weights() const noexcept { return wei_buffer_; }
-    const BufferCPU<index_type> &indices() const noexcept { return ebo_buffer_; }
-    */
-
     // Cross-backend style mapped views (avoid storing the view)
     [[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
@@ -58,22 +44,19 @@ public:
     std::size_t index_count() const noexcept { return ebo_buffer_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
-    /*
-    // Rebuild indices from current texcoords (e.g., after UV edit)
-    void rebuild_indices_from_uv()
-    {
-        //std::vector<unsigned int> tris = BuildTriangles(
-        //    std::vector<float>(tex_buffer_.begin(), tex_buffer_.end()));
+protected:
+    template <class Derived>
+    friend class RendererBase;
 
-        auto m = tex_buffer_.MapRead();
-        std::vector<unsigned int> tris = BuildTriangles(
-            std::vector<float>(m.begin(), m.end()));
+    const BufferCPU<float> &Positions() const { return pos_buffer_; }
+    const BufferCPU<float> &Texcoords() const { return tex_buffer_; }
+    const BufferCPU<float> &Weights() const { return wei_buffer_; }
+    const BufferCPU<index_type> &Indices() const { return ebo_buffer_; }
 
-        std::vector<index_type> idx(tris.begin(), tris.end());
-        ebo_buffer_ = BufferCPU<index_type>(idx);
-        assert(index_count() % 3 == 0);
-    }
-    */
+    BufferCPU<float> &Positions() { return pos_buffer_; }
+    BufferCPU<float> &Texcoords() { return tex_buffer_; }
+    BufferCPU<float> &Weights() { return wei_buffer_; }
+    BufferCPU<index_type> &Indices() { return ebo_buffer_; }
 
 private:
     void validate_() const

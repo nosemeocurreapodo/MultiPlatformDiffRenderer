@@ -1,5 +1,7 @@
 #pragma once
 
+#ifndef USE_EIGEN
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 // #include <Eigen/Cholesky>
@@ -7,8 +9,6 @@
 #include <unsupported/Eigen/MatrixFunctions>
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
-
-#ifndef USE_EIGEN
 
 using Scalar = float;
 using Int = int;
@@ -33,8 +33,8 @@ using Vec5i = Eigen::Matrix<Int, 5, 1>;
 using Vec6i = Eigen::Matrix<Int, 6, 1>;
 using Vecxi = Eigen::Matrix<Int, Eigen::Dynamic, 1>;
 
-//template <typename type, int rows, int cols>
-//using Mat = Eigen::Matrix<type, rows, cols>;
+// template <typename type, int rows, int cols>
+// using Mat = Eigen::Matrix<type, rows, cols>;
 
 using Mat3 = Eigen::Matrix<Scalar, 3, 3>;
 using Mat4 = Eigen::Matrix<Scalar, 4, 4>;
@@ -97,12 +97,64 @@ using SO3 = linalg::SO3<Scalar>;
 using SE3 = linalg::SE3<Scalar>;
 // using SIM3 = Sim3<RealType>;
 
-//using Camera = PinholeCamera<Scalar, Vec2, Vec3, Vec4, Mat4, Mat23, Mat24>;
-//template <typename Type>
-//using BoundingBoxType = BoundingBox<Type, Vec2>;
-// using ImageType = Scalar;
+// using Camera = PinholeCamera<Scalar, Vec2, Vec3, Vec4, Mat4, Mat23, Mat24>;
+// template <typename Type>
+// using BoundingBoxType = BoundingBox<Type, Vec2>;
+//  using ImageType = Scalar;
 
 #endif
+
+template <typename T>
+inline T min(T a, T b)
+{
+    // return std::min(a, b);
+    return a < b ? a : b;
+}
+
+template <typename T>
+inline T max(T a, T b)
+{
+    // return std::max(a, b);
+    return a > b ? a : b;
+}
+
+template <typename T>
+inline T clamp(T a, T _min, T _max)
+{
+    // return std::clamp(a, _min, _max);
+    return min(max(a, _min), _max);
+}
+
+template <typename T>
+inline T floor(T a)
+{
+    // return std::floor(a);
+    return T(Int(a));
+    //  return static_cast<T>(static_cast<long>(a) - (a < 0 && a != static_cast<long>(a)));
+}
+
+template <typename T>
+inline T ceil(T a)
+{
+    // return std::ceil(a);
+    return T(Int(a + (a == Int(a) ? 0 : 1)));
+    // return static_cast<T>(static_cast<long>(a) + (a > 0 && a != static_cast<long>(a)));
+}
+
+template <typename T>
+inline T lround(T a)
+{
+    // return std::lround(a);
+    return T(Int(a + (a >= 0 ? 0.5 : -0.5)));
+    // return static_cast<T>(static_cast<long>(a + (a >= 0 ? 0.5 : -0.5)));
+}
+
+template <typename T>
+inline T fmod(T a, T b)
+{
+    // return std::fmod(a, b);
+    return a - b * floor(a / b);
+}
 
 template <typename T>
 inline int getChannels()

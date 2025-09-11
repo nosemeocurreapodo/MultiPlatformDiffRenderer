@@ -31,6 +31,64 @@ protected:
     }
 };
 
+// Compare CPU vs GL image rendering
+TEST_F(CrossBackendTests, MipMapComparison)
+{
+    TextureCPU<float> input_cpu(w_, h_, -1.0f);
+    TextureGL<float> input_gl(w_, h_, -1.0f);
+
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
+    UploadMatToTexture(input_gl, 0, image_src_cv_);
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
+    for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+    {
+        if (in_lvl > 3)
+            continue;
+
+        timer_.Start();
+        cv::Mat cpu_result = DownloadTexture(input_cpu, in_lvl, CV_32FC1);
+        acc_cpu_time += timer_.Stop();
+
+        timer_.Start();
+        cv::Mat gl_result = DownloadTexture(input_gl, in_lvl, CV_32FC1);
+        acc_gl_time += timer_.Stop();
+
+        int valid_cpu = CountValid(input_cpu, in_lvl);
+        int valid_gl = CountValid(input_gl, in_lvl);
+        int valid_diff = std::abs(valid_cpu - valid_gl);
+
+        EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " in lvl " << in_lvl;
+
+        double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
+        EXPECT_LT(l2_error, thresholds_.cr_max_mipmap_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl;
+        acc_l2_error = std::max(acc_l2_error, l2_error);
+    }
+
+    cv::Mat cpu_result = DownloadTexture(input_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTexture(input_gl, 1, CV_32FC1);
+
+    SaveDebugImage(cpu_result, "mipmap_image_cpu.png");
+    SaveDebugImage(gl_result, "mipmap_image_gl.png");
+
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_image_diff.png");
+
+    std::cout << "MipMap Cross-Backend Comparison:\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // Cross-backend validation
+    // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
@@ -71,7 +129,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         // Detailed error analysis
         double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
         EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error << " lvl " << lvl;
-        acc_l2_error += l2_error;
+        acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
     cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
@@ -117,7 +175,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
 
-    float acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
     for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
@@ -148,7 +207,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
-            acc_l2_error += l2_error;
+            acc_l2_error = std::max(acc_l2_error, l2_error);
         }
     }
 
@@ -200,6 +259,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     ResidualRendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
     for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < input1_cpu.levels(); ++in_lvl)
@@ -228,7 +288,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, 0.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
-            acc_l2_error += l2_error;
+            acc_l2_error = std::max(acc_l2_error, l2_error);
         }
     }
 
@@ -238,9 +298,9 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
 
-    //cv::Mat diff_image;
-    //cv::absdiff(cpu_result, gl_result, diff_image);
-    //SaveDebugImage(diff_image, "cross_residual_diff.png");
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_residual_diff.png");
 
     std::cout << "Residual Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -281,6 +341,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     L2RendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
     for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < output_cpu.levels(); ++in_lvl)
@@ -309,7 +370,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 
             double l2_error = ComputeL2Error<float>(cpu_result, gl_result, -1.0f);
             EXPECT_LT(l2_error, thresholds_.cr_max_l2_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
-            acc_l2_error += l2_error;
+            acc_l2_error = std::max(acc_l2_error, l2_error);
         }
     }
 
@@ -319,9 +380,9 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     SaveDebugImage(cpu_result, "cross_l2_cpu.png");
     SaveDebugImage(gl_result, "cross_l2_gl.png");
 
-    //cv::Mat diff_image;
-    //cv::absdiff(cpu_result, gl_result, diff_image);
-    //SaveDebugImage(diff_image, "cross_l2_diff.png");
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_l2_diff.png");
 
     std::cout << "L2 Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -355,6 +416,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     DIDxyRendererGL renderer_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
     for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
@@ -384,7 +446,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
             // Cross-backend validation for Vec3 data
             double l2_error = ComputeL2Error<cv::Vec3f>(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
             EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
-            acc_l2_error += l2_error;
+            acc_l2_error = std::max(acc_l2_error, l2_error);
         }
     }
 
@@ -394,9 +456,9 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
 
-    //cv::Mat diff_image;
-    //cv::absdiff(cpu_result, gl_result, diff_image);
-    //SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
 
     std::cout << "Gradient Computation Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
@@ -451,6 +513,7 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     }
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
+
     for (int out_lvl = 0; out_lvl < jtra_cpu.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
@@ -489,9 +552,9 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
             EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
             EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
             EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
-            acc_jtra_error += jtra_error;
-            acc_jrot_error += jrot_error;
-            acc_r_error += r_error;
+            acc_jtra_error = std::max(acc_jtra_error, jtra_error);
+            acc_jrot_error = std::max(acc_jrot_error, jrot_error);
+            acc_r_error = std::max(acc_r_error, r_error);
         }
     }
 
@@ -602,9 +665,9 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
             EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
             EXPECT_LT(r_error, thresholds_.cr_max_r_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
-            acc_jmap_error += jmap_error;
-            acc_pids_error += pids_error;
-            acc_r_error += r_error;
+            acc_jmap_error = std::max(acc_jmap_error, jmap_error);
+            acc_pids_error = std::max(acc_pids_error, pids_error);
+            acc_r_error = std::max(acc_r_error, r_error);
         }
     }
 
