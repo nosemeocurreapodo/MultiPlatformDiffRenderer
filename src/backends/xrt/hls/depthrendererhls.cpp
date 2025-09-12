@@ -17,6 +17,7 @@ extern "C"
                         UInt ebo_buffer_size,
                         UInt out_texture_width,
                         UInt out_texture_height,
+                        UInt out_texture_size,
                         Scalar out_nodata_value,
                         UInt out_lvl,
                         Scalar q_x, Scalar q_y, Scalar q_z, Scalar q_w,
@@ -33,7 +34,7 @@ extern "C"
                      tex_buffer_data, tex_buffer_size,
                      wei_buffer_data, wei_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
-        TextureHLS<Scalar> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureHLS<Scalar> out_texture(out_texture_width, out_texture_height, out_texture_size, out_nodata_value, out_texture_data);
         SE3 pose(SO3(Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));
         Camera cam(fx, fy, cx, cy);
 

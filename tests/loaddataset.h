@@ -9,7 +9,8 @@
 #include <iostream>
 #include <chrono>
 
-#include <core/types.h>
+#include "core/types.h"
+#include "core/camera.h"
 
 // inline std::string &ltrim(std::string &s)
 //{

@@ -139,10 +139,10 @@ protected:
         // if (area <= 0) return;            // enable to cull backfaces
 
         // Triangle bounding box (float → int, clamp to viewport)
-        Scalar minx = min({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
-        Scalar maxx = max({vout[0].screen(0), vout[1].screen(0), vout[2].screen(0)});
-        Scalar miny = min({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
-        Scalar maxy = max({vout[0].screen(1), vout[1].screen(1), vout[2].screen(1)});
+        Scalar minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
+        Scalar maxx = max(max(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
+        Scalar miny = min(min(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
+        Scalar maxy = max(max(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
 
         Int x0 = max(viewport.min_x_, static_cast<Int>(floor(minx)));
         Int x1 = min(viewport.max_x_, static_cast<Int>(ceil(maxx)));

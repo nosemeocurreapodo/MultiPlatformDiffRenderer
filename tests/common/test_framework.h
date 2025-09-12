@@ -24,6 +24,7 @@
 #include "backends/gl/renderergl.h"
 #endif
 #include "loaddataset.h"
+#include "test_helpers.h"
 
 // Performance measurement utilities
 class PerformanceTimer
@@ -84,151 +85,7 @@ protected:
         dataset_.reset();
     }
 
-    cv::Mat ReadMat(const std::string &filename)
-    {
-        cv::Mat image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
-        image.convertTo(image, CV_32FC1);
-        return image;
-    }
 
-    // Helper functions for texture operations
-    template <typename Texture>
-    void UploadMatToTexture(Texture &tex, int lvl, const cv::Mat &mat)
-    {
-        assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
-        {
-            auto mapped = tex.MapWrite(lvl);
-            std::memcpy(mapped.data(), mat.ptr(), mat.total() * tex.type_size());
-        }
-        tex.generate_mipmaps(lvl);
-    }
-
-    template <typename Texture>
-    cv::Mat DownloadTexture(const Texture &tex, int lvl, int cv_type)
-    {
-        cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
-        {
-            auto mapped = tex.MapRead(lvl);
-            std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
-        }
-        return result;
-    }
-
-    // Error computation
-    template <typename T>
-    double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, T nodata_value)
-    {
-        EXPECT_EQ(mat1.size(), mat2.size());
-        EXPECT_EQ(mat1.type(), mat2.type());
-
-        double total_error = 0.0;
-        int valid_pixels = 0;
-
-        for (int y = 0; y < mat1.rows; ++y)
-        {
-            for (int x = 0; x < mat1.cols; ++x)
-            {
-                const T val1 = mat1.at<T>(y, x);
-                const T val2 = mat2.at<T>(y, x);
-
-                if (val1 != nodata_value && val2 != nodata_value)
-                {
-                    if constexpr (std::is_arithmetic_v<T>)
-                    {
-                        double diff = static_cast<double>(val1 - val2);
-                        total_error += diff * diff;
-                    }
-                    else
-                    {
-                        // Handle vector types like cv::Vec3f
-                        auto diff = val1 - val2;
-                        for (int i = 0; i < diff.channels; ++i)
-                        {
-                            double d = static_cast<double>(diff[i]);
-                            total_error += d * d;
-                        }
-                    }
-                    valid_pixels++;
-                }
-            }
-        }
-
-        return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
-    }
-
-    // Error computation
-    template <typename Texture1, typename Texture2>
-    double RMSE(const Texture1 &tex1, const Texture2 &tex2, int lvl)
-    {
-        EXPECT_EQ(tex1.size(lvl), tex2.size(lvl));
-
-        double total_error = 0.0;
-        int valid_pixels = 0;
-
-        auto tx1_map = tex1.MapRead(lvl);
-        auto tx2_map = tex2.MapRead(lvl);
-
-        for (int i = 0; i < tex1.size(lvl); ++i)
-        {
-            auto val1 = tx1_map[i];
-            auto val2 = tx2_map[i];
-
-            if (val1 == tex1.nodata() || val2 == tex2.nodata())
-            {
-                continue;
-            }
-
-            auto diff = val1 - val2;
-            total_error += diff * diff;
-
-            valid_pixels++;
-        }
-
-        return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
-    }
-
-    template <typename Texture>
-    int CountValid(const Texture &tex, int lvl)
-    {
-        int valid_pixels = 0;
-        auto tx_map = tex.MapRead(lvl);
-
-        for (int i = 0; i < tex.size(lvl); ++i)
-        {
-            auto val = tx_map[i];
-            if (val == tex.nodata())
-            {
-                continue;
-            }
-
-            valid_pixels++;
-        }
-
-        return valid_pixels;
-    }
-
-    // Save debug images
-    void SaveDebugImage(const cv::Mat &image, const std::string &filename)
-    {
-        cv::Mat normalized;
-        cv::normalize(image, normalized, 0, 255, cv::NORM_MINMAX);
-        normalized.convertTo(normalized, CV_8UC1);
-        cv::imwrite(filename, normalized);
-    }
-
-    void SaveDebugImageColor(const cv::Mat &image, const std::string &filename)
-    {
-        cv::Mat normalized;
-        cv::normalize(image, normalized, 0, 255, cv::NORM_MINMAX);
-        normalized.convertTo(normalized, CV_8UC3);
-        cv::imwrite(filename, normalized);
-    }
-
-    // Mipmap level dimension calculation
-    int GetLevelDim(int base_dim, int level)
-    {
-        return std::max(1, base_dim >> level);
-    }
 
 protected:
     // Dataset and test data

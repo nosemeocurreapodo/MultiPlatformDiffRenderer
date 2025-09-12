@@ -7,7 +7,7 @@
 #include "core/types.h"
 #include "core/camera.h"
 #include "core/common.h"
-#include "backends/xrt/hls/depthrendererhls.h"
+#include "backends/xrt/hls/imagerendererhls.h"
 
 int main()
 {
@@ -28,7 +28,10 @@ int main()
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
     SE3 pose_src = poses[0];
 
+    TextureCPU<float> image_src_cpu(w, h, -1.0f);
     TextureCPU<float> depth_src_cpu(w, h, -1.0f);
+
+    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
 
     cv::Mat image_dst_cv = ReadMat(image_files[50]);
@@ -47,28 +50,33 @@ int main()
 
     int lvl = 0;
 
-    TextureCPU<Scalar> depth_out_cpu(w, h, -1.0f);
-    auto map = depth_out_cpu.MapWrite(0);
+    auto image_in_map = image_out_cpu.MapRead(0);
+
+    TextureCPU<Scalar> image_out_cpu(w, h, -1.0f);
+    auto image_out_map = image_out_cpu.MapWrite(0);
 
     int total_size = 0;
-    for(int i=0; i<depth_out_cpu.levels(); i++) {
-        total_size += depth_out_cpu.size(i);
+    for (int i = 0; i < image_out_cpu.levels(); i++)
+    {
+        total_size += image_out_cpu.size(i);
     }
 
-    DepthRenderHLS(
+    ImageRenderHLS(
         (Scalar *)vertices.data(),
         (Scalar *)texcoords.data(),
         (Scalar *)weights.data(),
         (UInt *)indices.data(),
-        (Scalar *)map.data(),
+        (Scalar *)image_in_map.data(),
+        (Scalar *)image_out_map.data(),
         UInt(vertices.size()), UInt(texcoords.size()), UInt(weights.size()), UInt(indices.size()),
+        UInt(w), UInt(h), UInt(total_size), Scalar(-1), UInt(lvl),
         UInt(w), UInt(h), UInt(total_size), Scalar(-1), UInt(lvl),
         Scalar(pose.so3().unit_quaternion().x()), Scalar(pose.so3().unit_quaternion().y()), Scalar(pose.so3().unit_quaternion().z()), Scalar(pose.so3().unit_quaternion().w()),
         Scalar(pose.translation()(0)), Scalar(pose.translation()(1)), Scalar(pose.translation()(2)),
         Scalar(cam.GetParams()(0)), Scalar(cam.GetParams()(1)), Scalar(cam.GetParams()(2)), Scalar(cam.GetParams()(3)));
 
-    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl, CV_32FC1);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
 
     // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
-    SaveDebugImage(depth_out_cv, "depthrenderhls_output.png");
+    SaveDebugImage(image_out_cv, "depthrenderhls_output.png");
 }

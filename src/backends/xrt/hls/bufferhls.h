@@ -42,12 +42,16 @@ protected:
     // -------- element / raw access --------
     T &operator[](UInt i) noexcept
     {
-        assert(i < size_);
+//#ifndef __SYNTHESIS__
+//        assert(i < size_);
+//#endif
         return data_[i];
     }
     const T &operator[](UInt i) const noexcept
     {
-        assert(i < size_);
+//#ifndef __SYNTHESIS__
+//        assert(i < size_);
+//#endif
         return data_[i];
     }
 

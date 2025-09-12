@@ -18,7 +18,7 @@ public:
     BufferCPU() = default;
 
     explicit BufferCPU(std::size_t n)
-        : size_(n), data_(n ? std::make_unique<T[]>(n) : nullptr) {}
+        : data_(n ? std::make_unique<T[]>(n) : nullptr), size_(n) {}
 
     BufferCPU(std::size_t n, const T *src) : BufferCPU(n)
     {

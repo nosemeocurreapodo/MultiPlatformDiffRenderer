@@ -48,11 +48,11 @@ TEST_F(CrossBackendTests, MipMapComparison)
             continue;
 
         timer_.Start();
-        cv::Mat cpu_result = DownloadTexture(input_cpu, in_lvl, CV_32FC1);
+        cv::Mat cpu_result = DownloadTextureToMat(input_cpu, in_lvl, CV_32FC1);
         acc_cpu_time += timer_.Stop();
 
         timer_.Start();
-        cv::Mat gl_result = DownloadTexture(input_gl, in_lvl, CV_32FC1);
+        cv::Mat gl_result = DownloadTextureToMat(input_gl, in_lvl, CV_32FC1);
         acc_gl_time += timer_.Stop();
 
         int valid_cpu = CountValid(input_cpu, in_lvl);
@@ -66,8 +66,8 @@ TEST_F(CrossBackendTests, MipMapComparison)
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
-    cv::Mat cpu_result = DownloadTexture(input_cpu, 1, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(input_gl, 1, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(input_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(input_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "mipmap_image_cpu.png");
     SaveDebugImage(gl_result, "mipmap_image_gl.png");
@@ -112,12 +112,12 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 
         timer_.Start();
         renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, output_cpu);
-        cv::Mat cpu_result = DownloadTexture(output_cpu, lvl, CV_32FC1);
+        cv::Mat cpu_result = DownloadTextureToMat(output_cpu, lvl, CV_32FC1);
         acc_cpu_time += timer_.Stop();
 
         timer_.Start();
         renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, output_gl);
-        cv::Mat gl_result = DownloadTexture(output_gl, lvl, CV_32FC1);
+        cv::Mat gl_result = DownloadTextureToMat(output_gl, lvl, CV_32FC1);
         acc_gl_time += timer_.Stop();
 
         int valid_cpu = CountValid(output_cpu, lvl);
@@ -132,8 +132,8 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
 
     // Save comparison images
     SaveDebugImage(cpu_result, "cross_depth_cpu.png");
@@ -190,13 +190,13 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             ImageRendererCPU renderer_cpu;
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             ImageRendererGL renderer_gl;
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
-            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -211,8 +211,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 1, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(output_gl, 1, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_image_cpu.png");
     SaveDebugImage(gl_result, "cross_image_gl.png");
@@ -272,12 +272,12 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
-            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -292,8 +292,8 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 1, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(output_gl, 1, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
@@ -354,12 +354,12 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC1);
+            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
-            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC1);
+            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -374,8 +374,8 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_l2_cpu.png");
     SaveDebugImage(gl_result, "cross_l2_gl.png");
@@ -429,12 +429,12 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, in_lvl, out_lvl, input_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTexture(output_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC3);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             renderer_gl.Render(mesh_gl, in_lvl, out_lvl, input_gl, output_gl);
-            cv::Mat gl_result = DownloadTexture(output_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC3);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -450,8 +450,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 1, CV_32FC3);
-    cv::Mat gl_result = DownloadTexture(output_gl, 1, CV_32FC3);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC3);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC3);
 
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
@@ -526,16 +526,16 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 
             timer_.Start();
             jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
-            cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, out_lvl, CV_32FC3);
-            cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, out_lvl, CV_32FC3);
-            cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
+            cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_r = DownloadTextureToMat(r_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
-            cv::Mat gl_jtra = DownloadTexture(jtra_gl, out_lvl, CV_32FC3);
-            cv::Mat gl_jrot = DownloadTexture(jrot_gl, out_lvl, CV_32FC3);
-            cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+            cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_r = DownloadTextureToMat(r_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);
@@ -558,12 +558,12 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
         }
     }
 
-    cv::Mat cpu_jtra = DownloadTexture(jtra_cpu, 1, CV_32FC3);
-    cv::Mat cpu_jrot = DownloadTexture(jrot_cpu, 1, CV_32FC3);
-    cv::Mat cpu_r = DownloadTexture(r_cpu, 1, CV_32FC1);
-    cv::Mat gl_jtra = DownloadTexture(jtra_gl, 1, CV_32FC3);
-    cv::Mat gl_jrot = DownloadTexture(jrot_gl, 1, CV_32FC3);
-    cv::Mat gl_r = DownloadTexture(r_gl, 1, CV_32FC1);
+    cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 1, CV_32FC3);
+    cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 1, CV_32FC3);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1, CV_32FC1);
+    cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 1, CV_32FC3);
+    cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 1, CV_32FC3);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1, CV_32FC1);
 
     SaveDebugImageColor(cpu_jtra, "cross_jtra_cpu.png");
     SaveDebugImageColor(gl_jtra, "cross_jtra_gl.png");
@@ -638,16 +638,16 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
             timer_.Start();
             jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
-            cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, out_lvl, CV_32FC3);
-            cv::Mat cpu_pids = DownloadTexture(pids_cpu, out_lvl, CV_32FC3);
-            cv::Mat cpu_r = DownloadTexture(r_cpu, out_lvl, CV_32FC1);
+            cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, out_lvl, CV_32FC3);
+            cv::Mat cpu_r = DownloadTextureToMat(r_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
-            cv::Mat gl_jmap = DownloadTexture(jmap_gl, out_lvl, CV_32FC3);
-            cv::Mat gl_pids = DownloadTexture(pids_gl, out_lvl, CV_32FC3);
-            cv::Mat gl_r = DownloadTexture(r_gl, out_lvl, CV_32FC1);
+            cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_pids = DownloadTextureToMat(pids_gl, out_lvl, CV_32FC3);
+            cv::Mat gl_r = DownloadTextureToMat(r_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);
@@ -671,12 +671,12 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
         }
     }
 
-    cv::Mat cpu_jmap = DownloadTexture(jmap_cpu, 1, CV_32FC3);
-    cv::Mat cpu_pids = DownloadTexture(pids_cpu, 1, CV_32FC3);
-    cv::Mat cpu_r = DownloadTexture(r_cpu, 1, CV_32FC1);
-    cv::Mat gl_jmap = DownloadTexture(jmap_gl, 1, CV_32FC3);
-    cv::Mat gl_pids = DownloadTexture(pids_gl, 1, CV_32FC3);
-    cv::Mat gl_r = DownloadTexture(r_gl, 1, CV_32FC1);
+    cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, 1, CV_32FC3);
+    cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, 1, CV_32FC3);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1, CV_32FC1);
+    cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, 1, CV_32FC3);
+    cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 1, CV_32FC3);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1, CV_32FC1);
 
     SaveDebugImageColor(cpu_jmap, "cross_jmap_cpu.png");
     SaveDebugImageColor(gl_jmap, "cross_jmap_gl.png");
@@ -795,7 +795,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
 
         DepthRendererCPU renderer_cpu;
         renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, output_cpu);
-        cpu_results.push_back(DownloadTexture(output_cpu, out_lvl, CV_32FC1));
+        cpu_results.push_back(DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1));
 
         // GL
         MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
@@ -803,7 +803,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
 
         DepthRendererGL renderer_gl;
         renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, output_gl);
-        gl_results.push_back(DownloadTexture(output_gl, out_lvl, CV_32FC1));
+        gl_results.push_back(DownloadTextureToMat(output_gl, out_lvl, CV_32FC1));
     }
 
     // Check CPU consistency

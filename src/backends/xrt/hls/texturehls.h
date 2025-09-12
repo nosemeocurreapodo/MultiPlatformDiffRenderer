@@ -10,8 +10,8 @@ public:
     // using value_type = T;
     // using size_type = std::size_t;
 
-    TextureHLS(std::size_t w, std::size_t h, T nodata, const T *base)
-        : nodata_(nodata), storage_(w * h, const_cast<T *>(base))
+    TextureHLS(std::size_t w, std::size_t h, std::size_t size, T nodata, T *base)
+        : nodata_(nodata), storage_(size, base)
     {
         build_pyramid_(w, h);
     }
@@ -26,7 +26,7 @@ public:
     // Introspection
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
-    std::size_t levels() const { return levels_.size(); }
+    std::size_t levels() const { return n_levels_; }
     std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
@@ -43,16 +43,18 @@ public:
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(std::size_t y, std::size_t x, std::size_t lvl) const
     {
-        assert(x < width(lvl) && y < height(lvl));
-
+//#ifndef __SYNTHESIS__
+//        assert(x < width(lvl) && y < height(lvl));
+//#endif
         const auto &L = levels_[lvl];
         return storage_[L.offset + y * L.w + x];
     }
 
     void set_texel_(const T &v, std::size_t y, std::size_t x, std::size_t lvl)
     {
-        assert(x < width(lvl) && y < height(lvl));
-
+//#ifndef __SYNTHESIS__
+//        assert(x < width(lvl) && y < height(lvl));
+//#endif
         const auto &L = levels_[lvl];
         storage_[L.offset + y * L.w + x] = v;
     }
@@ -78,11 +80,12 @@ protected:
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    Level levels_[9];
+    Level levels_[15];
+    int n_levels_;
 
     BufferHLS<T> storage_;
 
-    T nodata_{};
+    T nodata_;
 
     void build_pyramid_(std::size_t w, std::size_t h)
     {
@@ -91,7 +94,7 @@ protected:
 
         std::size_t running = 0;
         // build until 1x1 (inclusive)
-        int i = 0;
+        n_levels_ = 0;
         while (true)
         {
             // levels_.push_back(Level{w, h, BufferCPU<T>(w * h)});
@@ -101,9 +104,9 @@ protected:
             L.size = std::size_t(w) * std::size_t(h);
             L.offset = running;
 
-            levels_[i] = L;
+            levels_[n_levels_] = L;
             running += L.size;
-            i++;
+            n_levels_++;
 
             if (w == 1 && h == 1)
                 break;
