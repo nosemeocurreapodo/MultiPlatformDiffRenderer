@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(MultiPlatformRenderer)
+project(MultiPlatformDiffRenderer)
 
 option(COMPILE_GL "Enable OpenGL compilation" ON)
 option(COMPILE_XRT "Enable XRT compilation" OFF)

@@ -1,15 +1,15 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
     // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
     {
-        "name": "MultiPlataformRenderer",
-        "build": {
-        	"dockerfile": "Dockerfile",
-        	"context": "."
-        },
-        //"image": "bcc003ce2b6d/vivado_2023.2:v1",
-        "mounts": [
-          "source=/tools/,target=/tools/,type=bind,consistency=cached"
-        ],
+        //"name": "MultiPlataformRenderer",
+        //"build": {
+       // 	"dockerfile": "Dockerfile",
+        // 	"context": "."
+        //},
+        "image": "bcc003ce2b6d/vivado_2023.2:v1",
+        //"mounts": [
+        //  "source=/tools/,target=/tools/,type=bind,consistency=cached"
+        //],
         "customizations":
             {
               "vscode": {
@@ -22,6 +22,7 @@
                 ]
               }
             },
+        "postCreateCommand": "cp /workspaces/MultiPlatformRenderer/.devcontainer/.settings64-Vitis.sh /tools/Xilinx/Vitis/2023.2/ && apt-get update && apt-get install -y build-essential cmake libeigen3-dev libopencv-dev mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev"
         //"runArgs": ["--device=/dev/dri:/dev/dri"],
         //"runArgs": ["--gpus all"],
         //"postCreateCommand": "cmake -S . -B build && cmake --build build",
