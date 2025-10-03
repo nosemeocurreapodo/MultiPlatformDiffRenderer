@@ -20,7 +20,7 @@
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public DepthRendererBase<MeshCPU, TextureCPU<float>>
+    : public DepthRendererBase<MeshCPU, TextureCPU>
 {
 public:
     DepthRendererCPU() = default;
@@ -48,7 +48,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<MeshCPU, TextureCPU<float>, TextureCPU<float>>
+    : public ImageRendererBase<MeshCPU, TextureCPU>
 {
 public:
     ImageRendererCPU() = default;

@@ -82,6 +82,7 @@ protected:
     T *data() noexcept { return data_.get(); }
     const T *data() const noexcept { return data_.get(); }
 
+    /*
     // -------- element / raw access --------
     T &operator[](std::size_t i) noexcept
     {
@@ -93,6 +94,7 @@ protected:
         assert(i < size_);
         return data_.get()[i];
     }
+    */
 
     std::unique_ptr<T[]> data_;
     std::size_t size_ = 0;

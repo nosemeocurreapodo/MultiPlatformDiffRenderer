@@ -37,7 +37,7 @@ public:
     void generate_mipmaps(int base_lvl)
     {
         // build lower levels
-        for (std::size_t lvl = base_lvl + 1; lvl < derived_().levels(); ++lvl)
+        for (UInt lvl = base_lvl + 1; lvl < derived_().levels(); ++lvl)
         {
             generate_mipmap_(lvl);
         }
@@ -46,7 +46,7 @@ public:
 protected:
     // Normalized sampling in [0,1] (allows outside depending on address mode)
     T sample_(Scalar v, Scalar u,
-              std::size_t lvl = 0,
+              UInt lvl = 0,
               AddressMode addr = AddressMode::Clamp,
               FilterMode filt = FilterMode::Bilinear) const
     {
@@ -90,22 +90,22 @@ protected:
                    : bilinear_(y, x, lvl);
     }
 
-    T nearest_(Scalar y, Scalar x, std::size_t lvl) const
+    T nearest_(Scalar y, Scalar x, UInt lvl) const
     {
-        const auto xi = static_cast<std::size_t>(lround(x));
-        const auto yi = static_cast<std::size_t>(lround(y));
+        const auto xi = static_cast<UInt>(lround(x));
+        const auto yi = static_cast<UInt>(lround(y));
         return derived_().texel_(yi, xi, lvl);
     }
 
-    T bilinear_(Scalar y, Scalar x, std::size_t lvl) const
+    T bilinear_(Scalar y, Scalar x, UInt lvl) const
     {
         const auto w = derived_().width(lvl);
         const auto h = derived_().height(lvl);
 
         const Scalar xf = floor(x);
         const Scalar yf = floor(y);
-        const auto x0 = static_cast<std::size_t>(xf < 0.0f ? 0.0f : xf);
-        const auto y0 = static_cast<std::size_t>(yf < 0.0f ? 0.0f : yf);
+        const auto x0 = static_cast<UInt>(xf < 0.0f ? 0.0f : xf);
+        const auto y0 = static_cast<UInt>(yf < 0.0f ? 0.0f : yf);
         const auto x1 = min(x0 + 1, w - 1);
         const auto y1 = min(y0 + 1, h - 1);
 
@@ -113,7 +113,7 @@ protected:
         const Scalar dy = y - static_cast<Scalar>(y0);
 
         // auto m = MapRead(lvl); // one mapping, four reads
-        const auto idx = [&](std::size_t yy, std::size_t xx)
+        const auto idx = [&](UInt yy, UInt xx)
         {
             // return m[xx + yy * w];
             //  return lvls_[lvl].buf[xx + yy * w];
@@ -139,26 +139,26 @@ protected:
         return static_cast<T>(Cx0 * (Scalar(1) - dy) + Cx1 * dy);
     }
 
-    void generate_mipmap_(std::size_t lvl)
+    void generate_mipmap_(UInt lvl)
     {
-        const std::size_t sw = derived_().width(lvl - 1);
-        const std::size_t sh = derived_().height(lvl - 1);
-        const std::size_t dw = derived_().width(lvl);
-        const std::size_t dh = derived_().height(lvl);
+        const UInt sw = derived_().width(lvl - 1);
+        const UInt sh = derived_().height(lvl - 1);
+        const UInt dw = derived_().width(lvl);
+        const UInt dh = derived_().height(lvl);
 
-        const auto s_idx = [&](std::size_t yy, std::size_t xx) -> T
+        const auto s_idx = [&](UInt yy, UInt xx) -> T
         {
             yy = min(yy, sh - 1);
             xx = min(xx, sw - 1);
             return derived_().texel_(yy, xx, lvl - 1);
         };
 
-        for (std::size_t y = 0; y < dh; ++y)
+        for (UInt y = 0; y < dh; ++y)
         {
-            for (std::size_t x = 0; x < dw; ++x)
+            for (UInt x = 0; x < dw; ++x)
             {
-                const std::size_t sx = x * 2;
-                const std::size_t sy = y * 2;
+                const UInt sx = x * 2;
+                const UInt sy = y * 2;
 
                 const T tl = s_idx(sy, sx);
                 const T tr = s_idx(sy, sx + 1);

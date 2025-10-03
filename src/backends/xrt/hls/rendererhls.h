@@ -18,7 +18,7 @@
 // -----------------------------------------------------------------------------
 
 class DepthRendererHLS
-    : public DepthRendererBase<MeshHLS, TextureHLS<Scalar>>
+    : public DepthRendererBase<MeshHLS, TextureHLS>
 {
 public:
     DepthRendererHLS() = default;
@@ -42,7 +42,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererHLS
-    : public ImageRendererBase<MeshHLS, TextureHLS<Scalar>, TextureHLS<Scalar>>
+    : public ImageRendererBase<MeshHLS, TextureHLS>
 {
 public:
     ImageRendererHLS() = default;

@@ -41,15 +41,10 @@ protected:
     template <class Derived>
     friend class RendererBase;
 
-    const BufferHLS<Scalar> &Positions() const { return pos_buffer_; }
-    const BufferHLS<Scalar> &Texcoords() const { return tex_buffer_; }
-    const BufferHLS<Scalar> &Weights() const { return wei_buffer_; }
-    const BufferHLS<UInt> &Indices() const { return ebo_buffer_; }
-
-    BufferHLS<Scalar> &Positions() { return pos_buffer_; }
-    BufferHLS<Scalar> &Texcoords() { return tex_buffer_; }
-    BufferHLS<Scalar> &Weights() { return wei_buffer_; }
-    BufferHLS<UInt> &Indices() { return ebo_buffer_; }
+    BufferHLS<Scalar> Positions() const { return pos_buffer_; }
+    BufferHLS<Scalar> Texcoords() const { return tex_buffer_; }
+    BufferHLS<Scalar> Weights() const { return wei_buffer_; }
+    BufferHLS<UInt> Indices() const { return ebo_buffer_; }
 
 private:
     BufferHLS<Scalar> pos_buffer_;

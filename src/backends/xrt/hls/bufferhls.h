@@ -19,10 +19,8 @@ public:
     }
     */
 
-    BufferHLS(UInt n, T *src)
+    BufferHLS(UInt n, T *src) : size_(n), data_(src)
     {
-        size_ = n;
-        data_ = src;
     }
 
     ~BufferHLS() = default;
@@ -40,20 +38,25 @@ protected:
     const T *data() const noexcept { return data_; }
 
     // -------- element / raw access --------
-    T &operator[](UInt i) noexcept
+    // T operator[](UInt i) const noexcept
+    //{
+    // #ifndef USE_VITIS
+    //         assert(i < size_);
+    // #endif
+    //    return data_[i];
+    //}
+
+    /*
+    T get(UInt i) const
     {
-//#ifndef __SYNTHESIS__
-//        assert(i < size_);
-//#endif
         return data_[i];
     }
-    const T &operator[](UInt i) const noexcept
+
+    void set(T data, UInt i)
     {
-//#ifndef __SYNTHESIS__
-//        assert(i < size_);
-//#endif
-        return data_[i];
+        data_[i] = data;
     }
+    */
 
     T *data_;
     UInt size_ = 0;

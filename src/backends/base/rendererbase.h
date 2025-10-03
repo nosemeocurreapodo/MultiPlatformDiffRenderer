@@ -5,7 +5,7 @@
 // #include <cstdint>
 #include "core/types.h"
 #include "core/render_constants.h"
-//#include "core/error_handling.h"
+// #include "core/error_handling.h"
 
 template <typename Scalar, typename Vec2>
 inline Scalar cross(const Vec2 &a, const Vec2 &b) { return a(0) * b(1) - a(1) * b(0); }
@@ -47,22 +47,22 @@ public:
                 const BoundingBox<Int> &viewport)
     {
         // ---- Map mesh buffers (no copies) ----
-        //auto pos = mesh.MapReadPositions(); // 3 floats/vertex
-        //auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
-        //auto wei = mesh.MapReadWeights();   // 1 float /vertex
-        //auto idx = mesh.MapReadIndices();   // uint32_t indices
+        // auto pos = mesh.MapReadPositions(); // 3 floats/vertex
+        // auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
+        // auto wei = mesh.MapReadWeights();   // 1 float /vertex
+        // auto idx = mesh.MapReadIndices();   // uint32_t indices
 
-        const auto pos = mesh.Positions(); // 3 floats/vertex
-        const auto tex = mesh.Texcoords(); // 2 floats/vertex
-        const auto wei = mesh.Weights();   // 1 float /vertex
-        const auto idx = mesh.Indices();   // uint32_t indices
+        // const auto pos = mesh.Positions(); // 3 floats/vertex
+        // const auto tex = mesh.Texcoords(); // 2 floats/vertex
+        // const auto wei = mesh.Weights();   // 1 float /vertex
+        // const auto idx = mesh.Indices();   // uint32_t indices
 
         // Loop over triangles
-        for (std::size_t i = 0; i + 2 < idx.size(); i += 3)
+        for (std::size_t i = 0; i + 2 < mesh.Indices().size(); i += 3)
         {
-            const uint32_t i0 = idx[i + 0];
-            const uint32_t i1 = idx[i + 1];
-            const uint32_t i2 = idx[i + 2];
+            UInt i0 = mesh.Indices().data()[i + 0];
+            UInt i1 = mesh.Indices().data()[i + 1];
+            UInt i2 = mesh.Indices().data()[i + 2];
 
             Vec3 v[3];
             Vec2 uv[3];
@@ -76,14 +76,14 @@ public:
             // gather
             for (int k = 0; k < 3; ++k)
             {
-                const uint32_t vi = (k == 0 ? i0 : k == 1 ? i1
-                                                          : i2);
-                v[k](0) = pos[vi * 3 + 0];
-                v[k](1) = pos[vi * 3 + 1];
-                v[k](2) = pos[vi * 3 + 2];
-                uv[k](0) = tex[vi * 2 + 0];
-                uv[k](1) = tex[vi * 2 + 1];
-                wght[k] = wei[vi];
+                UInt vi = (k == 0 ? i0 : k == 1 ? i1
+                                                : i2);
+                v[k](0) = mesh.Positions().data()[vi * 3 + 0];
+                v[k](1) = mesh.Positions().data()[vi * 3 + 1];
+                v[k](2) = mesh.Positions().data()[vi * 3 + 2];
+                uv[k](0) = mesh.Texcoords().data()[vi * 2 + 0];
+                uv[k](1) = mesh.Texcoords().data()[vi * 2 + 1];
+                wght[k] = mesh.Indices().data()[vi];
             }
 
             this->draw_triangle_(v, uv, wght, id, viewport);
@@ -135,8 +135,8 @@ protected:
         const Scalar area = triangle_area<Scalar, Vec2>(vout[0].screen,
                                                         vout[1].screen,
                                                         vout[2].screen);
-        //ErrorHandling::ValidateTriangleArea(area);
-        // if (area <= 0) return;            // enable to cull backfaces
+        // ErrorHandling::ValidateTriangleArea(area);
+        //  if (area <= 0) return;            // enable to cull backfaces
 
         // Triangle bounding box (float → int, clamp to viewport)
         Scalar minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
@@ -261,7 +261,7 @@ protected:
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-template <class Mesh, class Texture>
+template <class Mesh, template <class> class Texture>
 class DepthRendererBase
     : public RendererBase<DepthRendererBase<Mesh, Texture>>
 {
@@ -278,19 +278,23 @@ public:
                 const SE3 &pose,
                 const Camera &cam,
                 int out_lvl,
-                Texture &out_texture)
+                Texture<Scalar> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<Mesh, Texture>>::opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
-        out_texture_ = &out_texture;
+        // Copy input descriptor into local storage (no pointer-to-pointer)
+        out_texture_ = out_texture;
 
         const Int W = static_cast<Int>(out_texture.width(out_lvl));
         const Int H = static_cast<Int>(out_texture.height(out_lvl));
         BoundingBox<Int> viewport(0, W, 0, H);
 
         RendererBase<DepthRendererBase<Mesh, Texture>>::Render(mesh, viewport);
+
+        // Copy results back to the caller texture
+        out_texture = out_texture_;
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -326,13 +330,13 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        out_texture_->set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        out_texture_.set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
 private:
     Mat4 t_matrix_;
     int out_lvl_;
-    Texture *out_texture_;
+    Texture<Scalar> out_texture_;
 };
 
 // -----------------------------------------------------------------------------
@@ -340,9 +344,9 @@ private:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <class Mesh, class TextureIn, class TextureOut>
+template <class Mesh, template <class> class Texture>
 class ImageRendererBase
-    : public RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>
+    : public RendererBase<ImageRendererBase<Mesh, Texture>>
 {
 public:
     struct Varyings
@@ -358,24 +362,24 @@ public:
                 const Camera &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureIn &in_texture,
-                TextureOut &out_texture)
+                const Texture<Scalar> &in_texture,
+                Texture<Scalar> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                    RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>::opencv2opengl_ *
+                    RendererBase<ImageRendererBase<Mesh, Texture>>::opencv2opengl_ *
                     pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         in_texture_ = &in_texture;
         out_texture_ = &out_texture;
 
-        const int W = static_cast<int>(out_texture.width(out_lvl));
-        const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
+        const Int W = static_cast<Int>(out_texture.width(out_lvl));
+        const Int H = static_cast<Int>(out_texture.height(out_lvl));
+        BoundingBox<Int> viewport(0, W, 0, H);
 
-        RendererBase<ImageRendererBase<Mesh, TextureIn, TextureOut>>::Render(mesh, viewport);
+        RendererBase<ImageRendererBase<Mesh, Texture>>::Render(mesh, viewport);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -411,7 +415,7 @@ public:
     void fragment_shader(const Vec4 &gl_FragCoord,
                          const Varyings &in_varying)
     {
-        float pix = in_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        Scalar pix = in_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         if (pix == in_texture_->nodata())
             return;
         out_texture_->set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -421,6 +425,6 @@ private:
     Mat4 t_matrix_;
     int in_lvl_;
     int out_lvl_;
-    const TextureIn *in_texture_;
-    TextureOut *out_texture_;
+    const Texture<Scalar> *in_texture_;
+    Texture<Scalar> *out_texture_;
 };

@@ -2,6 +2,7 @@
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/meshhls.h"
 #include "backends/xrt/hls/rendererhls.h"
+#include "core/types.h"
 #include "core/camera.h"
 
 extern "C"

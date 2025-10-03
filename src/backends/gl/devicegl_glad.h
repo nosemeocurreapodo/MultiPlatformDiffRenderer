@@ -205,12 +205,39 @@ inline bool InitEGL()
     return true;
 }
 
+template <typename T>
+inline int getChannels()
+{
+    if constexpr (std::is_same_v<T, Scalar>)
+    {
+        return 1;
+    }
+    else if constexpr (std::is_same_v<T, Vec2>)
+    {
+        return 2;
+    }
+    else if constexpr (std::is_same_v<T, Vec3>)
+    {
+        return 3;
+    }
+    else if constexpr (std::is_same_v<T, Vec4>)
+    {
+        return 4;
+    }
+    else
+    {
+        // static_assert(false, "Unsupported type for getChannels");
+        // assert(false);
+        return 0; // Unreachable
+    }
+}
+
 inline GLint GetGLInternalFormat(std::type_index tindex)
 {
     // static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
     static std::map<std::type_index, GLint> internal_format_map;
-    //internal_format_map[GetTypeIndex<float>()] = GL_R32F;
-    //internal_format_map[GetTypeIndex<ImageType>()] = GL_R32F;
+    // internal_format_map[GetTypeIndex<float>()] = GL_R32F;
+    // internal_format_map[GetTypeIndex<ImageType>()] = GL_R32F;
     internal_format_map[GetTypeIndex<Scalar>()] = GL_R32F;
     internal_format_map[GetTypeIndex<Vec2>()] = GL_RG32F;
     internal_format_map[GetTypeIndex<Vec3>()] = GL_RGB32F;
@@ -244,8 +271,8 @@ inline GLenum GetGLFormat(int channels)
 inline GLenum GetGLType(std::type_index tindex)
 {
     static std::map<std::type_index, GLenum> type_map;
-    //type_map[GetTypeIndex<float>()] = GL_FLOAT;
-    //type_map[GetTypeIndex<ImageType>()] = GL_FLOAT;
+    // type_map[GetTypeIndex<float>()] = GL_FLOAT;
+    // type_map[GetTypeIndex<ImageType>()] = GL_FLOAT;
     type_map[GetTypeIndex<Scalar>()] = GL_FLOAT;
     type_map[GetTypeIndex<Vec2>()] = GL_FLOAT;
     type_map[GetTypeIndex<Vec3>()] = GL_FLOAT;

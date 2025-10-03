@@ -14,23 +14,24 @@ class TextureCPU : public TextureBase<TextureCPU<T>, T>
 {
 public:
     // using value_type = T;
-    // using size_type = std::size_t;
+    // using size_type = UInt;
 
-    // TextureCPU() = default;
+    // Default-construct an empty texture. Safe to assign later.
+    TextureCPU() = default;
 
     // Create empty pyramid filled with nodata
-    TextureCPU(std::size_t w, std::size_t h, T nodata)
+    TextureCPU(UInt w, UInt h, T nodata)
         : nodata_(nodata)
     {
 
         build_pyramid_(w, h);
         // Fill base and all levels with nodata
-        for (std::size_t lvl = 0; lvl < levels(); ++lvl)
+        for (UInt lvl = 0; lvl < levels(); ++lvl)
             fill(lvl, nodata);
     }
 
     // Create and upload base level
-    TextureCPU(std::size_t w, std::size_t h, T nodata, const T *base)
+    TextureCPU(UInt w, UInt h, T nodata, const T *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
@@ -49,15 +50,15 @@ public:
     ~TextureCPU() = default;
 
     // Introspection
-    std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
-    std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
-    std::size_t levels() const { return levels_.size(); }
-    std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
-    std::size_t type_size() const { return sizeof(T); };
+    UInt width(UInt lvl) const { return levels_[lvl].w; }
+    UInt height(UInt lvl) const { return levels_[lvl].h; }
+    UInt levels() const { return levels_.size(); }
+    UInt size(int lvl) const { return width(lvl) * height(lvl); }
+    UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
-    void fill(std::size_t lvl, const T &v)
+    void fill(UInt lvl, const T &v)
     {
         auto m = MapWrite(lvl);
         std::fill(m.data(), m.data() + m.size(), v);
@@ -76,26 +77,26 @@ public:
     }
 
     // Read/Write a single texel (bounds-checked in debug)
-    T texel_(std::size_t y, std::size_t x, std::size_t lvl) const
+    T texel_(UInt y, UInt x, UInt lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
 
         const auto &L = levels_[lvl];
-        return storage_[L.offset + y * L.w + x];
+        return storage_.data()[L.offset + y * L.w + x];
     }
 
-    void set_texel_(const T &v, std::size_t y, std::size_t x, std::size_t lvl)
+    void set_texel_(const T &v, UInt y, UInt x, UInt lvl)
     {
         assert(x < width(lvl) && y < height(lvl));
 
         const auto &L = levels_[lvl];
-        storage_[L.offset + y * L.w + x] = v;
+        storage_.data()[L.offset + y * L.w + x] = v;
     }
 
 protected:
-    template <class Mesh, class Texture>
+    template <class Mesh, template<class> class Texture>
     friend class DepthRendererBase;
-    template <class Mesh, class TextureIn, class TextureOut>
+    template <class Mesh, template<class> class Texture>
     friend class ImageRendererBase;
     // friend class DepthRendererCPU;
     // friend class ImageRendererCPU;
@@ -107,10 +108,10 @@ protected:
 
     struct Level
     {
-        std::size_t offset; // element offset in storage_
-        std::size_t size;   // elements at this level (w*h*channels)
+        UInt offset; // element offset in storage_
+        UInt size;   // elements at this level (w*h*channels)
         int w, h;
-        // optional: std::size_t pitch; // elements per row if you pad rows
+        // optional: UInt pitch; // elements per row if you pad rows
     };
 
     std::vector<Level> levels_;
@@ -119,13 +120,13 @@ protected:
 
     T nodata_{};
 
-    void build_pyramid_(std::size_t w, std::size_t h)
+    void build_pyramid_(UInt w, UInt h)
     {
         levels_.clear();
         if (w == 0 || h == 0)
             return;
 
-        std::size_t running = 0;
+        UInt running = 0;
         // build until 1x1 (inclusive)
         while (true)
         {
@@ -133,7 +134,7 @@ protected:
             Level L;
             L.w = w;
             L.h = h;
-            L.size = std::size_t(w) * std::size_t(h);
+            L.size = UInt(w) * UInt(h);
             L.offset = running;
 
             levels_.push_back(L);
@@ -142,8 +143,8 @@ protected:
             if (w == 1 && h == 1)
                 break;
 
-            w = std::max<std::size_t>(1, w >> 1);
-            h = std::max<std::size_t>(1, h >> 1);
+            w = std::max<UInt>(1, w >> 1);
+            h = std::max<UInt>(1, h >> 1);
         }
 
         storage_ = BufferCPU<T>(running);
