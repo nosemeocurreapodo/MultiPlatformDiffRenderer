@@ -37,7 +37,7 @@ inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
     return depth;
 }
 
-inline std::vector<unsigned int> BuildTriangles(const std::vector<float> &tex_coords)
+inline void BuildTriangles(const std::vector<float> &tex_coords, std::vector<unsigned int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
     std::vector<Vec2> tex_coords_2d;
@@ -48,14 +48,14 @@ inline std::vector<unsigned int> BuildTriangles(const std::vector<float> &tex_co
     triangulator_.LoadPoints(tex_coords_2d);
     triangulator_.Triangulate();
     std::vector<Vec3i> tris = triangulator_.GetTriangles();
-    std::vector<unsigned int> tris_f;
+    tris_f.clear();
+    tris_f.reserve(tris.size() * 3);
     for (size_t i = 0; i < tris.size(); i++)
     {
         tris_f.push_back(tris[i](0));
         tris_f.push_back(tris[i](1));
         tris_f.push_back(tris[i](2));
     }
-    return tris_f;
 }
 
 // Screen quad for image-space rendering
@@ -70,7 +70,7 @@ inline void CreateScreenQuad(std::vector<float> &pos,
           0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
     weights.assign(6, 1.0f);
     // indices = {0, 1, 2, 0, 2, 3};
-    indices = BuildTriangles(uv);
+    BuildTriangles(uv, indices);
 }
 
 inline void CreateMesh(const TextureCPU<float> &depth,
@@ -116,7 +116,7 @@ inline void CreateMesh(const TextureCPU<float> &depth,
         weights.push_back(1.0f);
     }
 
-    indices = BuildTriangles(texcoords);
+    BuildTriangles(texcoords, indices);
 }
 
 inline void CreateFlatMesh(float min_depth, float max_depth,
@@ -154,7 +154,7 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
         weights.push_back(1.0f);
     }
 
-    indices = BuildTriangles(texcoords);
+    BuildTriangles(texcoords, indices);
 }
 
 inline void CreateSphereMesh(float depth,
@@ -191,5 +191,5 @@ inline void CreateSphereMesh(float depth,
         weights.push_back(1.0f);
     }
 
-    indices = BuildTriangles(texcoords);
+    BuildTriangles(texcoords, indices);
 }

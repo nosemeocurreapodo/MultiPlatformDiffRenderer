@@ -30,7 +30,40 @@ public:
                 int out_lvl,
                 TextureHLS<Scalar> &out_texture)
     {
-        DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
+        TextureHLS<Scalar> out_texture_part(160, 120, );
+        out_texture_part.fill(out_lvl, out_texture_part.nodata());
+
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<Mesh, Texture>>::opencv2opengl_ * pose.matrix();
+        out_lvl_ = out_lvl;
+
+        // out_texture_ = &out_texture;
+
+        const Int W = static_cast<Int>(out_texture.width(out_lvl));
+        const Int H = static_cast<Int>(out_texture.height(out_lvl));
+        for (int py = 0; py < 2; py++)
+        {
+            for (int px = 0; px < 2; px++)
+            {
+                Int Ws = px * W / 2;
+                Int Wf = (px + 1) * W / 2;
+                Int Hs = py * H / 2;
+                Int Hf = (py + 1) * H / 2;
+
+                BoundingBox<Int> viewport(Ws, Wf, Hs, Hf);
+
+                Textures textures{out_texture_part};
+
+                RendererBase<DepthRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+
+                for(int y = 0; y < H / 2; y++)
+                {
+                    for(int x = 0; x < W / 2; x++)
+                    {
+                        out_texture_part
+                    }
+                }
+            }
+        }
     }
 
 private:

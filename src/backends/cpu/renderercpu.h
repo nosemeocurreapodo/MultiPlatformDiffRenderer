@@ -85,6 +85,13 @@ public:
         Vec2 texcoord;
     };
 
+    struct Textures
+    {
+        const TextureCPU<float> &kf_texture;
+        const TextureCPU<float> &f_texture;
+        TextureCPU<float> &r_texture;
+    };
+
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
 
@@ -102,15 +109,17 @@ public:
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        kf_texture_ = &kf_texture;
-        f_texture_ = &f_texture;
-        r_texture_ = &r_texture;
+        // kf_texture_ = &kf_texture;
+        // f_texture_ = &f_texture;
+        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        RendererBase::Render(mesh, viewport);
+        Textures textures{kf_texture, f_texture, r_texture};
+
+        RendererBase::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -143,31 +152,32 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const Varyings &in_varying,
+                         Textures &textures)
     {
-        int width = kf_texture_->width(out_lvl_);
-        int height = kf_texture_->height(out_lvl_);
+        int width = textures.kf_texture.width(out_lvl_);
+        int height = textures.kf_texture.height(out_lvl_);
 
         Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
-        float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float kf = textures.kf_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
-        if (kf == kf_texture_->nodata() || f == f_texture_->nodata())
+        if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
             return;
 
         float e = f - kf;
-        r_texture_->set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
     Mat4 t_matrix_;
     int in_lvl_;
     int out_lvl_;
-    const TextureCPU<float> *kf_texture_;
-    const TextureCPU<float> *f_texture_;
-    TextureCPU<float> *r_texture_;
+    // const TextureCPU<float> *kf_texture_;
+    // const TextureCPU<float> *f_texture_;
+    // TextureCPU<float> *r_texture_;
 };
 
 // -----------------------------------------------------------------------------
@@ -182,6 +192,13 @@ public:
     struct Varyings
     {
         Vec2 texcoord;
+    };
+
+    struct Textures
+    {
+        const TextureCPU<float> &kf_texture;
+        const TextureCPU<float> &f_texture;
+        TextureCPU<float> &r_texture;
     };
 
     L2RendererCPU() = default;
@@ -201,15 +218,17 @@ public:
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        kf_texture_ = &kf_texture;
-        f_texture_ = &f_texture;
-        r_texture_ = &r_texture;
+        // kf_texture_ = &kf_texture;
+        // f_texture_ = &f_texture;
+        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        RendererBase::Render(mesh, viewport);
+        Textures textures{kf_texture, f_texture, r_texture};
+
+        RendererBase::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -242,31 +261,32 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const Varyings &in_varying,
+                         Textures &textures)
     {
-        int width = kf_texture_->width(out_lvl_);
-        int height = kf_texture_->height(out_lvl_);
+        int width = textures.kf_texture.width(out_lvl_);
+        int height = textures.kf_texture.height(out_lvl_);
 
         Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
-        float kf = kf_texture_->sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        float kf = textures.kf_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        float f = textures.f_texture.sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
-        if (kf == kf_texture_->nodata() || f == f_texture_->nodata())
+        if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
             return;
 
         float e = f - kf;
-        r_texture_->set_texel_(e * e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.r_texture.set_texel_(e * e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
     Mat4 t_matrix_;
     int in_lvl_;
     int out_lvl_;
-    const TextureCPU<float> *kf_texture_;
-    const TextureCPU<float> *f_texture_;
-    TextureCPU<float> *r_texture_;
+    // const TextureCPU<float> *kf_texture_;
+    // const TextureCPU<float> *f_texture_;
+    // TextureCPU<float> *r_texture_;
 };
 
 class DIDxyRendererCPU
@@ -276,6 +296,12 @@ public:
     struct Varyings
     {
         Vec2 texcoord;
+    };
+
+    struct Textures
+    {
+        const TextureCPU<float> &in_texture;
+        TextureCPU<Vec3> &out_texture;
     };
 
     DIDxyRendererCPU() = default;
@@ -291,14 +317,16 @@ public:
 
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        in_texture_ = &in_texture;
-        out_texture_ = &out_texture;
+        // in_texture_ = &in_texture;
+        // out_texture_ = &out_texture;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        RendererBase::Render(mesh, viewport);
+        Textures textures{in_texture, out_texture};
+
+        RendererBase::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -333,13 +361,14 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const Varyings &in_varying,
+                         Textures &textures)
     {
         // outFragment = inVarying;
 
-        int height = in_texture_->height(out_lvl_);
-        int width = in_texture_->width(out_lvl_);
-        float nodata = in_texture_->nodata();
+        int height = textures.in_texture.height(out_lvl_);
+        int width = textures.in_texture.width(out_lvl_);
+        float nodata = textures.in_texture.nodata();
 
         int x = int(in_varying.texcoord(0) * (width - 1));
         int y = int(in_varying.texcoord(1) * (height - 1));
@@ -357,11 +386,11 @@ public:
             return;
         }
 
-        float f = in_texture_->texel_(y, x, out_lvl_);
-        float f_y_p = in_texture_->texel_(y_p, x, out_lvl_);
-        float f_y_m = in_texture_->texel_(y_m, x, out_lvl_);
-        float f_x_p = in_texture_->texel_(y, x_p, out_lvl_);
-        float f_x_m = in_texture_->texel_(y, x_m, out_lvl_);
+        float f = textures.in_texture.texel_(y, x, out_lvl_);
+        float f_y_p = textures.in_texture.texel_(y_p, x, out_lvl_);
+        float f_y_m = textures.in_texture.texel_(y_m, x, out_lvl_);
+        float f_x_p = textures.in_texture.texel_(y, x_p, out_lvl_);
+        float f_x_m = textures.in_texture.texel_(y, x_m, out_lvl_);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -378,14 +407,14 @@ public:
         out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
         out_fragment(2) = 0.0; // f; // save the projected frame for later processing
 
-        out_texture_->set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
     int in_lvl_;
     int out_lvl_;
-    const TextureCPU<float> *in_texture_;
-    TextureCPU<Vec3> *out_texture_;
+    // const TextureCPU<float> *in_texture_;
+    // TextureCPU<Vec3> *out_texture_;
 };
 
 class JPoseRendererCPU
@@ -396,6 +425,16 @@ public:
     {
         Vec2 texcoord;
         Vec3 f_ver;
+    };
+
+    struct Textures
+    {
+        const TextureCPU<float> &kf_texture;
+        const TextureCPU<float> &f_texture;
+        const TextureCPU<Vec3> &dfdxy_texture;
+        TextureCPU<Vec3> &jtra_texture;
+        TextureCPU<Vec3> &jrot_texture;
+        TextureCPU<float> &r_texture;
     };
 
     JPoseRendererCPU() = default;
@@ -423,18 +462,20 @@ public:
         fy_ = cam.GetParams()(1);
         view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
-        kf_texture_ = &kf_texture;
-        f_texture_ = &f_texture;
-        dfdxy_texture_ = &dfdxy_texture;
-        jtra_texture_ = &jtra_texture;
-        jrot_texture_ = &jrot_texture;
-        r_texture_ = &r_texture;
+        // kf_texture_ = &kf_texture;
+        // f_texture_ = &f_texture;
+        // dfdxy_texture_ = &dfdxy_texture;
+        // jtra_texture_ = &jtra_texture;
+        // jrot_texture_ = &jrot_texture;
+        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        RendererBase::Render(mesh, viewport);
+        Textures textures{kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
+
+        RendererBase::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -475,23 +516,24 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const Varyings &in_varying,
+                         Textures &textures)
     {
-        int width = kf_texture_->width(out_lvl_);
-        int height = kf_texture_->height(out_lvl_);
+        int width = textures.kf_texture.width(out_lvl_);
+        int height = textures.kf_texture.height(out_lvl_);
 
         Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
         Vec3 f_ver = in_varying.f_ver;
         Vec2 texcoord = in_varying.texcoord;
 
-        float kf = kf_texture_->sample_(texcoord(1), texcoord(0), in_lvl_);
+        float kf = textures.kf_texture.sample_(texcoord(1), texcoord(0), in_lvl_);
         // float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
-        Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        float f = textures.f_texture.sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        Vec3 f_der = textures.dfdxy_texture.sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
-        if (kf == kf_texture_->nodata() || f == f_texture_->nodata() || f_der == dfdxy_texture_->nodata())
+        if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
             return;
 
         float r = f - kf;
@@ -503,9 +545,9 @@ public:
         Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        jtra_texture_->set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        jrot_texture_->set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        r_texture_->set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
@@ -515,12 +557,12 @@ private:
     float fy_;
     Mat4 view_matrix_;
     Mat4 pose_matrix_;
-    const TextureCPU<float> *kf_texture_;
-    const TextureCPU<float> *f_texture_;
-    const TextureCPU<Vec3> *dfdxy_texture_;
-    TextureCPU<Vec3> *jtra_texture_;
-    TextureCPU<Vec3> *jrot_texture_;
-    TextureCPU<float> *r_texture_;
+    // const TextureCPU<float> *kf_texture_;
+    // const TextureCPU<float> *f_texture_;
+    // const TextureCPU<Vec3> *dfdxy_texture_;
+    // TextureCPU<Vec3> *jtra_texture_;
+    // TextureCPU<Vec3> *jrot_texture_;
+    // TextureCPU<float> *r_texture_;
 };
 
 class JMapRendererCPU
@@ -536,6 +578,16 @@ public:
         Vec3 barycentric;
         unsigned int vertexId;
         Vec3i pids;
+    };
+
+    struct Textures
+    {
+        const TextureCPU<float> &kf_texture;
+        const TextureCPU<float> &f_texture;
+        const TextureCPU<Vec3> &dfdxy_texture;
+        TextureCPU<Vec3> &jmap_texture;
+        TextureCPU<Vec3> &pids_texture;
+        TextureCPU<float> &r_texture;
     };
 
     JMapRendererCPU() = default;
@@ -563,18 +615,20 @@ public:
         fy_ = cam.GetParams()(1);
         view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
         pose_matrix_ = pose.matrix();
-        kf_texture_ = &kf_texture;
-        f_texture_ = &f_texture;
-        dfdxy_texture_ = &dfdxy_texture;
-        jmap_texture_ = &jmap_texture;
-        pids_texture_ = &pids_texture;
-        r_texture_ = &r_texture;
+        // kf_texture_ = &kf_texture;
+        // f_texture_ = &f_texture;
+        // dfdxy_texture_ = &dfdxy_texture;
+        // jmap_texture_ = &jmap_texture;
+        // pids_texture_ = &pids_texture;
+        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        RendererBase::Render(mesh, viewport);
+        Textures textures{kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
+
+        RendererBase::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -635,10 +689,11 @@ public:
     }
 
     void fragment_shader(const Vec4 &gl_FragCoord,
-                         const Varyings &in_varying)
+                         const Varyings &in_varying,
+                         Textures &textures)
     {
-        int width = jmap_texture_->width(out_lvl_);
-        int height = jmap_texture_->height(out_lvl_);
+        int width = textures.jmap_texture.width(out_lvl_);
+        int height = textures.jmap_texture.height(out_lvl_);
 
         Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
@@ -648,13 +703,13 @@ public:
         Vec3 barycentric = in_varying.barycentric;
         Vec3i vertexid = in_varying.pids;
 
-        float kf = kf_texture_->sample_(texcoord(1), texcoord(0), in_lvl_);
-        float f = f_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Vec3 f_der = dfdxy_texture_->texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        float kf = textures.kf_texture.sample_(texcoord(1), texcoord(0), in_lvl_);
+        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        Vec3 f_der = textures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
         // Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
-        if (kf == kf_texture_->nodata() || f == f_texture_->nodata() || f_der == dfdxy_texture_->nodata())
+        if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
             return;
 
         float r = f - kf;
@@ -676,9 +731,9 @@ public:
         Vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
         Vec3 ids = Vec3(vertexid(0), vertexid(1), vertexid(2));
 
-        jmap_texture_->set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        pids_texture_->set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        r_texture_->set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
@@ -688,10 +743,10 @@ private:
     float fy_;
     Mat4 view_matrix_;
     Mat4 pose_matrix_;
-    const TextureCPU<float> *kf_texture_;
-    const TextureCPU<float> *f_texture_;
-    const TextureCPU<Vec3> *dfdxy_texture_;
-    TextureCPU<Vec3> *jmap_texture_;
-    TextureCPU<Vec3> *pids_texture_;
-    TextureCPU<float> *r_texture_;
+    // const TextureCPU<float> *kf_texture_;
+    // const TextureCPU<float> *f_texture_;
+    // const TextureCPU<Vec3> *dfdxy_texture_;
+    // TextureCPU<Vec3> *jmap_texture_;
+    // TextureCPU<Vec3> *pids_texture_;
+    // TextureCPU<float> *r_texture_;
 };

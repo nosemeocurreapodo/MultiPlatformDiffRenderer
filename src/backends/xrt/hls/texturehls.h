@@ -38,9 +38,10 @@ public:
     // Fill a level with a constant
     void fill(UInt lvl, const T &v)
     {
+    texturehls_fill_loop:
         for (int i = 0; i < size(lvl); i++)
         {
-            storage_.data()[i] = v;
+            storage_[levels_[lvl].offset + i] = v;
         }
     }
 
@@ -50,8 +51,7 @@ public:
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
-        const auto &L = levels_[lvl];
-        return storage_.data()[L.offset + y * L.w + x];
+        return storage_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
     void set_texel_(const T &v, UInt y, UInt x, UInt lvl)
@@ -59,8 +59,7 @@ public:
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
-        const auto &L = levels_[lvl];
-        storage_.data()[L.offset + y * L.w + x] = v;
+        storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
 protected:
@@ -87,7 +86,7 @@ protected:
     Level levels_[15];
     UInt n_levels_;
 
-    BufferHLS<T> storage_;
+    BufferHLS<T, 160 * 120 * 2> storage_;
 
     T nodata_;
 
@@ -99,7 +98,9 @@ protected:
         UInt running = 0;
         // build until 1x1 (inclusive)
         n_levels_ = 0;
-        while (true)
+    // while (true)
+    build_pyramid_loop:
+        for (int i = 0; i < 15; i++)
         {
             // levels_.push_back(Level{w, h, BufferCPU<T>(w * h)});
             Level L;
