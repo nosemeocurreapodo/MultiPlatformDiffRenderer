@@ -4,8 +4,8 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "core/types.h"
 
-template <class T>
-class TextureHLS : public TextureBase<TextureHLS<T>, T>
+template <class T, class Buffer>
+class TextureHLS : public TextureBase<TextureHLS<T, Buffer>, T>
 {
 public:
     // using value_type = T;
@@ -14,8 +14,14 @@ public:
     // Default-construct an empty texture. Safe to assign later.
     TextureHLS() = default;
 
-    TextureHLS(UInt w, UInt h, UInt size, T nodata, T *base)
-        : nodata_(nodata), storage_(size, base)
+    TextureHLS(UInt w, UInt h, T nodata, T *base)
+        : nodata_(nodata), storage_(w * h + w * h / 4 + w * h / 8, base)
+    {
+        build_pyramid_(w, h);
+    }
+
+    TextureHLS(UInt w, UInt h, T nodata)
+        : nodata_(nodata), storage_(w * h + w * h / 4 + w * h / 8)
     {
         build_pyramid_(w, h);
     }
@@ -86,7 +92,8 @@ protected:
     Level levels_[15];
     UInt n_levels_;
 
-    BufferHLS<T, 160 * 120 * 2> storage_;
+    // BufferHLS<T, 160 * 120 * 2> storage_;
+    Buffer storage_;
 
     T nodata_;
 
@@ -121,3 +128,9 @@ protected:
         }
     }
 };
+
+template <typename T>
+using TextureRAM = TextureHLS<T, BufferRAM<T>>;
+
+template <typename T>
+using TextureBRAM = TextureHLS<T, BufferBRAM<T, 160 * 120 * (1 + 1 / 4 + 1 / 8)>>;

@@ -285,7 +285,7 @@ public:
     void Render(const Mesh &mesh,
                 const SE3 &pose,
                 const Camera &cam,
-                int out_lvl,
+                UInt out_lvl,
                 Texture<Scalar> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
@@ -338,12 +338,11 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        textures.out_texture.set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        textures.out_texture.set_texel_(in_varying.depth, Int(gl_FragCoord(1)), Int(gl_FragCoord(0)), out_lvl_);
     }
 
-private:
     Mat4 t_matrix_;
-    int out_lvl_;
+    UInt out_lvl_;
 };
 
 // -----------------------------------------------------------------------------
@@ -437,7 +436,6 @@ public:
         textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
-private:
     Mat4 t_matrix_;
     int in_lvl_;
     int out_lvl_;

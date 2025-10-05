@@ -18,7 +18,7 @@
 // -----------------------------------------------------------------------------
 
 class DepthRendererHLS
-    : public DepthRendererBase<MeshHLS, TextureHLS>
+    : public DepthRendererBase<MeshHLS, TextureBRAM>
 {
 public:
     DepthRendererHLS() = default;
@@ -27,39 +27,43 @@ public:
     void Render(const MeshHLS &mesh,
                 const SE3 &pose,
                 const Camera &cam,
-                int out_lvl,
-                TextureHLS<Scalar> &out_texture)
+                UInt out_lvl,
+                TextureRAM<Scalar> &out_texture)
     {
-        TextureHLS<Scalar> out_texture_part(160, 120, );
-        out_texture_part.fill(out_lvl, out_texture_part.nodata());
-
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<Mesh, Texture>>::opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
-
-        // out_texture_ = &out_texture;
 
         const Int W = static_cast<Int>(out_texture.width(out_lvl));
         const Int H = static_cast<Int>(out_texture.height(out_lvl));
-        for (int py = 0; py < 2; py++)
+
+        // Textures textures{out_texture};
+        // BoundingBox<Int> viewport(0, W, 0, H);
+        // RendererBase<DepthRendererBase<MeshHLS, TextureRAM>>::Render(mesh, viewport, textures);
+
+        TextureBRAM<Scalar> out_texture_part(160, 120, out_texture.nodata());
+        Textures textures{out_texture_part};
+
+        for (int py = 0; py < 4; py++)
         {
-            for (int px = 0; px < 2; px++)
+            for (int px = 0; px < 4; px++)
             {
-                Int Ws = px * W / 2;
-                Int Wf = (px + 1) * W / 2;
-                Int Hs = py * H / 2;
-                Int Hf = (py + 1) * H / 2;
+                Int Ws = px * W / 4;
+                Int Wf = (px + 1) * W / 4;
+                Int Hs = py * H / 4;
+                Int Hf = (py + 1) * H / 4;
 
                 BoundingBox<Int> viewport(Ws, Wf, Hs, Hf);
 
-                Textures textures{out_texture_part};
+                out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
-                RendererBase<DepthRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+                RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::Render(mesh, viewport, textures);
 
-                for(int y = 0; y < H / 2; y++)
+                for (int y = 0; y < H / 4; y++)
                 {
-                    for(int x = 0; x < W / 2; x++)
+                    for (int x = 0; x < W / 4; x++)
                     {
-                        out_texture_part
+                        Scalar data = out_texture_part.texel_(y, x, out_lvl);
+                        out_texture.set_texel_(data, Hs + y, Ws + x, out_lvl);
                     }
                 }
             }
@@ -75,7 +79,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererHLS
-    : public ImageRendererBase<MeshHLS, TextureHLS>
+    : public ImageRendererBase<MeshHLS, TextureRAM>
 {
 public:
     ImageRendererHLS() = default;
@@ -86,8 +90,8 @@ public:
                 const Camera &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureHLS<Scalar> &in_texture,
-                TextureHLS<Scalar> &out_texture)
+                const TextureRAM<Scalar> &in_texture,
+                TextureRAM<Scalar> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }

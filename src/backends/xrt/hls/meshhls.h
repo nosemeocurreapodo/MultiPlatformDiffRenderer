@@ -46,8 +46,8 @@ protected:
     // BufferHLS<Scalar> Weights() const { return wei_buffer_; }
     // BufferHLS<UInt> Indices() const { return ebo_buffer_; }
 
-    BufferHLS<Scalar, 32 * 32 * 3> pos_buffer_;
-    BufferHLS<Scalar, 32 * 32 * 2> tex_buffer_;
-    BufferHLS<Scalar, 32 * 32 * 1> wei_buffer_;
-    BufferHLS<UInt, 32 * 32 * 2 * 3> ebo_buffer_;
+    BufferBRAM<Scalar, 32 * 32 * 3> pos_buffer_;
+    BufferBRAM<Scalar, 32 * 32 * 2> tex_buffer_;
+    BufferBRAM<Scalar, 32 * 32 * 1> wei_buffer_;
+    BufferBRAM<UInt, 32 * 32 * 2 * 3> ebo_buffer_;
 };
