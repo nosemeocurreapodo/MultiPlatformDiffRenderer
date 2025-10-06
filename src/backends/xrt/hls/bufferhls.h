@@ -6,18 +6,7 @@ template <typename T, int max_size>
 class BufferBRAM
 {
 public:
-    // using value_type = T;
-    // using size_type = std::size_t;
-
     BufferBRAM() = default;
-
-    /*
-    BufferHLS(std::size_t n, const T *src)
-    {
-        size_ = n;
-        data_ = src;
-    }
-    */
 
     BufferBRAM(UInt n)
     {
@@ -47,15 +36,11 @@ public:
     UInt size() const noexcept { return size_; }
 
 protected:
-    template <class T2, class Buffer>
-    friend class TextureHLS;
+    template <class T2>
+    friend class TextureBRAM;
     template <class Derived>
     friend class RendererBase;
 
-    // T *data() noexcept { return data_; }
-    // const T *data() const noexcept { return data_; }
-
-    // -------- element / raw access --------
     T &operator[](UInt i) noexcept
     {
 #ifndef USE_VITIS
@@ -80,18 +65,7 @@ template <typename T>
 class BufferRAM
 {
 public:
-    // using value_type = T;
-    // using size_type = std::size_t;
-
     BufferRAM() = default;
-
-    /*
-    BufferHLS(std::size_t n, const T *src)
-    {
-        size_ = n;
-        data_ = src;
-    }
-    */
 
     BufferRAM(UInt n, T *src)
     {
@@ -105,15 +79,11 @@ public:
     UInt size() const noexcept { return size_; }
 
 protected:
-    template <class T2, class Buffer>
-    friend class TextureHLS;
+    template <class T2>
+    friend class TextureRAM;
     template <class Derived>
     friend class RendererBase;
 
-    // T *data() noexcept { return data_; }
-    // const T *data() const noexcept { return data_; }
-
-    // -------- element / raw access --------
     T &operator[](UInt i) noexcept
     {
 #ifndef USE_VITIS

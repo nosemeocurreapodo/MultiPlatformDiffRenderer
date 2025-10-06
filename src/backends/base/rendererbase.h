@@ -47,18 +47,19 @@ public:
                 const BoundingBox<Int> &viewport,
                 Textures &textures)
     {
-        // ---- Map mesh buffers (no copies) ----
-        // auto pos = mesh.MapReadPositions(); // 3 floats/vertex
-        // auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
-        // auto wei = mesh.MapReadWeights();   // 1 float /vertex
-        // auto idx = mesh.MapReadIndices();   // uint32_t indices
+    // ---- Map mesh buffers (no copies) ----
+    // auto pos = mesh.MapReadPositions(); // 3 floats/vertex
+    // auto tex = mesh.MapReadTexcoords(); // 2 floats/vertex
+    // auto wei = mesh.MapReadWeights();   // 1 float /vertex
+    // auto idx = mesh.MapReadIndices();   // uint32_t indices
 
-        // const auto pos = mesh.Positions(); // 3 floats/vertex
-        // const auto tex = mesh.Texcoords(); // 2 floats/vertex
-        // const auto wei = mesh.Weights();   // 1 float /vertex
-        // const auto idx = mesh.Indices();   // uint32_t indices
+    // const auto pos = mesh.Positions(); // 3 floats/vertex
+    // const auto tex = mesh.Texcoords(); // 2 floats/vertex
+    // const auto wei = mesh.Weights();   // 1 float /vertex
+    // const auto idx = mesh.Indices();   // uint32_t indices
 
-        // Loop over triangles
+    // Loop over triangles
+    renderbase_triangle_loop:
         for (std::size_t i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
             const UInt i0 = mesh.ebo_buffer_[i + 0];
@@ -74,7 +75,7 @@ public:
             id[1] = i1;
             id[2] = i2;
 
-            // gather
+        renderbase_gather_loop:
             for (int k = 0; k < 3; ++k)
             {
                 UInt vi = (k == 0 ? i0 : k == 1 ? i1
@@ -114,6 +115,7 @@ protected:
         const Scalar vp_w = static_cast<Scalar>(viewport.max_x_ - viewport.min_x_);
         const Scalar vp_h = static_cast<Scalar>(viewport.max_y_ - viewport.min_y_);
 
+    draw_triangle_vertex_loop:
         for (int i = 0; i < 3; ++i)
         {
             Vec4 gl_Position;
@@ -127,7 +129,7 @@ protected:
 
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
             vout[i].screen(0) = Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w + viewport.min_x_;
-            vout[i].screen(1) = Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h + viewport.min_y_ ;
+            vout[i].screen(1) = Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h + viewport.min_y_;
             vout[i].depth = ndc_z;
             vout[i].invW = invW;
             vout[i].var = varyings;
@@ -185,13 +187,15 @@ protected:
         const Scalar eCA_dx = (yA - yC);
         const Scalar eCA_dy = (xC - xA);
 
-        // Rasterize
+    // Rasterize
+    draw_triangle_raster_loop_y:
         for (Int y = y0; y < y1; ++y)
         {
             Scalar eAB = eAB_row;
             Scalar eBC = eBC_row;
             Scalar eCA = eCA_row;
 
+        draw_triangle_raster_loop_x:
             for (int x = x0; x < x1; ++x)
             {
                 // Top-left rule adjustments (include pixels on top/left edges)

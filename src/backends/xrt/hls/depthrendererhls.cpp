@@ -42,7 +42,8 @@ extern "C"
         // data too large, has to be in ram
         TextureRAM<Scalar> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
-        DepthRendererHLS renderer;
+        DepthRendererRAM renderer;
+        //DepthRendererBRAM renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
 }

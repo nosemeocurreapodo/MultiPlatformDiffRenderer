@@ -4,10 +4,10 @@
 
 extern "C"
 {
-    void ImageRenderHLS(Scalar *pos_buffer_data,
-                        Scalar *tex_buffer_data,
-                        Scalar *wei_buffer_data,
-                        UInt *ebo_buffer_data,
+    void ImageRenderHLS(const Scalar *pos_buffer_data,
+                        const Scalar *tex_buffer_data,
+                        const Scalar *wei_buffer_data,
+                        const UInt *ebo_buffer_data,
                         Scalar *in_texture_data,
                         Scalar *out_texture_data,
                         UInt pos_buffer_size,
@@ -16,12 +16,10 @@ extern "C"
                         UInt ebo_buffer_size,
                         UInt in_texture_width,
                         UInt in_texture_height,
-                        UInt in_texture_size,
                         Scalar in_nodata_value,
                         UInt in_lvl,
                         UInt out_texture_width,
                         UInt out_texture_height,
-                        UInt out_texture_size,
                         Scalar out_nodata_value,
                         UInt out_lvl,
                         Scalar q_x, Scalar q_y, Scalar q_z, Scalar q_w,

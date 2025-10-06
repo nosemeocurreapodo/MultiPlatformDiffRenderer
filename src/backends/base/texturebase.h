@@ -44,6 +44,32 @@ public:
     }
 
 protected:
+    Scalar wrap(Scalar t, AddressMode addr) const
+    {
+        switch (addr)
+        {
+        case AddressMode::Clamp:
+            return clamp(t, 0.0f, 1.0f);
+        case AddressMode::Repeat:
+        {
+            // wrap to [0,1)
+            Scalar r = fmod(t, 1.0f);
+            if (r < 0.0f)
+                r += 1.0f;
+            return r;
+        }
+        case AddressMode::Mirror:
+        {
+            // mirror every [0,1], 0..1..0..
+            Scalar ip = floor(t);
+            Scalar f = t - ip;
+            bool odd = static_cast<long>(ip) & 1L;
+            return odd ? (1.0f - f) : f;
+        }
+        }
+        return t; // unreachable
+    };
+
     // Normalized sampling in [0,1] (allows outside depending on address mode)
     T sample_(Scalar v, Scalar u,
               UInt lvl = 0,
@@ -53,6 +79,7 @@ protected:
         const Scalar w = static_cast<Scalar>(derived_().width(lvl));
         const Scalar h = static_cast<Scalar>(derived_().height(lvl));
 
+        /*
         auto wrap = [&](Scalar t)
         {
             switch (addr)
@@ -78,9 +105,10 @@ protected:
             }
             return t; // unreachable
         };
+        */
 
-        const Scalar uu = wrap(u);
-        const Scalar vv = wrap(v);
+        const Scalar uu = wrap(u, addr);
+        const Scalar vv = wrap(v, addr);
 
         const float x = uu * w - 0.5f;
         const float y = vv * h - 0.5f;
@@ -112,6 +140,7 @@ protected:
         const Scalar dx = x - static_cast<Scalar>(x0);
         const Scalar dy = y - static_cast<Scalar>(y0);
 
+        /*
         // auto m = MapRead(lvl); // one mapping, four reads
         const auto idx = [&](UInt yy, UInt xx)
         {
@@ -124,6 +153,12 @@ protected:
         const T tr = idx(y0, x1);
         const T bl = idx(y1, x0);
         const T br = idx(y1, x1);
+        */
+
+        const T tl = derived_().texel_(y0, x0, lvl);
+        const T tr = derived_().texel_(y0, x1, lvl);
+        const T bl = derived_().texel_(y1, x0, lvl);
+        const T br = derived_().texel_(y1, x1, lvl);
 
         if (derived_().nodata() == tl || derived_().nodata() == tr || derived_().nodata() == bl || derived_().nodata() == br)
             return derived_().nodata();
