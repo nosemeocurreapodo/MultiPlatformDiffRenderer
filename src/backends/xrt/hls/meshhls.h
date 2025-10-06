@@ -10,13 +10,13 @@ public:
     // using size_type = std::size_t;
 
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
-    MeshHLS(Scalar *positions, // 3 floats per vertex
+    MeshHLS(const Scalar *positions, // 3 floats per vertex
             Int positions_size,
-            Scalar *texcoords, // 2 floats per vertex
+            const Scalar *texcoords, // 2 floats per vertex
             Int texcoords_size,
-            Scalar *weights, // 1 float  per vertex
+            const Scalar *weights, // 1 float  per vertex
             Int weights_size,
-            UInt *indices,
+            const UInt *indices,
             Int indices_size)
         : pos_buffer_(positions_size, positions),
           tex_buffer_(texcoords_size, texcoords),

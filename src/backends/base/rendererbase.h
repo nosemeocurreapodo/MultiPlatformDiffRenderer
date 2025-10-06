@@ -126,8 +126,8 @@ protected:
             const Scalar ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            vout[i].screen(0) = viewport.min_x_ + Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w;
-            vout[i].screen(1) = viewport.min_y_ + Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h;
+            vout[i].screen(0) = Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w + viewport.min_x_;
+            vout[i].screen(1) = Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h + viewport.min_y_ ;
             vout[i].depth = ndc_z;
             vout[i].invW = invW;
             vout[i].var = varyings;

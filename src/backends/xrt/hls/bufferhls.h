@@ -27,7 +27,7 @@ public:
         size_ = n;
     }
 
-    BufferBRAM(UInt n, T *src)
+    BufferBRAM(UInt n, const T *src)
     {
 #ifndef USE_VITIS
         assert(n < max_size);

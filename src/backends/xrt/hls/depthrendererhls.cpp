@@ -7,10 +7,10 @@
 
 extern "C"
 {
-    void DepthRenderHLS(Scalar *pos_buffer_data,
-                        Scalar *tex_buffer_data,
-                        Scalar *wei_buffer_data,
-                        UInt *ebo_buffer_data,
+    void DepthRenderHLS(const Scalar *pos_buffer_data,
+                        const Scalar *tex_buffer_data,
+                        const Scalar *wei_buffer_data,
+                        const UInt *ebo_buffer_data,
                         Scalar *out_texture_data,
                         UInt pos_buffer_size,
                         UInt tex_buffer_size,

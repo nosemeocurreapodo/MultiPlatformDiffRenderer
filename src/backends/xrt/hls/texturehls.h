@@ -15,13 +15,13 @@ public:
     TextureHLS() = default;
 
     TextureHLS(UInt w, UInt h, T nodata, T *base)
-        : nodata_(nodata), storage_(w * h + w * h / 4 + w * h / 8, base)
+        : nodata_(nodata), storage_(w * h * int(1.0 + 1.0 / 4.0 + 1.0 / 8.0), base)
     {
         build_pyramid_(w, h);
     }
 
     TextureHLS(UInt w, UInt h, T nodata)
-        : nodata_(nodata), storage_(w * h + w * h / 4 + w * h / 8)
+        : nodata_(nodata), storage_(w * h * int(1.0 + 1.0 / 4.0 + 1.0 / 8.0))
     {
         build_pyramid_(w, h);
     }
@@ -37,7 +37,7 @@ public:
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return n_levels_; }
-    UInt size(int lvl) const { return width(lvl) * height(lvl); }
+    UInt size(UInt lvl) const { return width(lvl) * height(lvl); }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -133,4 +133,4 @@ template <typename T>
 using TextureRAM = TextureHLS<T, BufferRAM<T>>;
 
 template <typename T>
-using TextureBRAM = TextureHLS<T, BufferBRAM<T, 160 * 120 * (1 + 1 / 4 + 1 / 8)>>;
+using TextureBRAM = TextureHLS<T, BufferBRAM<T, 640 * 480 * int(1.0 + 1.0 / 4.0 + 1.0 / 8.0)>>;

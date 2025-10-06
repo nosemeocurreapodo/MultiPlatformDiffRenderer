@@ -30,40 +30,61 @@ public:
                 UInt out_lvl,
                 TextureRAM<Scalar> &out_texture)
     {
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
 
-        const Int W = static_cast<Int>(out_texture.width(out_lvl));
-        const Int H = static_cast<Int>(out_texture.height(out_lvl));
+        UInt W = out_texture.width(out_lvl);
+        UInt H = out_texture.height(out_lvl);
+
+        UInt y_size = 4;
+        UInt x_size = 4;
 
         // Textures textures{out_texture};
         // BoundingBox<Int> viewport(0, W, 0, H);
         // RendererBase<DepthRendererBase<MeshHLS, TextureRAM>>::Render(mesh, viewport, textures);
 
-        TextureBRAM<Scalar> out_texture_part(160, 120, out_texture.nodata());
+        UInt crop_W = W / x_size;
+        UInt crop_H = H / y_size;
+
+        Scalar scale_W = Scalar(W) / Scalar(crop_W);
+        Scalar scale_H = Scalar(H) / Scalar(crop_H);
+
+        BoundingBox<Int> viewport(0, crop_W, 0, crop_H);
+        TextureBRAM<Scalar> out_texture_part(crop_W, crop_H, out_texture.nodata());
         Textures textures{out_texture_part};
 
-        for (int py = 0; py < 4; py++)
+    depth_renderer_loop_y:
+        for (int py = 0; py < y_size; py++)
         {
-            for (int px = 0; px < 4; px++)
+        depth_renderer_loop_x:
+            for (int px = 0; px < x_size; px++)
             {
-                Int Ws = px * W / 4;
-                Int Wf = (px + 1) * W / 4;
-                Int Hs = py * H / 4;
-                Int Hf = (py + 1) * H / 4;
+                Int start_W = px * crop_W;
+                // Int Wf = (px + 1) * Wn;
+                Int start_H = py * crop_H;
+                // Int Hf = (py + 1) * Hn;
 
-                BoundingBox<Int> viewport(Ws, Wf, Hs, Hf);
+                Vec4 cam_params = cam.GetParams();
+                cam_params(0) = cam_params(0) * Scalar(W) / Scalar(crop_W);
+                cam_params(1) = cam_params(1) * Scalar(H) / Scalar(crop_H);
+                cam_params(2) = (cam_params(2) * Scalar(W) - Scalar(start_W)) / Scalar(crop_W);
+                cam_params(3) = (cam_params(3) * scale_H - Scalar(y_size - 1 - py));
+                Camera new_cam;
+                new_cam.SetParams(cam_params);
+
+                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::opencv2opengl_ * pose.matrix();
 
                 out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
                 RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::Render(mesh, viewport, textures);
 
-                for (int y = 0; y < H / 4; y++)
+            depth_renderer_copy_loop_y:
+                for (int y = 0; y < crop_H; y++)
                 {
-                    for (int x = 0; x < W / 4; x++)
+                depth_renderer_copy_loop_x:
+                    for (int x = 0; x < crop_W; x++)
                     {
                         Scalar data = out_texture_part.texel_(y, x, out_lvl);
-                        out_texture.set_texel_(data, Hs + y, Ws + x, out_lvl);
+                        out_texture.set_texel_(data, start_H + y, start_W + x, out_lvl);
                     }
                 }
             }
