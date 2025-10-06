@@ -434,7 +434,12 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        Scalar pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // Scalar pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        Vec2 coord;
+        coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_);
+        coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_);
+        Scalar pix = textures.in_texture.texel_(coord(1), coord(0), in_lvl_);
+
         if (pix == textures.in_texture.nodata())
             return;
         textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
