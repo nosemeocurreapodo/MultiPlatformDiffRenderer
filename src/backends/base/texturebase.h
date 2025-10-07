@@ -143,7 +143,7 @@ Vec3 compute_didxy(const Tex &tex, Scalar y, Scalar x, UInt lvl)
 
     if (x_p >= tex.width(lvl) || x_m < 0 || y_p >= tex.height(lvl) || y_m < 0)
     {
-        return tex.nodata();
+        return Vec3(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
     Scalar f = Scalar(tex.texel_(y, x, lvl));
@@ -155,7 +155,7 @@ Vec3 compute_didxy(const Tex &tex, Scalar y, Scalar x, UInt lvl)
     if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
         f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
     {
-        return tex.nodata();
+        return Vec3(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
     Vec3 out_fragment;

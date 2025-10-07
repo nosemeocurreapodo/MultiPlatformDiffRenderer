@@ -10,7 +10,8 @@ public:
     TextureRAM() = default;
 
     TextureRAM(UInt w, UInt h, T nodata, T *base)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
+        : nodata_(nodata),
+          storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
     {
         build_pyramid_(w, h);
     }
@@ -24,8 +25,8 @@ public:
     // Rule of 5
     TextureRAM(const TextureRAM &) = default;
     TextureRAM &operator=(const TextureRAM &) = default;
-    TextureRAM(TextureRAM &&) noexcept = default;
-    TextureRAM &operator=(TextureRAM &&) noexcept = default;
+    // TextureRAM(TextureRAM &&) noexcept = default;
+    // TextureRAM &operator=(TextureRAM &&) noexcept = default;
     ~TextureRAM() = default;
 
     // Introspection
@@ -183,7 +184,8 @@ public:
     TextureBRAM() = default;
 
     TextureBRAM(UInt w, UInt h, T nodata, T *base)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
+        : nodata_(nodata),
+          storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
     {
         build_pyramid_(w, h);
     }

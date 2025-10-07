@@ -467,7 +467,7 @@ public:
     {
         const Texture<Scalar> &kf_texture;
         const Texture<Scalar> &f_texture;
-        TextureCPU<Scalar> &r_texture;
+        Texture<Scalar> &r_texture;
     };
 
     ResidualRendererBase() = default;
@@ -537,9 +537,9 @@ public:
         int width = textures.kf_texture.width(out_lvl_);
         int height = textures.kf_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
 
-        float kf = sample<float, TextureCPU<float>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        Scalar kf = sample<Scalar, Texture<Scalar>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
@@ -1148,9 +1148,10 @@ public:
     struct Textures
     {
         const Texture<Scalar> &f_texture;
+        Texture<Vec3> &jtra_texture;
+        Texture<Vec3> &jrot_texture;
         Texture<Vec3> &jmap_texture;
         Texture<Vec3> &pids_texture;
-        Texture<Scalar> &r_texture;
     };
 
     DiffRendererBase() = default;
@@ -1165,7 +1166,7 @@ public:
                 Texture<Vec3> &jtra_texture,
                 Texture<Vec3> &jrot_texture,
                 Texture<Vec3> &jmap_texture,
-                Texture<Vec3i> &pids_texture)
+                Texture<Vec3> &pids_texture)
     {
         jtra_texture.fill(out_lvl, jtra_texture.nodata());
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
@@ -1269,7 +1270,7 @@ public:
         float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         Vec3 f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
 
-        if (f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
+        if (f == textures.f_texture.nodata())
             return;
 
         Vec3 d_f_i_d_f_ver;

@@ -14,7 +14,7 @@ extern "C"
                        Vec3 *jtra_texture_data,
                        Vec3 *jrot_texture_data,
                        Vec3 *jmap_texture_data,
-                       Vec3i *pids_texture_data,
+                       Vec3 *pids_texture_data,
                        UInt pos_buffer_size,
                        UInt tex_buffer_size,
                        UInt wei_buffer_size,
@@ -28,7 +28,7 @@ extern "C"
                        Vec3 jtra_nodata_value,
                        Vec3 jrot_nodata_value,
                        Vec3 jmap_nodata_value,
-                       Vec3i pids_nodata_value,
+                       Vec3 pids_nodata_value,
                        UInt out_lvl,
                        Scalar q_x, Scalar q_y, Scalar q_z, Scalar q_w,
                        Scalar t_x, Scalar t_y, Scalar t_z,
@@ -38,7 +38,11 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = wei_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0
-#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = f_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = jtra_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = jrot_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem0
 
         SE3 pose(SO3(Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));
         Camera cam(fx, fy, cx, cy);
@@ -52,7 +56,7 @@ extern "C"
         TextureRAM<Vec3> jtra_texture(out_texture_width, out_texture_height, jtra_nodata_value, jtra_texture_data);
         TextureRAM<Vec3> jrot_texture(out_texture_width, out_texture_height, jrot_nodata_value, jrot_texture_data);
         TextureRAM<Vec3> jmap_texture(out_texture_width, out_texture_height, jmap_nodata_value, jmap_texture_data);
-        TextureRAM<Vec3i> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
+        TextureRAM<Vec3> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
 
         DiffRendererRAM renderer;
         renderer.Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);

@@ -351,7 +351,7 @@ public:
                 TextureRAM<Vec3> &jtra_texture,
                 TextureRAM<Vec3> &jrot_texture,
                 TextureRAM<Vec3> &jmap_texture,
-                TextureRAM<Vec3i> &pids_texture)
+                TextureRAM<Vec3> &pids_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
