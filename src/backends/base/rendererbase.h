@@ -1256,10 +1256,10 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        int width = textures.jmap_texture.width(out_lvl_);
-        int height = textures.jmap_texture.height(out_lvl_);
+        UInt width = textures.jmap_texture.width(out_lvl_);
+        UInt height = textures.jmap_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        //Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
 
         Vec3 f_ver = in_varying.f_ver;
         Vec3 kf_ray = in_varying.kf_ray;
@@ -1267,7 +1267,7 @@ public:
         Vec3 barycentric = in_varying.barycentric;
         Vec3i vertexid = in_varying.pids;
 
-        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        Scalar f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         Vec3 f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
 
         if (f == textures.f_texture.nodata())
@@ -1283,7 +1283,7 @@ public:
         Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
         Vec3 d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        float d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
+        Scalar d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
 
         Vec3 d_depth_d_vert_depth = barycentric;
 

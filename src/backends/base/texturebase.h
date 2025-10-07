@@ -130,16 +130,16 @@ T sample(const Tex &tex,
 template <class Tex>
 Vec3 compute_didxy(const Tex &tex, Scalar y, Scalar x, UInt lvl)
 {
-    const Int w = tex.width(lvl);
-    const Int h = tex.height(lvl);
+    // const UInt w = tex.width(lvl);
+    // const UInt h = tex.height(lvl);
 
     const Int xf = Int(floor(x));
     const Int yf = Int(floor(y));
 
-    Int x_p = x + 1;
-    Int x_m = x - 1;
-    Int y_p = y + 1;
-    Int y_m = y - 1;
+    Int x_p = xf + 1;
+    Int x_m = xf - 1;
+    Int y_p = yf + 1;
+    Int y_m = yf - 1;
 
     if (x_p >= tex.width(lvl) || x_m < 0 || y_p >= tex.height(lvl) || y_m < 0)
     {
@@ -159,8 +159,8 @@ Vec3 compute_didxy(const Tex &tex, Scalar y, Scalar x, UInt lvl)
     }
 
     Vec3 out_fragment;
-    out_fragment(0) = (f_x_p - f_x_m) / 2.0f;
-    out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
+    out_fragment(0) = (f_x_p - f_x_m) / Scalar(2);
+    out_fragment(1) = (f_y_p - f_y_m) / Scalar(2);
     out_fragment(2) = 0.0; // f; // save the projected frame for later processing
 
     return out_fragment;
