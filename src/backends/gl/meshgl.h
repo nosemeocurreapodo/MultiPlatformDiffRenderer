@@ -77,6 +77,7 @@ private:
     friend class DIDxyRendererGL;
     friend class JPoseRendererGL;
     friend class JMapRendererGL;
+    friend class DiffRendererGL;
 
     // Attribute locations (match your shaders)
     static constexpr GLuint ATTR_POS = 0;

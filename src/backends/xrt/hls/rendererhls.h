@@ -114,8 +114,8 @@ public:
     void Render(const MeshHLS &mesh,
                 const SE3 &pose,
                 const Camera &cam,
-                int in_lvl,
-                int out_lvl,
+                Int in_lvl,
+                Int out_lvl,
                 const TextureRAM<Scalar> &in_texture,
                 TextureRAM<Scalar> &out_texture)
     {
@@ -201,3 +201,165 @@ public:
 
 private:
 };
+
+class ResidualRendererRAM
+    : public ResidualRendererBase<MeshHLS, TextureRAM>
+{
+public:
+    ResidualRendererRAM() = default;
+    ~ResidualRendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureRAM<Scalar> &kf_texture,
+                const TextureRAM<Scalar> &f_texture,
+                TextureRAM<Scalar> &r_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        ResidualRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
+    }
+
+private:
+};
+
+class L2RendererRAM
+    : public L2RendererBase<MeshHLS, TextureRAM>
+{
+public:
+    L2RendererRAM() = default;
+    ~L2RendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                Int in_lvl,
+                Int out_lvl,
+                const TextureRAM<Scalar> &kf_texture,
+                const TextureRAM<Scalar> &f_texture,
+                TextureRAM<Scalar> &r_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
+    }
+
+private:
+};
+
+class DIDxyRendererRAM
+    : public DIDxyRendererBase<MeshHLS, TextureRAM>
+{
+public:
+    DIDxyRendererRAM() = default;
+    ~DIDxyRendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                Int in_lvl,
+                Int out_lvl,
+                const TextureRAM<Scalar> &in_texture,
+                TextureRAM<Vec3> &out_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        DIDxyRendererBase::Render(mesh, in_lvl, out_lvl, in_texture, out_texture);
+    }
+
+private:
+};
+
+class JPoseRendererRAM
+    : public JPoseRendererBase<MeshHLS, TextureRAM>
+{
+public:
+    JPoseRendererRAM() = default;
+    ~JPoseRendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                Int in_lvl,
+                Int out_lvl,
+                const TextureRAM<Scalar> &kf_texture,
+                const TextureRAM<Scalar> &f_texture,
+                const TextureRAM<Vec3> &dfdxy_texture,
+                TextureRAM<Vec3> &jtra_texture,
+                TextureRAM<Vec3> &jrot_texture,
+                TextureRAM<Scalar> &r_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        JPoseRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture);
+    }
+
+private:
+};
+
+class JMapRendererRAM
+    : public JMapRendererBase<MeshHLS, TextureRAM>
+{
+public:
+    JMapRendererRAM() = default;
+    ~JMapRendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureRAM<Scalar> &kf_texture,
+                const TextureRAM<Scalar> &f_texture,
+                const TextureRAM<Vec3> &dfdxy_texture,
+                TextureRAM<Vec3> &jmap_texture,
+                TextureRAM<Vec3> &pids_texture,
+                TextureRAM<Scalar> &r_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        JMapRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture);
+    }
+
+private:
+};
+
+class DiffRendererRAM
+    : public DiffRendererBase<MeshHLS, TextureRAM>
+{
+public:
+    DiffRendererRAM() = default;
+    ~DiffRendererRAM() = default;
+
+    void Render(const MeshHLS &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureRAM<Scalar> &f_texture,
+                TextureRAM<Vec3> &jtra_texture,
+                TextureRAM<Vec3> &jrot_texture,
+                TextureRAM<Vec3> &jmap_texture,
+                TextureRAM<Vec3i> &pids_texture)
+    {
+
+        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+    }
+
+private:
+};
+

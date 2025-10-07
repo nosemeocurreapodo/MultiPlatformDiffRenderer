@@ -252,6 +252,7 @@ protected:
     friend class DIDxyRendererGL;
     friend class JPoseRendererGL;
     friend class JMapRendererGL;
+    friend class DiffRendererGL;
 
     [[nodiscard]] GLuint id() const noexcept
     {

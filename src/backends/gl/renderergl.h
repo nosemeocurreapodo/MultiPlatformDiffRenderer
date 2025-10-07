@@ -1370,3 +1370,282 @@ private:
     GLint dfdxy_image_nodata_loc_ = -1;
     GLint dfdxy_image_lvl_loc_ = -1;
 };
+
+class DiffRendererGL : public BaseRendererGL
+{
+public:
+    DiffRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in float a_weight;
+            //layout (location = 3) in uint a_VertexID;
+
+            uniform mat4 view_matrix;
+            uniform mat4 pose_matrix;
+
+            out vec3 v_f_ver;
+            out vec3 v_kf_ray;
+            out vec2 v_texcoord;
+            flat out int v_vertexID;
+
+            void main() {
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
+                gl_Position = view_matrix * ver;
+                v_f_ver = ver.xyz;
+                v_kf_ray = rray.xyz;
+                v_texcoord = a_texcoord;
+                v_vertexID = gl_VertexID;
+            }
+            )Shader";
+
+        const char *geometry_shader = R"Shader(
+            #version 330 core
+            layout(triangles) in;
+            layout(triangle_strip, max_vertices = 3) out;
+
+            in vec3 v_f_ver[];
+            in vec3 v_kf_ray[];
+            in vec2 v_texcoord[];
+            flat in int v_vertexID[];           // from VS (Option A)
+
+            out vec3 f_ver;
+            out vec3 kf_ray;
+            out vec2 texcoord;
+            flat out ivec3 triIDs;         // to FS: the 3 vertex IDs of this triangle
+            smooth out vec3  bc;           // perspective-correct barycentrics to FS
+            // noperspective out vec3 bc;  // uncomment for screen-space-linear barycentrics
+
+            // Option B: fetch element indices from a texture buffer that mirrors your EBO
+            // uniform usamplerBuffer uIndexBuf;  // each texel = one uint index
+
+            void main() {
+                // Build the per-triangle ID triplet
+                // Option A: use IDs passed from VS
+                ivec3 ids = ivec3(v_vertexID[0], v_vertexID[1], v_vertexID[2]);
+
+                // Option B: if using a TBO that mirrors your index buffer:
+                // uint base = 3u * uint(gl_PrimitiveIDIn);
+                // uvec3 ids = uvec3(
+                //     texelFetch(uIndexBuf, int(base+0)).x,
+                //     texelFetch(uIndexBuf, int(base+1)).x,
+                //     texelFetch(uIndexBuf, int(base+2)).x
+                // );
+
+                for (int i = 0; i < 3; ++i) {
+                    f_ver = v_f_ver[i];
+                    kf_ray = v_kf_ray[i];
+                    texcoord = v_texcoord[i];
+                    triIDs = ids;
+                    bc     = vec3(i == 0, i == 1, i == 2);
+                    gl_Position = gl_in[i].gl_Position;
+                    EmitVertex();
+                }
+                EndPrimitive();
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out vec3 jtra_output;
+            layout(location = 1) out vec3 jrot_output;
+            layout(location = 2) out vec3 jmap_output;
+            layout(location = 3) out vec3 pids_output;
+
+            in vec3 f_ver;
+            in vec3 kf_ray;
+            in vec2 texcoord;
+
+            smooth in vec3  bc;          // or noperspective if chosen above
+            flat   in ivec3 triIDs;
+
+            uniform sampler2D f_image;
+            uniform float f_image_nodata;
+            uniform int f_image_lvl;
+
+            uniform float fx;
+            uniform float fy;
+
+            vec2 get_dfdxy(sampler2D image, ivec2 texcord, int lvl)
+            {
+                float f_x1 = texelFetch(image, texcord + ivec2(1, 0), lvl).r;
+                float f_x0 = texelFetch(image, texcord + ivec2(-1, 0), lvl).r;
+                float f_y1 = texelFetch(image, texcord + ivec2(0, 1), lvl).r;
+                float f_y0 = texelFetch(image, texcord + ivec2(0, -1), lvl).r;
+
+                return vec2(f_x1 - f_x0, f_y1 - f_y0);
+            }
+
+            void main()
+            {
+                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+
+                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
+
+                if (f == f_image_nodata)
+                {
+                    discard;
+                }
+
+                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), lvl);
+
+                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
+                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
+
+                vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
+                vec3f d_f_i_d_rot = vec3(-f_ver.z * v1 + f_ver.y * v2, f_ver.z * v0 - f_ver.x * v2, -f_ver.y * v0 + f_ver.x * v1);
+
+                //jtra_output = d_f_i_d_tra;
+                //jrot_output = d_f_i_d_rot;
+
+                vec3 d_f_ver_d_kf_depth = kf_ray;
+                float d_f_i_d_kf_depth = dot(d_f_i_d_f_ver, d_f_ver_d_kf_depth);
+
+                vec3 d_depth_d_vert_depth = bc;
+
+                vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+
+                jtra_output = d_f_i_d_tra;
+                jrot_output = d_f_i_d_rot;
+                jmap_output = jac;
+                pids_output = triIDs;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+
+        view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
+        pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
+
+        fx_loc_ = glGetUniformLocation(program_, "fx");
+        fy_loc_ = glGetUniformLocation(program_, "fy");
+
+        f_image_loc_ = glGetUniformLocation(program_, "f_image");
+        f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
+        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
+    }
+
+    void Render(const MeshGL &mesh,
+                const SE3 &pose,
+                const Camera &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureGL<float> &f_texture,
+                TextureGL<Vec3> &jtra_texture,
+                TextureGL<Vec3> &jrot_texture,
+                TextureGL<Vec3> &jmap_texture,
+                TextureGL<Vec3> &pids_texture)
+    {
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, jrot_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, jmap_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, pids_texture.id(), out_lvl);
+
+        const GLenum bufs[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(4, bufs);
+
+        check_framebuffer();
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_SCISSOR_TEST);
+
+        const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        Vec3 jtra_nodata = jtra_texture.nodata();
+        Vec3 jrot_nodata = jrot_texture.nodata();
+        Vec3 jmap_nodata = jmap_texture.nodata();
+        Vec3 pids_nodata = pids_texture.nodata();
+
+        float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
+        float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
+        float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
+        float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
+        //         glClearBufferfv(GL_COLOR, 1, pids_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs0);
+        glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs1[1] = {GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(1, bufs1);
+        glClearColor(jrot_clear[0], jrot_clear[1], jrot_clear[2], jrot_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT2
+        const GLenum bufs2[1] = {GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(1, bufs2);
+        glClearColor(jmap_clear[0], jmap_clear[1], jmap_clear[2], jmap_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT1
+        const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(1, bufs3);
+        glClearColor(pids_clear[0], pids_clear[1], pids_clear[2], pids_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Restore glDrawBuffers for subsequent rendering.
+        // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
+        // as done in the clear_buffers function.
+        const GLenum bufs_restore[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(4, bufs_restore);
+        // #endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, f_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, f_texture.id());
+        }
+
+        glUseProgram(program_);
+
+        const Mat4 view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4 pose_matrix = pose.matrix();
+
+        glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
+        glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
+
+        glUniform1i(f_image_loc_, 0);
+        glUniform1f(f_image_nodata_loc_, f_texture.nodata());
+        glUniform1i(f_image_lvl_loc_, out_lvl);
+
+        glUniform1f(fx_loc_, cam.GetParams()(0));
+        glUniform1f(fy_loc_, cam.GetParams()(1));
+
+        mesh.bind();
+        mesh.draw();
+        mesh.unbind();
+
+        restore_state();
+    }
+
+private:
+    GLint view_matrix_loc_ = -1;
+    GLint pose_matrix_loc_ = -1;
+
+    GLint fx_loc_ = -1;
+    GLint fy_loc_ = -1;
+
+    GLint f_image_loc_ = -1;
+    GLint f_image_nodata_loc_ = -1;
+    GLint f_image_lvl_loc_ = -1;
+};

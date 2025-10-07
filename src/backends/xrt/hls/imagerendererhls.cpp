@@ -32,6 +32,7 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = wei_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = in_texture_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem0
 
         SE3 pose(SO3(Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));

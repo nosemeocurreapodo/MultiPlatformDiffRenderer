@@ -1,11 +1,10 @@
 #pragma once
 
-#include "backends/base/texturebase.h"
 #include "backends/xrt/hls/bufferhls.h"
 #include "core/types.h"
 
 template <class T>
-class TextureRAM : public TextureBase<TextureRAM<T>, T>
+class TextureRAM
 {
 public:
     TextureRAM() = default;
@@ -62,6 +61,55 @@ public:
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
         storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
+    }
+
+    T bilinear2_(Scalar y, Scalar x, UInt lvl) const
+    {
+        const auto w = width(lvl);
+        const auto h = height(lvl);
+
+        const Scalar xf = floor(x);
+        const Scalar yf = floor(y);
+        const auto x0 = static_cast<UInt>(xf < 0.0f ? 0.0f : xf);
+        const auto y0 = static_cast<UInt>(yf < 0.0f ? 0.0f : yf);
+        const auto x1 = min(x0 + 1, w - 1);
+        const auto y1 = min(y0 + 1, h - 1);
+
+        const Scalar dx = x - static_cast<Scalar>(x0);
+        const Scalar dy = y - static_cast<Scalar>(y0);
+
+        /*
+        // auto m = MapRead(lvl); // one mapping, four reads
+        const auto idx = [&](UInt yy, UInt xx)
+        {
+            // return m[xx + yy * w];
+            //  return lvls_[lvl].buf[xx + yy * w];
+            return derived_().texel_(yy, xx, lvl);
+        };
+
+        const T tl = idx(y0, x0);
+        const T tr = idx(y0, x1);
+        const T bl = idx(y1, x0);
+        const T br = idx(y1, x1);
+        */
+
+        const T tl = texel_(y0, x0, lvl);
+        const T tr = texel_(y0, x1, lvl);
+        const T bl = texel_(y1, x0, lvl);
+        const T br = texel_(y1, x1, lvl);
+
+        if (nodata() == tl || nodata() == tr || nodata() == bl || nodata() == br)
+            return nodata();
+
+        // const Scalar w_tl = (1.0f - dx) * (1.0f - dy);
+        // const Scalar w_tr = (dx) * (1.0f - dy);
+        // const Scalar w_bl = (1.0f - dx) * (dy);
+        // const Scalar w_br = (dx) * (dy);
+        // return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
+
+        const T Cx0 = tl * (Scalar(1) - dx) + tr * dx;
+        const T Cx1 = bl * (Scalar(1) - dx) + br * dx;
+        return static_cast<T>(Cx0 * (Scalar(1) - dy) + Cx1 * dy);
     }
 
 protected:
@@ -125,7 +173,7 @@ protected:
 };
 
 template <class T>
-class TextureBRAM : public TextureBase<TextureBRAM<T>, T>
+class TextureBRAM
 {
 public:
     static constexpr int max_x = 80;
