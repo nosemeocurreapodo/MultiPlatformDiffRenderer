@@ -11,6 +11,8 @@ extern "C"
                        const Scalar *wei_buffer_data,
                        const UInt *ebo_buffer_data,
                        Scalar *f_texture_data,
+                       Scalar *image_texture_data,
+                       Scalar *depth_texture_data,
                        Vec3 *jtra_texture_data,
                        Vec3 *jrot_texture_data,
                        Vec3 *jmap_texture_data,
@@ -25,6 +27,8 @@ extern "C"
                        UInt in_lvl,
                        UInt out_texture_width,
                        UInt out_texture_height,
+                       Scalar image_nodata_value,
+                       Scalar depth_nodata_value,
                        Vec3 jtra_nodata_value,
                        Vec3 jrot_nodata_value,
                        Vec3 jmap_nodata_value,
@@ -39,6 +43,8 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = wei_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = f_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = image_texture_data bundle = gmem0
+#pragma HLS INTERFACE m_axi port = depth_texture_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = jtra_texture_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = jrot_texture_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem0
@@ -53,12 +59,14 @@ extern "C"
                      ebo_buffer_data, ebo_buffer_size);
 
         TextureRAM<Scalar> f_texture(f_texture_width, f_texture_height, f_nodata_value, f_texture_data);
+        TextureRAM<Scalar> image_texture(out_texture_width, out_texture_height, jtra_nodata_value, image_texture_data);
+        TextureRAM<Scalar> depth_texture(out_texture_width, out_texture_height, jtra_nodata_value, depth_texture_data);
         TextureRAM<Vec3> jtra_texture(out_texture_width, out_texture_height, jtra_nodata_value, jtra_texture_data);
         TextureRAM<Vec3> jrot_texture(out_texture_width, out_texture_height, jrot_nodata_value, jrot_texture_data);
         TextureRAM<Vec3> jmap_texture(out_texture_width, out_texture_height, jmap_nodata_value, jmap_texture_data);
         TextureRAM<Vec3> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
 
         DiffRendererRAM renderer;
-        renderer.Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        renderer.Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
     }
 }

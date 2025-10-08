@@ -52,11 +52,15 @@ int main()
 
     auto image_in_map = image_src_cpu.MapRead(0);
 
+    TextureCPU<Scalar> image_out_cpu(w, h, -1.0f);
+    TextureCPU<Scalar> depth_out_cpu(w, h, -1.0f);
     TextureCPU<Vec3> jtra_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jrot_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> jmap_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3> pids_out_cpu(w, h, Vec3(-1.0f, -1.0f, -1.0f));
 
+    auto image_out_map = image_out_cpu.MapWrite(0);
+    auto depth_out_map = depth_out_cpu.MapWrite(0);
     auto jtra_out_map = jtra_out_cpu.MapWrite(0);
     auto jrot_out_map = jrot_out_cpu.MapWrite(0);
     auto jmap_out_map = jmap_out_cpu.MapWrite(0);
@@ -68,6 +72,8 @@ int main()
         (Scalar *)weights.data(),
         (UInt *)indices.data(),
         (Scalar *)image_in_map.data(),
+        (Scalar *)image_out_map.data(),
+        (Scalar *)depth_out_map.data(),
         (Vec3 *)jtra_out_map.data(),
         (Vec3 *)jrot_out_map.data(),
         (Vec3 *)jmap_out_map.data(),
@@ -75,18 +81,22 @@ int main()
         UInt(vertices.size()), UInt(texcoords.size()), UInt(weights.size()), UInt(indices.size()),
         UInt(w), UInt(h), Scalar(-1), UInt(lvl),
         UInt(w), UInt(h),
-        jtra_out_cpu.nodata(), jrot_out_cpu.nodata(), jmap_out_cpu.nodata(), pids_out_cpu.nodata(),
+        image_out_cpu.nodata(), depth_out_cpu.nodata(), jtra_out_cpu.nodata(), jrot_out_cpu.nodata(), jmap_out_cpu.nodata(), pids_out_cpu.nodata(),
         UInt(lvl),
         Scalar(pose.so3().unit_quaternion().x()), Scalar(pose.so3().unit_quaternion().y()), Scalar(pose.so3().unit_quaternion().z()), Scalar(pose.so3().unit_quaternion().w()),
         Scalar(pose.translation()(0)), Scalar(pose.translation()(1)), Scalar(pose.translation()(2)),
         Scalar(cam.GetParams()(0)), Scalar(cam.GetParams()(1)), Scalar(cam.GetParams()(2)), Scalar(cam.GetParams()(3)));
 
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
+    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl, CV_32FC1);
     cv::Mat jtra_out_cv = DownloadTextureToMat(jtra_out_cpu, lvl, CV_32FC3);
     cv::Mat jrot_out_cv = DownloadTextureToMat(jrot_out_cpu, lvl, CV_32FC3);
     cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, lvl, CV_32FC3);
     cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, lvl, CV_32FC3);
 
     // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
+    SaveDebugImage(image_out_cv, "imagerenderhls_image.png");
+    SaveDebugImage(depth_out_cv, "imagerenderhls_depth.png");
     SaveDebugImage(jtra_out_cv, "imagerenderhls_jtra.png");
     SaveDebugImage(jrot_out_cv, "imagerenderhls_jrot.png");
     SaveDebugImage(jmap_out_cv, "imagerenderhls_jmap.png");

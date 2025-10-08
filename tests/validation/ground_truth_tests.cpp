@@ -70,7 +70,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
 
-    this->UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
+    UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
 
     typename Traits::DepthRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -84,13 +84,13 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
 
-        double rmse = this->RMSE(output, ground_truth, lvl);
+        double rmse = RMSE(output, ground_truth, lvl);
 
         if (lvl < 3)
             EXPECT_LT(rmse, this->thresholds_.gt_max_depth_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - this->depth_dst_cv_;
@@ -109,7 +109,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    this->SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_depth_ground_truth.png");
+    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_depth_ground_truth.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";
 }
@@ -125,8 +125,8 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
 
-    this->UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
-    this->UploadMatToTexture(input, 0, this->image_src_cv_);
+    UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
+    UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
     SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -140,13 +140,13 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
 
-        double rmse = this->RMSE(output, ground_truth, lvl);
+        double rmse = RMSE(output, ground_truth, lvl);
 
         if (lvl < 3)
             EXPECT_LT(rmse, this->thresholds_.gt_max_image_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - this->image_dst_cv_;
     // cv::Mat masked_diff;
@@ -164,7 +164,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    this->SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_image_ground_truth.png");
+    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_image_ground_truth.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }

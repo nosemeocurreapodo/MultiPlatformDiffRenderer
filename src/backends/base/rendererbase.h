@@ -1032,11 +1032,14 @@ public:
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
             (1.0f / invW_px);
-        var_over_w_px.barycentric = Vec3(w0 * invW0 * varying_px0.depth,
-                                         w1 * invW1 * varying_px1.depth,
-                                         w2 * invW2 * varying_px2.depth) *
+        // var_over_w_px.barycentric = Vec3(w0 * invW0 * varying_px0.depth,
+        //                                  w1 * invW1 * varying_px1.depth,
+        //                                  w2 * invW2 * varying_px2.depth) *
+        //                             (1.0f / invW_px);
+        var_over_w_px.barycentric = Vec3(w0 * invW0,
+                                         w1 * invW1,
+                                         w2 * invW2) *
                                     (1.0f / invW_px);
-
         var_over_w_px.pids = Vec3i(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
@@ -1115,10 +1118,10 @@ public:
     }
 
 private:
-    int in_lvl_;
-    int out_lvl_;
-    float fx_;
-    float fy_;
+    Int in_lvl_;
+    Int out_lvl_;
+    Scalar fx_;
+    Scalar fy_;
     Mat4 view_matrix_;
     Mat4 pose_matrix_;
     // const TextureCPU<float> *kf_texture_;
@@ -1148,6 +1151,8 @@ public:
     struct Textures
     {
         const Texture<Scalar> &f_texture;
+        Texture<Scalar> &image_texture;
+        Texture<Scalar> &depth_texture;
         Texture<Vec3> &jtra_texture;
         Texture<Vec3> &jrot_texture;
         Texture<Vec3> &jmap_texture;
@@ -1163,11 +1168,15 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const Texture<Scalar> &f_texture,
+                Texture<Scalar> &image_texture,
+                Texture<Scalar> &depth_texture,
                 Texture<Vec3> &jtra_texture,
                 Texture<Vec3> &jrot_texture,
                 Texture<Vec3> &jmap_texture,
                 Texture<Vec3> &pids_texture)
     {
+        image_texture.fill(out_lvl, image_texture.nodata());
+        depth_texture.fill(out_lvl, depth_texture.nodata());
         jtra_texture.fill(out_lvl, jtra_texture.nodata());
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
         jmap_texture.fill(out_lvl, jmap_texture.nodata());
@@ -1190,7 +1199,7 @@ public:
         const int H = static_cast<int>(jtra_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Textures textures{f_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
+        Textures textures{f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
         RendererBase<DiffRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
     }
@@ -1218,9 +1227,9 @@ public:
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
             (1.0f / invW_px);
-        var_over_w_px.barycentric = Vec3(w0 * invW0 * varying_px0.depth,
-                                         w1 * invW1 * varying_px1.depth,
-                                         w2 * invW2 * varying_px2.depth) *
+        var_over_w_px.barycentric = Vec3(w0 * invW0,
+                                         w1 * invW1,
+                                         w2 * invW2) *
                                     (1.0f / invW_px);
 
         var_over_w_px.pids = Vec3i(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
@@ -1259,7 +1268,7 @@ public:
         UInt width = textures.jmap_texture.width(out_lvl_);
         UInt height = textures.jmap_texture.height(out_lvl_);
 
-        //Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
+        // Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
 
         Vec3 f_ver = in_varying.f_ver;
         Vec3 kf_ray = in_varying.kf_ray;
@@ -1267,10 +1276,14 @@ public:
         Vec3 barycentric = in_varying.barycentric;
         Vec3i vertexid = in_varying.pids;
 
-        Scalar f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // Scalar f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        Scalar f = sample<Scalar, Texture<Scalar>>(textures.f_texture, in_varying.texcoord(1), in_varying.texcoord(0), out_lvl_);
+        if (f == textures.f_texture.nodata())
+            return;
+
         Vec3 f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
 
-        if (f == textures.f_texture.nodata())
+        if (f_der(0) == textures.f_texture.nodata() && f_der(1) == textures.f_texture.nodata())
             return;
 
         Vec3 d_f_i_d_f_ver;
@@ -1290,6 +1303,8 @@ public:
         Vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
         Vec3 ids = Vec3(vertexid(0), vertexid(1), vertexid(2));
 
+        textures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jtra_texture.set_texel_(d_f_i_d_f_ver, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -1297,10 +1312,10 @@ public:
     }
 
 private:
-    int in_lvl_;
-    int out_lvl_;
-    float fx_;
-    float fy_;
+    Int in_lvl_;
+    Int out_lvl_;
+    Scalar fx_;
+    Scalar fy_;
     Mat4 view_matrix_;
     Mat4 pose_matrix_;
     // const TextureCPU<float> *kf_texture_;

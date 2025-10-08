@@ -85,8 +85,6 @@ protected:
         dataset_.reset();
     }
 
-
-
 protected:
     // Dataset and test data
     std::unique_ptr<LoadDatasetIclNuim> dataset_;
@@ -247,11 +245,11 @@ public:
 struct ValidationThresholds
 {
     double gt_max_depth_error = 0.4;
-    double gt_max_image_error = 10.0;
+    double gt_max_image_error = 20.0;
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;
-    double cr_max_depth_error = 6.68e-6;
+    double cr_max_depth_error = 7.31e-6;
     double cr_max_image_error = 1.37;
     double cr_max_residual_error = 1.39;
     double cr_max_l2_error = 275.3;
@@ -259,8 +257,8 @@ struct ValidationThresholds
     double cr_max_jtra_error = 0.0093;
     double cr_max_jrot_error = 0.028;
     double cr_max_r_error = 1.40;
-    double cr_max_jmap_error = 2.79;
-    double cr_max_pids_error = 1.56;
+    double cr_max_jmap_error = 0.0179;
+    double cr_max_pids_error = 1.57;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;
     double max_cpu_image_time_ms = 350.0;

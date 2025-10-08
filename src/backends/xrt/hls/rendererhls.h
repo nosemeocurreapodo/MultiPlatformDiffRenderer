@@ -348,6 +348,8 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureRAM<Scalar> &f_texture,
+                TextureRAM<Scalar> &image_texture,
+                TextureRAM<Scalar> &depth_texture,
                 TextureRAM<Vec3> &jtra_texture,
                 TextureRAM<Vec3> &jrot_texture,
                 TextureRAM<Vec3> &jmap_texture,
@@ -357,9 +359,8 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
     }
 
 private:
 };
-

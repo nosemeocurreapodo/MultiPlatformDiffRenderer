@@ -187,6 +187,7 @@ private:
             glGetShaderInfoLog(id, sizeof(log), nullptr, log);
             std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
             glDeleteShader(id);
+            std::cout << log << std::endl;
             throw RendererExceptions::OpenGLException(shader_type + " shader compilation", ok);
         }
         return id;
@@ -1450,10 +1451,12 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            layout(location = 0) out vec3 jtra_output;
-            layout(location = 1) out vec3 jrot_output;
-            layout(location = 2) out vec3 jmap_output;
-            layout(location = 3) out vec3 pids_output;
+            layout(location = 0) out float image_output;
+            layout(location = 1) out float depth_output;
+            layout(location = 2) out vec3 jtra_output;
+            layout(location = 3) out vec3 jrot_output;
+            layout(location = 4) out vec3 jmap_output;
+            layout(location = 5) out vec3 pids_output;
 
             in vec3 f_ver;
             in vec3 kf_ray;
@@ -1469,35 +1472,57 @@ public:
             uniform float fx;
             uniform float fy;
 
-            vec2 get_dfdxy(sampler2D image, ivec2 texcord, int lvl)
+            vec2 get_dfdxy(sampler2D image, ivec2 tc, ivec2 tex_size, float nodata, int lvl)
             {
-                float f_x1 = texelFetch(image, texcord + ivec2(1, 0), lvl).r;
-                float f_x0 = texelFetch(image, texcord + ivec2(-1, 0), lvl).r;
-                float f_y1 = texelFetch(image, texcord + ivec2(0, 1), lvl).r;
-                float f_y0 = texelFetch(image, texcord + ivec2(0, -1), lvl).r;
+                int x_p = tc.x + 1;
+                int x_m = tc.x - 1;
+                int y_p = tc.y + 1;
+                int y_m = tc.y - 1;
 
-                return vec2(f_x1 - f_x0, f_y1 - f_y0);
+                if (x_p >= tex_size.x || x_m < 0 || y_p >= tex_size.y || y_m < 0)
+                {
+                    return vec2(nodata, nodata);
+                }
+
+                //Scalar f = Scalar(tex.texel_(y, x, lvl));
+                float f_y_p = texelFetch(image, ivec2(tc.x, y_p), lvl).r;
+                float f_y_m = texelFetch(image, ivec2(tc.x, y_m), lvl).r;
+                float f_x_p = texelFetch(image, ivec2(x_p, tc.y), lvl).r;
+                float f_x_m = texelFetch(image, ivec2(x_m, tc.y), lvl).r;
+
+                if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
+                {
+                    return vec2(nodata, nodata);
+                }
+
+                return vec2((f_x_p - f_x_m) / 2.0f, (f_y_p - f_y_m) / 2.0f);
             }
 
             void main()
             {
                 ivec2 tex_size = textureSize(f_image, f_image_lvl);
 
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
+                //float f = texelFetch(f_image, ivec2(gl_FragCoord.xy), f_image_lvl).r;
+                float f = textureLod(f_image, texcoord, float(f_image_lvl)).r;
 
                 if (f == f_image_nodata)
                 {
                     discard;
                 }
 
-                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), lvl);
+                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.xy), tex_size, f_image_nodata, f_image_lvl);
+
+                if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
+                {
+                    discard;
+                }
 
                 float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
                 float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
-                vec3f d_f_i_d_rot = vec3(-f_ver.z * v1 + f_ver.y * v2, f_ver.z * v0 - f_ver.x * v2, -f_ver.y * v0 + f_ver.x * v1);
+                vec3 d_f_i_d_rot = vec3(-f_ver.z * v1 + f_ver.y * v2, f_ver.z * v0 - f_ver.x * v2, -f_ver.y * v0 + f_ver.x * v1);
 
                 //jtra_output = d_f_i_d_tra;
                 //jrot_output = d_f_i_d_rot;
@@ -1509,7 +1534,9 @@ public:
 
                 vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
 
-                jtra_output = d_f_i_d_tra;
+                image_output = f;
+                depth_output = f_ver.z;
+                jtra_output = d_f_i_d_f_ver;
                 jrot_output = d_f_i_d_rot;
                 jmap_output = jac;
                 pids_output = triIDs;
@@ -1535,6 +1562,8 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &f_texture,
+                TextureGL<float> &image_texture,
+                TextureGL<float> &depth_texture,
                 TextureGL<Vec3> &jtra_texture,
                 TextureGL<Vec3> &jrot_texture,
                 TextureGL<Vec3> &jmap_texture,
@@ -1543,13 +1572,15 @@ public:
         save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, jrot_texture.id(), out_lvl);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, jmap_texture.id(), out_lvl);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, pids_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, image_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, depth_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, jtra_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, jrot_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, jmap_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, pids_texture.id(), out_lvl);
 
-        const GLenum bufs[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-        glDrawBuffers(4, bufs);
+        const GLenum bufs[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(6, bufs);
 
         check_framebuffer();
 
@@ -1561,11 +1592,15 @@ public:
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
+        Scalar image_nodata = image_texture.nodata();
+        Scalar depth_nodata = depth_texture.nodata();
         Vec3 jtra_nodata = jtra_texture.nodata();
         Vec3 jrot_nodata = jrot_texture.nodata();
         Vec3 jmap_nodata = jmap_texture.nodata();
         Vec3 pids_nodata = pids_texture.nodata();
 
+        float image_clear[4] = {image_nodata, 0, 0, 1.f};
+        float depth_clear[4] = {depth_nodata, 0, 0, 1.f};
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
@@ -1579,29 +1614,39 @@ public:
         //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
-        glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
+        glClearColor(image_clear[0], image_clear[1], image_clear[2], image_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
         //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs1[1] = {GL_COLOR_ATTACHMENT1};
         glDrawBuffers(1, bufs1);
+        glClearColor(depth_clear[0], depth_clear[1], depth_clear[2], depth_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs2[1] = {GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(1, bufs2);
+        glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(1, bufs3);
         glClearColor(jrot_clear[0], jrot_clear[1], jrot_clear[2], jrot_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
         // Clear GL_COLOR_ATTACHMENT2
-        const GLenum bufs2[1] = {GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(1, bufs2);
+        const GLenum bufs4[1] = {GL_COLOR_ATTACHMENT4};
+        glDrawBuffers(1, bufs4);
         glClearColor(jmap_clear[0], jmap_clear[1], jmap_clear[2], jmap_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
         // Clear GL_COLOR_ATTACHMENT1
-        const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
-        glDrawBuffers(1, bufs3);
+        const GLenum bufs5[1] = {GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(1, bufs5);
         glClearColor(pids_clear[0], pids_clear[1], pids_clear[2], pids_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-        glDrawBuffers(4, bufs_restore);
+        const GLenum bufs_restore[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(6, bufs_restore);
         // #endif
 
 #if defined(GL_VERSION_4_5)

@@ -74,7 +74,7 @@ TYPED_TEST_P(ErrorHandlingTests, EmptyMeshHandling)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, 0, output));
 
-    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
     // Should remain at nodata value
     cv::Scalar mean_val = cv::mean(result);
@@ -143,7 +143,7 @@ TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
     // Test with very large scale
     SE3 large_scale;
     large_scale.translation() = Vec3(0, 0, 0);
-    large_scale.so3() = Sophus::SO3f::exp(Vec3(0, 0, 0));
+    large_scale.so3() = SO3::exp(Vec3(0, 0, 0));
     // Apply large scale through pose
     Mat4 scale_matrix = Mat4::Identity() * 1000.0f;
 
@@ -152,7 +152,7 @@ TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, large_scale, this->cam_, 0, output));
 
-    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
     // Check for invalid values
     bool has_invalid = false;
@@ -201,7 +201,7 @@ TYPED_TEST_P(ErrorHandlingTests, TextureSizeMismatch)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, large_output));
 
-    cv::Mat result = this->DownloadTexture(large_output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(large_output, 0, CV_32FC1);
 
     // Should handle size mismatch gracefully
     cv::Scalar mean_val = cv::mean(result);
@@ -218,7 +218,10 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     // Create camera with extreme parameters
     Camera extreme_cam;
     Vec4 extreme_params;
-    extreme_params << 1e6f, 1e6f, this->w_ / 2.0f, this->h_ / 2.0f; // Very high focal lengths
+    extreme_params(0) = 1e6f;
+    extreme_params(1) = 1e6f;
+    extreme_params(2) = this->w_ / 2.0f;
+    extreme_params(3) = this->h_ / 2.0f; // Very high focal lengths
     extreme_cam.SetParams(extreme_params);
 
     typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -226,7 +229,7 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, SE3(), extreme_cam, 0, output));
 
-    cv::Mat result = this->DownloadTexture(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
     // Check for invalid values
     bool has_invalid = false;
