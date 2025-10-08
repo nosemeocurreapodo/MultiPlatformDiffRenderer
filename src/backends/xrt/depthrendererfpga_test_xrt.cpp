@@ -3,12 +3,17 @@
 #include <opencv2/opencv.hpp>
 
 #include "loaddataset.h"
+#include "core/common.h"
+#include "common/test_helpers.h"
 #include "core/format_converters.h"
 #include "core/types.h"
-#include "backends/cpu/buffercpu.h"
-#include "backends/cpu/texturecpu.h"
-#include "backends/cpu/meshcpu.h"
+// #include "backends/cpu/buffercpu.h"
+// #include "backends/cpu/texturecpu.h"
+// #include "backends/cpu/meshcpu.h"
 #include "backends/xrt/devicexrt.h"
+#include "backends/xrt/bufferxrt.h"
+#include "backends/xrt/texturexrt.h"
+#include "backends/xrt/meshxrt.h"
 #include "backends/xrt/rendererxrt.h"
 
 int main(int argc, char **argv)
@@ -40,12 +45,12 @@ int main(int argc, char **argv)
 
     cv::Mat image_src_cv = ReadMat(image_files[0]);
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
-    SE3 pose_dst = poses[0];
+    SE3 pose_src = poses[0];
 
-    TextureCPU<float> image_src_cpu(w, h, -1.0f);
+    // TextureXRT<float> image_src_cpu(w, h, -1.0f);
     TextureCPU<float> depth_src_cpu(w, h, -1.0f);
 
-    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
+    // UploadMatToTexture(image_src_cpu, 0, image_src_cv);
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
 
     std::vector<float> vertices, texcoords, weights;
@@ -63,25 +68,29 @@ int main(int argc, char **argv)
     }
 
     const int iterations = 10;
-    const int in_lvl = 0, out_lvl = 0;
-
-    MeshXRT mesh(vertices_, texcoords_, weights_, indices_);
-    TextureXRT<float> input(w_, h_, 0.0f);
-    TextureXRT<float> output(w_, h_, 0.0f);
-    UploadMatToTextureCPU(input, 0, image_src_cv_);
+    const int out_lvl = 0;
 
     DepthRendererXRT renderer;
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+
+    MeshXRT mesh(vertices, texcoords, weights, indices, renderer.kernel_);
+
+    TextureXRT<float> output(w, h, 0.0f, renderer.kernel_.group_id(4));
 
     std::vector<double> times;
     times.reserve(iterations);
 
-    for (int i = 0; i < iterations; ++i)
+    for (int i = 1; i < iterations; ++i)
     {
-        timer_.Start();
-        renderer.Render(mesh, pose_transform, cam_, input, output, in_lvl, out_lvl);
-        double time_ms = timer_.Stop();
-        times.push_back(time_ms);
+        // cv::Mat image_dst_cv = ReadMat(image_files[1]);
+        // cv::Mat depth_dst_cv = ReadMat(depth_files[1]) * scale;
+        SE3 pose_dst = poses[1];
+
+        SE3 pose_transform = pose_dst * pose_src.inverse();
+
+        // timer_.Start();
+        renderer.Render(mesh, pose_transform, cam, out_lvl, output);
+        // double time_ms = timer_.Stop();
+        // times.push_back(time_ms);
     }
 
     // Calculate statistics
@@ -100,9 +109,6 @@ int main(int argc, char **argv)
     std::cout << "  Median:  " << median_time << " ms\n";
     std::cout << "  Min:     " << min_time << " ms\n";
     std::cout << "  Max:     " << max_time << " ms\n";
-
-    // Performance assertions
-    EXPECT_LT(avg_time, 100.0) << "CPU depth rendering too slow";
 
     return 0;
 }

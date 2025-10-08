@@ -45,6 +45,23 @@ struct GLBackendTraits
 };
 #endif
 
+#ifdef COMPILE_HLS
+struct HLSBackendTraits
+{
+    using MeshT = MeshHLS;
+    template <typename T>
+    using TextureT = TextureRAM<T>;
+    using DepthRendererT = DepthRendererRAM;
+    using ImageRendererT = ImageRendererRAM;
+    using ResidualRendererT = ResidualRendererRAM;
+    using L2RendererT = L2RendererRAM;
+    using DIDxyRendererT = DIDxyRendererRAM;
+    using JPoseRendererT = JPoseRendererRAM;
+    using JMapRendererT = JMapRendererRAM;
+    static const char *Name() { return "RAM"; }
+};
+#endif
+
 template <typename Backend>
 class RendererTypedTests : public TwoViewTests
 {
@@ -401,6 +418,10 @@ using TestBackends = ::testing::Types<CPUBackendTraits
 #ifdef COMPILE_GL
                                       ,
                                       GLBackendTraits
+#endif
+#ifdef COMPILE_HLS
+                                      ,
+                                      HLSBackendTraits
 #endif
                                       >;
 

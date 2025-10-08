@@ -23,6 +23,12 @@
 #include "backends/gl/meshgl.h"
 #include "backends/gl/renderergl.h"
 #endif
+#ifdef COMPILE_HLS
+// #include "backends/xrt/hls/devicegl_glad.h"
+#include "backends/xrt/hls/texturehls.h"
+#include "backends/xrt/hls/meshhls.h"
+#include "backends/xrt/hls/rendererhls.h"
+#endif
 #include "loaddataset.h"
 #include "test_helpers.h"
 

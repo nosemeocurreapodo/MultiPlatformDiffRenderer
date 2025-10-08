@@ -48,14 +48,14 @@ int main()
     int lvl = 0;
 
     TextureCPU<Scalar> depth_out_cpu(w, h, -1.0f);
-    auto map = depth_out_cpu.MapWrite(0);
+    auto depth_map = depth_out_cpu.MapWrite(0);
 
     DepthRenderHLS(
         (Scalar *)vertices.data(),
         (Scalar *)texcoords.data(),
         (Scalar *)weights.data(),
         (UInt *)indices.data(),
-        (Scalar *)map.data(),
+        (Scalar *)depth_map.data(),
         UInt(vertices.size()), UInt(texcoords.size()), UInt(weights.size()), UInt(indices.size()),
         UInt(w), UInt(h), Scalar(-1), UInt(lvl),
         Scalar(pose.so3().unit_quaternion().x()), Scalar(pose.so3().unit_quaternion().y()), Scalar(pose.so3().unit_quaternion().z()), Scalar(pose.so3().unit_quaternion().w()),

@@ -1,28 +1,30 @@
 #pragma once
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <vector>
-#include <array>
-#include <algorithm>
+// #include <cassert>
+// #include <cstddef>
+// #include <cstdint>
+// #include <vector>
+// #include <array>
+// #include <algorithm>
 
+#include "backends/xrt/devicexrt.h"
 #include "backends/xrt/bufferxrt.h"
 
 class MeshXRT
 {
 public:
-    using index_type = std::uint32_t;
-    // using size_type = std::size_t;
+    // using index_type = std::uint32_t;
+    //  using size_type = std::size_t;
 
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
     MeshXRT(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &weights,   // 1 float  per vertex
-            const std::vector<index_type> &indices)
-        : pos_buffer_(positions),
-          tex_buffer_(texcoords),
-          wei_buffer_(weights),
-          ebo_buffer_(indices)
+            const std::vector<unsigned int> &indices,
+            xrt::kernel &kernel)
+        : pos_buffer_(positions, kernel.group_id(0)),
+          tex_buffer_(texcoords, kernel.group_id(1)),
+          wei_buffer_(weights, kernel.group_id(2)),
+          ebo_buffer_(indices, kernel.group_id(3))
     {
         validate_();
     }
@@ -46,12 +48,12 @@ public:
     [[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
     [[nodiscard]] MappedView<const float> MapReadWeights() const & { return wei_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const index_type> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
+    [[nodiscard]] MappedView<const unsigned int> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
 
     [[nodiscard]] MappedView<float> MapWritePositions() { return pos_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteTexcoords() { return tex_buffer_.MapWrite(); }
     [[nodiscard]] MappedView<float> MapWriteWeights() { return wei_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
+    [[nodiscard]] MappedView<unsigned int> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
     std::size_t vertex_count() const noexcept { return pos_buffer_.size() / 3; }
@@ -75,7 +77,9 @@ public:
     }
     */
 
-private:
+//private:
+//    friend class DepthRendererXRT;
+
     void validate_() const
     {
         // position size must be multiple of 3
@@ -105,5 +109,5 @@ private:
     BufferXRT<float> pos_buffer_;
     BufferXRT<float> tex_buffer_;
     BufferXRT<float> wei_buffer_;
-    BufferXRT<index_type> ebo_buffer_;
+    BufferXRT<unsigned int> ebo_buffer_;
 };
