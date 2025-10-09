@@ -45,7 +45,7 @@ int main()
 
     SE3 pose = pose_dst * pose_src.inverse();
 
-    int lvl = 0;
+    int lvl = 3;
 
     TextureCPU<Scalar> depth_out_cpu(w, h, -1.0f);
     auto depth_map = depth_out_cpu.MapWrite(0);

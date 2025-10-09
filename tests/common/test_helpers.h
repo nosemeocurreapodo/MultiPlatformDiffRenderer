@@ -107,8 +107,7 @@ inline int CountValid(const Texture &tex, int lvl)
 }
 
 // Error computation
-template <typename T>
-inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, T nodata_value)
+inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nodata_value)
 {
     assert(mat1.size() == mat2.size());
     assert(mat1.type() == mat2.type());
@@ -120,26 +119,47 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, T nodata_
     {
         for (int x = 0; x < mat1.cols; ++x)
         {
-            const T val1 = mat1.at<T>(y, x);
-            const T val2 = mat2.at<T>(y, x);
+            const float val1 = mat1.at<float>(y, x);
+            const float val2 = mat2.at<float>(y, x);
 
             if (val1 != nodata_value && val2 != nodata_value)
             {
-                if constexpr (std::is_arithmetic_v<T>)
+                double diff = static_cast<double>(val1 - val2);
+                total_error += diff * diff;
+
+                valid_pixels++;
+            }
+        }
+    }
+
+    return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
+}
+
+inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, cv::Vec3f nodata_value)
+{
+    assert(mat1.size() == mat2.size());
+    assert(mat1.type() == mat2.type());
+
+    double total_error = 0.0;
+    int valid_pixels = 0;
+
+    for (int y = 0; y < mat1.rows; ++y)
+    {
+        for (int x = 0; x < mat1.cols; ++x)
+        {
+            const cv::Vec3f val1 = mat1.at<cv::Vec3f>(y, x);
+            const cv::Vec3f val2 = mat2.at<cv::Vec3f>(y, x);
+
+            if (val1 != nodata_value && val2 != nodata_value)
+            {
+                // Handle vector types like cv::Vec3f
+                auto diff = val1 - val2;
+                for (int i = 0; i < diff.channels; ++i)
                 {
-                    double diff = static_cast<double>(val1 - val2);
-                    total_error += diff * diff;
+                    double d = static_cast<double>(diff[i]);
+                    total_error += d * d;
                 }
-                else
-                {
-                    // Handle vector types like cv::Vec3f
-                    auto diff = val1 - val2;
-                    for (int i = 0; i < diff.channels; ++i)
-                    {
-                        double d = static_cast<double>(diff[i]);
-                        total_error += d * d;
-                    }
-                }
+
                 valid_pixels++;
             }
         }

@@ -68,13 +68,13 @@ int main(int argc, char **argv)
     }
 
     const int iterations = 10;
-    const int out_lvl = 0;
+    const int out_lvl = 3;
 
     DepthRendererXRT renderer;
 
     MeshXRT mesh(vertices, texcoords, weights, indices, renderer.kernel_);
 
-    TextureXRT<float> output(w, h, 0.0f, renderer.kernel_.group_id(4));
+    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(4));
 
     std::vector<double> times;
     times.reserve(iterations);
@@ -91,6 +91,11 @@ int main(int argc, char **argv)
         renderer.Render(mesh, pose_transform, cam, out_lvl, output);
         // double time_ms = timer_.Stop();
         // times.push_back(time_ms);
+
+        cv::Mat depth_out_cv = DownloadTextureToMat(output, out_lvl, CV_32FC1);
+
+        // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
+        SaveDebugImage(depth_out_cv, "depthrenderhls_output_" + std::to_string(i) + ".png");
     }
 
     // Calculate statistics

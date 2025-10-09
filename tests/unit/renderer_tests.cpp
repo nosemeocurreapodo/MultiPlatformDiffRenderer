@@ -375,7 +375,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
 
     for (int i = 1; i < iterations; ++i)
     {
-        double error = ComputeL2Error<float>(results[0], results[i], -1.0f);
+        double error = ComputeL2Error(results[0], results[i], -1.0f);
         EXPECT_LT(error, 1e-6) << "Results should be deterministic, iteration " << i;
     }
 }
