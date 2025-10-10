@@ -20,15 +20,11 @@ class BaseRendererXRT
 public:
     BaseRendererXRT()
     {
-        opencv2opengl_ = Mat4::Identity();
-        opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
     }
 
     xrt::kernel kernel_;
 
 protected:
-    Mat4 opencv2opengl_;
-
     // private:
     //     xrt::kernel kernel_;
 };

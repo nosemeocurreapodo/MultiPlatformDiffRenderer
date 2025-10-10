@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         SE3 pose_transform = pose_dst * pose_src.inverse();
 
         // timer_.Start();
-        // renderer.Render(mesh, pose_transform, cam, out_lvl, output);
+        renderer.Render(mesh, pose_transform, cam, out_lvl, output);
         // double time_ms = timer_.Stop();
         // times.push_back(time_ms);
 

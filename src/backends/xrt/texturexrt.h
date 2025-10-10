@@ -20,9 +20,9 @@ public:
 
     // Create empty pyramid filled with nodata
     TextureXRT(std::size_t w, std::size_t h, T nodata, int group_id)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), group_id)
+        : nodata_(nodata)
     {
-        build_pyramid_(w, h);
+        build_pyramid_(w, h, group_id);
         // Fill base and all levels with nodata
         // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
         //    fill(lvl, nodata_);
@@ -30,9 +30,9 @@ public:
 
     // Create and upload base level, auto-generate mipmaps
     TextureXRT(std::size_t w, std::size_t h, T nodata, const T *base, int group_id)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), group_id, base)
+        : nodata_(nodata)
     {
-        build_pyramid_(w, h);
+        build_pyramid_(w, h, group_id);
         // write base
         {
             auto m = MapWrite(0);
@@ -51,7 +51,7 @@ public:
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
     std::size_t levels() const { return levels_.size(); }
-    std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
+    std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -79,14 +79,14 @@ public:
     {
         const auto &L = levels_[lvl];
         auto m = storage_.MapRead();
-        return MappedView<const T, NoopReleaser>(m.data() + L.offset, L.size);
+        return MappedView<const T, NoopReleaser>(m.data() + L.offset, L.w * L.h);
     }
 
     [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
         auto m = storage_.MapWrite();
-        return MappedView<T, NoopReleaser>(m.data() + L.offset, L.size);
+        return MappedView<T, NoopReleaser>(m.data() + L.offset, L.w * L.h);
     }
 
     // private:
@@ -101,23 +101,18 @@ public:
     struct Level
     {
         std::size_t offset; // element offset in storage_
-        std::size_t size;   // elements at this level (w*h*channels)
+        // std::size_t size;   // elements at this level (w*h*channels)
         int w, h;
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    BufferXRT<T> storage_;
-    std::vector<Level> levels_;
-    // std::vector<Level> lvls_;
-    T nodata_{};
-
-    void build_pyramid_(std::size_t w, std::size_t h)
+    void build_pyramid_(std::size_t w, std::size_t h, int group_id)
     {
         levels_.clear();
         if (w == 0 || h == 0)
             return;
 
-        std::size_t running = 0;
+        total_size_ = 0;
         // build until 1x1 (inclusive)
         while (true)
         {
@@ -125,11 +120,11 @@ public:
             Level L;
             L.w = w;
             L.h = h;
-            L.size = std::size_t(w) * std::size_t(h);
-            L.offset = running;
+            // L.size = std::size_t(w) * std::size_t(h);
+            L.offset = total_size_;
 
             levels_.push_back(L);
-            running += L.size;
+            total_size_ += L.w * L.h;
 
             if (w == 1 && h == 1)
                 break;
@@ -137,5 +132,13 @@ public:
             w = std::max<std::size_t>(1, w >> 1);
             h = std::max<std::size_t>(1, h >> 1);
         }
+
+        storage_ = BufferXRT<T>(total_size_, group_id);
     }
+
+    BufferXRT<T> storage_;
+    std::vector<Level> levels_;
+    UInt total_size_;
+    // std::vector<Level> lvls_;
+    T nodata_{};
 };
