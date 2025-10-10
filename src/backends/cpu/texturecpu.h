@@ -26,8 +26,8 @@ public:
 
         build_pyramid_(w, h);
         // Fill base and all levels with nodata
-        for (UInt lvl = 0; lvl < levels(); ++lvl)
-            fill(lvl, nodata);
+        // for (UInt lvl = 0; lvl < levels(); ++lvl)
+        //    fill(lvl, nodata);
     }
 
     // Create and upload base level
@@ -36,10 +36,9 @@ public:
     {
         build_pyramid_(w, h);
         // write base
-        {
-            auto m = MapWrite(0);
-            std::copy_n(base, w * h, m.data());
-        }
+
+        auto m = MapWrite(0);
+        std::copy_n(base, w * h, m.data());
     }
 
     // Rule of 5
@@ -53,7 +52,7 @@ public:
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return levels_.size(); }
-    UInt size(int lvl) const { return width(lvl) * height(lvl); }
+    UInt size() const { return total_size_; }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -67,13 +66,13 @@ public:
     [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.size);
+        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
     [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.size);
+        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
     // Read/Write a single texel (bounds-checked in debug)
@@ -94,9 +93,9 @@ public:
     }
 
 protected:
-    template <class Mesh, template<class> class Texture>
+    template <class Mesh, template <class> class Texture>
     friend class DepthRendererBase;
-    template <class Mesh, template<class> class Texture>
+    template <class Mesh, template <class> class Texture>
     friend class ImageRendererBase;
     // friend class DepthRendererCPU;
     // friend class ImageRendererCPU;
@@ -109,10 +108,11 @@ protected:
     struct Level
     {
         UInt offset; // element offset in storage_
-        UInt size;   // elements at this level (w*h*channels)
         int w, h;
         // optional: UInt pitch; // elements per row if you pad rows
     };
+
+    UInt total_size_;
 
     std::vector<Level> levels_;
 
@@ -126,7 +126,7 @@ protected:
         if (w == 0 || h == 0)
             return;
 
-        UInt running = 0;
+        total_size_ = 0;
         // build until 1x1 (inclusive)
         while (true)
         {
@@ -134,11 +134,10 @@ protected:
             Level L;
             L.w = w;
             L.h = h;
-            L.size = UInt(w) * UInt(h);
-            L.offset = running;
+            L.offset = total_size_;
 
             levels_.push_back(L);
-            running += L.size;
+            total_size_ += UInt(w) * UInt(h);
 
             if (w == 1 && h == 1)
                 break;
@@ -147,6 +146,6 @@ protected:
             h = std::max<UInt>(1, h >> 1);
         }
 
-        storage_ = BufferCPU<T>(running);
+        storage_ = BufferCPU<T>(total_size_);
     }
 };

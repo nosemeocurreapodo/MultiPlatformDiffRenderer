@@ -59,7 +59,7 @@ inline int GetLevelDim(int base_dim, int level)
 template <typename Texture1, typename Texture2>
 inline double RMSE(const Texture1 &tex1, const Texture2 &tex2, int lvl)
 {
-    assert(tex1.size(lvl) == tex2.size(lvl));
+    assert(tex1.width(lvl) == tex2.width(lvl) && tex1.height(lvl) == tex2.height(lvl));
 
     double total_error = 0.0;
     int valid_pixels = 0;
@@ -67,7 +67,7 @@ inline double RMSE(const Texture1 &tex1, const Texture2 &tex2, int lvl)
     auto tx1_map = tex1.MapRead(lvl);
     auto tx2_map = tex2.MapRead(lvl);
 
-    for (int i = 0; i < tex1.size(lvl); ++i)
+    for (int i = 0; i < tx1_map.size(); ++i)
     {
         auto val1 = tx1_map[i];
         auto val2 = tx2_map[i];
@@ -92,7 +92,7 @@ inline int CountValid(const Texture &tex, int lvl)
     int valid_pixels = 0;
     auto tx_map = tex.MapRead(lvl);
 
-    for (int i = 0; i < tex.size(lvl); ++i)
+    for (int i = 0; i < tx_map.size(); ++i)
     {
         auto val = tx_map[i];
         if (val == tex.nodata())

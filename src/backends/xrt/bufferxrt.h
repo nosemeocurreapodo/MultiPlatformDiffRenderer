@@ -47,7 +47,10 @@ public:
     BufferXRT(const BufferXRT &other) : BufferXRT(other.size_)
     {
         if (size_)
+        {
             std::copy_n(other.bo_map_, size_, bo_map_);
+            bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        }
     }
 
     BufferXRT &operator=(const BufferXRT &other)
@@ -55,7 +58,7 @@ public:
         if (this != &other)
         {
             BufferXRT tmp(other);
-            swap(tmp);
+            // swap(tmp);
         }
         return *this;
     }
@@ -72,6 +75,7 @@ public:
     // -------- cross-backend style API --------
     [[nodiscard]] MappedView<const T, NoopReleaser> MapRead() const & noexcept
     {
+        bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         return MappedView<const T, NoopReleaser>(bo_map_, size_);
     }
     [[nodiscard]] MappedView<T, NoopReleaser> MapWrite() & noexcept
@@ -79,8 +83,8 @@ public:
         return MappedView<T, NoopReleaser>(bo_map_, size_);
     }
     // forbid mapping temporaries (view would dangle)
-    MappedView<const T> MapRead() const && = delete;
-    MappedView<T> MapWrite() && = delete;
+    // MappedView<const T> MapRead() const && = delete;
+    // MappedView<T> MapWrite() && = delete;
 
     // private:
     //     template <class T2>
@@ -92,10 +96,10 @@ public:
         std::swap(size_, o.size_);
     }
 
-    T *data() noexcept { return bo_map_; }
-    const T *data() const noexcept { return bo_map_; }
+    // T *data() noexcept { return bo_map_; }
+    // const T *data() const noexcept { return bo_map_; }
 
-    xrt::bo bo_;
+    mutable xrt::bo bo_;
     T *bo_map_;
     std::size_t size_ = 0;
 };

@@ -68,23 +68,25 @@ public:
     [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.size);
+        auto m = storage_.MapRead();
+        return MappedView<const T, NoopReleaser>(m.data() + L.offset, L.size);
     }
 
     [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.size);
+        auto m = storage_.MapWrite();
+        return MappedView<T, NoopReleaser>(m.data() + L.offset, L.size);
     }
 
-//private:
-//    friend class DepthRendererXRT;
-//    friend class ImageRendererXRT;
-//    friend class ResidualRendererXRT;
-//    friend class L2RendererXRT;
-//    friend class DIDxyRendererXRT;
-//    friend class JPoseRendererXRT;
-//    friend class JMapRendererXRT;
+    // private:
+    //     friend class DepthRendererXRT;
+    //     friend class ImageRendererXRT;
+    //     friend class ResidualRendererXRT;
+    //     friend class L2RendererXRT;
+    //     friend class DIDxyRendererXRT;
+    //     friend class JPoseRendererXRT;
+    //     friend class JMapRendererXRT;
 
     struct Level
     {

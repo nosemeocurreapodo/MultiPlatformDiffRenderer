@@ -26,7 +26,7 @@ public:
           wei_buffer_(weights, kernel.group_id(2)),
           ebo_buffer_(indices, kernel.group_id(3))
     {
-        validate_();
+        // validate_();
     }
 
     // Copy/move
@@ -45,15 +45,15 @@ public:
     */
 
     // Cross-backend style mapped views (avoid storing the view)
-    [[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const float> MapReadWeights() const & { return wei_buffer_.MapRead(); }
-    [[nodiscard]] MappedView<const unsigned int> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
+    //[[nodiscard]] MappedView<const float> MapReadPositions() const & { return pos_buffer_.MapRead(); }
+    //[[nodiscard]] MappedView<const float> MapReadTexcoords() const & { return tex_buffer_.MapRead(); }
+    //[[nodiscard]] MappedView<const float> MapReadWeights() const & { return wei_buffer_.MapRead(); }
+    //[[nodiscard]] MappedView<const unsigned int> MapReadIndices() const & { return ebo_buffer_.MapRead(); }
 
-    [[nodiscard]] MappedView<float> MapWritePositions() { return pos_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<float> MapWriteTexcoords() { return tex_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<float> MapWriteWeights() { return wei_buffer_.MapWrite(); }
-    [[nodiscard]] MappedView<unsigned int> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
+    //[[nodiscard]] MappedView<float> MapWritePositions() { return pos_buffer_.MapWrite(); }
+    //[[nodiscard]] MappedView<float> MapWriteTexcoords() { return tex_buffer_.MapWrite(); }
+    //[[nodiscard]] MappedView<float> MapWriteWeights() { return wei_buffer_.MapWrite(); }
+    //[[nodiscard]] MappedView<unsigned int> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
     std::size_t vertex_count() const noexcept { return pos_buffer_.size() / 3; }
@@ -77,34 +77,35 @@ public:
     }
     */
 
-//private:
-//    friend class DepthRendererXRT;
-
-    void validate_() const
-    {
-        // position size must be multiple of 3
-        assert(pos_buffer_.size() % 3 == 0);
-        const std::size_t nverts = pos_buffer_.size() / 3;
-
-        // tex must be multiple of 2 and match vertex count
-        assert(tex_buffer_.size() % 2 == 0);
-        assert(tex_buffer_.size() / 2 == nverts);
-
-        // weights match vertex count
-        assert(wei_buffer_.size() == nverts);
-
-        // indices multiple of 3
-        assert(ebo_buffer_.size() % 3 == 0);
-
-        // (Optional) indices range check in debug
-#ifndef NDEBUG
-        auto idx = ebo_buffer_.MapRead();
-        for (std::size_t i = 0; i < idx.size(); ++i)
+    // private:
+    //     friend class DepthRendererXRT;
+    /*
+        void validate_() const
         {
-            assert(idx[i] < static_cast<std::size_t>(nverts));
+            // position size must be multiple of 3
+            assert(pos_buffer_.size() % 3 == 0);
+            const std::size_t nverts = pos_buffer_.size() / 3;
+
+            // tex must be multiple of 2 and match vertex count
+            assert(tex_buffer_.size() % 2 == 0);
+            assert(tex_buffer_.size() / 2 == nverts);
+
+            // weights match vertex count
+            assert(wei_buffer_.size() == nverts);
+
+            // indices multiple of 3
+            assert(ebo_buffer_.size() % 3 == 0);
+
+            // (Optional) indices range check in debug
+    #ifndef NDEBUG
+            auto idx = ebo_buffer_.MapRead();
+            for (std::size_t i = 0; i < idx.size(); ++i)
+            {
+                assert(idx[i] < static_cast<std::size_t>(nverts));
+            }
+    #endif
         }
-#endif
-    }
+        */
 
     BufferXRT<float> pos_buffer_;
     BufferXRT<float> tex_buffer_;

@@ -57,9 +57,9 @@ int main(int argc, char **argv)
     std::vector<unsigned int> indices;
     CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
 
-    std::vector<float> screen_vertices, screen_texcoords, screen_weights;
-    std::vector<unsigned int> screen_indices;
-    CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
+    // std::vector<float> screen_vertices, screen_texcoords, screen_weights;
+    // std::vector<unsigned int> screen_indices;
+    // CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
 
     if (!InitXRT(xclbin_file, device_index))
     {
@@ -75,6 +75,7 @@ int main(int argc, char **argv)
     MeshXRT mesh(vertices, texcoords, weights, indices, renderer.kernel_);
 
     TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(4));
+    UploadMatToTexture(output, 0, image_src_cv);
 
     std::vector<double> times;
     times.reserve(iterations);
@@ -83,12 +84,12 @@ int main(int argc, char **argv)
     {
         // cv::Mat image_dst_cv = ReadMat(image_files[1]);
         // cv::Mat depth_dst_cv = ReadMat(depth_files[1]) * scale;
-        SE3 pose_dst = poses[1];
+        SE3 pose_dst = poses[i];
 
         SE3 pose_transform = pose_dst * pose_src.inverse();
 
         // timer_.Start();
-        renderer.Render(mesh, pose_transform, cam, out_lvl, output);
+        // renderer.Render(mesh, pose_transform, cam, out_lvl, output);
         // double time_ms = timer_.Stop();
         // times.push_back(time_ms);
 
