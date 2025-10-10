@@ -10,7 +10,7 @@
 #include "backends/cpu/buffercpu.h"
 
 template <class T>
-class TextureCPU : public TextureBase<TextureCPU<T>, T>
+class TextureCPU
 {
 public:
     // using value_type = T;
@@ -63,6 +63,16 @@ public:
         std::fill(m.data(), m.data() + m.size(), v);
     }
 
+    void generate_mipmaps(int base_lvl)
+    {
+        // build lower levels
+        for (UInt lvl = base_lvl + 1; lvl < levels(); ++lvl)
+        {
+            // generate_mipmap_(lvl);
+            generate_mipmap<T, TextureCPU>(*this, lvl);
+        }
+    }
+
     [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
@@ -112,14 +122,6 @@ protected:
         // optional: UInt pitch; // elements per row if you pad rows
     };
 
-    UInt total_size_;
-
-    std::vector<Level> levels_;
-
-    BufferCPU<T> storage_;
-
-    T nodata_{};
-
     void build_pyramid_(UInt w, UInt h)
     {
         levels_.clear();
@@ -148,4 +150,9 @@ protected:
 
         storage_ = BufferCPU<T>(total_size_);
     }
+
+    UInt total_size_;
+    std::vector<Level> levels_;
+    BufferCPU<T> storage_;
+    T nodata_{};
 };

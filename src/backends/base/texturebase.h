@@ -166,68 +166,50 @@ Vec3 compute_didxy(const Tex &tex, Scalar y, Scalar x, UInt lvl)
     return out_fragment;
 }
 
-template <class Derived, class T>
-class TextureBase
+template <class T, class Tex>
+void generate_mipmap(Tex &tex, UInt lvl)
 {
-public:
-    TextureBase() = default;
+    const UInt sw = tex.width(lvl - 1);
+    const UInt sh = tex.height(lvl - 1);
+    const UInt dw = tex.width(lvl);
+    const UInt dh = tex.height(lvl);
 
-    // Rule of 5
-    TextureBase(const TextureBase &) = default;
-    TextureBase &operator=(const TextureBase &) = default;
-    TextureBase(TextureBase &&) noexcept = default;
-    TextureBase &operator=(TextureBase &&) noexcept = default;
-    ~TextureBase() = default;
+    // const auto s_idx = [&](UInt yy, UInt xx) -> T
+    //{
+    //     yy = min(yy, sh - 1);
+    //     xx = min(xx, sw - 1);
+    //     return derived_().texel_(yy, xx, lvl - 1);
+    // };
 
-    void generate_mipmaps(int base_lvl)
+    auto map_read = tex.MapRead(lvl - 1);
+    auto map_write = tex.MapWrite(lvl);
+
+    for (UInt y = 0; y < dh; ++y)
     {
-        // build lower levels
-        for (UInt lvl = base_lvl + 1; lvl < derived_().levels(); ++lvl)
+        for (UInt x = 0; x < dw; ++x)
         {
-            generate_mipmap_(lvl);
-        }
-    }
+            const UInt sx = x * 2;
+            const UInt sy = y * 2;
 
-protected:
-    void generate_mipmap_(UInt lvl)
-    {
-        const UInt sw = derived_().width(lvl - 1);
-        const UInt sh = derived_().height(lvl - 1);
-        const UInt dw = derived_().width(lvl);
-        const UInt dh = derived_().height(lvl);
+            // const T tl = s_idx(sy, sx);
+            // const T tr = s_idx(sy, sx + 1);
+            // const T bl = s_idx(sy + 1, sx);
+            // const T br = s_idx(sy + 1, sx + 1);
 
-        const auto s_idx = [&](UInt yy, UInt xx) -> T
-        {
-            yy = min(yy, sh - 1);
-            xx = min(xx, sw - 1);
-            return derived_().texel_(yy, xx, lvl - 1);
-        };
+            const T tl = map_read[sy * sw + sx];
+            const T tr = map_read[sy * sw + min(sx + 1, sw - 1)];
+            const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
+            const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
 
-        for (UInt y = 0; y < dh; ++y)
-        {
-            for (UInt x = 0; x < dw; ++x)
+            if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
             {
-                const UInt sx = x * 2;
-                const UInt sy = y * 2;
-
-                const T tl = s_idx(sy, sx);
-                const T tr = s_idx(sy, sx + 1);
-                const T bl = s_idx(sy + 1, sx);
-                const T br = s_idx(sy + 1, sx + 1);
-
-                if (derived_().nodata() == tl || derived_().nodata() == tr || derived_().nodata() == bl || derived_().nodata() == br)
-                {
-                    derived_().set_texel_(derived_().nodata(), y, x, lvl);
-                }
-                else
-                {
-                    T val = static_cast<T>((tl + tr + bl + br) * 0.25f);
-                    derived_().set_texel_(val, y, x, lvl);
-                }
+                map_write[y * dw + x] = tex.nodata();
+            }
+            else
+            {
+                T val = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                map_write[y * dw + x] = val;
             }
         }
     }
-
-    Derived &derived_() { return *static_cast<Derived *>(this); }
-    const Derived &derived_() const { return *static_cast<const Derived *>(this); }
-};
+}

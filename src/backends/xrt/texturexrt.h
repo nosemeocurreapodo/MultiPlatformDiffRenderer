@@ -65,6 +65,16 @@ public:
         std::fill(m.data(), m.data() + m.size(), v);
     }
 
+    void generate_mipmaps(int base_lvl)
+    {
+        // build lower levels
+        for (UInt lvl = base_lvl + 1; lvl < levels(); ++lvl)
+        {
+            // generate_mipmap_(lvl);
+            generate_mipmap<T, TextureXRT>(*this, lvl);
+        }
+    }
+
     [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
