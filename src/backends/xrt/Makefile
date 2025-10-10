@@ -9,15 +9,18 @@ ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 NAME = depthrendererhls
 TOP_NAME = DepthRenderHLS
 
-PLATFORM_NAME=kv260_custom
-VERSION ?=2024.2
+PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
+PLATFORM_NAME=kv260
+VERSION ?=2023.2
+
+COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/xilinx-zynqmp-common-v$(VERSION)/
 
 MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformRenderer
 HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformRenderer/HLSLinearAlgebra
 
-PLATFORM= /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/$(PLATFORM_NAME)/export/$(PLATFORM_NAME)/$(PLATFORM_NAME).xpfm
+PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
 #SW_COMP = $(ROOT_DIR)/../step2_pfm/sw_comp/
-SYSROOTDIR= /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/sysroot/sysroots/cortexa72-cortexa53-xilinx-linux
+SYSROOTDIR= $(COMMON_IMAGE_ZYNQMP)/sysroots/cortexa72-cortexa53-xilinx-linux
 #COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/sw/zynqmp/xilinx-zynqmp-common-v$(VERSION)/
 
 BUILD_PATH=$(ROOT_DIR)/build
@@ -112,9 +115,9 @@ create_json:
 $(PACKAGE_PATH): create_json
 	@echo "INFO: Packaging Completed"
 	mkdir -p $(PACKAGE_PATH)
-	cp /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/dtb/pl.dtbo $(PACKAGE_PATH)
+	cp $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/dtb/pl.dtbo $(PACKAGE_PATH)
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
-	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)
+	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
 	cp $(HOST_PATH)/$(NAME)_host $(PACKAGE_PATH)
 	cp -r $(MULTIPLATFORMRENDERER_PATH)/tests/data $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
