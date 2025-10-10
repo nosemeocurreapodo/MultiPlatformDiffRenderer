@@ -4,13 +4,24 @@
 #*/
 
 ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
-SRC_DIR=$(ROOT_DIR)
+# SRC_DIR=$(ROOT_DIR)
+
+NAME = depthrendererhls
+TOP_NAME = DepthRenderHLS
+
 
 PLATFORM_NAME=xilinx_u280_gen3x16_xdma_1_202211_1
+VERSION ?=2023.2
+
+
+
+MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformRenderer
+HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformRenderer/HLSLinearAlgebra
+
 PLATFORM=/opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/$(PLATFORM_NAME).xpfm
 
-#PLATFORM_NAME=xilinx_u280_xdma_201920_3
-#PLATFORM=/opt/xilinx/platforms/xilinx_u280_xdma_201920_3/$(PLATFORM_NAME).xpfm
+
+
 
 BUILD_PATH=$(ROOT_DIR)/build
 PLATFORM_INFO_PATH=$(BUILD_PATH)/platforminfo.txt
@@ -22,13 +33,11 @@ PACKAGE_PATH=$(BUILD_PATH)/package
 #PL_EXAMPLE_PATH = $(BUILD_PATH)/Vitis_Accel_Examples/cpp_kernels/simple_vadd/
 
 CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g # -std=c++17
+CXXFLAGS += -I$(HLSLINEARALGEBRA_PATH)/include
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/src
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/tests
 # CXXFLAGS += -fmessage-length=0
-CXXFLAGS += -I$(SRC_DIR)/../../../tests
-# CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
-CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/include
-CXXFLAGS += -I$(SRC_DIR)/../../
-# CXXFLAGS += -I/usr/include/eigen3
-# CXXFLAGS += -I$(SRC_DIR)/../../../thirdparty/Sophus
+
 
 LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 
@@ -77,18 +86,18 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k DepthRenderFPGA -o $(XO_PATH)/depthrendererfpga.xo $(SRC_DIR)/depthrendererfpga.cpp
+	cd $(XO_PATH) && v++ --jobs 6 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(SRC_DIR)/$(NAME).cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"
 	mkdir -p $(XCLBIN_PATH)
 #	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
-	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/depthrendererfpga.xclbin $(XO_PATH)/depthrendererfpga.xo
+	cd $(XCLBIN_PATH) && v++ --jobs 6 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
 
 $(HOST_PATH):
 	@echo "Making host"
 	mkdir -p $(HOST_PATH)
-	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/depthrendererfpga_host $(SRC_DIR)/depthrendererfpga_test_xrt.cpp $(LDFLAGS)
+	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/$(NAME)_host $(SRC_DIR)/$(NAME)_test_xrt.cpp $(LDFLAGS)
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:
@@ -105,14 +114,14 @@ $(PACKAGE_PATH): create_json
 	@echo "INFO: Packaging Completed"
 	mkdir -p $(PACKAGE_PATH)
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
-	cp $(XCLBIN_PATH)/depthrendererfpga.xclbin $(PACKAGE_PATH)
-	cp $(HOST_PATH)/depthrendererfpga_host $(PACKAGE_PATH)
+	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
+	cp $(HOST_PATH)/$(NAME)_host $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
 	@echo "then use xmutil to load hardware."
 	@echo "xmutil unloadapp"
 	@echo "xmutil loadapp vadd"
 	@echo "Go to /lib/firmware/xilinx/vadd directory and run application"
-	@echo "$ ./depthrendererfpga_host ./depthrendererfpga.xclbin"
+	@echo "$ ./$(NAME)_host ./$(NAME).bin"
 
 clean:
 	rm -rf build
