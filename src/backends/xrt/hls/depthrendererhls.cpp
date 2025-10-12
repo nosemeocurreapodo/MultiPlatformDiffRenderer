@@ -24,11 +24,11 @@ extern "C"
                         Scalar t_x, Scalar t_y, Scalar t_z,
                         Scalar fx, Scalar fy, Scalar cx, Scalar cy)
     {
-#pragma HLS INTERFACE m_axi port = pos_buffer_data bundle = gmem0
-#pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0
-#pragma HLS INTERFACE m_axi port = wei_buffer_data bundle = gmem0
-#pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0
-#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem0
+#pragma HLS INTERFACE mode = m_axi port = pos_buffer_data bundle = gmem0 depth = 412800
+#pragma HLS INTERFACE m_axi port = tex_buffer_data bundle = gmem0 depth = 412800
+#pragma HLS INTERFACE m_axi port = wei_buffer_data bundle = gmem0 depth = 412800
+#pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
+#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem0 depth = 412800
 
         SE3 pose(SO3(Quaternion(q_w, q_x, q_y, q_z)), Vec3(t_x, t_y, t_z));
         Camera cam(fx, fy, cx, cy);
@@ -43,7 +43,7 @@ extern "C"
         TextureRAM<Scalar> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererRAM renderer;
-        //DepthRendererBRAM renderer;
+        // DepthRendererBRAM renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
 }

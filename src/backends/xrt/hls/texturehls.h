@@ -10,21 +10,15 @@ public:
     TextureRAM() = default;
 
     TextureRAM(UInt w, UInt h, T nodata, T *base)
-        : nodata_(nodata),
-          storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
+        : nodata_(nodata)
     {
         build_pyramid_(w, h);
-    }
-
-    TextureRAM(UInt w, UInt h, T nodata)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)))
-    {
-        build_pyramid_(w, h);
+        storage_ = BufferRAM<T>(total_size_, base);
     }
 
     // Rule of 5
-    TextureRAM(const TextureRAM &) = default;
-    TextureRAM &operator=(const TextureRAM &) = default;
+    // TextureRAM(const TextureRAM &) = default;
+    // TextureRAM &operator=(const TextureRAM &) = default;
     // TextureRAM(TextureRAM &&) noexcept = default;
     // TextureRAM &operator=(TextureRAM &&) noexcept = default;
     ~TextureRAM() = default;
@@ -33,7 +27,7 @@ public:
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return n_levels_; }
-    UInt size(UInt lvl) const { return width(lvl) * height(lvl); }
+    UInt size() const { return total_size_; }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -41,7 +35,7 @@ public:
     void fill(UInt lvl, const T &v)
     {
     texturehls_fill_loop:
-        for (int i = 0; i < size(lvl); i++)
+        for (int i = 0; i < width(lvl) * height(lvl); i++)
         {
             storage_[levels_[lvl].offset + i] = v;
         }
@@ -64,55 +58,6 @@ public:
         storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
-    T bilinear2_(Scalar y, Scalar x, UInt lvl) const
-    {
-        const auto w = width(lvl);
-        const auto h = height(lvl);
-
-        const Scalar xf = floor(x);
-        const Scalar yf = floor(y);
-        const auto x0 = static_cast<UInt>(xf < 0.0f ? 0.0f : xf);
-        const auto y0 = static_cast<UInt>(yf < 0.0f ? 0.0f : yf);
-        const auto x1 = min(x0 + 1, w - 1);
-        const auto y1 = min(y0 + 1, h - 1);
-
-        const Scalar dx = x - static_cast<Scalar>(x0);
-        const Scalar dy = y - static_cast<Scalar>(y0);
-
-        /*
-        // auto m = MapRead(lvl); // one mapping, four reads
-        const auto idx = [&](UInt yy, UInt xx)
-        {
-            // return m[xx + yy * w];
-            //  return lvls_[lvl].buf[xx + yy * w];
-            return derived_().texel_(yy, xx, lvl);
-        };
-
-        const T tl = idx(y0, x0);
-        const T tr = idx(y0, x1);
-        const T bl = idx(y1, x0);
-        const T br = idx(y1, x1);
-        */
-
-        const T tl = texel_(y0, x0, lvl);
-        const T tr = texel_(y0, x1, lvl);
-        const T bl = texel_(y1, x0, lvl);
-        const T br = texel_(y1, x1, lvl);
-
-        if (nodata() == tl || nodata() == tr || nodata() == bl || nodata() == br)
-            return nodata();
-
-        // const Scalar w_tl = (1.0f - dx) * (1.0f - dy);
-        // const Scalar w_tr = (dx) * (1.0f - dy);
-        // const Scalar w_bl = (1.0f - dx) * (dy);
-        // const Scalar w_br = (dx) * (dy);
-        // return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
-
-        const T Cx0 = tl * (Scalar(1) - dx) + tr * dx;
-        const T Cx1 = bl * (Scalar(1) - dx) + br * dx;
-        return static_cast<T>(Cx0 * (Scalar(1) - dy) + Cx1 * dy);
-    }
-
 protected:
     template <class Mesh, template <class> class Texture>
     friend class DepthRendererBase;
@@ -129,24 +74,17 @@ protected:
     struct Level
     {
         UInt offset; // element offset in storage_
-        UInt size;   // elements at this level (w*h*channels)
+        // UInt size;   // elements at this level (w*h*channels)
         UInt w, h;
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
-
-    Level levels_[15];
-    UInt n_levels_;
-
-    BufferRAM<T> storage_;
-
-    T nodata_;
 
     void build_pyramid_(UInt w, UInt h)
     {
         if (w == 0 || h == 0)
             return;
 
-        UInt running = 0;
+        total_size_ = 0;
         // build until 1x1 (inclusive)
         n_levels_ = 0;
     // while (true)
@@ -157,11 +95,11 @@ protected:
             Level L;
             L.w = w;
             L.h = h;
-            L.size = w * h;
-            L.offset = running;
+            // L.size = w * h;
+            L.offset = total_size_;
 
             levels_[n_levels_] = L;
-            running += L.size;
+            total_size_ += w * h;
             n_levels_++;
 
             if (w == 1 && h == 1)
@@ -171,6 +109,12 @@ protected:
             h = max<UInt>(1, h >> 1);
         }
     }
+
+    UInt total_size_;
+    Level levels_[15];
+    UInt n_levels_;
+    BufferRAM<T> storage_;
+    T nodata_;
 };
 
 template <class T>
@@ -183,31 +127,34 @@ public:
     // Default-construct an empty texture. Safe to assign later.
     TextureBRAM() = default;
 
-    TextureBRAM(UInt w, UInt h, T nodata, T *base)
-        : nodata_(nodata),
-          storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)), base)
+    TextureBRAM(UInt w, UInt h, T nodata)
+        : nodata_(nodata)
     {
         build_pyramid_(w, h);
+        storage_.size_ = total_size_;
     }
 
-    TextureBRAM(UInt w, UInt h, T nodata)
-        : nodata_(nodata), storage_(int(w * h * (1.0 + 1.0 / 4.0 + 1.0 / 8.0)))
+    TextureBRAM(UInt w, UInt h, T nodata, T *base)
+        : TextureBRAM(w, h, nodata)
     {
-        build_pyramid_(w, h);
+        for (int i = 0; i < w * h; i++)
+        {
+            storage_[i] = base[i];
+        }
     }
 
     // Rule of 5
-    TextureBRAM(const TextureBRAM &) = default;
-    TextureBRAM &operator=(const TextureBRAM &) = default;
-    TextureBRAM(TextureBRAM &&) noexcept = default;
-    TextureBRAM &operator=(TextureBRAM &&) noexcept = default;
+    // TextureBRAM(const TextureBRAM &) = default;
+    // TextureBRAM &operator=(const TextureBRAM &) = default;
+    // TextureBRAM(TextureBRAM &&) noexcept = default;
+    // TextureBRAM &operator=(TextureBRAM &&) noexcept = default;
     ~TextureBRAM() = default;
 
     // Introspection
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return n_levels_; }
-    UInt size(UInt lvl) const { return width(lvl) * height(lvl); }
+    UInt size() const { return total_size_; }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -215,7 +162,7 @@ public:
     void fill(UInt lvl, const T &v)
     {
     texturehls_fill_loop:
-        for (int i = 0; i < size(lvl); i++)
+        for (int i = 0; i < width(lvl) * height(lvl); i++)
         {
             storage_[levels_[lvl].offset + i] = v;
         }
@@ -254,24 +201,17 @@ protected:
     struct Level
     {
         UInt offset; // element offset in storage_
-        UInt size;   // elements at this level (w*h*channels)
+        // UInt size;   // elements at this level (w*h*channels)
         UInt w, h;
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
-
-    Level levels_[15];
-    UInt n_levels_;
-
-    BufferBRAM<T, int(max_x *max_y * (1.0 + 1.0 / 4.0 + 1.0 / 8.0))> storage_;
-
-    T nodata_;
 
     void build_pyramid_(UInt w, UInt h)
     {
         if (w == 0 || h == 0)
             return;
 
-        UInt running = 0;
+        total_size_ = 0;
         // build until 1x1 (inclusive)
         n_levels_ = 0;
     // while (true)
@@ -282,11 +222,11 @@ protected:
             Level L;
             L.w = w;
             L.h = h;
-            L.size = w * h;
-            L.offset = running;
+            // L.size = w * h;
+            L.offset = total_size_;
 
             levels_[n_levels_] = L;
-            running += L.size;
+            total_size_ += w * h;
             n_levels_++;
 
             if (w == 1 && h == 1)
@@ -296,4 +236,10 @@ protected:
             h = max<UInt>(1, h >> 1);
         }
     }
+
+    UInt total_size_;
+    Level levels_[15];
+    UInt n_levels_;
+    BufferBRAM<T, int(max_x *max_y * (1.0 + 1.0 / 4.0 + 1.0 / 8.0))> storage_;
+    T nodata_;
 };

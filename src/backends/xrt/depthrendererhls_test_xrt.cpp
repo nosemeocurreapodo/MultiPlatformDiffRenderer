@@ -67,21 +67,27 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    std::cout << "Initializing xrt backend ok" << std::endl;
+
     const int iterations = 10;
-    const int out_lvl = 3;
+    const int out_lvl = 0;
 
-    DepthRendererXRT renderer;
+    // DepthRendererXRT renderer;
+    TestRendererXRT renderer;
 
-    MeshXRT mesh(vertices, texcoords, weights, indices, renderer.kernel_);
+    MeshXRT mesh(vertices, texcoords, weights, indices,
+                 renderer.kernel_.group_id(0), renderer.kernel_.group_id(0), renderer.kernel_.group_id(0), renderer.kernel_.group_id(0));
 
-    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(4));
-    UploadMatToTexture(output, 0, image_src_cv);
+    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(0));
+    // UploadMatToTexture(output, 0, image_src_cv);
 
     std::vector<double> times;
     times.reserve(iterations);
 
     for (int i = 1; i < iterations; ++i)
     {
+        std::cout << "Iteration " << i << std::endl;
+
         // cv::Mat image_dst_cv = ReadMat(image_files[1]);
         // cv::Mat depth_dst_cv = ReadMat(depth_files[1]) * scale;
         SE3 pose_dst = poses[i];

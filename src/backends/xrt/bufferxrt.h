@@ -19,37 +19,39 @@ public:
 
     BufferXRT() = default;
 
-    explicit BufferXRT(std::size_t n, int group_id)
+    BufferXRT(std::size_t n, int group_id)
     {
         if (n > 0)
         {
             bo_ = xrt::bo(device_xrt, n * sizeof(T), group_id);
+            group_id_ = group_id;
             bo_map_ = bo_.map<T *>();
             size_ = n;
         }
     }
 
-    BufferXRT(std::size_t n, const T *src, int group_id)
+    BufferXRT(std::size_t n, const T *src, int group_id) : BufferXRT(n, group_id)
     {
         if (n > 0)
         {
-            bo_ = xrt::bo(device_xrt, n * sizeof(T), group_id);
-            bo_map_ = bo_.map<T *>();
-            size_ = n;
-            std::copy_n(src, size_, bo_map_);
-            bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+            // std::copy_n(src, size_, bo_map_);
+            std::memcpy(bo_map_, src, sizeof(T) * size_);
+
+            // bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         }
     }
 
-    explicit BufferXRT(const std::vector<T> &v, int group_id) : BufferXRT(v.size(), v.data(), group_id) {}
+    BufferXRT(const std::vector<T> &v, int group_id) : BufferXRT(v.size(), v.data(), group_id) {}
 
     // Copy (deep) via copy-and-swap
-    BufferXRT(const BufferXRT &other) : BufferXRT(other.size_)
+    BufferXRT(const BufferXRT &other) : BufferXRT(other.size_, other.group_id_)
     {
         if (size_)
         {
-            std::copy_n(other.bo_map_, size_, bo_map_);
-            bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+            // std::copy_n(other.bo_map_, size_, bo_map_);
+            std::memcpy(bo_map_, other.bo_map_, sizeof(T) * size_);
+
+            // bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         }
     }
 
@@ -57,28 +59,39 @@ public:
     {
         if (this != &other)
         {
-            BufferXRT tmp(other);
-            // swap(tmp);
+            // BufferXRT tmp(other);
+            //  swap(tmp);
+
+            bo_ = xrt::bo(device_xrt, other.size_ * sizeof(T), other.group_id_);
+            group_id_ = other.group_id_;
+            bo_map_ = bo_.map<T *>();
+            size_ = other.size_;
+
+            if (size_)
+            {
+                // std::copy_n(other.bo_map_, size_, bo_map_);
+                std::memcpy(bo_map_, other.bo_map_, sizeof(T) * size_);
+                // bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+            }
         }
         return *this;
     }
 
     // Move (nothrow)
-    BufferXRT(BufferXRT &&) noexcept = default;
-    BufferXRT &operator=(BufferXRT &&) noexcept = default;
+    // BufferXRT(BufferXRT &&) noexcept = default;
+    // BufferXRT &operator=(BufferXRT &&) noexcept = default;
 
     ~BufferXRT() = default;
 
     // -------- capacity / info --------
-    std::size_t size() const noexcept { return size_; }
+    std::size_t size() const { return size_; }
 
     // -------- cross-backend style API --------
-    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead() const & noexcept
+    MappedView<const T, NoopReleaser> MapRead() const
     {
-        bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         return MappedView<const T, NoopReleaser>(bo_map_, size_);
     }
-    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite() & noexcept
+    MappedView<T, NoopReleaser> MapWrite()
     {
         return MappedView<T, NoopReleaser>(bo_map_, size_);
     }
@@ -90,16 +103,17 @@ public:
     //     template <class T2>
     //     friend class TextureXRT;
 
-    void swap(BufferXRT &o) noexcept
-    {
-        std::swap(bo_map_, o.bo_map_);
-        std::swap(size_, o.size_);
-    }
+    // void swap(BufferXRT &o) noexcept
+    //{
+    //     std::swap(bo_map_, o.bo_map_);
+    //     std::swap(size_, o.size_);
+    // }
 
     // T *data() noexcept { return bo_map_; }
     // const T *data() const noexcept { return bo_map_; }
 
-    mutable xrt::bo bo_;
+    xrt::bo bo_;
+    int group_id_;
     T *bo_map_;
     std::size_t size_ = 0;
 };

@@ -20,20 +20,20 @@ public:
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &weights,   // 1 float  per vertex
             const std::vector<unsigned int> &indices,
-            xrt::kernel &kernel)
-        : pos_buffer_(positions, kernel.group_id(0)),
-          tex_buffer_(texcoords, kernel.group_id(1)),
-          wei_buffer_(weights, kernel.group_id(2)),
-          ebo_buffer_(indices, kernel.group_id(3))
+            int pos_group_id, int tex_group_id, int wei_group_id, int ebo_group_id)
+        : pos_buffer_(positions, pos_group_id),
+          tex_buffer_(texcoords, tex_group_id),
+          wei_buffer_(weights, wei_group_id),
+          ebo_buffer_(indices, ebo_group_id)
     {
         // validate_();
     }
 
     // Copy/move
-    MeshXRT(const MeshXRT &) = default;
-    MeshXRT &operator=(const MeshXRT &) = default;
-    MeshXRT(MeshXRT &&) noexcept = default;
-    MeshXRT &operator=(MeshXRT &&) noexcept = default;
+    // MeshXRT(const MeshXRT &) = default;
+    // MeshXRT &operator=(const MeshXRT &) = default;
+    // MeshXRT(MeshXRT &&) noexcept = default;
+    // MeshXRT &operator=(MeshXRT &&) noexcept = default;
     ~MeshXRT() = default;
 
     /*

@@ -26,10 +26,10 @@ public:
     }
 
     // Copy/move
-    MeshHLS(const MeshHLS &) = default;
-    MeshHLS &operator=(const MeshHLS &) = default;
-    MeshHLS(MeshHLS &&) noexcept = default;
-    MeshHLS &operator=(MeshHLS &&) noexcept = default;
+    // MeshHLS(const MeshHLS &) = default;
+    // MeshHLS &operator=(const MeshHLS &) = default;
+    // MeshHLS(MeshHLS &&) noexcept = default;
+    // MeshHLS &operator=(MeshHLS &&) noexcept = default;
     ~MeshHLS() = default;
 
     // Info

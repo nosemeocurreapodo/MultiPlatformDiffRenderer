@@ -16,18 +16,13 @@ public:
         size_ = n;
     }
 
-    BufferBRAM(UInt n, const T *src)
+    BufferBRAM(UInt n, const T *src) : BufferBRAM(n)
     {
-#ifndef USE_VITIS
-        assert(n < max_size);
-#endif
-
     bufferhls_copy_data_loop:
         for (int i = 0; i < n; i++)
         {
             data_[i] = src[i];
         }
-        size_ = n;
     }
 
     ~BufferBRAM() = default;

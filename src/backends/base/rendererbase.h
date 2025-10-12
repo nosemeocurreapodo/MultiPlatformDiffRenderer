@@ -334,6 +334,7 @@ public:
                        Vec4 &gl_Position,
                        Varyings &outVarying)
     {
+        // std::cout << "calling vertex shader " << std::endl;
         gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.depth = inVertex(2);
     }
@@ -342,6 +343,7 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        // std::cout << "calling fragment shader " << std::endl;
         textures.out_texture.set_texel_(in_varying.depth, Int(gl_FragCoord(1)), Int(gl_FragCoord(0)), out_lvl_);
     }
 
