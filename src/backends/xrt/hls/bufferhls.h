@@ -68,12 +68,6 @@ public:
         size_ = n;
     }
 
-    BufferRAM(unsigned int n, const T *src)
-    {
-        data_ = src;
-        size_ = n;
-    }
-
     ~BufferRAM() = default;
 
     // -------- capacity / info --------

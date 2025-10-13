@@ -76,7 +76,7 @@ template <typename T>
 inline T ceil(T a)
 {
     // return std::ceil(a);
-    return T(int(a + (a == Int(a) ? 0 : 1)));
+    return T(int(a + (a == int(a) ? 0 : 1)));
     // return static_cast<T>(static_cast<long>(a) + (a > 0 && a != static_cast<long>(a)));
 }
 

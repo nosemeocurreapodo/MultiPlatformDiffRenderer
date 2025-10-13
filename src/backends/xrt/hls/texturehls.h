@@ -59,17 +59,17 @@ public:
     }
 
 protected:
-    //template <class Mesh, template <class> class Texture>
-    //friend class DepthRendererBase;
-    //template <class Mesh, template <class> class Texture>
-    //friend class ImageRendererBase;
-    // friend class DepthRendererCPU;
-    // friend class ImageRendererCPU;
-    // friend class ResidualRendererCPU;
-    // friend class L2RendererCPU;
-    // friend class DIDxyRendererCPU;
-    // friend class JPoseRendererCPU;
-    // friend class JMapRendererCPU;
+    // template <class Mesh, template <class> class Texture>
+    // friend class DepthRendererBase;
+    // template <class Mesh, template <class> class Texture>
+    // friend class ImageRendererBase;
+    //  friend class DepthRendererCPU;
+    //  friend class ImageRendererCPU;
+    //  friend class ResidualRendererCPU;
+    //  friend class L2RendererCPU;
+    //  friend class DIDxyRendererCPU;
+    //  friend class JPoseRendererCPU;
+    //  friend class JMapRendererCPU;
 
     struct Level
     {
@@ -186,17 +186,17 @@ public:
     }
 
 protected:
-    //template <class Mesh, template <class> class Texture>
-    //friend class DepthRendererBase;
-    //template <class Mesh, template <class> class Texture>
-    //friend class ImageRendererBase;
-    // friend class DepthRendererCPU;
-    // friend class ImageRendererCPU;
-    // friend class ResidualRendererCPU;
-    // friend class L2RendererCPU;
-    // friend class DIDxyRendererCPU;
-    // friend class JPoseRendererCPU;
-    // friend class JMapRendererCPU;
+    // template <class Mesh, template <class> class Texture>
+    // friend class DepthRendererBase;
+    // template <class Mesh, template <class> class Texture>
+    // friend class ImageRendererBase;
+    //  friend class DepthRendererCPU;
+    //  friend class ImageRendererCPU;
+    //  friend class ResidualRendererCPU;
+    //  friend class L2RendererCPU;
+    //  friend class DIDxyRendererCPU;
+    //  friend class JPoseRendererCPU;
+    //  friend class JMapRendererCPU;
 
     struct Level
     {

@@ -14,7 +14,7 @@ extern "C"
                         const float *tex_buffer_data,
                         const float *wei_buffer_data,
                         const unsigned int *ebo_buffer_data,
-                        const float *in_texture_data,
+                        float *in_texture_data,
                         float *out_texture_data,
                         unsigned int pos_buffer_size,
                         unsigned int tex_buffer_size,
@@ -74,7 +74,9 @@ int main()
 
     unsigned int lvl = 3;
 
-    auto image_in_map = image_src_cpu.MapRead(0);
+    // Avoid using a const pointer, it does not work so well with TextureRAM (for now at least)
+    // auto image_in_map = image_src_cpu.MapRead(0);
+    auto image_in_map = image_src_cpu.MapWrite(0);
 
     TextureCPU<float> image_out_cpu(w, h, -1.0f);
     auto image_out_map = image_out_cpu.MapWrite(0);

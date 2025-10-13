@@ -61,7 +61,7 @@ extern "C"
                                ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureRAM<DepthType> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererRAM renderer;
         // DepthRendererBRAM renderer;
@@ -72,7 +72,7 @@ extern "C"
                         const float *tex_buffer_data,
                         const float *wei_buffer_data,
                         const unsigned int *ebo_buffer_data,
-                        const float *in_texture_data,
+                        float *in_texture_data,
                         float *out_texture_data,
                         unsigned int pos_buffer_size,
                         unsigned int tex_buffer_size,
@@ -110,7 +110,7 @@ extern "C"
         TextureRAM<float> in_texture(in_texture_width, in_texture_height, in_nodata_value, in_texture_data);
         TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
-        ImageRendererBRAM renderer;
+        ImageRendererRAM renderer;
         renderer.Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }
 
@@ -161,10 +161,10 @@ extern "C"
         linalg::SE3<MathType> pose(linalg::SO3<MathType>(linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)), linalg::Vec3<MathType>(t_x, t_y, t_z));
         Camera<MathType> cam(fx, fy, cx, cy);
 
-        MeshHLS mesh(pos_buffer_data, pos_buffer_size,
-                     tex_buffer_data, tex_buffer_size,
-                     wei_buffer_data, wei_buffer_size,
-                     ebo_buffer_data, ebo_buffer_size);
+        MeshHLS<MeshType> mesh(pos_buffer_data, pos_buffer_size,
+                               tex_buffer_data, tex_buffer_size,
+                               wei_buffer_data, wei_buffer_size,
+                               ebo_buffer_data, ebo_buffer_size);
 
         TextureRAM<float> f_texture(f_texture_width, f_texture_height, f_nodata_value, f_texture_data);
         TextureRAM<float> image_texture(out_texture_width, out_texture_height, jtra_nodata_value, image_texture_data);

@@ -13,7 +13,11 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/meshhls.h"
 
-using MathType = float;
+#include "hls_math.h"
+#include "ap_int.h"
+#include "ap_fixed.h"
+
+using MathType = half; // ap_fixed<32, 16>;
 using MeshType = float;
 using DepthType = float;
 using ImageType = float;
@@ -32,7 +36,7 @@ public:
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int out_lvl,
-                TextureRAM<DepthType> &out_texture)
+                TextureRAM<float> &out_texture)
     {
         DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
     }
@@ -51,7 +55,7 @@ public:
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int out_lvl,
-                TextureRAM<DepthType> &out_texture)
+                TextureRAM<float> &out_texture)
     {
         out_lvl_ = out_lvl;
 
@@ -274,7 +278,7 @@ public:
                 unsigned int in_lvl,
                 unsigned int out_lvl,
                 const TextureRAM<ImageType> &in_texture,
-                TextureRAM<lingalg::Vec3<DType>> &out_texture)
+                TextureRAM<linalg::Vec3<DType>> &out_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -300,9 +304,9 @@ public:
                 unsigned int out_lvl,
                 const TextureRAM<ImageType> &kf_texture,
                 const TextureRAM<ImageType> &f_texture,
-                const TextureRAM<DType> &dfdxy_texture,
-                TextureRAM<DType> &jtra_texture,
-                TextureRAM<DType> &jrot_texture,
+                const TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
+                TextureRAM<linalg::Vec3<DType>> &jtra_texture,
+                TextureRAM<linalg::Vec3<DType>> &jrot_texture,
                 TextureRAM<ErrorType> &r_texture)
     {
 

@@ -124,7 +124,7 @@ protected:
             typename Derived::Varyings varyings;
             derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid[i], gl_Position, varyings);
 
-            const MathType invW = 1.0f / gl_Position(3);
+            const MathType invW = MathType(1) / gl_Position(3);
             const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
             const MathType ndc_y = gl_Position(1) * invW;
             const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
@@ -167,15 +167,15 @@ protected:
         // ErrorHandling::ValidateTriangleArea(area2);
         // ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
-        const MathType inv_area = 1.0f / area;
+        const MathType inv_area = MathType(1) / area;
 
         const bool tlAB = is_top_left(xA, yA, xB, yB);
         const bool tlBC = is_top_left(xB, yB, xC, yC);
         const bool tlCA = is_top_left(xC, yC, xA, yA);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        const MathType px0 = static_cast<MathType>(x0) + RenderConstants::PIXEL_CENTER_OFFSET;
-        const MathType py0 = static_cast<MathType>(y0) + RenderConstants::PIXEL_CENTER_OFFSET;
+        const MathType px0 = static_cast<MathType>(x0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        const MathType py0 = static_cast<MathType>(y0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
 
         MathType eAB_row = edge_func(xA, yA, xB, yB, px0, py0);
         MathType eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
@@ -236,14 +236,14 @@ protected:
                     MathType depth_px = w0 * (vout[0].depth * vout[0].invW) +
                                         w1 * (vout[1].depth * vout[1].invW) +
                                         w2 * (vout[2].depth * vout[2].invW);
-                    depth_px *= (1.0f / invW_px);
+                    depth_px *= MathType(1) / invW_px;
                     // Depth test could go here
 
                     linalg::Vec4<MathType> gl_FragCoord;
-                    gl_FragCoord(0) = static_cast<MathType>(x) + RenderConstants::PIXEL_CENTER_OFFSET;
-                    gl_FragCoord(1) = static_cast<MathType>(y) + RenderConstants::PIXEL_CENTER_OFFSET;
+                    gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                    gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                     gl_FragCoord(2) = depth_px;
-                    gl_FragCoord(3) = 1.0f / invW_px;
+                    gl_FragCoord(3) = MathType(1) / invW_px;
 
                     derived_().fragment_shader(gl_FragCoord, varying_px, textures);
                 }
@@ -408,9 +408,9 @@ public:
         RendererBase<MathType, ImageRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -420,7 +420,7 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
 
@@ -429,7 +429,7 @@ public:
     // -------------------------------------------------------------------------
     void vertex_shader(const linalg::Vec3<MathType> &inVertex,
                        const linalg::Vec2<MathType> &inTexCoord,
-                       const float &inWeight,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
@@ -455,8 +455,8 @@ public:
     }
 
     linalg::Mat4<MathType> t_matrix_;
-    int in_lvl_;
-    int out_lvl_;
+    unsigned int in_lvl_;
+    unsigned int out_lvl_;
     // const Texture<MathType> *in_texture_;
     // Texture<MathType> *out_texture_;
 };
@@ -1029,17 +1029,17 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver * invW0 +
              w1 * varying_px1.f_ver * invW1 +
              w2 * varying_px2.f_ver * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.kf_ray =
             (w0 * varying_px0.kf_ray * invW0 +
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         // var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0 * varying_px0.depth,
         //                                  w1 * invW1 * varying_px1.depth,
         //                                  w2 * invW2 * varying_px2.depth) *
@@ -1047,7 +1047,7 @@ public:
         var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0,
                                                            w1 * invW1,
                                                            w2 * invW2) *
-                                    (1.0f / invW_px);
+                                    (MathType(1) / invW_px);
         var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
@@ -1081,10 +1081,10 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        int width = textures.jmap_texture.width(out_lvl_);
-        int height = textures.jmap_texture.height(out_lvl_);
+        unsigned int width = textures.jmap_texture.width(out_lvl_);
+        unsigned int height = textures.jmap_texture.height(out_lvl_);
 
-        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
@@ -1105,22 +1105,24 @@ public:
 
         linalg::Vec3<MathType> d_f_i_d_f_ver;
 
-        d_f_i_d_f_ver(0) = f_der(0) * fx_ * width / f_ver(2);
-        d_f_i_d_f_ver(1) = f_der(1) * fy_ * height / f_ver(2);
+        d_f_i_d_f_ver(0) = MathType(f_der(0)) * fx_ * width / f_ver(2);
+        d_f_i_d_f_ver(1) = MathType(f_der(1)) * fy_ * height / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
         // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
         // linalg::Vec3<MathType>d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
         linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        MathType d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
+        MathType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
 
         linalg::Vec3<MathType> d_depth_d_vert_depth = barycentric;
 
-        linalg::Vec3<DType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
         linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
 
-        textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> jac_(DType(jac(0)), DType(jac(1)), DType(jac(2)));
+
+        textures.jmap_texture.set_texel_(jac_, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
@@ -1224,17 +1226,17 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver * invW0 +
              w1 * varying_px1.f_ver * invW1 +
              w2 * varying_px2.f_ver * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.kf_ray =
             (w0 * varying_px0.kf_ray * invW0 +
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0,
                                                            w1 * invW1,
                                                            w2 * invW2) *
@@ -1304,18 +1306,20 @@ public:
         linalg::Vec3<MathType> d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
         linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        MathType d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
+        MathType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
 
         linalg::Vec3<MathType> d_depth_d_vert_depth = barycentric;
 
         linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        linalg::Vec3<MathType> ids = linalg::Vec3<float>(vertexid(0), vertexid(1), vertexid(2));
+        linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
+
+        linalg::Vec3<DType> jac_(DType(jac(0)), DType(jac(1)), DType(jac(2)));
 
         textures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jtra_texture.set_texel_(d_f_i_d_f_ver, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jmap_texture.set_texel_(jac_, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
