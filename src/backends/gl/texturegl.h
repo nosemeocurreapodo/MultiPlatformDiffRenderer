@@ -147,7 +147,7 @@ public:
 
     [[nodiscard]] MappedView<const T, GLPboUnmap> MapRead(int lvl) const
     {
-        const GLsizeiptr bytes = GLsizeiptr(size(lvl)) * GLsizeiptr(sizeof(T));
+        const GLsizeiptr bytes = GLsizeiptr(width(lvl) * height(lvl)) * GLsizeiptr(sizeof(T));
         GLuint pbo = 0;
         glGenBuffers(1, &pbo);
         glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
@@ -165,7 +165,7 @@ public:
             throw std::runtime_error("MapRead PBO failed");
         }
 
-        return {static_cast<const T *>(ptr), size(lvl), GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
+        return {static_cast<const T *>(ptr), width(lvl) * height(lvl), GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
     }
 
     [[nodiscard]] MappedView<T, GLPboUpload> MapWrite(int lvl)
@@ -202,14 +202,14 @@ public:
             throw std::runtime_error("MapWrite PBO failed");
         }
 
-        return {static_cast<T *>(ptr), size(lvl),
+        return {static_cast<T *>(ptr), width(lvl) * height(lvl),
                 GLPboUpload{tex_, GL_TEXTURE_2D, lvl, 0, 0, w, h, format_, T_, pbo}};
     }
 
     // Info
     std::size_t width(int lvl) const { return static_cast<std::size_t>(widths_[lvl]); }
     std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
-    std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
+    // std::size_t size(int lvl) const { return width(lvl) * height(lvl); }
     std::size_t levels() const { return static_cast<std::size_t>(widths_.size()); }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }

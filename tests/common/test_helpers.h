@@ -44,7 +44,8 @@ inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl, int cv_type)
     cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
     {
         auto mapped = tex.MapRead(lvl);
-        // std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
+        std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
+        /*
         for (int y = 0; y < tex.height(lvl); y++)
         {
             for (int x = 0; x < tex.width(lvl); x++)
@@ -53,6 +54,7 @@ inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl, int cv_type)
                 result.at<float>(y, x) = data;
             }
         }
+        */
     }
     return result;
 }

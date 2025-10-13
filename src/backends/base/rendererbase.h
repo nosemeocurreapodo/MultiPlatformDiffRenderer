@@ -62,6 +62,8 @@ public:
     renderbase_triangle_loop:
         for (std::size_t i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
+#pragma HLS loop_tripcount min = 6144 max = 6144 avg = 6144
+
             const UInt i0 = mesh.ebo_buffer_[i + 0];
             const UInt i1 = mesh.ebo_buffer_[i + 1];
             const UInt i2 = mesh.ebo_buffer_[i + 2];
@@ -191,6 +193,8 @@ protected:
     draw_triangle_raster_loop_y:
         for (Int y = y0; y < y1; ++y)
         {
+#pragma HLS loop_tripcount min = 10 max = 10 avg = 10
+
             Scalar eAB = eAB_row;
             Scalar eBC = eBC_row;
             Scalar eCA = eCA_row;
@@ -198,6 +202,8 @@ protected:
         draw_triangle_raster_loop_x:
             for (int x = x0; x < x1; ++x)
             {
+#pragma HLS loop_tripcount min = 10 max = 10 avg = 10
+
                 // Top-left rule adjustments (include pixels on top/left edges)
                 const bool inside =
                     (eAB > 0 || (eAB == 0 && tlAB)) &&

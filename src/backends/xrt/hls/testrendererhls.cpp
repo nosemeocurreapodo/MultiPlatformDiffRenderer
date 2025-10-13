@@ -19,13 +19,10 @@ extern "C"
         // data too large, has to be in ram
         TextureRAM<Scalar> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
         // out_texture.fill(out_lvl, out_texture.nodata());
-        //  for (int i = 0; i < out_texture_height * out_texture_width; i++)
-        //{
-        //      out_texture_data[i] = i + 100.0;
-        //   }
-        for (int y = 0; y < out_texture_height; y++)
+
+        for (int y = 0; y < out_texture.height(out_lvl); y++)
         {
-            for (int x = 0; x < out_texture_width; x++)
+            for (int x = 0; x < out_texture.width(out_lvl); x++)
             {
                 out_texture.set_texel_(x + 200.0, y, x, out_lvl);
             }

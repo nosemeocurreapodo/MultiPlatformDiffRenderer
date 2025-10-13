@@ -52,7 +52,7 @@ public:
         xrt::run run = kernel_(mesh.pos_buffer_.bo_, mesh.tex_buffer_.bo_, mesh.wei_buffer_.bo_, mesh.ebo_buffer_.bo_,
                                depth_texture.storage_.bo_,
                                mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
-                               depth_texture.width(out_lvl), depth_texture.height(out_lvl), depth_texture.nodata(), out_lvl,
+                               depth_texture.width(0), depth_texture.height(0), depth_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
                                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
@@ -83,7 +83,7 @@ public:
         // mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         // mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         xrt::run run = kernel_(depth_texture.storage_.bo_,
-                               depth_texture.width(out_lvl), depth_texture.height(out_lvl), depth_texture.nodata(), out_lvl);
+                               depth_texture.width(0), depth_texture.height(0), depth_texture.nodata(), out_lvl);
         run.wait();
         depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
     }

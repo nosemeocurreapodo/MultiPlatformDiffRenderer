@@ -27,7 +27,7 @@ public:
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return n_levels_; }
-    UInt size() const { return total_size_; }
+    // UInt size() const { return total_size_; }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 

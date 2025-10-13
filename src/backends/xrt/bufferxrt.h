@@ -109,8 +109,8 @@ public:
     //     std::swap(size_, o.size_);
     // }
 
-    // T *data() noexcept { return bo_map_; }
-    // const T *data() const noexcept { return bo_map_; }
+    T *data() { return bo_map_; }
+    const T *data() const { return bo_map_; }
 
     xrt::bo bo_;
     int group_id_;

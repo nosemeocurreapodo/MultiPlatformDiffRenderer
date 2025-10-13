@@ -49,7 +49,7 @@ public:
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
     std::size_t levels() const { return levels_.size(); }
-    std::size_t size() const { return total_size_; }
+    // std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -76,15 +76,13 @@ public:
     MappedView<const T, NoopReleaser> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        auto m = storage_.MapRead();
-        return MappedView<const T, NoopReleaser>(m.data() + L.offset, L.w * L.h);
+        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
     MappedView<T, NoopReleaser> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        auto m = storage_.MapWrite();
-        return MappedView<T, NoopReleaser>(m.data() + L.offset, L.w * L.h);
+        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
     // private:
@@ -122,7 +120,7 @@ public:
             L.offset = total_size_;
 
             levels_.push_back(L);
-            total_size_ += L.w * L.h;
+            total_size_ += w * h;
 
             if (w == 1 && h == 1)
                 break;

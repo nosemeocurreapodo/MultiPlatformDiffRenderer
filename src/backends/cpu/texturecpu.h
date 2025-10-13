@@ -23,8 +23,8 @@ public:
     TextureCPU(UInt w, UInt h, T nodata)
         : nodata_(nodata)
     {
-
         build_pyramid_(w, h);
+        storage_ = BufferCPU<T>(total_size_);
         // Fill base and all levels with nodata
         // for (UInt lvl = 0; lvl < levels(); ++lvl)
         //    fill(lvl, nodata);
@@ -32,11 +32,8 @@ public:
 
     // Create and upload base level
     TextureCPU(UInt w, UInt h, T nodata, const T *base)
-        : nodata_(nodata)
+        : TextureCPU(w, h, nodata)
     {
-        build_pyramid_(w, h);
-        // write base
-
         auto m = MapWrite(0);
         std::copy_n(base, w * h, m.data());
     }
@@ -52,7 +49,7 @@ public:
     UInt width(UInt lvl) const { return levels_[lvl].w; }
     UInt height(UInt lvl) const { return levels_[lvl].h; }
     UInt levels() const { return levels_.size(); }
-    UInt size() const { return total_size_; }
+    // UInt size() const { return total_size_; }
     UInt type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
@@ -147,8 +144,6 @@ protected:
             w = std::max<UInt>(1, w >> 1);
             h = std::max<UInt>(1, h >> 1);
         }
-
-        storage_ = BufferCPU<T>(total_size_);
     }
 
     UInt total_size_;

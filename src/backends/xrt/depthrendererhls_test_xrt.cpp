@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     std::cout << "Initializing xrt backend ok" << std::endl;
 
     const int iterations = 10;
-    const int out_lvl = 0;
+    const int out_lvl = 1;
 
     // DepthRendererXRT renderer;
     TestRendererXRT renderer;
