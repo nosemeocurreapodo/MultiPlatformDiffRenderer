@@ -15,8 +15,8 @@ VERSION ?=2023.2
 
 COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/xilinx-zynqmp-common-v$(VERSION)/
 
-MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformRenderer
-HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformRenderer/HLSLinearAlgebra
+MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
+HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
 
 PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
 #SW_COMP = $(ROOT_DIR)/../step2_pfm/sw_comp/
