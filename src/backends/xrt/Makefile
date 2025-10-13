@@ -6,8 +6,10 @@
 ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 # SRC_DIR=$(ROOT_DIR)/src
 
-NAME = depthrendererhls
-TOP_NAME = DepthRenderHLS
+#NAME = depthrendererhls
+#TOP_NAME = DepthRenderHLS
+NAME = imagerendererhls
+TOP_NAME = ImageRenderHLS
 
 PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260

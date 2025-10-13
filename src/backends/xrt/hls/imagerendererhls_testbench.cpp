@@ -48,7 +48,7 @@ int main()
 
     SE3 pose = pose_dst * pose_src.inverse();
 
-    int lvl = 0;
+    int lvl = 1;
 
     auto image_in_map = image_src_cpu.MapRead(0);
 
