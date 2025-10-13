@@ -98,14 +98,14 @@ protected:
     // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
-    std::vector<SE3> poses_;
-    Camera cam_;
+    std::vector<linalg::SE3<float>> poses_;
+    Camera<float> cam_;
     int w_, h_;
     float depth_factor_;
 
     // Test frames
     // cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
-    // SE3 pose_src_, pose_dst_;
+    // linalg::SE3<float> pose_src_, pose_dst_;
 
     // Mesh data
     // std::vector<float> vertices_, texcoords_, weights_;
@@ -142,7 +142,7 @@ protected:
 
     cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
 
-    SE3 pose_src_, pose_dst_;
+    linalg::SE3<float> pose_src_, pose_dst_;
 
     std::vector<float> vertices_, texcoords_, weights_;
     std::vector<unsigned int> indices_;

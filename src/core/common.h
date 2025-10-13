@@ -1,21 +1,21 @@
 #pragma once
 
-#include "core/types.h"
+// #include "core/types.h"
 #include "core/camera.h"
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 
-inline std::vector<Vec2> UniformTexCoords(int width, int height)
+inline std::vector<linalg::Vec2<float>> UniformTexCoords(int width, int height)
 {
-    std::vector<Vec2> texcoords;
+    std::vector<linalg::Vec2<float>> texcoords;
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            Vec2 pix;
-            pix(0) = Scalar(x) / (width - 1);
-            pix(1) = Scalar(y) / (height - 1);
+            linalg::Vec2<float> pix;
+            pix(0) = float(x) / (width - 1);
+            pix(1) = float(y) / (height - 1);
 
             texcoords.push_back(pix);
         }
@@ -30,7 +30,7 @@ inline float RandomDepth(float min_depth, float max_depth)
     return depth;
 }
 
-inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
+inline float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
@@ -40,14 +40,14 @@ inline float VerticallySmoothDepth(Vec2 pix, float min_depth, float max_depth)
 inline void BuildTriangles(const std::vector<float> &tex_coords, std::vector<unsigned int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
-    std::vector<Vec2> tex_coords_2d;
+    std::vector<linalg::Vec2<float>> tex_coords_2d;
     for (size_t i = 0; i < tex_coords.size(); i += 2)
     {
-        tex_coords_2d.push_back(Vec2(tex_coords[i], tex_coords[i + 1]));
+        tex_coords_2d.push_back(linalg::Vec2<float>(tex_coords[i], tex_coords[i + 1]));
     }
     triangulator_.LoadPoints(tex_coords_2d);
     triangulator_.Triangulate();
-    std::vector<Vec3i> tris = triangulator_.GetTriangles();
+    std::vector<linalg::Vec3<int>> tris = triangulator_.GetTriangles();
     tris_f.clear();
     tris_f.reserve(tris.size() * 3);
     for (size_t i = 0; i < tris.size(); i++)
@@ -74,13 +74,13 @@ inline void CreateScreenQuad(std::vector<float> &pos,
 }
 
 inline void CreateMesh(const TextureCPU<float> &depth,
-                       Camera &cam, int grid_size,
+                       Camera<float> &cam, int grid_size,
                        std::vector<float> &vertices,
                        std::vector<float> &texcoords,
                        std::vector<float> &weights,
                        std::vector<unsigned int> &indices)
 {
-    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -94,7 +94,7 @@ inline void CreateMesh(const TextureCPU<float> &depth,
     int h = depth.height(0);
     auto depth_mm = depth.MapRead(0);
 
-    for (const Vec2 &uv : grid_uv)
+    for (const linalg::Vec2<float> &uv : grid_uv)
     {
         const float ix = uv(0) * (w - 1);
         const float iy = uv(1) * (h - 1);
@@ -105,8 +105,8 @@ inline void CreateMesh(const TextureCPU<float> &depth,
         if (depth <= 0.0f)
             continue;
 
-        const Vec3 ray = cam.PixToRay(uv);
-        const Vec3 vertex = ray * depth;
+        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        const linalg::Vec3<float> vertex = ray * depth;
 
         vertices.push_back(vertex(0));
         vertices.push_back(vertex(1));
@@ -120,13 +120,13 @@ inline void CreateMesh(const TextureCPU<float> &depth,
 }
 
 inline void CreateFlatMesh(float min_depth, float max_depth,
-                           Camera &cam, int grid_size,
+                           Camera<float> &cam, int grid_size,
                            std::vector<float> &vertices,
                            std::vector<float> &texcoords,
                            std::vector<float> &weights,
                            std::vector<unsigned int> &indices)
 {
-    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -136,15 +136,15 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
     texcoords.reserve(grid_uv.size() * 2);
     weights.reserve(grid_uv.size());
 
-    for (const Vec2 &uv : grid_uv)
+    for (const linalg::Vec2<float> &uv : grid_uv)
     {
         const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
 
-        const Vec3 ray = cam.PixToRay(uv);
-        const Vec3 vertex = ray * depth;
+        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        const linalg::Vec3<float> vertex = ray * depth;
 
         vertices.push_back(vertex(0));
         vertices.push_back(vertex(1));
@@ -158,13 +158,13 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
 }
 
 inline void CreateSphereMesh(float depth,
-                             Camera &cam, int grid_size,
+                             Camera<float> &cam, int grid_size,
                              std::vector<float> &vertices,
                              std::vector<float> &texcoords,
                              std::vector<float> &weights,
                              std::vector<unsigned int> &indices)
 {
-    std::vector<Vec2> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -174,14 +174,14 @@ inline void CreateSphereMesh(float depth,
     texcoords.reserve(grid_uv.size() * 2);
     weights.reserve(grid_uv.size());
 
-    for (const Vec2 &uv : grid_uv)
+    for (const linalg::Vec2<float> &uv : grid_uv)
     {
         if (depth <= 0.0f)
             continue;
 
-        Vec3 ray = cam.PixToRay(uv);
+        linalg::Vec3<float> ray = cam.PixToRay(uv);
         ray = ray / ray.norm();
-        const Vec3 vertex = ray * depth;
+        const linalg::Vec3<float> vertex = ray * depth;
 
         vertices.push_back(vertex(0));
         vertices.push_back(vertex(1));

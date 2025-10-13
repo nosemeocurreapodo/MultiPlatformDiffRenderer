@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/types.h"
+// #include "core/types.h"
 
 template <typename T, int max_size>
 class BufferBRAM
@@ -8,7 +8,7 @@ class BufferBRAM
 public:
     BufferBRAM() = default;
 
-    BufferBRAM(UInt n)
+    BufferBRAM(unsigned int n)
     {
 #ifndef USE_VITIS
         assert(n < max_size);
@@ -16,7 +16,7 @@ public:
         size_ = n;
     }
 
-    BufferBRAM(UInt n, const T *src) : BufferBRAM(n)
+    BufferBRAM(unsigned int n, const T *src) : BufferBRAM(n)
     {
     bufferhls_copy_data_loop:
         for (int i = 0; i < n; i++)
@@ -28,15 +28,15 @@ public:
     ~BufferBRAM() = default;
 
     // -------- capacity / info --------
-    UInt size() const noexcept { return size_; }
+    unsigned int size() const noexcept { return size_; }
 
 protected:
     template <class T2>
     friend class TextureBRAM;
-    template <class Derived>
+    template <class T2, class Derived>
     friend class RendererBase;
 
-    T &operator[](UInt i) noexcept
+    T &operator[](unsigned int i) noexcept
     {
 #ifndef USE_VITIS
         assert(i < size_);
@@ -44,7 +44,7 @@ protected:
         return data_[i];
     }
 
-    const T &operator[](UInt i) const noexcept
+    const T &operator[](unsigned int i) const noexcept
     {
 #ifndef USE_VITIS
         assert(i < size_);
@@ -53,7 +53,7 @@ protected:
     }
 
     T data_[max_size];
-    UInt size_;
+    unsigned int size_;
 };
 
 template <typename T>
@@ -62,7 +62,13 @@ class BufferRAM
 public:
     BufferRAM() = default;
 
-    BufferRAM(UInt n, T *src)
+    BufferRAM(unsigned int n, T *src)
+    {
+        data_ = src;
+        size_ = n;
+    }
+
+    BufferRAM(unsigned int n, const T *src)
     {
         data_ = src;
         size_ = n;
@@ -71,15 +77,15 @@ public:
     ~BufferRAM() = default;
 
     // -------- capacity / info --------
-    UInt size() const noexcept { return size_; }
+    unsigned int size() const noexcept { return size_; }
 
 protected:
     template <class T2>
     friend class TextureRAM;
-    template <class Derived>
+    template <class T2, class Derived>
     friend class RendererBase;
 
-    T &operator[](UInt i) noexcept
+    T &operator[](unsigned int i) noexcept
     {
 #ifndef USE_VITIS
         assert(i < size_);
@@ -87,7 +93,7 @@ protected:
         return data_[i];
     }
 
-    const T &operator[](UInt i) const noexcept
+    const T &operator[](unsigned int i) const noexcept
     {
 #ifndef USE_VITIS
         assert(i < size_);
@@ -96,5 +102,5 @@ protected:
     }
 
     T *data_;
-    UInt size_;
+    unsigned int size_;
 };

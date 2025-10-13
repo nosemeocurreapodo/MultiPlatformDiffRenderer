@@ -9,7 +9,7 @@ class TextureRAM
 public:
     TextureRAM() = default;
 
-    TextureRAM(UInt w, UInt h, T nodata, T *base)
+    TextureRAM(unsigned int w, unsigned int h, T nodata, T *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
@@ -24,15 +24,15 @@ public:
     ~TextureRAM() = default;
 
     // Introspection
-    UInt width(UInt lvl) const { return levels_[lvl].w; }
-    UInt height(UInt lvl) const { return levels_[lvl].h; }
-    UInt levels() const { return n_levels_; }
+    unsigned int width(unsigned int lvl) const { return levels_[lvl].w; }
+    unsigned int height(unsigned int lvl) const { return levels_[lvl].h; }
+    unsigned int levels() const { return n_levels_; }
     // UInt size() const { return total_size_; }
-    UInt type_size() const { return sizeof(T); };
+    unsigned int type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
-    void fill(UInt lvl, const T &v)
+    void fill(unsigned int lvl, const T &v)
     {
     texturehls_fill_loop:
         for (int i = 0; i < width(lvl) * height(lvl); i++)
@@ -42,7 +42,7 @@ public:
     }
 
     // Read/Write a single texel (bounds-checked in debug)
-    T texel_(UInt y, UInt x, UInt lvl) const
+    T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
@@ -50,7 +50,7 @@ public:
         return storage_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
-    void set_texel_(const T &v, UInt y, UInt x, UInt lvl)
+    void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
     {
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
@@ -59,10 +59,10 @@ public:
     }
 
 protected:
-    template <class Mesh, template <class> class Texture>
-    friend class DepthRendererBase;
-    template <class Mesh, template <class> class Texture>
-    friend class ImageRendererBase;
+    //template <class Mesh, template <class> class Texture>
+    //friend class DepthRendererBase;
+    //template <class Mesh, template <class> class Texture>
+    //friend class ImageRendererBase;
     // friend class DepthRendererCPU;
     // friend class ImageRendererCPU;
     // friend class ResidualRendererCPU;
@@ -73,13 +73,13 @@ protected:
 
     struct Level
     {
-        UInt offset; // element offset in storage_
+        unsigned int offset; // element offset in storage_
         // UInt size;   // elements at this level (w*h*channels)
-        UInt w, h;
+        unsigned int w, h;
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    void build_pyramid_(UInt w, UInt h)
+    void build_pyramid_(unsigned int w, unsigned int h)
     {
         if (w == 0 || h == 0)
             return;
@@ -105,14 +105,14 @@ protected:
             if (w == 1 && h == 1)
                 break;
 
-            w = max<UInt>(1, w >> 1);
-            h = max<UInt>(1, h >> 1);
+            w = max<unsigned int>(1, w >> 1);
+            h = max<unsigned int>(1, h >> 1);
         }
     }
 
-    UInt total_size_;
+    unsigned int total_size_;
     Level levels_[15];
-    UInt n_levels_;
+    unsigned int n_levels_;
     BufferRAM<T> storage_;
     T nodata_;
 };
@@ -127,14 +127,14 @@ public:
     // Default-construct an empty texture. Safe to assign later.
     TextureBRAM() = default;
 
-    TextureBRAM(UInt w, UInt h, T nodata)
+    TextureBRAM(unsigned int w, unsigned int h, T nodata)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
         storage_.size_ = total_size_;
     }
 
-    TextureBRAM(UInt w, UInt h, T nodata, T *base)
+    TextureBRAM(unsigned int w, unsigned int h, T nodata, T *base)
         : TextureBRAM(w, h, nodata)
     {
         for (int i = 0; i < w * h; i++)
@@ -151,15 +151,15 @@ public:
     ~TextureBRAM() = default;
 
     // Introspection
-    UInt width(UInt lvl) const { return levels_[lvl].w; }
-    UInt height(UInt lvl) const { return levels_[lvl].h; }
-    UInt levels() const { return n_levels_; }
-    UInt size() const { return total_size_; }
-    UInt type_size() const { return sizeof(T); };
+    unsigned int width(unsigned int lvl) const { return levels_[lvl].w; }
+    unsigned int height(unsigned int lvl) const { return levels_[lvl].h; }
+    unsigned int levels() const { return n_levels_; }
+    unsigned int size() const { return total_size_; }
+    unsigned int type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
-    void fill(UInt lvl, const T &v)
+    void fill(unsigned int lvl, const T &v)
     {
     texturehls_fill_loop:
         for (int i = 0; i < width(lvl) * height(lvl); i++)
@@ -169,7 +169,7 @@ public:
     }
 
     // Read/Write a single texel (bounds-checked in debug)
-    T texel_(UInt y, UInt x, UInt lvl) const
+    T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
@@ -177,7 +177,7 @@ public:
         return storage_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
-    void set_texel_(const T &v, UInt y, UInt x, UInt lvl)
+    void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
     {
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
@@ -186,10 +186,10 @@ public:
     }
 
 protected:
-    template <class Mesh, template <class> class Texture>
-    friend class DepthRendererBase;
-    template <class Mesh, template <class> class Texture>
-    friend class ImageRendererBase;
+    //template <class Mesh, template <class> class Texture>
+    //friend class DepthRendererBase;
+    //template <class Mesh, template <class> class Texture>
+    //friend class ImageRendererBase;
     // friend class DepthRendererCPU;
     // friend class ImageRendererCPU;
     // friend class ResidualRendererCPU;
@@ -200,13 +200,13 @@ protected:
 
     struct Level
     {
-        UInt offset; // element offset in storage_
+        unsigned int offset; // element offset in storage_
         // UInt size;   // elements at this level (w*h*channels)
-        UInt w, h;
+        unsigned int w, h;
         // optional: std::size_t pitch; // elements per row if you pad rows
     };
 
-    void build_pyramid_(UInt w, UInt h)
+    void build_pyramid_(unsigned int w, unsigned int h)
     {
         if (w == 0 || h == 0)
             return;
@@ -232,14 +232,14 @@ protected:
             if (w == 1 && h == 1)
                 break;
 
-            w = max<UInt>(1, w >> 1);
-            h = max<UInt>(1, h >> 1);
+            w = max<unsigned int>(1, w >> 1);
+            h = max<unsigned int>(1, h >> 1);
         }
     }
 
-    UInt total_size_;
+    unsigned int total_size_;
     Level levels_[15];
-    UInt n_levels_;
+    unsigned int n_levels_;
     BufferBRAM<T, int(max_x *max_y * (1.0 + 1.0 / 4.0 + 1.0 / 8.0))> storage_;
     T nodata_;
 };

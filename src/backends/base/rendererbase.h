@@ -3,26 +3,26 @@
 // #include <algorithm>
 // #include <cmath>
 // #include <cstdint>
-#include "core/types.h"
+#include "linalg/linalg.h"
 #include "core/render_constants.h"
 // #include "core/error_handling.h"
 
-template <typename Scalar, typename Vec2>
-inline Scalar cross(const Vec2 &a, const Vec2 &b) { return a(0) * b(1) - a(1) * b(0); }
+template <typename T>
+inline T cross(const linalg::Vec2<T> &a, const linalg::Vec2<T> &b) { return a(0) * b(1) - a(1) * b(0); }
 
-template <typename Scalar, typename Vec2>
-inline Scalar triangle_area(const Vec2 &p0, const Vec2 &p1, const Vec2 &p2) { return cross<Scalar, Vec2>(p1 - p0, p2 - p0); }
+template <typename T>
+inline T triangle_area(const linalg::Vec2<T> &p0, const linalg::Vec2<T> &p1, const linalg::Vec2<T> &p2) { return cross<T>(p1 - p0, p2 - p0); }
 
 // Edge function E_ab(p) = (yb-ya)*px + (xa-xb)*py + (xb*ya - xa*yb)
-template <typename Scalar>
-inline Scalar edge_func(Scalar ax, Scalar ay, Scalar bx, Scalar by, Scalar px, Scalar py)
+template <typename T>
+inline T edge_func(T ax, T ay, T bx, T by, T px, T py)
 {
     return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
 }
 
 // Top-left test: returns true if edge is a "top" or "left" edge
-template <typename Scalar>
-inline bool is_top_left(Scalar ax, Scalar ay, Scalar bx, Scalar by)
+template <typename T>
+inline bool is_top_left(T ax, T ay, T bx, T by)
 {
     return (ay == by) ? (bx < ax) : (ay < by);
 }
@@ -30,13 +30,13 @@ inline bool is_top_left(Scalar ax, Scalar ay, Scalar bx, Scalar by)
 // -----------------------------------------------------------------------------
 // RendererBase
 // -----------------------------------------------------------------------------
-template <class Derived>
+template <typename MathType, class Derived>
 class RendererBase
 {
 public:
     RendererBase()
     {
-        opencv2opengl_ = Mat4::Identity();
+        opencv2opengl_ = linalg::Mat4<MathType>::Identity();
         opencv2opengl_(2, 2) = -1.0; // flip Z like your original intent
     };
     // virtual ~RendererBase() = default;
@@ -44,7 +44,7 @@ public:
 
     template <typename Mesh, typename Textures>
     void Render(const Mesh &mesh,
-                const BoundingBox<Int> &viewport,
+                const BoundingBox<int> &viewport,
                 Textures &textures)
     {
     // ---- Map mesh buffers (no copies) ----
@@ -60,18 +60,18 @@ public:
 
     // Loop over triangles
     renderbase_triangle_loop:
-        for (std::size_t i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
 #pragma HLS loop_tripcount min = 6144 max = 6144 avg = 6144
 
-            const UInt i0 = mesh.ebo_buffer_[i + 0];
-            const UInt i1 = mesh.ebo_buffer_[i + 1];
-            const UInt i2 = mesh.ebo_buffer_[i + 2];
+            const unsigned int i0 = mesh.ebo_buffer_[i + 0];
+            const unsigned int i1 = mesh.ebo_buffer_[i + 1];
+            const unsigned int i2 = mesh.ebo_buffer_[i + 2];
 
-            Vec3 v[3];
-            Vec2 uv[3];
-            Scalar wght[3];
-            UInt id[3];
+            linalg::Vec3<MathType> v[3];
+            linalg::Vec2<MathType> uv[3];
+            MathType wght[3];
+            unsigned int id[3];
 
             id[0] = i0;
             id[1] = i1;
@@ -80,8 +80,8 @@ public:
         renderbase_gather_loop:
             for (int k = 0; k < 3; ++k)
             {
-                UInt vi = (k == 0 ? i0 : k == 1 ? i1
-                                                : i2);
+                unsigned int vi = (k == 0 ? i0 : k == 1 ? i1
+                                                        : i2);
                 v[k](0) = mesh.pos_buffer_[vi * 3 + 0];
                 v[k](1) = mesh.pos_buffer_[vi * 3 + 1];
                 v[k](2) = mesh.pos_buffer_[vi * 3 + 2];
@@ -97,107 +97,107 @@ public:
 protected:
     // Triangle rasterizer (top-left rule, perspective correct)
     template <typename Textures>
-    void draw_triangle_(const Vec3 *verts,
-                        const Vec2 *texcoords,
-                        const Scalar *weights,
-                        const UInt *vertexid,
-                        const BoundingBox<Int> &viewport,
+    void draw_triangle_(const linalg::Vec3<MathType> *verts,
+                        const linalg::Vec2<MathType> *texcoords,
+                        const MathType *weights,
+                        const unsigned int *vertexid,
+                        const BoundingBox<int> &viewport,
                         Textures &textures)
     {
         // Vertex shading & clip → NDC → screen
         struct VSOut
         {
-            Vec2 screen;  // x,y in pixel space (float)
-            Scalar depth; // z in [0,1] if your projection is like GL_ZERO_TO_ONE
-            Scalar invW;  // 1 / clip.w
+            linalg::Vec2<MathType> screen; // x,y in pixel space (float)
+            MathType depth;                // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+            MathType invW;                 // 1 / clip.w
             // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
             typename Derived::Varyings var; // original varyings (for convenience)
         } vout[3];
 
-        const Scalar vp_w = static_cast<Scalar>(viewport.max_x_ - viewport.min_x_);
-        const Scalar vp_h = static_cast<Scalar>(viewport.max_y_ - viewport.min_y_);
+        const MathType vp_w = static_cast<MathType>(viewport.max_x_ - viewport.min_x_);
+        const MathType vp_h = static_cast<MathType>(viewport.max_y_ - viewport.min_y_);
 
     draw_triangle_vertex_loop:
         for (int i = 0; i < 3; ++i)
         {
-            Vec4 gl_Position;
+            linalg::Vec4<MathType> gl_Position;
             typename Derived::Varyings varyings;
             derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid[i], gl_Position, varyings);
 
-            const Scalar invW = 1.0f / gl_Position(3);
-            const Scalar ndc_x = gl_Position(0) * invW; // [-1,1]
-            const Scalar ndc_y = gl_Position(1) * invW;
-            const Scalar ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
+            const MathType invW = 1.0f / gl_Position(3);
+            const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
+            const MathType ndc_y = gl_Position(1) * invW;
+            const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            vout[i].screen(0) = Scalar(0.5) * (ndc_x + Scalar(1)) * vp_w + viewport.min_x_;
-            vout[i].screen(1) = Scalar(0.5) * (ndc_y + Scalar(1)) * vp_h + viewport.min_y_;
+            vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * vp_w + viewport.min_x_;
+            vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * vp_h + viewport.min_y_;
             vout[i].depth = ndc_z;
             vout[i].invW = invW;
             vout[i].var = varyings;
-            // vout[i].var_over_w = varyings * invW; // requires scalar*VaryingType
+            // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
         }
 
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        const Scalar area = triangle_area<Scalar, Vec2>(vout[0].screen,
-                                                        vout[1].screen,
-                                                        vout[2].screen);
+        const MathType area = triangle_area<MathType>(vout[0].screen,
+                                                      vout[1].screen,
+                                                      vout[2].screen);
         // ErrorHandling::ValidateTriangleArea(area);
         //  if (area <= 0) return;            // enable to cull backfaces
 
         // Triangle bounding box (float → int, clamp to viewport)
-        Scalar minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
-        Scalar maxx = max(max(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
-        Scalar miny = min(min(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
-        Scalar maxy = max(max(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
+        MathType minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
+        MathType maxx = max(max(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
+        MathType miny = min(min(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
+        MathType maxy = max(max(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
 
-        Int x0 = max(viewport.min_x_, static_cast<Int>(floor(minx)));
-        Int x1 = min(viewport.max_x_, static_cast<Int>(ceil(maxx)));
-        Int y0 = max(viewport.min_y_, static_cast<Int>(floor(miny)));
-        Int y1 = min(viewport.max_y_, static_cast<Int>(ceil(maxy)));
+        int x0 = max(viewport.min_x_, static_cast<int>(floor(minx)));
+        int x1 = min(viewport.max_x_, static_cast<int>(ceil(maxx)));
+        int y0 = max(viewport.min_y_, static_cast<int>(floor(miny)));
+        int y1 = min(viewport.max_y_, static_cast<int>(ceil(maxy)));
         if (x0 >= x1 || y0 >= y1)
             return;
 
         // Edge setup (top-left rule)
-        const Scalar xA = vout[0].screen(0), yA = vout[0].screen(1);
-        const Scalar xB = vout[1].screen(0), yB = vout[1].screen(1);
-        const Scalar xC = vout[2].screen(0), yC = vout[2].screen(1);
+        const MathType xA = vout[0].screen(0), yA = vout[0].screen(1);
+        const MathType xB = vout[1].screen(0), yB = vout[1].screen(1);
+        const MathType xC = vout[2].screen(0), yC = vout[2].screen(1);
 
-        // const Scalar area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
+        // const MathType area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
         // ErrorHandling::ValidateTriangleArea(area2);
         // ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
-        const Scalar inv_area = 1.0f / area;
+        const MathType inv_area = 1.0f / area;
 
         const bool tlAB = is_top_left(xA, yA, xB, yB);
         const bool tlBC = is_top_left(xB, yB, xC, yC);
         const bool tlCA = is_top_left(xC, yC, xA, yA);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        const Scalar px0 = static_cast<Scalar>(x0) + RenderConstants::PIXEL_CENTER_OFFSET;
-        const Scalar py0 = static_cast<Scalar>(y0) + RenderConstants::PIXEL_CENTER_OFFSET;
+        const MathType px0 = static_cast<MathType>(x0) + RenderConstants::PIXEL_CENTER_OFFSET;
+        const MathType py0 = static_cast<MathType>(y0) + RenderConstants::PIXEL_CENTER_OFFSET;
 
-        Scalar eAB_row = edge_func(xA, yA, xB, yB, px0, py0);
-        Scalar eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
-        Scalar eCA_row = edge_func(xC, yC, xA, yA, px0, py0);
+        MathType eAB_row = edge_func(xA, yA, xB, yB, px0, py0);
+        MathType eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
+        MathType eCA_row = edge_func(xC, yC, xA, yA, px0, py0);
 
         // Step increments when moving +1 in X or +1 in Y
-        const Scalar eAB_dx = (yB - yA);
-        const Scalar eAB_dy = (xA - xB);
-        const Scalar eBC_dx = (yC - yB);
-        const Scalar eBC_dy = (xB - xC);
-        const Scalar eCA_dx = (yA - yC);
-        const Scalar eCA_dy = (xC - xA);
+        const MathType eAB_dx = (yB - yA);
+        const MathType eAB_dy = (xA - xB);
+        const MathType eBC_dx = (yC - yB);
+        const MathType eBC_dy = (xB - xC);
+        const MathType eCA_dx = (yA - yC);
+        const MathType eCA_dy = (xC - xA);
 
     // Rasterize
     draw_triangle_raster_loop_y:
-        for (Int y = y0; y < y1; ++y)
+        for (int y = y0; y < y1; ++y)
         {
 #pragma HLS loop_tripcount min = 10 max = 10 avg = 10
 
-            Scalar eAB = eAB_row;
-            Scalar eBC = eBC_row;
-            Scalar eCA = eCA_row;
+            MathType eAB = eAB_row;
+            MathType eBC = eBC_row;
+            MathType eCA = eCA_row;
 
         draw_triangle_raster_loop_x:
             for (int x = x0; x < x1; ++x)
@@ -213,12 +213,12 @@ protected:
                 if (inside)
                 {
                     // Barycentric weights normalized
-                    const Scalar w0 = eBC * inv_area;
-                    const Scalar w1 = eCA * inv_area;
-                    const Scalar w2 = eAB * inv_area;
+                    const MathType w0 = eBC * inv_area;
+                    const MathType w1 = eCA * inv_area;
+                    const MathType w2 = eAB * inv_area;
 
                     // Perspective: 1/w at pixel
-                    const Scalar invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
+                    const MathType invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
 
                     typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
                                                                                             vout[0].invW, vout[1].invW, vout[2].invW,
@@ -233,15 +233,15 @@ protected:
                     // Varyings varying_px = var_over_w_px * (1.0f / invW_px);
 
                     // Depth (if needed; same trick)
-                    Scalar depth_px = w0 * (vout[0].depth * vout[0].invW) +
-                                      w1 * (vout[1].depth * vout[1].invW) +
-                                      w2 * (vout[2].depth * vout[2].invW);
+                    MathType depth_px = w0 * (vout[0].depth * vout[0].invW) +
+                                        w1 * (vout[1].depth * vout[1].invW) +
+                                        w2 * (vout[2].depth * vout[2].invW);
                     depth_px *= (1.0f / invW_px);
                     // Depth test could go here
 
-                    Vec4 gl_FragCoord;
-                    gl_FragCoord(0) = static_cast<Scalar>(x) + RenderConstants::PIXEL_CENTER_OFFSET;
-                    gl_FragCoord(1) = static_cast<Scalar>(y) + RenderConstants::PIXEL_CENTER_OFFSET;
+                    linalg::Vec4<MathType> gl_FragCoord;
+                    gl_FragCoord(0) = static_cast<MathType>(x) + RenderConstants::PIXEL_CENTER_OFFSET;
+                    gl_FragCoord(1) = static_cast<MathType>(y) + RenderConstants::PIXEL_CENTER_OFFSET;
                     gl_FragCoord(2) = depth_px;
                     gl_FragCoord(3) = 1.0f / invW_px;
 
@@ -266,7 +266,7 @@ protected:
     Derived &derived_() { return *static_cast<Derived *>(this); }
     const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
-    Mat4 opencv2opengl_;
+    linalg::Mat4<MathType> opencv2opengl_;
 };
 
 // -----------------------------------------------------------------------------
@@ -274,9 +274,9 @@ protected:
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename DepthType, class Mesh, template <class> class Texture>
 class DepthRendererBase
-    : public RendererBase<DepthRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, DepthRendererBase<MathType, DepthType, Mesh, Texture>>
 {
 public:
     struct Varyings
@@ -286,17 +286,17 @@ public:
 
     struct Textures
     {
-        Texture<Scalar> &out_texture;
+        Texture<DepthType> &out_texture;
     };
 
     DepthRendererBase() = default;
     ~DepthRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                UInt out_lvl,
-                Texture<Scalar> &out_texture)
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int out_lvl,
+                Texture<DepthType> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -305,18 +305,18 @@ public:
 
         // out_texture_ = &out_texture;
 
-        const Int W = static_cast<Int>(out_texture.width(out_lvl));
-        const Int H = static_cast<Int>(out_texture.height(out_lvl));
-        BoundingBox<Int> viewport(0, W, 0, H);
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
 
         Textures textures{out_texture};
 
-        RendererBase<DepthRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DepthRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -326,35 +326,35 @@ public:
             (w0 * varying_px0.depth * invW0 +
              w1 * varying_px1.depth * invW1 +
              w2 * varying_px2.depth * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
 
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
         // std::cout << "calling vertex shader " << std::endl;
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.depth = inVertex(2);
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
-        textures.out_texture.set_texel_(in_varying.depth, Int(gl_FragCoord(1)), Int(gl_FragCoord(0)), out_lvl_);
+        textures.out_texture.set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
-    Mat4 t_matrix_;
-    UInt out_lvl_;
+    linalg::Mat4<MathType> t_matrix_;
+    unsigned int out_lvl_;
 };
 
 // -----------------------------------------------------------------------------
@@ -362,32 +362,32 @@ public:
 //   Another example derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, class Mesh, template <class> class Texture>
 class ImageRendererBase
-    : public RendererBase<ImageRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
+        linalg::Vec2<MathType> texcoord;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &in_texture;
-        Texture<Scalar> &out_texture;
+        const Texture<ImageType> &in_texture;
+        Texture<ImageType> &out_texture;
     };
 
     ImageRendererBase() = default;
     ~ImageRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &in_texture,
-                Texture<Scalar> &out_texture)
+                const Texture<ImageType> &in_texture,
+                Texture<ImageType> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -399,13 +399,13 @@ public:
         // in_texture_ = &in_texture;
         // out_texture_ = &out_texture;
 
-        const Int W = static_cast<Int>(out_texture.width(out_lvl));
-        const Int H = static_cast<Int>(out_texture.height(out_lvl));
-        BoundingBox<Int> viewport(0, W, 0, H);
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
 
         Textures textures{in_texture, out_texture};
 
-        RendererBase<ImageRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, ImageRendererBase>::Render(mesh, viewport, textures);
     }
 
     Varyings interpolate_varyings(const float w0, const float w1, const float w2,
@@ -427,68 +427,68 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
                        const float &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        // Scalar pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        Scalar pix = sample<Scalar, Texture<Scalar>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // Vec2 coord;
-        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - Scalar(0.5);
-        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - Scalar(0.5);
-        // Scalar pix = bilinear<Scalar, Texture<Scalar>>(textures.in_texture, coord(1), coord(0), in_lvl_);
+        // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // linalg::Vec2<MathType>coord;
+        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - T(0.5);
+        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - T(0.5);
+        // MathType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
 
         if (pix == textures.in_texture.nodata())
             return;
         textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
-    Mat4 t_matrix_;
+    linalg::Mat4<MathType> t_matrix_;
     int in_lvl_;
     int out_lvl_;
-    // const Texture<Scalar> *in_texture_;
-    // Texture<Scalar> *out_texture_;
+    // const Texture<MathType> *in_texture_;
+    // Texture<MathType> *out_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename ErrorType, class Mesh, template <class> class Texture>
 class ResidualRendererBase
-    : public RendererBase<ResidualRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, ResidualRendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
+        linalg::Vec2<MathType> texcoord;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &kf_texture;
-        const Texture<Scalar> &f_texture;
-        Texture<Scalar> &r_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        Texture<ErrorType> &r_texture;
     };
 
     ResidualRendererBase() = default;
     ~ResidualRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &kf_texture,
-                const Texture<Scalar> &f_texture,
-                Texture<Scalar> &r_texture)
+                const Texture<ImageType> &kf_texture,
+                const Texture<ImageType> &f_texture,
+                Texture<ErrorType> &r_texture)
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
@@ -506,12 +506,12 @@ public:
 
         Textures textures{kf_texture, f_texture, r_texture};
 
-        RendererBase<ResidualRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, ResidualRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -527,39 +527,39 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         int width = textures.kf_texture.width(out_lvl_);
         int height = textures.kf_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
-        Scalar kf = sample<Scalar, Texture<Scalar>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        ImageType kf = sample<ImageType, Texture<ImageType>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        ImageType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
             return;
 
-        float e = f - kf;
+        ErrorType e = ErrorType(f) - ErrorType(kf);
         textures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
-    Mat4 t_matrix_;
+    linalg::Mat4<MathType> t_matrix_;
     int in_lvl_;
     int out_lvl_;
     // const TextureCPU<float> *kf_texture_;
@@ -567,34 +567,34 @@ private:
     // TextureCPU<float> *r_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename ErrorType, class Mesh, template <class> class Texture>
 class L2RendererBase
-    : public RendererBase<L2RendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, L2RendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
+        linalg::Vec2<MathType> texcoord;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &kf_texture;
-        const Texture<Scalar> &f_texture;
-        Texture<Scalar> &r_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        Texture<ErrorType> &r_texture;
     };
 
     L2RendererBase() = default;
     ~L2RendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &kf_texture,
-                const Texture<Scalar> &f_texture,
-                Texture<Scalar> &r_texture)
+                const Texture<ImageType> &kf_texture,
+                const Texture<ImageType> &f_texture,
+                Texture<ErrorType> &r_texture)
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
@@ -611,12 +611,12 @@ public:
 
         Textures textures{kf_texture, f_texture, r_texture};
 
-        RendererBase<L2RendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, L2RendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -632,39 +632,39 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        UInt width = textures.kf_texture.width(out_lvl_);
-        UInt height = textures.kf_texture.height(out_lvl_);
+        unsigned int width = textures.kf_texture.width(out_lvl_);
+        unsigned int height = textures.kf_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
-        Scalar kf = sample<Scalar, Texture<Scalar>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        Scalar f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        // Scalar f = sample<Scalar, Texture<Scalar>>(textures.f_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        ImageType kf = sample<ImageType, Texture<ImageType>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        ImageType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // MathType f = sample<T, Texture<MathType>>(textures.f_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
             return;
 
-        Scalar e = f - kf;
+        ErrorType e = ErrorType(f) - ErrorType(kf);
         textures.r_texture.set_texel_(e * e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
 private:
-    Mat4 t_matrix_;
+    linalg::Mat4<MathType> t_matrix_;
     int in_lvl_;
     int out_lvl_;
     // const TextureCPU<float> *kf_texture_;
@@ -672,20 +672,20 @@ private:
     // TextureCPU<float> *r_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename DType, class Mesh, template <class> class Texture>
 class DIDxyRendererBase
-    : public RendererBase<DIDxyRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, DIDxyRendererBase<MathType, ImageType, DType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
+        linalg::Vec2<MathType> texcoord;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &in_texture;
-        Texture<Vec3> &out_texture;
+        const Texture<ImageType> &in_texture;
+        Texture<linalg::Vec3<DType>> &out_texture;
     };
 
     DIDxyRendererBase() = default;
@@ -694,8 +694,8 @@ public:
     void Render(const Mesh &mesh,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &in_texture,
-                Texture<Vec3> &out_texture)
+                const Texture<ImageType> &in_texture,
+                Texture<linalg::Vec3<DType>> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -710,12 +710,12 @@ public:
 
         Textures textures{in_texture, out_texture};
 
-        RendererBase<DIDxyRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DIDxyRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -725,34 +725,34 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
 
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        // gl_Position = (view_matrix * pose_matrix) * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        gl_Position = Vec4(2.0 * inTexCoord(0) - 1.0, 2.0 * inTexCoord(1) - 1.0, 0.0, 1.0);
+        // gl_Position = (view_matrix * pose_matrix) * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        gl_Position = linalg::Vec4<MathType>(2.0 * inTexCoord(0) - 1.0, 2.0 * inTexCoord(1) - 1.0, 0.0, 1.0);
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         // outFragment = inVarying;
 
-        int height = textures.in_texture.height(out_lvl_);
-        int width = textures.in_texture.width(out_lvl_);
-        float nodata = textures.in_texture.nodata();
+        unsigned int height = textures.in_texture.height(out_lvl_);
+        unsigned int width = textures.in_texture.width(out_lvl_);
+        ImageType nodata = textures.in_texture.nodata();
 
         int x = int(in_varying.texcoord(0) * (width - 1));
         int y = int(in_varying.texcoord(1) * (height - 1));
@@ -770,11 +770,11 @@ public:
             return;
         }
 
-        Scalar f = textures.in_texture.texel_(y, x, out_lvl_);
-        Scalar f_y_p = textures.in_texture.texel_(y_p, x, out_lvl_);
-        Scalar f_y_m = textures.in_texture.texel_(y_m, x, out_lvl_);
-        Scalar f_x_p = textures.in_texture.texel_(y, x_p, out_lvl_);
-        Scalar f_x_m = textures.in_texture.texel_(y, x_m, out_lvl_);
+        ImageType f = textures.in_texture.texel_(y, x, out_lvl_);
+        ImageType f_y_p = textures.in_texture.texel_(y_p, x, out_lvl_);
+        ImageType f_y_m = textures.in_texture.texel_(y_m, x, out_lvl_);
+        ImageType f_x_p = textures.in_texture.texel_(y, x_p, out_lvl_);
+        ImageType f_x_m = textures.in_texture.texel_(y, x_m, out_lvl_);
 
         if (f_x_p == nodata || f_x_m == nodata ||
             f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -786,7 +786,7 @@ public:
             return;
         }
 
-        Vec3 out_fragment;
+        linalg::Vec3<DType> out_fragment;
         out_fragment(0) = (f_x_p - f_x_m) / 2.0f;
         out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
         out_fragment(2) = 0.0; // f; // save the projected frame for later processing
@@ -801,41 +801,41 @@ private:
     // TextureCPU<Vec3> *out_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename DType, typename ErrorType, class Mesh, template <class> class Texture>
 class JPoseRendererBase
-    : public RendererBase<JPoseRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, JPoseRendererBase<MathType, ImageType, DType, ErrorType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
-        Vec3 f_ver;
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &kf_texture;
-        const Texture<Scalar> &f_texture;
-        const Texture<Vec3> &dfdxy_texture;
-        Texture<Vec3> &jtra_texture;
-        Texture<Vec3> &jrot_texture;
-        Texture<Scalar> &r_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<linalg::Vec3<DType>> &jtra_texture;
+        Texture<linalg::Vec3<DType>> &jrot_texture;
+        Texture<ErrorType> &r_texture;
     };
 
     JPoseRendererBase() = default;
     ~JPoseRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &kf_texture,
-                const Texture<Scalar> &f_texture,
-                const Texture<Vec3> &dfdxy_texture,
-                Texture<Vec3> &jtra_texture,
-                Texture<Vec3> &jrot_texture,
-                Texture<Scalar> &r_texture)
+                const Texture<ImageType> &kf_texture,
+                const Texture<ImageType> &f_texture,
+                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<linalg::Vec3<DType>> &jtra_texture,
+                Texture<linalg::Vec3<DType>> &jrot_texture,
+                Texture<ErrorType> &r_texture)
     {
         jtra_texture.fill(out_lvl, jtra_texture.nodata());
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
@@ -860,12 +860,12 @@ public:
 
         Textures textures{kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
 
-        RendererBase<JPoseRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, JPoseRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -886,49 +886,49 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        Vec4 f_ver = pose_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
 
-        outVarying.f_ver = Vec3(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         int width = textures.kf_texture.width(out_lvl_);
         int height = textures.kf_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
-        Vec3 f_ver = in_varying.f_ver;
-        Vec2 texcoord = in_varying.texcoord;
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
 
-        float kf = sample<Scalar, Texture<Scalar>>(textures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
-        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Vec3 f_der = textures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        // float f = sample<Scalar, Texture<Scalar>>(textures.f_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
-        // Vec3 f_der = sample<Vec3, Texture<Vec3>>(textures.dfdxy_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        ImageType kf = sample<ImageType, Texture<ImageType>>(textures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        ImageType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = textures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        // linalg::Vec3<MathType>f_der = sample<Vec3, Texture<Vec3>>(textures.dfdxy_texture, screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
             return;
 
-        float r = f - kf;
+        ErrorType r = ErrorType(f) - ErrorType(kf);
 
-        float v0 = f_der(0) * fx_ * width / f_ver(2);
-        float v1 = f_der(1) * fy_ * height / f_ver(2);
-        float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+        MathType v0 = f_der(0) * fx_ * width / f_ver(2);
+        MathType v1 = f_der(1) * fy_ * height / f_ver(2);
+        MathType v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
-        Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
-        Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+        linalg::Vec3<DType> d_f_i_d_tra = linalg::Vec3<DType>(v0, v1, v2);
+        linalg::Vec3<DType> d_f_i_d_rot = linalg::Vec3<DType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
         textures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -938,10 +938,10 @@ public:
 private:
     int in_lvl_;
     int out_lvl_;
-    float fx_;
-    float fy_;
-    Mat4 view_matrix_;
-    Mat4 pose_matrix_;
+    MathType fx_;
+    MathType fy_;
+    linalg::Mat4<MathType> view_matrix_;
+    linalg::Mat4<MathType> pose_matrix_;
     // const TextureCPU<float> *kf_texture_;
     // const TextureCPU<float> *f_texture_;
     // const TextureCPU<Vec3> *dfdxy_texture_;
@@ -950,46 +950,46 @@ private:
     // TextureCPU<float> *r_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename DType, typename IdType, typename ErrorType, class Mesh, template <class> class Texture>
 class JMapRendererBase
-    : public RendererBase<JMapRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, JMapRendererBase<MathType, ImageType, DType, IdType, ErrorType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
-        Vec3 f_ver;
-        Vec3 kf_ray;
-        float depth;
-        Vec3 barycentric;
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
+        linalg::Vec3<MathType> kf_ray;
+        MathType depth;
+        linalg::Vec3<MathType> barycentric;
         unsigned int vertexId;
-        Vec3i pids;
+        linalg::Vec3<int> pids;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &kf_texture;
-        const Texture<Scalar> &f_texture;
-        const Texture<Vec3> &dfdxy_texture;
-        Texture<Vec3> &jmap_texture;
-        Texture<Vec3> &pids_texture;
-        Texture<Scalar> &r_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<linalg::Vec3<DType>> &jmap_texture;
+        Texture<linalg::Vec3<IdType>> &pids_texture;
+        Texture<ErrorType> &r_texture;
     };
 
     JMapRendererBase() = default;
     ~JMapRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &kf_texture,
-                const Texture<Scalar> &f_texture,
-                const Texture<Vec3> &dfdxy_texture,
-                Texture<Vec3> &jmap_texture,
-                Texture<Vec3> &pids_texture,
-                Texture<Scalar> &r_texture)
+                const Texture<ImageType> &kf_texture,
+                const Texture<ImageType> &f_texture,
+                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<linalg::Vec3<DType>> &jmap_texture,
+                Texture<linalg::Vec3<IdType>> &pids_texture,
+                Texture<ErrorType> &r_texture)
     {
         jmap_texture.fill(out_lvl, jmap_texture.nodata());
         pids_texture.fill(out_lvl, pids_texture.nodata());
@@ -1014,12 +1014,12 @@ public:
 
         Textures textures{kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
 
-        RendererBase<JMapRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, JMapRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -1040,15 +1040,15 @@ public:
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
             (1.0f / invW_px);
-        // var_over_w_px.barycentric = Vec3(w0 * invW0 * varying_px0.depth,
+        // var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0 * varying_px0.depth,
         //                                  w1 * invW1 * varying_px1.depth,
         //                                  w2 * invW2 * varying_px2.depth) *
         //                             (1.0f / invW_px);
-        var_over_w_px.barycentric = Vec3(w0 * invW0,
-                                         w1 * invW1,
-                                         w2 * invW2) *
+        var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0,
+                                                           w1 * invW1,
+                                                           w2 * invW2) *
                                     (1.0f / invW_px);
-        var_over_w_px.pids = Vec3i(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
+        var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
     }
@@ -1056,69 +1056,69 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
                        const float &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        Vec4 f_ver = pose_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
 
-        Vec3 kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
-        Vec4 d_f_ver_d_kf_depth_ = pose_matrix_ * Vec4(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
-        Vec3 d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
+        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
+        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
-        outVarying.f_ver = Vec3(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
         outVarying.kf_ray = d_f_ver_d_kf_depth;
         outVarying.depth = inVertex(2);
         outVarying.vertexId = vertexid;
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         int width = textures.jmap_texture.width(out_lvl_);
         int height = textures.jmap_texture.height(out_lvl_);
 
-        Vec2 screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / float(width), gl_FragCoord(1) / float(height));
 
-        Vec3 f_ver = in_varying.f_ver;
-        Vec3 kf_ray = in_varying.kf_ray;
-        Vec2 texcoord = in_varying.texcoord;
-        Vec3 barycentric = in_varying.barycentric;
-        Vec3i vertexid = in_varying.pids;
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
+        linalg::Vec3<MathType> barycentric = in_varying.barycentric;
+        linalg::Vec3<int> vertexid = in_varying.pids;
 
-        float kf = sample<Scalar, Texture<Scalar>>(textures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
-        float f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Vec3 f_der = textures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        ImageType kf = sample<ImageType, Texture<ImageType>>(textures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        ImageType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = textures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
-        // Vec3 f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        // linalg::Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
             return;
 
-        float r = f - kf;
+        ErrorType r = ErrorType(f) - ErrorType(kf);
 
-        Vec3 d_f_i_d_f_ver;
+        linalg::Vec3<MathType> d_f_i_d_f_ver;
 
         d_f_i_d_f_ver(0) = f_der(0) * fx_ * width / f_ver(2);
         d_f_i_d_f_ver(1) = f_der(1) * fy_ * height / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-        // Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
-        // Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        // linalg::Vec3<MathType>d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        Vec3 d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        float d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        MathType d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
 
-        Vec3 d_depth_d_vert_depth = barycentric;
+        linalg::Vec3<MathType> d_depth_d_vert_depth = barycentric;
 
-        Vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        Vec3 ids = Vec3(vertexid(0), vertexid(1), vertexid(2));
+        linalg::Vec3<DType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
 
         textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -1126,12 +1126,12 @@ public:
     }
 
 private:
-    Int in_lvl_;
-    Int out_lvl_;
-    Scalar fx_;
-    Scalar fy_;
-    Mat4 view_matrix_;
-    Mat4 pose_matrix_;
+    int in_lvl_;
+    int out_lvl_;
+    MathType fx_;
+    MathType fy_;
+    linalg::Mat4<MathType> view_matrix_;
+    linalg::Mat4<MathType> pose_matrix_;
     // const TextureCPU<float> *kf_texture_;
     // const TextureCPU<float> *f_texture_;
     // const TextureCPU<Vec3> *dfdxy_texture_;
@@ -1140,48 +1140,48 @@ private:
     // TextureCPU<float> *r_texture_;
 };
 
-template <class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, typename DepthType, typename DType, typename IdType, class Mesh, template <class> class Texture>
 class DiffRendererBase
-    : public RendererBase<DiffRendererBase<Mesh, Texture>>
+    : public RendererBase<MathType, DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, Mesh, Texture>>
 {
 public:
     struct Varyings
     {
-        Vec2 texcoord;
-        Vec3 f_ver;
-        Vec3 kf_ray;
-        float depth;
-        Vec3 barycentric;
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
+        linalg::Vec3<MathType> kf_ray;
+        MathType depth;
+        linalg::Vec3<MathType> barycentric;
         unsigned int vertexId;
-        Vec3i pids;
+        linalg::Vec3<int> pids;
     };
 
     struct Textures
     {
-        const Texture<Scalar> &f_texture;
-        Texture<Scalar> &image_texture;
-        Texture<Scalar> &depth_texture;
-        Texture<Vec3> &jtra_texture;
-        Texture<Vec3> &jrot_texture;
-        Texture<Vec3> &jmap_texture;
-        Texture<Vec3> &pids_texture;
+        const Texture<ImageType> &f_texture;
+        Texture<ImageType> &image_texture;
+        Texture<DepthType> &depth_texture;
+        Texture<linalg::Vec3<DType>> &jtra_texture;
+        Texture<linalg::Vec3<DType>> &jrot_texture;
+        Texture<linalg::Vec3<DType>> &jmap_texture;
+        Texture<linalg::Vec3<IdType>> &pids_texture;
     };
 
     DiffRendererBase() = default;
     ~DiffRendererBase() = default;
 
     void Render(const Mesh &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<Scalar> &f_texture,
-                Texture<Scalar> &image_texture,
-                Texture<Scalar> &depth_texture,
-                Texture<Vec3> &jtra_texture,
-                Texture<Vec3> &jrot_texture,
-                Texture<Vec3> &jmap_texture,
-                Texture<Vec3> &pids_texture)
+                const Texture<ImageType> &f_texture,
+                Texture<ImageType> &image_texture,
+                Texture<DepthType> &depth_texture,
+                Texture<linalg::Vec3<DType>> &jtra_texture,
+                Texture<linalg::Vec3<DType>> &jrot_texture,
+                Texture<linalg::Vec3<DType>> &jmap_texture,
+                Texture<linalg::Vec3<IdType>> &pids_texture)
     {
         image_texture.fill(out_lvl, image_texture.nodata());
         depth_texture.fill(out_lvl, depth_texture.nodata());
@@ -1209,12 +1209,12 @@ public:
 
         Textures textures{f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
-        RendererBase<DiffRendererBase<Mesh, Texture>>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DiffRendererBase>::Render(mesh, viewport, textures);
     }
 
-    Varyings interpolate_varyings(const float w0, const float w1, const float w2,
-                                  const float invW0, const float invW1, const float invW2,
-                                  const float invW_px,
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const MathType invW0, const MathType invW1, const MathType invW2,
+                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
@@ -1235,12 +1235,12 @@ public:
              w1 * varying_px1.kf_ray * invW1 +
              w2 * varying_px2.kf_ray * invW2) *
             (1.0f / invW_px);
-        var_over_w_px.barycentric = Vec3(w0 * invW0,
-                                         w1 * invW1,
-                                         w2 * invW2) *
-                                    (1.0f / invW_px);
+        var_over_w_px.barycentric = linalg::Vec3<MathType>(w0 * invW0,
+                                                           w1 * invW1,
+                                                           w2 * invW2) *
+                                    (MathType(1) / invW_px);
 
-        var_over_w_px.pids = Vec3i(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
+        var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
     }
@@ -1248,68 +1248,68 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const Vec3 &inVertex,
-                       const Vec2 &inTexCoord,
-                       const float &inWeight,
+    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
+                       const linalg::Vec2<MathType> &inTexCoord,
+                       const MathType &inWeight,
                        const unsigned int &vertexid,
-                       Vec4 &gl_Position,
+                       linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        Vec4 f_ver = pose_matrix_ * Vec4(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
 
-        Vec3 kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
-        Vec4 d_f_ver_d_kf_depth_ = pose_matrix_ * Vec4(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
-        Vec3 d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
+        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
+        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
-        outVarying.f_ver = Vec3(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
         outVarying.kf_ray = d_f_ver_d_kf_depth;
         outVarying.depth = inVertex(2);
         outVarying.vertexId = vertexid;
         outVarying.texcoord = inTexCoord;
     }
 
-    void fragment_shader(const Vec4 &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        UInt width = textures.jmap_texture.width(out_lvl_);
-        UInt height = textures.jmap_texture.height(out_lvl_);
+        unsigned int width = textures.jmap_texture.width(out_lvl_);
+        unsigned int height = textures.jmap_texture.height(out_lvl_);
 
-        // Vec2 screen_texcoord(gl_FragCoord(0) / Scalar(width), gl_FragCoord(1) / Scalar(height));
+        // linalg::Vec2<MathType>screen_texcoord(gl_FragCoord(0) / T(width), gl_FragCoord(1) / T(height));
 
-        Vec3 f_ver = in_varying.f_ver;
-        Vec3 kf_ray = in_varying.kf_ray;
-        Vec2 texcoord = in_varying.texcoord;
-        Vec3 barycentric = in_varying.barycentric;
-        Vec3i vertexid = in_varying.pids;
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
+        linalg::Vec3<MathType> barycentric = in_varying.barycentric;
+        linalg::Vec3<int> vertexid = in_varying.pids;
 
-        // Scalar f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        Scalar f = sample<Scalar, Texture<Scalar>>(textures.f_texture, in_varying.texcoord(1), in_varying.texcoord(0), out_lvl_);
+        // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        ImageType f = sample<ImageType, Texture<ImageType>>(textures.f_texture, in_varying.texcoord(1), in_varying.texcoord(0), out_lvl_);
         if (f == textures.f_texture.nodata())
             return;
 
-        Vec3 f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
 
         if (f_der(0) == textures.f_texture.nodata() && f_der(1) == textures.f_texture.nodata())
             return;
 
-        Vec3 d_f_i_d_f_ver;
+        linalg::Vec3<MathType> d_f_i_d_f_ver;
 
         d_f_i_d_f_ver(0) = f_der(0) * fx_ * width / f_ver(2);
         d_f_i_d_f_ver(1) = f_der(1) * fy_ * height / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-        // Vec3 d_f_i_d_tra = Vec3(v0, v1, v2);
-        Vec3 d_f_i_d_rot = Vec3(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        linalg::Vec3<MathType> d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-        Vec3 d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        Scalar d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        MathType d_f_i_d_kf_depth = d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth;
 
-        Vec3 d_depth_d_vert_depth = barycentric;
+        linalg::Vec3<MathType> d_depth_d_vert_depth = barycentric;
 
-        Vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        Vec3 ids = Vec3(vertexid(0), vertexid(1), vertexid(2));
+        linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        linalg::Vec3<MathType> ids = linalg::Vec3<float>(vertexid(0), vertexid(1), vertexid(2));
 
         textures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -1320,12 +1320,12 @@ public:
     }
 
 private:
-    Int in_lvl_;
-    Int out_lvl_;
-    Scalar fx_;
-    Scalar fy_;
-    Mat4 view_matrix_;
-    Mat4 pose_matrix_;
+    int in_lvl_;
+    int out_lvl_;
+    MathType fx_;
+    MathType fy_;
+    linalg::Mat4<MathType> view_matrix_;
+    linalg::Mat4<MathType> pose_matrix_;
     // const TextureCPU<float> *kf_texture_;
     // const TextureCPU<float> *f_texture_;
     // const TextureCPU<Vec3> *dfdxy_texture_;

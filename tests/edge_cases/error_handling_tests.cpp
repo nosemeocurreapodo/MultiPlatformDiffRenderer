@@ -72,7 +72,7 @@ TYPED_TEST_P(ErrorHandlingTests, EmptyMeshHandling)
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
-    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3(), this->cam_, 0, output));
+    ASSERT_NO_THROW(renderer.Render(empty_mesh, linalg::SE3<float>(), this->cam_, 0, output));
 
     cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
@@ -141,11 +141,11 @@ TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     // Test with very large scale
-    SE3 large_scale;
-    large_scale.translation() = Vec3(0, 0, 0);
-    large_scale.so3() = SO3::exp(Vec3(0, 0, 0));
+    linalg::SE3<float> large_scale;
+    large_scale.translation() = linalg::Vec3<float>(0, 0, 0);
+    large_scale.so3() = linalg::SO3<float>::exp(linalg::Vec3<float>(0, 0, 0));
     // Apply large scale through pose
-    Mat4 scale_matrix = Mat4::Identity() * 1000.0f;
+    linalg::Mat4<float> scale_matrix = linalg::Mat4<float>::Identity() * 1000.0f;
 
     typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
@@ -183,7 +183,7 @@ TYPED_TEST_P(ErrorHandlingTests, InvalidMipmapLevels)
 
     // Test with level beyond texture size
     int max_level = static_cast<int>(std::log2(std::min(this->w_, this->h_))) + 1;
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, max_level, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, max_level, output));
 }
 
 // Test texture size mismatches
@@ -199,7 +199,7 @@ TYPED_TEST_P(ErrorHandlingTests, TextureSizeMismatch)
     typename Traits::TextureT<float> large_output(large_w, large_h, -1.0f);
 
     typename Traits::DepthRendererT renderer;
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, large_output));
+    ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, large_output));
 
     cv::Mat result = DownloadTextureToMat(large_output, 0, CV_32FC1);
 
@@ -216,8 +216,8 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
     // Create camera with extreme parameters
-    Camera extreme_cam;
-    Vec4 extreme_params;
+    Camera<float> extreme_cam;
+    linalg::Vec4<float> extreme_params;
     extreme_params(0) = 1e6f;
     extreme_params(1) = 1e6f;
     extreme_params(2) = this->w_ / 2.0f;
@@ -227,7 +227,7 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
-    ASSERT_NO_THROW(renderer.Render(mesh, SE3(), extreme_cam, 0, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), extreme_cam, 0, output));
 
     cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
@@ -265,7 +265,7 @@ TYPED_TEST_P(ErrorHandlingTests, MemoryPressureHandling)
             typename Traits::TextureT<float> output(size, size, -1.0f);
 
             typename Traits::DepthRendererT renderer;
-            ASSERT_NO_THROW(renderer.Render(mesh, SE3(), this->cam_, 0, output));
+            ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
 
             std::cout << "  CPU " << size << "x" << size << ": OK\n";
         }
@@ -299,7 +299,7 @@ TYPED_TEST_P(ErrorHandlingTests, ThreadSafetyBasics)
         typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
         typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
-        ASSERT_NO_THROW(renderers[i]->Render(mesh, SE3(), this->cam_, 0, output));
+        ASSERT_NO_THROW(renderers[i]->Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
     }
 }
 

@@ -73,7 +73,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
 
     typename Traits::DepthRendererT renderer;
-    SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -129,7 +129,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
-    SE3 pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {

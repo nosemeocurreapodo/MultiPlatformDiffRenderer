@@ -3,7 +3,7 @@
 // #include <algorithm>
 // #include <cmath>
 // #include <cstdint>
-#include "core/types.h"
+// #include "core/types.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
 #include "core/render_constants.h"
@@ -20,15 +20,15 @@
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public DepthRendererBase<MeshCPU, TextureCPU>
+    : public DepthRendererBase<float, float, MeshCPU, TextureCPU>
 {
 public:
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
@@ -48,15 +48,15 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<MeshCPU, TextureCPU>
+    : public ImageRendererBase<float, float, MeshCPU, TextureCPU>
 {
 public:
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<float> &in_texture,
@@ -77,15 +77,15 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public ResidualRendererBase<MeshCPU, TextureCPU>
+    : public ResidualRendererBase<float, float, float, MeshCPU, TextureCPU>
 {
 public:
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<float> &kf_texture,
@@ -103,15 +103,15 @@ private:
 };
 
 class L2RendererCPU
-    : public L2RendererBase<MeshCPU, TextureCPU>
+    : public L2RendererBase<float, float, float, MeshCPU, TextureCPU>
 {
 public:
     L2RendererCPU() = default;
     ~L2RendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<float> &kf_texture,
@@ -129,7 +129,7 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public DIDxyRendererBase<MeshCPU, TextureCPU>
+    : public DIDxyRendererBase<float, float, float, MeshCPU, TextureCPU>
 {
 public:
     DIDxyRendererCPU() = default;
@@ -138,8 +138,8 @@ public:
     void Render(const MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<Scalar> &in_texture,
-                TextureCPU<Vec3> &out_texture)
+                const TextureCPU<float> &in_texture,
+                TextureCPU<linalg::Vec3<float>> &out_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -152,23 +152,23 @@ private:
 };
 
 class JPoseRendererCPU
-    : public JPoseRendererBase<MeshCPU, TextureCPU>
+    : public JPoseRendererBase<float, float, float, float, MeshCPU, TextureCPU>
 {
 public:
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<Scalar> &kf_texture,
-                const TextureCPU<Scalar> &f_texture,
-                const TextureCPU<Vec3> &dfdxy_texture,
-                TextureCPU<Vec3> &jtra_texture,
-                TextureCPU<Vec3> &jrot_texture,
-                TextureCPU<Scalar> &r_texture)
+                const TextureCPU<float> &kf_texture,
+                const TextureCPU<float> &f_texture,
+                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                TextureCPU<linalg::Vec3<float>> &jtra_texture,
+                TextureCPU<linalg::Vec3<float>> &jrot_texture,
+                TextureCPU<float> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -181,23 +181,23 @@ private:
 };
 
 class JMapRendererCPU
-    : public JMapRendererBase<MeshCPU, TextureCPU>
+    : public JMapRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
 {
 public:
     JMapRendererCPU() = default;
     ~JMapRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<Scalar> &kf_texture,
-                const TextureCPU<Scalar> &f_texture,
-                const TextureCPU<Vec3> &dfdxy_texture,
-                TextureCPU<Vec3> &jmap_texture,
-                TextureCPU<Vec3> &pids_texture,
-                TextureCPU<Scalar> &r_texture)
+                const TextureCPU<float> &kf_texture,
+                const TextureCPU<float> &f_texture,
+                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                TextureCPU<linalg::Vec3<float>> &jmap_texture,
+                TextureCPU<linalg::Vec3<float>> &pids_texture,
+                TextureCPU<float> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -210,24 +210,24 @@ private:
 };
 
 class DiffRendererCPU
-    : public DiffRendererBase<MeshCPU, TextureCPU>
+    : public DiffRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
 {
 public:
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<Scalar> &f_texture,
-                TextureCPU<Scalar> &image_texture,
-                TextureCPU<Scalar> &depth_texture,
-                TextureCPU<Vec3> &jtra_texture,
-                TextureCPU<Vec3> &jrot_texture,
-                TextureCPU<Vec3> &jmap_texture,
-                TextureCPU<Vec3> &pids_texture)
+                const TextureCPU<float> &f_texture,
+                TextureCPU<float> &image_texture,
+                TextureCPU<float> &depth_texture,
+                TextureCPU<linalg::Vec3<float>> &jtra_texture,
+                TextureCPU<linalg::Vec3<float>> &jrot_texture,
+                TextureCPU<linalg::Vec3<float>> &jmap_texture,
+                TextureCPU<linalg::Vec3<float>> &pids_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);

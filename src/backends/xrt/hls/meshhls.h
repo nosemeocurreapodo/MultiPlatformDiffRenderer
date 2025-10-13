@@ -1,8 +1,9 @@
 #pragma once
 
-#include "core/types.h"
+//#include "core/types.h"
 #include "backends/xrt/hls/bufferhls.h"
 
+template <typename T>
 class MeshHLS
 {
 public:
@@ -10,14 +11,14 @@ public:
     // using size_type = std::size_t;
 
     // Construct from host vectors; if indices empty, build via Delaunay on UVs
-    MeshHLS(const Scalar *positions, // 3 floats per vertex
-            Int positions_size,
-            const Scalar *texcoords, // 2 floats per vertex
-            Int texcoords_size,
-            const Scalar *weights, // 1 float  per vertex
-            Int weights_size,
-            const UInt *indices,
-            Int indices_size)
+    MeshHLS(const T *positions, // 3 floats per vertex
+            unsigned int positions_size,
+            const T *texcoords, // 2 floats per vertex
+            unsigned int texcoords_size,
+            const T *weights, // 1 float  per vertex
+            unsigned int weights_size,
+            const unsigned int *indices,
+            unsigned int indices_size)
         : pos_buffer_(positions_size, positions),
           tex_buffer_(texcoords_size, texcoords),
           wei_buffer_(weights_size, weights),
@@ -33,21 +34,21 @@ public:
     ~MeshHLS() = default;
 
     // Info
-    UInt vertex_count() const noexcept { return pos_buffer_.size() / 3; }
-    UInt index_count() const noexcept { return ebo_buffer_.size(); }
-    UInt triangle_count() const noexcept { return index_count() / 3; }
+    unsigned int vertex_count() const noexcept { return pos_buffer_.size() / 3; }
+    unsigned int index_count() const noexcept { return ebo_buffer_.size(); }
+    unsigned int triangle_count() const noexcept { return index_count() / 3; }
 
-protected:
-    template <class Derived>
-    friend class RendererBase;
+    // protected:
+    // template <class Derived>
+    // friend class RendererBase;
 
     // BufferHLS<Scalar> Positions() const { return pos_buffer_; }
     // BufferHLS<Scalar> Texcoords() const { return tex_buffer_; }
     // BufferHLS<Scalar> Weights() const { return wei_buffer_; }
     // BufferHLS<UInt> Indices() const { return ebo_buffer_; }
 
-    BufferBRAM<Scalar, 32 * 32 * 3> pos_buffer_;
-    BufferBRAM<Scalar, 32 * 32 * 2> tex_buffer_;
-    BufferBRAM<Scalar, 32 * 32 * 1> wei_buffer_;
-    BufferBRAM<UInt, 32 * 32 * 2 * 3> ebo_buffer_;
+    BufferBRAM<T, 32 * 32 * 3> pos_buffer_;
+    BufferBRAM<T, 32 * 32 * 2> tex_buffer_;
+    BufferBRAM<T, 32 * 32 * 1> wei_buffer_;
+    BufferBRAM<unsigned int, 32 * 32 * 2 * 3> ebo_buffer_;
 };

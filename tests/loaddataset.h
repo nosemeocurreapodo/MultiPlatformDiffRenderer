@@ -9,7 +9,7 @@
 #include <iostream>
 #include <chrono>
 
-#include "core/types.h"
+// #include "core/types.h"
 #include "core/camera.h"
 
 // inline std::string &ltrim(std::string &s)
@@ -144,7 +144,7 @@ public:
         return depth_files_;
     }
 
-    std::vector<SE3> GetPoses()
+    std::vector<linalg::SE3<float>> GetPoses()
     {
         return poses_;
     }
@@ -154,7 +154,7 @@ public:
         return time_stamps_;
     }
 
-    Camera GetCamera()
+    Camera<float> GetCamera()
     {
         return cam_;
     }
@@ -175,14 +175,14 @@ public:
     }
 
 protected:
-    SE3 GetClosestPose(const std::vector<SE3> &poses, const std::vector<double> &time_stamps, double target_timestamp)
+    linalg::SE3<float> GetClosestPose(const std::vector<linalg::SE3<float>> &poses, const std::vector<double> &time_stamps, double target_timestamp)
     {
-        SE3 closest_pose;
+        linalg::SE3<float> closest_pose;
         double closest_diff = 10000000000.0;
         for (size_t i = 0; i < poses.size(); i++)
         {
             double time_stamp = time_stamps[i];
-            SE3 pose = poses[i];
+            linalg::SE3<float> pose = poses[i];
 
             double diff = std::abs(time_stamp - target_timestamp);
             if (diff < closest_diff)
@@ -199,9 +199,9 @@ protected:
 
     std::vector<std::string> image_files_;
     std::vector<std::string> depth_files_;
-    std::vector<SE3> poses_;
+    std::vector<linalg::SE3<float>> poses_;
     std::vector<double> time_stamps_;
-    Camera cam_;
+    Camera<float> cam_;
 };
 
 class LoadDatasetTumRgbd : public LoadDatasetBase
@@ -228,11 +228,11 @@ public:
         std::vector<double> depth_timestamps;
         GetFilesAndTimestamps(dataset_path, depth_path, depth_file_paths, depth_timestamps);
 
-        std::vector<SE3> poses_list;
+        std::vector<linalg::SE3<float>> poses_list;
         std::vector<double> pose_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, poses_list, pose_timestamps);
 
-        std::vector<SE3> sync_poses;
+        std::vector<linalg::SE3<float>> sync_poses;
         for (double timestamp : image_timestamps)
         {
             sync_poses.push_back(GetClosestPose(poses_list, pose_timestamps, timestamp));
@@ -295,7 +295,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<linalg::SE3<float>> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -328,9 +328,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3 pose;
-                pose.setQuaternion(Quaternion(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3(values[1], values[2], values[3]);
+                linalg::SE3<float> pose;
+                pose.setQuaternion(linalg::Quaternion<float>(values[7], values[4], values[5], values[6]));
+                pose.translation() = linalg::Vec3<float>(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);
@@ -359,11 +359,11 @@ public:
 
         ReadAssociationsFile(dataset_path, assosiations_path, this->image_files_, this->depth_files_, this->time_stamps_);
 
-        std::vector<SE3> pose_list;
+        std::vector<linalg::SE3<float>> pose_list;
         std::vector<double> poses_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, pose_list, poses_timestamps);
 
-        std::vector<SE3> sync_poses;
+        std::vector<linalg::SE3<float>> sync_poses;
         for (double time_stamp : this->time_stamps_)
         {
             sync_poses.push_back(this->GetClosestPose(pose_list, poses_timestamps, time_stamp));
@@ -430,7 +430,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<linalg::SE3<float>> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -463,9 +463,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3 pose;
-                pose.setQuaternion(Quaternion(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3(values[1], values[2], values[3]);
+                linalg::SE3<float> pose;
+                pose.setQuaternion(linalg::Quaternion<float>(values[7], values[4], values[5], values[6]));
+                pose.translation() = linalg::Vec3<float>(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);
@@ -500,7 +500,7 @@ public:
 
         for (std::string pose_file : pose_files)
         {
-            SE3 pose = readPose(pose_file);
+            linalg::SE3<float> pose = readPose(pose_file);
             this->poses_.push_back(pose);
         }
     }
@@ -537,7 +537,7 @@ private:
         return files.size();
     }
 
-    SE3 readPose(std::string filename)
+    linalg::SE3<float> readPose(std::string filename)
     {
         std::ifstream cam_pars_file(filename);
         if (!cam_pars_file.is_open())
@@ -548,9 +548,9 @@ private:
 
         char readlinedata[300];
 
-        Vec3 direction;
-        Vec3 upvector;
-        Vec3 posvector;
+        linalg::Vec3<float> direction;
+        linalg::Vec3<float> upvector;
+        linalg::Vec3<float> posvector;
 
         while (1)
         {
@@ -570,11 +570,11 @@ private:
                 cam_dir_str = cam_dir_str.substr(0, cam_dir_str.find("]"));
 
                 iss.str(cam_dir_str);
-                iss >> direction(0);//.x();
+                iss >> direction(0); //.x();
                 iss.ignore(1, ',');
-                iss >> direction(2);//.z();
+                iss >> direction(2); //.z();
                 iss.ignore(1, ',');
-                iss >> direction(1);//.y();
+                iss >> direction(1); //.y();
                 iss.ignore(1, ',');
             }
 
@@ -587,11 +587,11 @@ private:
                 cam_up_str = cam_up_str.substr(0, cam_up_str.find("]"));
 
                 iss.str(cam_up_str);
-                iss >> upvector(0);//.x();
+                iss >> upvector(0); //.x();
                 iss.ignore(1, ',');
-                iss >> upvector(2);//.z();
+                iss >> upvector(2); //.z();
                 iss.ignore(1, ',');
-                iss >> upvector(1);//.y();
+                iss >> upvector(1); //.y();
                 iss.ignore(1, ',');
             }
 
@@ -608,11 +608,11 @@ private:
                 //            cout << cam_pos_str << endl;
 
                 iss.str(cam_pos_str);
-                iss >> posvector(0);//.x();
+                iss >> posvector(0); //.x();
                 iss.ignore(1, ',');
-                iss >> posvector(2);//.z();
+                iss >> posvector(2); //.z();
                 iss.ignore(1, ',');
-                iss >> posvector(1);//.y();
+                iss >> posvector(1); //.y();
                 iss.ignore(1, ',');
                 //             cout << "position: "<<posvector.x<< ", "<< posvector.y << ", "<< posvector.z << endl;
             }
@@ -623,13 +623,13 @@ private:
         //    R.row(1)=Mat(-upvector).t();
         //    R.row(2)=Mat(direction).t();
 
-        Mat3 Rot;
-        //Rot.row(0) = (direction.cross(upvector)).transpose();
-        //Rot.row(1) = (-upvector).transpose();
-        //Rot.row(2) = direction.transpose();
-        Vec3 row0 = (direction.cross(upvector));
-        Vec3 row1 = -upvector;
-        Vec3 row2 = direction;
+        linalg::Mat3<float> Rot;
+        // Rot.row(0) = (direction.cross(upvector)).transpose();
+        // Rot.row(1) = (-upvector).transpose();
+        // Rot.row(2) = direction.transpose();
+        linalg::Vec3<float> row0 = (direction.cross(upvector));
+        linalg::Vec3<float> row1 = -upvector;
+        linalg::Vec3<float> row2 = direction;
 
         Rot(0, 0) = row0(0);
         Rot(0, 1) = row0(1);
@@ -641,14 +641,12 @@ private:
         Rot(2, 1) = row2(1);
         Rot(2, 2) = row2(2);
 
-
-
         // T=-R*Mat(posvector);
 
-        Vec3 Tra;
+        linalg::Vec3<float> Tra;
         Tra = -Rot * posvector;
 
-        SE3 pose = SE3(Rot, Tra);
+        linalg::SE3<float> pose = linalg::SE3<float>(Rot, Tra);
 
         /*
         std::ofstream myfile;

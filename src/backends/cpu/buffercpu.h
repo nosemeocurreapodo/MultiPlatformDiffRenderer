@@ -70,7 +70,7 @@ public:
 protected:
     template <class T2>
     friend class TextureCPU;
-    template <class Derived>
+    template <class T2, class Derived>
     friend class RendererBase;
 
     void swap(BufferCPU &o) noexcept
@@ -94,6 +94,7 @@ protected:
         return data_.get()[i];
     }
 
+private:
     std::unique_ptr<T[]> data_;
     std::size_t size_ = 0;
 };

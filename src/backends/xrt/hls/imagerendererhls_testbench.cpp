@@ -4,10 +4,34 @@
 
 #include "loaddataset.h"
 #include "common/test_helpers.h"
-#include "core/types.h"
+// #include "core/types.h"
 #include "core/camera.h"
 #include "core/common.h"
-#include "backends/xrt/hls/imagerendererhls.h"
+
+extern "C"
+{
+    void ImageRenderHLS(const float *pos_buffer_data,
+                        const float *tex_buffer_data,
+                        const float *wei_buffer_data,
+                        const unsigned int *ebo_buffer_data,
+                        const float *in_texture_data,
+                        float *out_texture_data,
+                        unsigned int pos_buffer_size,
+                        unsigned int tex_buffer_size,
+                        unsigned int wei_buffer_size,
+                        unsigned int ebo_buffer_size,
+                        unsigned int in_texture_width,
+                        unsigned int in_texture_height,
+                        float in_nodata_value,
+                        unsigned int in_lvl,
+                        unsigned int out_texture_width,
+                        unsigned int out_texture_height,
+                        float out_nodata_value,
+                        unsigned int out_lvl,
+                        float q_x, float q_y, float q_z, float q_w,
+                        float t_x, float t_y, float t_z,
+                        float fx, float fy, float cx, float cy);
+}
 
 int main()
 {
@@ -16,9 +40,9 @@ int main()
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
-    std::vector<SE3> poses = dataset.GetPoses();
+    std::vector<linalg::SE3<float>> poses = dataset.GetPoses();
     float depth_factor = dataset.GetDepthFactor();
-    Camera cam = dataset.GetCamera();
+    Camera<float> cam = dataset.GetCamera();
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
@@ -26,7 +50,7 @@ int main()
 
     cv::Mat image_src_cv = ReadMat(image_files[0]);
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
-    SE3 pose_src = poses[0];
+    linalg::SE3<float> pose_src = poses[0];
 
     TextureCPU<float> image_src_cpu(w, h, -1.0f);
     TextureCPU<float> depth_src_cpu(w, h, -1.0f);
@@ -36,7 +60,7 @@ int main()
 
     cv::Mat image_dst_cv = ReadMat(image_files[50]);
     cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
-    SE3 pose_dst = poses[50];
+    linalg::SE3<float> pose_dst = poses[50];
 
     std::vector<float> vertices, texcoords, weights;
     std::vector<unsigned int> indices;
@@ -46,28 +70,28 @@ int main()
     std::vector<unsigned int> screen_indices;
     CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
 
-    SE3 pose = pose_dst * pose_src.inverse();
+    linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    int lvl = 1;
+    unsigned int lvl = 3;
 
     auto image_in_map = image_src_cpu.MapRead(0);
 
-    TextureCPU<Scalar> image_out_cpu(w, h, -1.0f);
+    TextureCPU<float> image_out_cpu(w, h, -1.0f);
     auto image_out_map = image_out_cpu.MapWrite(0);
 
     ImageRenderHLS(
-        (Scalar *)vertices.data(),
-        (Scalar *)texcoords.data(),
-        (Scalar *)weights.data(),
-        (UInt *)indices.data(),
-        (Scalar *)image_in_map.data(),
-        (Scalar *)image_out_map.data(),
-        UInt(vertices.size()), UInt(texcoords.size()), UInt(weights.size()), UInt(indices.size()),
-        UInt(w), UInt(h), Scalar(-1), UInt(lvl),
-        UInt(w), UInt(h), Scalar(-1), UInt(lvl),
-        Scalar(pose.so3().unit_quaternion().x()), Scalar(pose.so3().unit_quaternion().y()), Scalar(pose.so3().unit_quaternion().z()), Scalar(pose.so3().unit_quaternion().w()),
-        Scalar(pose.translation()(0)), Scalar(pose.translation()(1)), Scalar(pose.translation()(2)),
-        Scalar(cam.GetParams()(0)), Scalar(cam.GetParams()(1)), Scalar(cam.GetParams()(2)), Scalar(cam.GetParams()(3)));
+        vertices.data(),
+        texcoords.data(),
+        weights.data(),
+        indices.data(),
+        image_in_map.data(),
+        image_out_map.data(),
+        vertices.size(), texcoords.size(), weights.size(), indices.size(),
+        w, h, -1.0f, lvl,
+        w, h, -1.0f, lvl,
+        pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
+        pose.translation()(0), pose.translation()(1), pose.translation()(2),
+        cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
     cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
 

@@ -72,13 +72,13 @@ public:
         kernel_ = xrt::kernel(device_xrt, uuid_xrt, "ImageRenderHLS");
     }
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshXRT &mesh,
                 const SE3 &pose,
                 const Camera &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &in_texture,
-                TextureCPU<float> &out_texture)
+                TextureXRT<float> &in_texture,
+                TextureXRT<float> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
         // assert(kernel_.group_id(1) == mesh.pos.bo_.get_memory_group());

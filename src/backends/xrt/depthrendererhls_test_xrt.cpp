@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     std::vector<double> times;
     times.reserve(iterations);
 
-    for (int i = 1; i < iterations; ++i)
+    for (int i = 0; i < iterations; ++i)
     {
         std::cout << "Iteration " << i << std::endl;
 

@@ -91,7 +91,7 @@ TEST_F(CrossBackendTests, MipMapComparison)
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
@@ -160,7 +160,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
@@ -236,7 +236,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, ResidualRenderingComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
@@ -317,7 +317,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, L2RenderingComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
@@ -404,9 +404,9 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     MeshGL mesh_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
 
     TextureCPU<float> input_cpu(w_, h_, -1.0f);
-    TextureCPU<Vec3> output_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> output_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<float> input_gl(w_, h_, -1.0f);
-    TextureGL<Vec3> output_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> output_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
@@ -473,7 +473,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 // Test full Jacobian pipeline comparison
 TEST_F(CrossBackendTests, JPosePipelineComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
@@ -483,16 +483,16 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 
     TextureCPU<float> kf_cpu(w_, h_, -1.0f);
     TextureCPU<float> f_cpu(w_, h_, -1.0f);
-    TextureCPU<Vec3> dfdxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jtra_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jrot_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> dfdxy_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jtra_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jrot_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
     TextureGL<float> kf_gl(w_, h_, -1.0f);
     TextureGL<float> f_gl(w_, h_, -1.0f);
-    TextureGL<Vec3> dfdxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> jtra_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> jrot_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> dfdxy_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jtra_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jrot_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(kf_cpu, 0, image_src_cv_);
@@ -587,7 +587,7 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 // Test full Jacobian pipeline comparison
 TEST_F(CrossBackendTests, JMapPipelineComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
@@ -597,15 +597,15 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
     TextureCPU<float> kf_cpu(w_, h_, -1.0f);
     TextureCPU<float> f_cpu(w_, h_, -1.0f);
-    TextureCPU<Vec3> dfdxy_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jmap_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> pids_cpu(w_, h_, Vec3(-1.0f, -1.0f, -1.0f));
+    TextureCPU<linalg::Vec3<float>> dfdxy_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jmap_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> pids_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
     TextureGL<float> kf_gl(w_, h_, -1.0f);
     TextureGL<float> f_gl(w_, h_, -1.0f);
-    TextureGL<Vec3> dfdxy_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> jmap_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> pids_gl(w_, h_, Vec3(-1.0f, -1.0f, -1.0f));
+    TextureGL<linalg::Vec3<float>> dfdxy_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jmap_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> pids_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(kf_cpu, 0, image_src_cv_);
@@ -699,7 +699,7 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
 TEST_F(CrossBackendTests, DiffPipelineComparison)
 {
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
@@ -707,20 +707,20 @@ TEST_F(CrossBackendTests, DiffPipelineComparison)
     MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
     MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
 
-    TextureCPU<Scalar> f_cpu(w_, h_, -1.0f);
-    TextureCPU<Scalar> image_cpu(w_, h_, Scalar(-1.0f));
-    TextureCPU<Scalar> depth_cpu(w_, h_, Scalar(-1.0f));
-    TextureCPU<Vec3> jtra_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jrot_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jmap_cpu(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> pids_cpu(w_, h_, Vec3(-1.0f, -1.0f, -1.0f));
-    TextureGL<Scalar> f_gl(w_, h_, -1.0f);
-    TextureGL<Scalar> image_gl(w_, h_, Scalar(-1.0f));
-    TextureGL<Scalar> depth_gl(w_, h_, Scalar(-1.0f));
-    TextureGL<Vec3> jtra_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> jrot_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> jmap_gl(w_, h_, Vec3(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3> pids_gl(w_, h_, Vec3(-1.0f, -1.0f, -1.0f));
+    TextureCPU<float> f_cpu(w_, h_, -1.0f);
+    TextureCPU<float> image_cpu(w_, h_, -1.0f);
+    TextureCPU<float> depth_cpu(w_, h_, -1.0f);
+    TextureCPU<linalg::Vec3<float>> jtra_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jrot_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jmap_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> pids_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+    TextureGL<float> f_gl(w_, h_, -1.0f);
+    TextureGL<float> image_gl(w_, h_, -1.0f);
+    TextureGL<float> depth_gl(w_, h_, -1.0f);
+    TextureGL<linalg::Vec3<float>> jtra_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jrot_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jmap_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> pids_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
 
     UploadMatToTexture(f_cpu, 0, image_src_cv_);
     UploadMatToTexture(f_gl, 0, image_src_cv_);
@@ -918,7 +918,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
     const int out_lvl = 0;
     const int iterations = 3;
 
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     std::vector<cv::Mat> cpu_results, gl_results;
     cpu_results.reserve(iterations);

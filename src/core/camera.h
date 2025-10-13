@@ -2,12 +2,16 @@
 
 // #include <cassert>
 // #include <vector>
-#include "core/types.h"
+// #include "core/types.h"
+#include "linalg/linalg.h"
 
+template <typename T>
 class PinholeCamera;
 
-using Camera = PinholeCamera;
+template <typename T>
+using Camera = PinholeCamera<T>;
 
+template <typename T>
 class PinholeCamera
 {
 public:
@@ -18,7 +22,7 @@ public:
         cx_ = 0;
         cy_ = 0;
     }
-    PinholeCamera(Scalar fx, Scalar fy, Scalar cx, Scalar cy, UInt width, UInt height)
+    PinholeCamera(T fx, T fy, T cx, T cy, unsigned int width, unsigned int height)
     {
         fx_ = fx / width;
         fy_ = fy / height;
@@ -29,14 +33,14 @@ public:
         // float beta = imageExp(1);
         // imageType f_i_cor = alpha * (f_i - beta);
     }
-    PinholeCamera(Scalar fx, Scalar fy, Scalar cx, Scalar cy)
+    PinholeCamera(T fx, T fy, T cx, T cy)
     {
         fx_ = fx;
         fy_ = fy;
         cx_ = cx;
         cy_ = cy;
     }
-    PinholeCamera(Scalar *data)
+    PinholeCamera(T *data)
     {
         fx_ = data[0];
         fy_ = data[1];
@@ -64,29 +68,29 @@ public:
         return *this;
     }
 
-    Mat4 GetProjectiveMatrix(Scalar znear, Scalar zfar) const
+    linalg::Mat4<T> GetProjectiveMatrix(T znear, T zfar) const
     {
-        Mat4 projmat = Mat4::Zero();
+        linalg::Mat4<T> projmat = linalg::Mat4<T>::Zero();
 
-        projmat(0, 0) = Scalar(2) * fx_;
-        projmat(1, 1) = Scalar(2) * fy_;
-        projmat(0, 2) = Scalar(1) - Scalar(2) * cx_;
-        projmat(1, 2) = -Scalar(1) + Scalar(2) * cy_;
+        projmat(0, 0) = T(2) * fx_;
+        projmat(1, 1) = T(2) * fy_;
+        projmat(0, 2) = T(1) - T(2) * cx_;
+        projmat(1, 2) = -T(1) + T(2) * cy_;
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
-        projmat(3, 2) = -Scalar(1);
-        projmat(2, 3) = -Scalar(2) * zfar * znear / (zfar - znear);
+        projmat(3, 2) = -T(1);
+        projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
 
         return projmat;
     }
 
-    bool IsPixVisible(Vec2 pix) const
+    bool IsPixVisible(linalg::Vec2<T> pix) const
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
         // so here the max is one more than the last pixel
         // if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
         //    return false;
-        if (pix(0) < Scalar(0) || pix(0) > Scalar(1) || pix(1) < Scalar(0) || pix(1) > Scalar(1))
+        if (pix(0) < T(0) || pix(0) > T(1) || pix(1) < T(0) || pix(1) > T(1))
             return false;
         return true;
     }
@@ -101,53 +105,53 @@ public:
     }
     */
 
-    Vec2 RayToPix(Vec3 ray) const
+    linalg::Vec2<T> RayToPix(linalg::Vec3<T> ray) const
     {
-        Vec2 pix;
+        linalg::Vec2<T> pix;
         pix(0) = fx_ * ray(0) + cx_;
         pix(1) = fy_ * ray(1) + cy_;
         return pix;
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    Mat23 d_pix_d_ver(Vec3 ver) const
+    linalg::Mat<T, 2, 3> d_pix_d_ver(linalg::Vec3<T> ver) const
     {
-        Mat23 d_pix_d_ver;
+        linalg::Mat<T, 2, 3> d_pix_d_ver;
 
         d_pix_d_ver(0, 0) = fx_ / ver(2);
-        d_pix_d_ver(0, 1) = Scalar(0);
+        d_pix_d_ver(0, 1) = T(0);
         d_pix_d_ver(0, 2) = -fx_ * ver(0) / (ver(2) * ver(2));
 
-        d_pix_d_ver(1, 0) = Scalar(0);
+        d_pix_d_ver(1, 0) = T(0);
         d_pix_d_ver(1, 1) = fy_ / ver(2);
         d_pix_d_ver(1, 2) = -fy_ * ver(1) / (ver(2) * ver(2));
 
         return d_pix_d_ver;
     }
 
-    Mat24 d_pix_d_intrinsics(Vec3 ray) const
+    linalg::Mat<T, 2, 4> d_pix_d_intrinsics(linalg::Vec3<T> ray) const
     {
-        Mat24 d_pix_d_int;
+        linalg::Mat<T, 2, 4> d_pix_d_int;
 
         d_pix_d_int(0, 0) = ray(0);
-        d_pix_d_int(0, 1) = Scalar(0);
-        d_pix_d_int(0, 2) = Scalar(1);
-        d_pix_d_int(0, 3) = Scalar(0);
+        d_pix_d_int(0, 1) = T(0);
+        d_pix_d_int(0, 2) = T(1);
+        d_pix_d_int(0, 3) = T(0);
 
-        d_pix_d_int(1, 0) = Scalar(0);
+        d_pix_d_int(1, 0) = T(0);
         d_pix_d_int(1, 1) = ray(1);
-        d_pix_d_int(1, 2) = Scalar(0);
-        d_pix_d_int(1, 3) = Scalar(1);
+        d_pix_d_int(1, 2) = T(0);
+        d_pix_d_int(1, 3) = T(1);
 
         return d_pix_d_int;
     }
 
-    Vec3 PixToRay(Vec2 pix) const
+    linalg::Vec3<T> PixToRay(linalg::Vec2<T> pix) const
     {
-        Vec3 ray;
+        linalg::Vec3<T> ray;
         ray(0) = (pix(0) - cx_) / fx_;
         ray(1) = (pix(1) - cy_) / fy_;
-        ray(2) = Scalar(1);
+        ray(2) = T(1);
         return ray;
     }
 
@@ -175,12 +179,12 @@ public:
     }
     */
 
-    Vec4 GetParams() const
+    linalg::Vec4<T> GetParams() const
     {
-        return Vec4(fx_, fy_, cx_, cy_);
+        return linalg::Vec4<T>(fx_, fy_, cx_, cy_);
     }
 
-    void SetParams(Vec4 params)
+    void SetParams(linalg::Vec4<T> params)
     {
         fx_ = params(0);
         fy_ = params(1);
@@ -198,10 +202,10 @@ public:
     */
 
 private:
-    Scalar fx_;
-    Scalar fy_;
-    Scalar cx_;
-    Scalar cy_;
+    T fx_;
+    T fy_;
+    T cx_;
+    T cy_;
 };
 
 /*

@@ -4,7 +4,7 @@
 #include <array>
 #include <cmath>
 
-#include "core/types.h"
+#include "linalg/linalg.h"
 
 class DelaunayTriangulation
 {
@@ -13,26 +13,26 @@ public:
     {
     }
 
-    void LoadPoints(std::vector<Vec2> texcoords)
+    void LoadPoints(std::vector<linalg::Vec2<float>> texcoords)
     {
         vertices_ = texcoords;
     }
 
-    void LoadTriangles(std::vector<Vec3i> &tris)
+    void LoadTriangles(std::vector<linalg::Vec3<int>> &tris)
     {
         triangles_ = tris;
     }
 
-    std::vector<Vec3i> GetTriangles()
+    std::vector<linalg::Vec3<int>> GetTriangles()
     {
         return triangles_;
     }
 
     void TriangulateVertice(int v_id)
     {
-        std::vector<Vec3i> goodTriangles;
-        std::vector<Vec3i> badTriangles;
-        std::vector<Vec2i> polygon;
+        std::vector<linalg::Vec3<int>> goodTriangles;
+        std::vector<linalg::Vec3<int>> badTriangles;
+        std::vector<linalg::Vec2<int>> polygon;
 
         // check for bad triangles
         for (auto it = triangles_.begin(); it != triangles_.end(); ++it)
@@ -45,22 +45,22 @@ public:
 
         for (const auto &tri : badTriangles)
         {
-            std::array<Vec2i, 3> edges;
+            std::array<linalg::Vec2<int>, 3> edges;
             // edges[0] = {tri(0), tri(1)};
             // edges[1] = {tri(1), tri(2)};
             // edges[2] = {tri(2), tri(0)};
 
-            edges[0] = Vec2i(tri(0), tri(1));
-            edges[1] = Vec2i(tri(1), tri(2));
-            edges[2] = Vec2i(tri(2), tri(0));
+            edges[0] = linalg::Vec2<int>(tri(0), tri(1));
+            edges[1] = linalg::Vec2<int>(tri(1), tri(2));
+            edges[2] = linalg::Vec2<int>(tri(2), tri(0));
 
             for (size_t j = 0; j < edges.size(); j++)
             {
-                Vec2i edge = edges[j];
+                linalg::Vec2<int> edge = edges[j];
                 int edge_index = -1;
                 for (size_t k = 0; k < polygon.size(); k++)
                 {
-                    Vec2i pol = polygon[k];
+                    linalg::Vec2<int> pol = polygon[k];
 
                     if (IsEdgeEqual(edge, pol))
                     {
@@ -84,7 +84,7 @@ public:
 
         for (const auto &edge : polygon)
         {
-            Vec3i tri;
+            linalg::Vec3<int> tri;
             tri(0) = edge(0);
             tri(1) = edge(1);
             tri(2) = v_id;
@@ -106,8 +106,8 @@ public:
     void Triangulate()
     {
         triangles_.clear();
-        std::array<Vec2, 3> superTriangleVertices = GetSuperTriangle();
-        Vec3i superTriangleIndices;
+        std::array<linalg::Vec2<float>, 3> superTriangleVertices = GetSuperTriangle();
+        linalg::Vec3<int> superTriangleIndices;
 
         superTriangleIndices(0) = vertices_.size();
         vertices_.push_back(superTriangleVertices[0]);
@@ -131,7 +131,7 @@ public:
     }
 
 private:
-    bool IsTriangleEqual(Vec3i tri_indices_1, Vec3i tri_indices_2)
+    bool IsTriangleEqual(linalg::Vec3<int> tri_indices_1, linalg::Vec3<int> tri_indices_2)
     {
         bool isIndicePresent[3];
         for (int tri_indice = 0; tri_indice < 3; tri_indice++)
@@ -145,7 +145,7 @@ private:
         return false;
     }
 
-    bool IsEdgeEqual(Vec2i edge_indices_1, Vec2i edge_indices_2)
+    bool IsEdgeEqual(linalg::Vec2<int> edge_indices_1, linalg::Vec2<int> edge_indices_2)
     {
         bool isIndicePresent[2];
         for (int edge_indice = 0; edge_indice < 2; edge_indice++)
@@ -158,7 +158,7 @@ private:
             return true;
         return false;
     }
-    std::array<Vec2, 3> GetSuperTriangle()
+    std::array<linalg::Vec2<float>, 3> GetSuperTriangle()
     {
         double minX = std::numeric_limits<double>::max();
         double minY = std::numeric_limits<double>::max();
@@ -168,7 +168,7 @@ private:
         for (auto it = vertices_.begin(); it != vertices_.end(); ++it)
         // for (const auto &point : points)
         {
-            Vec2 point = *it;
+            linalg::Vec2<float> point = *it;
 
             if (point(0) < minX)
                 minX = point(0);
@@ -186,11 +186,11 @@ private:
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
 
-        std::array<Vec2, 3> superTriangle;
+        std::array<linalg::Vec2<float>, 3> superTriangle;
 
-        superTriangle[0] = Vec2(midX - 2 * deltaMax, midY - deltaMax);
-        superTriangle[1] = Vec2(midX, midY + 2 * deltaMax);
-        superTriangle[2] = Vec2(midX + 2 * deltaMax, midY - deltaMax);
+        superTriangle[0] = linalg::Vec2<float>(midX - 2 * deltaMax, midY - deltaMax);
+        superTriangle[1] = linalg::Vec2<float>(midX, midY + 2 * deltaMax);
+        superTriangle[2] = linalg::Vec2<float>(midX + 2 * deltaMax, midY - deltaMax);
 
         return superTriangle;
     }
@@ -212,7 +212,7 @@ private:
         std::vector<int> to_remove;
         for (int it = 0; it < (int)triangles_.size(); it++)
         {
-            Vec3i tri = triangles_[it];
+            linalg::Vec3<int> tri = triangles_[it];
 
             if (v_id == tri(0) || v_id == tri(1) || v_id == tri(2))
             {
@@ -249,30 +249,30 @@ private:
         */
     }
 
-    bool IsPointInCircumcircle(Vec2 &point, Vec3i &tri)
+    bool IsPointInCircumcircle(linalg::Vec2<float> &point, linalg::Vec3<int> &tri)
     {
-        std::pair<Vec2, double> center_radius = Circumcircle(tri);
-        Vec2 circumcenter = center_radius.first;
+        std::pair<linalg::Vec2<float>, double> center_radius = Circumcircle(tri);
+        linalg::Vec2<float> circumcenter = center_radius.first;
         double circumradius = center_radius.second;
         double dist = std::sqrt((point(0) - circumcenter(0)) * (point(0) - circumcenter(0)) + (point(1) - circumcenter(1)) * (point(1) - circumcenter(1)));
         return dist <= circumradius;
     }
-    std::pair<Vec2, double> Circumcircle(Vec3i &tri)
+    std::pair<linalg::Vec2<float>, double> Circumcircle(linalg::Vec3<int> &tri)
     {
-        Vec2 A = vertices_[tri(0)];
-        Vec2 B = vertices_[tri(1)];
-        Vec2 C = vertices_[tri(2)];
+        linalg::Vec2<float> A = vertices_[tri(0)];
+        linalg::Vec2<float> B = vertices_[tri(1)];
+        linalg::Vec2<float> C = vertices_[tri(2)];
 
         double D = 2 * (A(0) * (B(1) - C(1)) + B(0) * (C(1) - A(1)) + C(0) * (A(1) - B(1)));
         double Ux = ((A(0) * A(0) + A(1) * A(1)) * (B(1) - C(1)) + (B(0) * B(0) + B(1) * B(1)) * (C(1) - A(1)) + (C(0) * C(0) + C(1) * C(1)) * (A(1) - B(1))) / D;
         double Uy = ((A(0) * A(0) + A(1) * A(1)) * (C(0) - B(0)) + (B(0) * B(0) + B(1) * B(1)) * (A(0) - C(0)) + (C(0) * C(0) + C(1) * C(1)) * (B(0) - A(0))) / D;
 
-        Vec2 circumcenter(Ux, Uy);
+        linalg::Vec2<float> circumcenter(Ux, Uy);
         double circumradius = std::sqrt((circumcenter(0) - A(0)) * (circumcenter(0) - A(0)) + (circumcenter(1) - A(1)) * (circumcenter(1) - A(1)));
 
         return {circumcenter, circumradius};
     }
 
-    std::vector<Vec2> vertices_;
-    std::vector<Vec3i> triangles_;
+    std::vector<linalg::Vec2<float>> vertices_;
+    std::vector<linalg::Vec3<int>> triangles_;
 };

@@ -3,7 +3,8 @@
 // #include <algorithm>
 // #include <cmath>
 // #include <cstdint>
-#include "core/types.h"
+// #include "core/types.h"
+#include "linalg/linalg.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
 #include "core/render_constants.h"
@@ -12,54 +13,62 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/meshhls.h"
 
+using MathType = float;
+using MeshType = float;
+using DepthType = float;
+using ImageType = float;
+using ErrorType = float;
+using DType = float;
+using IdType = float;
+
 class DepthRendererRAM
-    : public DepthRendererBase<MeshHLS, TextureRAM>
+    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     DepthRendererRAM() = default;
     ~DepthRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int out_lvl,
-                TextureRAM<Scalar> &out_texture)
+                TextureRAM<DepthType> &out_texture)
     {
-        DepthRendererBase<MeshHLS, TextureRAM>::Render(mesh, pose, cam, out_lvl, out_texture);
+        DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
     }
 
 private:
 };
 
 class DepthRendererBRAM
-    : public DepthRendererBase<MeshHLS, TextureBRAM>
+    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType>, TextureBRAM>
 {
 public:
     DepthRendererBRAM() = default;
     ~DepthRendererBRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                UInt out_lvl,
-                TextureRAM<Scalar> &out_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int out_lvl,
+                TextureRAM<DepthType> &out_texture)
     {
         out_lvl_ = out_lvl;
 
-        UInt W = out_texture.width(out_lvl);
-        UInt H = out_texture.height(out_lvl);
+        unsigned int W = out_texture.width(out_lvl);
+        unsigned int H = out_texture.height(out_lvl);
 
-        UInt crop_W = TextureBRAM<Scalar>::max_x;
-        UInt crop_H = TextureBRAM<Scalar>::max_y;
+        unsigned int crop_W = TextureBRAM<DepthType>::max_x;
+        unsigned int crop_H = TextureBRAM<DepthType>::max_y;
 
-        UInt x_size = W / crop_W;
-        UInt y_size = H / crop_H;
+        unsigned int x_size = W / crop_W;
+        unsigned int y_size = H / crop_H;
 
-        Scalar scale_W = Scalar(W) / Scalar(crop_W);
-        Scalar scale_H = Scalar(H) / Scalar(crop_H);
+        MathType scale_W = MathType(W) / MathType(crop_W);
+        MathType scale_H = MathType(H) / MathType(crop_H);
 
-        BoundingBox<Int> viewport(0, crop_W, 0, crop_H);
-        TextureBRAM<Scalar> out_texture_part(crop_W, crop_H, out_texture.nodata());
+        BoundingBox<int> viewport(0, crop_W, 0, crop_H);
+        TextureBRAM<DepthType> out_texture_part(crop_W, crop_H, out_texture.nodata());
         Textures textures{out_texture_part};
 
     depth_renderer_loop_y:
@@ -68,24 +77,24 @@ public:
         depth_renderer_loop_x:
             for (int px = 0; px < x_size; px++)
             {
-                UInt start_W = px * crop_W;
+                unsigned int start_W = px * crop_W;
                 // Int Wf = (px + 1) * Wn;
-                UInt start_H = py * crop_H;
+                unsigned int start_H = py * crop_H;
                 // Int Hf = (py + 1) * Hn;
 
-                Vec4 cam_params = cam.GetParams();
-                cam_params(0) = cam_params(0) * Scalar(W) / Scalar(crop_W);
-                cam_params(1) = cam_params(1) * Scalar(H) / Scalar(crop_H);
-                cam_params(2) = (cam_params(2) * Scalar(W) - Scalar(start_W)) / Scalar(crop_W);
-                cam_params(3) = (cam_params(3) * scale_H - Scalar(y_size - 1 - py));
-                Camera new_cam;
+                linalg::Vec4<MathType> cam_params = cam.GetParams();
+                cam_params(0) = cam_params(0) * MathType(W) / MathType(crop_W);
+                cam_params(1) = cam_params(1) * MathType(H) / MathType(crop_H);
+                cam_params(2) = (cam_params(2) * MathType(W) - MathType(start_W)) / MathType(crop_W);
+                cam_params(3) = (cam_params(3) * scale_H - MathType(y_size - 1 - py));
+                Camera<MathType> new_cam;
                 new_cam.SetParams(cam_params);
 
-                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::opencv2opengl_ * pose.matrix();
+                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
 
                 out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
-                RendererBase<DepthRendererBase<MeshHLS, TextureBRAM>>::Render(mesh, viewport, textures);
+                RendererBase::Render(mesh, viewport, textures);
 
             depth_renderer_copy_loop_y:
                 for (int y = 0; y < crop_H; y++)
@@ -93,7 +102,7 @@ public:
                 depth_renderer_copy_loop_x:
                     for (int x = 0; x < crop_W; x++)
                     {
-                        Scalar data = out_texture_part.texel_(y, x, out_lvl);
+                        DepthType data = out_texture_part.texel_(y, x, out_lvl);
                         out_texture.set_texel_(data, start_H + y, start_W + x, out_lvl);
                     }
                 }
@@ -105,59 +114,59 @@ private:
 };
 
 class ImageRendererRAM
-    : public ImageRendererBase<MeshHLS, TextureRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     ImageRendererRAM() = default;
     ~ImageRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                Int in_lvl,
-                Int out_lvl,
-                const TextureRAM<Scalar> &in_texture,
-                TextureRAM<Scalar> &out_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &in_texture,
+                TextureRAM<ImageType> &out_texture)
     {
-        ImageRendererBase<MeshHLS, TextureRAM>::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }
 
 private:
 };
 
 class ImageRendererBRAM
-    : public ImageRendererBase<MeshHLS, TextureBRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureBRAM>
 {
 public:
     ImageRendererBRAM() = default;
     ~ImageRendererBRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureRAM<Scalar> &in_texture,
-                TextureRAM<Scalar> &out_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &in_texture,
+                TextureRAM<ImageType> &out_texture)
     {
         out_lvl_ = out_lvl;
 
-        UInt W = out_texture.width(out_lvl);
-        UInt H = out_texture.height(out_lvl);
+        unsigned int W = out_texture.width(out_lvl);
+        unsigned int H = out_texture.height(out_lvl);
 
-        UInt crop_W = TextureBRAM<Scalar>::max_x;
-        UInt crop_H = TextureBRAM<Scalar>::max_y;
+        unsigned int crop_W = TextureBRAM<ImageType>::max_x;
+        unsigned int crop_H = TextureBRAM<ImageType>::max_y;
 
-        UInt x_size = W / crop_W;
-        UInt y_size = H / crop_H;
+        unsigned int x_size = W / crop_W;
+        unsigned int y_size = H / crop_H;
 
-        Scalar scale_W = Scalar(W) / Scalar(crop_W);
-        Scalar scale_H = Scalar(H) / Scalar(crop_H);
+        MathType scale_W = MathType(W) / MathType(crop_W);
+        MathType scale_H = MathType(H) / MathType(crop_H);
 
-        BoundingBox<Int> viewport(0, crop_W, 0, crop_H);
+        BoundingBox<int> viewport(0, crop_W, 0, crop_H);
 
-        TextureBRAM<Scalar> in_texture_part(crop_W, crop_H, out_texture.nodata());
-        TextureBRAM<Scalar> out_texture_part(crop_W, crop_H, out_texture.nodata());
+        TextureBRAM<ImageType> in_texture_part(crop_W, crop_H, out_texture.nodata());
+        TextureBRAM<ImageType> out_texture_part(crop_W, crop_H, out_texture.nodata());
         Textures textures{in_texture_part, out_texture_part};
 
     depth_renderer_loop_y:
@@ -166,24 +175,24 @@ public:
         depth_renderer_loop_x:
             for (int px = 0; px < x_size; px++)
             {
-                UInt start_W = px * crop_W;
+                unsigned int start_W = px * crop_W;
                 // Int Wf = (px + 1) * Wn;
-                UInt start_H = py * crop_H;
+                unsigned int start_H = py * crop_H;
                 // Int Hf = (py + 1) * Hn;
 
-                Vec4 cam_params = cam.GetParams();
-                cam_params(0) = cam_params(0) * Scalar(W) / Scalar(crop_W);
-                cam_params(1) = cam_params(1) * Scalar(H) / Scalar(crop_H);
-                cam_params(2) = (cam_params(2) * Scalar(W) - Scalar(start_W)) / Scalar(crop_W);
-                cam_params(3) = (cam_params(3) * scale_H - Scalar(y_size - 1 - py));
-                Camera new_cam;
+                linalg::Vec4<MathType> cam_params = cam.GetParams();
+                cam_params(0) = cam_params(0) * MathType(W) / MathType(crop_W);
+                cam_params(1) = cam_params(1) * MathType(H) / MathType(crop_H);
+                cam_params(2) = (cam_params(2) * MathType(W) - MathType(start_W)) / MathType(crop_W);
+                cam_params(3) = (cam_params(3) * scale_H - MathType(y_size - 1 - py));
+                Camera<MathType> new_cam;
                 new_cam.SetParams(cam_params);
 
-                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * RendererBase<ImageRendererBase<MeshHLS, TextureBRAM>>::opencv2opengl_ * pose.matrix();
+                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
 
                 out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
-                RendererBase<ImageRendererBase<MeshHLS, TextureBRAM>>::Render(mesh, viewport, textures);
+                RendererBase::Render(mesh, viewport, textures);
 
             depth_renderer_copy_loop_y:
                 for (int y = 0; y < crop_H; y++)
@@ -191,7 +200,7 @@ public:
                 depth_renderer_copy_loop_x:
                     for (int x = 0; x < crop_W; x++)
                     {
-                        Scalar data = out_texture_part.texel_(y, x, out_lvl);
+                        ImageType data = out_texture_part.texel_(y, x, out_lvl);
                         out_texture.set_texel_(data, start_H + y, start_W + x, out_lvl);
                     }
                 }
@@ -203,20 +212,20 @@ private:
 };
 
 class ResidualRendererRAM
-    : public ResidualRendererBase<MeshHLS, TextureRAM>
+    : public ResidualRendererBase<MathType, ImageType, ErrorType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     ResidualRendererRAM() = default;
     ~ResidualRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureRAM<Scalar> &kf_texture,
-                const TextureRAM<Scalar> &f_texture,
-                TextureRAM<Scalar> &r_texture)
+                const TextureRAM<ImageType> &kf_texture,
+                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ErrorType> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -229,20 +238,20 @@ private:
 };
 
 class L2RendererRAM
-    : public L2RendererBase<MeshHLS, TextureRAM>
+    : public L2RendererBase<MathType, ImageType, ErrorType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     L2RendererRAM() = default;
     ~L2RendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                Int in_lvl,
-                Int out_lvl,
-                const TextureRAM<Scalar> &kf_texture,
-                const TextureRAM<Scalar> &f_texture,
-                TextureRAM<Scalar> &r_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &kf_texture,
+                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ErrorType> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -255,17 +264,17 @@ private:
 };
 
 class DIDxyRendererRAM
-    : public DIDxyRendererBase<MeshHLS, TextureRAM>
+    : public DIDxyRendererBase<MathType, ImageType, DType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     DIDxyRendererRAM() = default;
     ~DIDxyRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                Int in_lvl,
-                Int out_lvl,
-                const TextureRAM<Scalar> &in_texture,
-                TextureRAM<Vec3> &out_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &in_texture,
+                TextureRAM<lingalg::Vec3<DType>> &out_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -278,23 +287,23 @@ private:
 };
 
 class JPoseRendererRAM
-    : public JPoseRendererBase<MeshHLS, TextureRAM>
+    : public JPoseRendererBase<MathType, ImageType, DType, ErrorType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     JPoseRendererRAM() = default;
     ~JPoseRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                Int in_lvl,
-                Int out_lvl,
-                const TextureRAM<Scalar> &kf_texture,
-                const TextureRAM<Scalar> &f_texture,
-                const TextureRAM<Vec3> &dfdxy_texture,
-                TextureRAM<Vec3> &jtra_texture,
-                TextureRAM<Vec3> &jrot_texture,
-                TextureRAM<Scalar> &r_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &kf_texture,
+                const TextureRAM<ImageType> &f_texture,
+                const TextureRAM<DType> &dfdxy_texture,
+                TextureRAM<DType> &jtra_texture,
+                TextureRAM<DType> &jrot_texture,
+                TextureRAM<ErrorType> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -307,23 +316,23 @@ private:
 };
 
 class JMapRendererRAM
-    : public JMapRendererBase<MeshHLS, TextureRAM>
+    : public JMapRendererBase<MathType, ImageType, DType, IdType, ErrorType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     JMapRendererRAM() = default;
     ~JMapRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureRAM<Scalar> &kf_texture,
-                const TextureRAM<Scalar> &f_texture,
-                const TextureRAM<Vec3> &dfdxy_texture,
-                TextureRAM<Vec3> &jmap_texture,
-                TextureRAM<Vec3> &pids_texture,
-                TextureRAM<Scalar> &r_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &kf_texture,
+                const TextureRAM<ImageType> &f_texture,
+                const TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
+                TextureRAM<linalg::Vec3<DType>> &jmap_texture,
+                TextureRAM<linalg::Vec3<DType>> &pids_texture,
+                TextureRAM<ErrorType> &r_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
@@ -336,24 +345,24 @@ private:
 };
 
 class DiffRendererRAM
-    : public DiffRendererBase<MeshHLS, TextureRAM>
+    : public DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, MeshHLS<MeshType>, TextureRAM>
 {
 public:
     DiffRendererRAM() = default;
     ~DiffRendererRAM() = default;
 
-    void Render(const MeshHLS &mesh,
-                const SE3 &pose,
-                const Camera &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureRAM<Scalar> &f_texture,
-                TextureRAM<Scalar> &image_texture,
-                TextureRAM<Scalar> &depth_texture,
-                TextureRAM<Vec3> &jtra_texture,
-                TextureRAM<Vec3> &jrot_texture,
-                TextureRAM<Vec3> &jmap_texture,
-                TextureRAM<Vec3> &pids_texture)
+    void Render(const MeshHLS<MeshType> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ImageType> &image_texture,
+                TextureRAM<DepthType> &depth_texture,
+                TextureRAM<linalg::Vec3<DType>> &jtra_texture,
+                TextureRAM<linalg::Vec3<DType>> &jrot_texture,
+                TextureRAM<linalg::Vec3<DType>> &jmap_texture,
+                TextureRAM<linalg::Vec3<IdType>> &pids_texture)
     {
 
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);

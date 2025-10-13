@@ -89,7 +89,7 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/src/backends/xrt/hls/$(NAME).cpp
+	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/src/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"
@@ -121,7 +121,7 @@ $(PACKAGE_PATH): create_json
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
 	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
 	cp $(HOST_PATH)/$(NAME)_host $(PACKAGE_PATH)
-	cp -r $(MULTIPLATFORMRENDERER_PATH)/tests/data $(PACKAGE_PATH)
+# cp -r $(MULTIPLATFORMRENDERER_PATH)/tests/data $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
 	@echo "then use xmutil to load hardware."
 	@echo "xmutil unloadapp"

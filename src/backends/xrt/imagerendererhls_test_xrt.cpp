@@ -70,6 +70,7 @@ int main(int argc, char **argv)
     std::cout << "Initializing xrt backend ok" << std::endl;
 
     const int iterations = 100;
+    const int in_lvl = 1;
     const int out_lvl = 1;
 
     ImageRendererXRT renderer;
@@ -85,7 +86,7 @@ int main(int argc, char **argv)
     std::vector<double> times;
     times.reserve(iterations);
 
-    for (int i = 1; i < iterations; ++i)
+    for (int i = 0; i < iterations; ++i)
     {
         std::cout << "Iteration " << i << std::endl;
 
@@ -96,7 +97,7 @@ int main(int argc, char **argv)
         SE3 pose_transform = pose_dst * pose_src.inverse();
 
         auto t0 = std::chrono::high_resolution_clock::now();
-        renderer.Render(mesh, pose_transform, cam, out_lvl, output);
+        renderer.Render(mesh, pose_transform, cam, in_lvl, out_lvl, input, output);
         auto t1 = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
         times.push_back(time_ms);
