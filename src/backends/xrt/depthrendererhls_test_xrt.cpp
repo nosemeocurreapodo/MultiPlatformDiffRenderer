@@ -70,15 +70,15 @@ int main(int argc, char **argv)
     std::cout << "Initializing xrt backend ok" << std::endl;
 
     const int iterations = 10;
-    const int out_lvl = 1;
+    const int out_lvl = 3;
 
-    // DepthRendererXRT renderer;
-    TestRendererXRT renderer;
+    DepthRendererXRT renderer;
+    // TestRendererXRT renderer;
 
     MeshXRT mesh(vertices, texcoords, weights, indices,
-                 renderer.kernel_.group_id(0), renderer.kernel_.group_id(0), renderer.kernel_.group_id(0), renderer.kernel_.group_id(0));
+                 renderer.kernel_.group_id(0), renderer.kernel_.group_id(1), renderer.kernel_.group_id(2), renderer.kernel_.group_id(3));
 
-    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(0));
+    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(4));
     // UploadMatToTexture(output, 0, image_src_cv);
 
     std::vector<double> times;
