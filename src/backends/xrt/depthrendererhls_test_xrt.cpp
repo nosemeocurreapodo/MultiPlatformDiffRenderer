@@ -69,8 +69,8 @@ int main(int argc, char **argv)
 
     std::cout << "Initializing xrt backend ok" << std::endl;
 
-    const int iterations = 10;
-    const int out_lvl = 3;
+    const int iterations = 100;
+    const int out_lvl = 1;
 
     DepthRendererXRT renderer;
     // TestRendererXRT renderer;
@@ -94,10 +94,11 @@ int main(int argc, char **argv)
 
         SE3 pose_transform = pose_dst * pose_src.inverse();
 
-        // timer_.Start();
+        auto t0 = std::chrono::high_resolution_clock::now();
         renderer.Render(mesh, pose_transform, cam, out_lvl, output);
-        // double time_ms = timer_.Stop();
-        // times.push_back(time_ms);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        double time_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        times.push_back(time_ms);
 
         cv::Mat depth_out_cv = DownloadTextureToMat(output, out_lvl, CV_32FC1);
 
