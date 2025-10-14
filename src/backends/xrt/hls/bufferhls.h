@@ -21,6 +21,8 @@ public:
     bufferhls_copy_data_loop:
         for (int i = 0; i < n; i++)
         {
+#pragma HLS loop_tripcount min = max_size max = max_size avg = max_size
+
             data_[i] = src[i];
         }
     }
@@ -33,6 +35,8 @@ public:
 protected:
     template <class T2>
     friend class TextureBRAM;
+    template <class T2>
+    friend class TextureRAMCached;
     template <class T2, class Derived>
     friend class RendererBase;
 
@@ -76,6 +80,8 @@ public:
 protected:
     template <class T2>
     friend class TextureRAM;
+    template <class T2>
+    friend class TextureRAMCached;
     template <class T2, class Derived>
     friend class RendererBase;
 

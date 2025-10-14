@@ -72,7 +72,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 3;
+    unsigned int lvl = 1;
 
     // Avoid using a const pointer, it does not work so well with TextureRAM (for now at least)
     // auto image_in_map = image_src_cpu.MapRead(0);

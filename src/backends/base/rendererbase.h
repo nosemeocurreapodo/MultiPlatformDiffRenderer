@@ -391,7 +391,7 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &in_texture;
+        Texture<ImageType> &in_texture;
         Texture<ImageType> &out_texture;
     };
 
@@ -403,7 +403,7 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &in_texture,
+                Texture<ImageType> &in_texture,
                 Texture<ImageType> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
@@ -490,8 +490,8 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
         Texture<ErrorType> &r_texture;
     };
 
@@ -503,8 +503,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &kf_texture,
-                const Texture<ImageType> &f_texture,
+                Texture<ImageType> &kf_texture,
+                Texture<ImageType> &f_texture,
                 Texture<ErrorType> &r_texture)
     {
         r_texture.fill(out_lvl, r_texture.nodata());
@@ -596,8 +596,8 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
         Texture<ErrorType> &r_texture;
     };
 
@@ -609,8 +609,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &kf_texture,
-                const Texture<ImageType> &f_texture,
+                Texture<ImageType> &kf_texture,
+                Texture<ImageType> &f_texture,
                 Texture<ErrorType> &r_texture)
     {
         r_texture.fill(out_lvl, r_texture.nodata());
@@ -831,9 +831,9 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
+        Texture<linalg::Vec3<DType>> &dfdxy_texture;
         Texture<linalg::Vec3<DType>> &jtra_texture;
         Texture<linalg::Vec3<DType>> &jrot_texture;
         Texture<ErrorType> &r_texture;
@@ -847,9 +847,9 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &kf_texture,
-                const Texture<ImageType> &f_texture,
-                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<ImageType> &kf_texture,
+                Texture<ImageType> &f_texture,
+                Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,
                 Texture<linalg::Vec3<DType>> &jrot_texture,
                 Texture<ErrorType> &r_texture)
@@ -985,9 +985,9 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
+        Texture<linalg::Vec3<DType>> &dfdxy_texture;
         Texture<linalg::Vec3<DType>> &jmap_texture;
         Texture<linalg::Vec3<IdType>> &pids_texture;
         Texture<ErrorType> &r_texture;
@@ -1001,9 +1001,9 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &kf_texture,
-                const Texture<ImageType> &f_texture,
-                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<ImageType> &kf_texture,
+                Texture<ImageType> &f_texture,
+                Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jmap_texture,
                 Texture<linalg::Vec3<IdType>> &pids_texture,
                 Texture<ErrorType> &r_texture)
@@ -1175,7 +1175,7 @@ public:
 
     struct Textures
     {
-        const Texture<ImageType> &f_texture;
+        Texture<ImageType> &f_texture;
         Texture<ImageType> &image_texture;
         Texture<DepthType> &depth_texture;
         Texture<linalg::Vec3<DType>> &jtra_texture;
@@ -1192,7 +1192,7 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &f_texture,
+                Texture<ImageType> &f_texture,
                 Texture<ImageType> &image_texture,
                 Texture<DepthType> &depth_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,

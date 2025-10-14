@@ -107,8 +107,8 @@ extern "C"
                                wei_buffer_data, wei_buffer_size,
                                ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<float> in_texture(in_texture_width, in_texture_height, in_nodata_value, in_texture_data);
-        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAMCached<float> in_texture(in_texture_width, in_texture_height, in_nodata_value, in_texture_data);
+        TextureRAMCached<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererRAM renderer;
         renderer.Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);

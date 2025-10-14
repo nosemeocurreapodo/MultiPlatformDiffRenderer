@@ -118,7 +118,7 @@ private:
 };
 
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureRAMCached>
 {
 public:
     ImageRendererRAM() = default;
@@ -129,8 +129,8 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &in_texture,
-                TextureRAM<ImageType> &out_texture)
+                TextureRAMCached<ImageType> &in_texture,
+                TextureRAMCached<ImageType> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
     }
@@ -150,7 +150,7 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &in_texture,
+                TextureRAM<ImageType> &in_texture,
                 TextureRAM<ImageType> &out_texture)
     {
         out_lvl_ = out_lvl;
@@ -227,8 +227,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureRAM<ImageType> &kf_texture,
-                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ImageType> &kf_texture,
+                TextureRAM<ImageType> &f_texture,
                 TextureRAM<ErrorType> &r_texture)
     {
 
@@ -253,8 +253,8 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &kf_texture,
-                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ImageType> &kf_texture,
+                TextureRAM<ImageType> &f_texture,
                 TextureRAM<ErrorType> &r_texture)
     {
 
@@ -277,7 +277,7 @@ public:
     void Render(const MeshHLS<MeshType> &mesh,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &in_texture,
+                TextureRAM<ImageType> &in_texture,
                 TextureRAM<linalg::Vec3<DType>> &out_texture)
     {
 
@@ -302,9 +302,9 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &kf_texture,
-                const TextureRAM<ImageType> &f_texture,
-                const TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
+                TextureRAM<ImageType> &kf_texture,
+                TextureRAM<ImageType> &f_texture,
+                TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
                 TextureRAM<linalg::Vec3<DType>> &jtra_texture,
                 TextureRAM<linalg::Vec3<DType>> &jrot_texture,
                 TextureRAM<ErrorType> &r_texture)
@@ -331,9 +331,9 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &kf_texture,
-                const TextureRAM<ImageType> &f_texture,
-                const TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
+                TextureRAM<ImageType> &kf_texture,
+                TextureRAM<ImageType> &f_texture,
+                TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
                 TextureRAM<linalg::Vec3<DType>> &jmap_texture,
                 TextureRAM<linalg::Vec3<DType>> &pids_texture,
                 TextureRAM<ErrorType> &r_texture)
@@ -360,7 +360,7 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                const TextureRAM<ImageType> &f_texture,
+                TextureRAM<ImageType> &f_texture,
                 TextureRAM<ImageType> &image_texture,
                 TextureRAM<DepthType> &depth_texture,
                 TextureRAM<linalg::Vec3<DType>> &jtra_texture,
