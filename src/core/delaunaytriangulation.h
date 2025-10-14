@@ -125,9 +125,11 @@ public:
             TriangulateVertice(it);
         }
 
-        RemoveVertice(superTriangleIndices(0));
-        RemoveVertice(superTriangleIndices(1));
-        RemoveVertice(superTriangleIndices(2));
+        // RemoveVertice(superTriangleIndices(0));
+        // RemoveVertice(superTriangleIndices(1));
+        // RemoveVertice(superTriangleIndices(2));
+
+        RemoveSuperTriangle(superTriangleIndices(0));
     }
 
 private:
@@ -247,6 +249,22 @@ private:
                 ++it;
         }
         */
+    }
+
+    void RemoveSuperTriangle(std::size_t base)
+    {
+        // remove triangles that touch any of the three appended vertices [base, base+2]
+        triangles_.erase(std::remove_if(triangles_.begin(), triangles_.end(),
+                                        [base](const linalg::Vec3<int> &t)
+                                        {
+                                            return t(0) >= static_cast<int>(base) ||
+                                                   t(1) >= static_cast<int>(base) ||
+                                                   t(2) >= static_cast<int>(base);
+                                        }),
+                         triangles_.end());
+
+        // discard the 3 appended vertices in one go
+        vertices_.resize(base);
     }
 
     bool IsPointInCircumcircle(linalg::Vec2<float> &point, linalg::Vec3<int> &tri)

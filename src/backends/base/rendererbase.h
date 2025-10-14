@@ -521,7 +521,7 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -626,7 +626,7 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -786,7 +786,7 @@ public:
             return;
         }
 
-        linalg::Vec3<DType> out_fragment;
+        linalg::Vec3<MathType> out_fragment;
         out_fragment(0) = (f_x_p - f_x_m) / 2.0f;
         out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
         out_fragment(2) = 0.0; // f; // save the projected frame for later processing
@@ -875,12 +875,12 @@ public:
             (w0 * varying_px0.texcoord * invW0 +
              w1 * varying_px1.texcoord * invW1 +
              w2 * varying_px2.texcoord * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver * invW0 +
              w1 * varying_px1.f_ver * invW1 +
              w2 * varying_px2.f_ver * invW2) *
-            (1.0f / invW_px);
+            (MathType(1) / invW_px);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -904,8 +904,8 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        int width = textures.kf_texture.width(out_lvl_);
-        int height = textures.kf_texture.height(out_lvl_);
+        unsigned int width = textures.kf_texture.width(out_lvl_);
+        unsigned int height = textures.kf_texture.height(out_lvl_);
 
         linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
@@ -923,12 +923,12 @@ public:
 
         ErrorType r = ErrorType(f) - ErrorType(kf);
 
-        MathType v0 = f_der(0) * fx_ * width / f_ver(2);
-        MathType v1 = f_der(1) * fy_ * height / f_ver(2);
+        MathType v0 = MathType(f_der(0)) * fx_ * width / f_ver(2);
+        MathType v1 = MathType(f_der(1)) * fy_ * height / f_ver(2);
         MathType v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
-        linalg::Vec3<DType> d_f_i_d_tra = linalg::Vec3<DType>(v0, v1, v2);
-        linalg::Vec3<DType> d_f_i_d_rot = linalg::Vec3<DType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+        linalg::Vec3<MathType> d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        linalg::Vec3<MathType> d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
         textures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
@@ -1066,8 +1066,8 @@ public:
         linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
 
-        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
-        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
+        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), MathType(1));
+        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), MathType(0));
         linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
         outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
@@ -1120,9 +1120,7 @@ public:
         linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
         linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
 
-        linalg::Vec3<DType> jac_(DType(jac(0)), DType(jac(1)), DType(jac(2)));
-
-        textures.jmap_texture.set_texel_(jac_, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
@@ -1260,7 +1258,7 @@ public:
         linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
         gl_Position = view_matrix_ * f_ver;
 
-        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), 1.0);
+        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), MathType(1));
         linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
         linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
@@ -1313,13 +1311,11 @@ public:
         linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
         linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
 
-        linalg::Vec3<DType> jac_(DType(jac(0)), DType(jac(1)), DType(jac(2)));
-
         textures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jtra_texture.set_texel_(d_f_i_d_f_ver, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        textures.jmap_texture.set_texel_(jac_, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 

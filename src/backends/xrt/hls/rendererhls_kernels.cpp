@@ -167,8 +167,8 @@ extern "C"
                                ebo_buffer_data, ebo_buffer_size);
 
         TextureRAM<float> f_texture(f_texture_width, f_texture_height, f_nodata_value, f_texture_data);
-        TextureRAM<float> image_texture(out_texture_width, out_texture_height, jtra_nodata_value, image_texture_data);
-        TextureRAM<float> depth_texture(out_texture_width, out_texture_height, jtra_nodata_value, depth_texture_data);
+        TextureRAM<float> image_texture(out_texture_width, out_texture_height, image_nodata_value, image_texture_data);
+        TextureRAM<float> depth_texture(out_texture_width, out_texture_height, depth_nodata_value, depth_texture_data);
         TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, jtra_nodata_value, jtra_texture_data);
         TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, jrot_nodata_value, jrot_texture_data);
         TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, jmap_nodata_value, jmap_texture_data);
