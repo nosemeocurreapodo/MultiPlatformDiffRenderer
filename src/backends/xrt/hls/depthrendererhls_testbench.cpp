@@ -1,6 +1,6 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformRenderer/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
 
 #include "loaddataset.h"
 #include "common/test_helpers.h"
