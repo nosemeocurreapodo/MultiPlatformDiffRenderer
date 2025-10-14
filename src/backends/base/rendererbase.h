@@ -81,6 +81,7 @@ public:
         renderbase_gather_loop:
             for (int k = 0; k < 3; ++k)
             {
+#pragma HLS UNROLL
                 unsigned int vi = (k == 0 ? i0 : k == 1 ? i1
                                                         : i2);
                 v[k](0) = mesh.pos_buffer_[vi * 3 + 0];
@@ -121,6 +122,8 @@ protected:
     draw_triangle_vertex_loop:
         for (int i = 0; i < 3; ++i)
         {
+#pragma HLS UNROLL
+
             linalg::Vec4<MathType> gl_Position;
             typename Derived::Varyings varyings;
             derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid[i], gl_Position, varyings);

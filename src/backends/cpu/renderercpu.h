@@ -59,7 +59,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &in_texture,
+                TextureCPU<float> &in_texture,
                 TextureCPU<float> &out_texture)
     {
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -88,8 +88,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &kf_texture,
-                const TextureCPU<float> &f_texture,
+                TextureCPU<float> &kf_texture,
+                TextureCPU<float> &f_texture,
                 TextureCPU<float> &r_texture)
     {
 
@@ -114,8 +114,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &kf_texture,
-                const TextureCPU<float> &f_texture,
+                TextureCPU<float> &kf_texture,
+                TextureCPU<float> &f_texture,
                 TextureCPU<float> &r_texture)
     {
 
@@ -138,7 +138,7 @@ public:
     void Render(const MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &in_texture,
+                TextureCPU<float> &in_texture,
                 TextureCPU<linalg::Vec3<float>> &out_texture)
     {
 
@@ -163,9 +163,9 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &kf_texture,
-                const TextureCPU<float> &f_texture,
-                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                TextureCPU<float> &kf_texture,
+                TextureCPU<float> &f_texture,
+                TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
                 TextureCPU<float> &r_texture)
@@ -192,9 +192,9 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &kf_texture,
-                const TextureCPU<float> &f_texture,
-                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                TextureCPU<float> &kf_texture,
+                TextureCPU<float> &f_texture,
+                TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
                 TextureCPU<linalg::Vec3<float>> &pids_texture,
                 TextureCPU<float> &r_texture)
@@ -221,7 +221,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<float> &f_texture,
+                TextureCPU<float> &f_texture,
                 TextureCPU<float> &image_texture,
                 TextureCPU<float> &depth_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
