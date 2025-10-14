@@ -201,6 +201,10 @@ protected:
         MathType eBC_row = edge_func(xB, yB, xC, yC, px0, py0);
         MathType eCA_row = edge_func(xC, yC, xA, yA, px0, py0);
 
+        MathType eAB = eAB_row;
+        MathType eBC = eBC_row;
+        MathType eCA = eCA_row;
+
         // Step increments when moving +1 in X or +1 in Y
         const MathType eAB_dx = (yB - yA);
         const MathType eAB_dy = (xA - xB);
@@ -215,13 +219,10 @@ protected:
         {
 #pragma HLS loop_tripcount min = 10 max = 10 avg = 10
 
-            MathType eAB = eAB_row;
-            MathType eBC = eBC_row;
-            MathType eCA = eCA_row;
-
         draw_triangle_raster_loop_x:
             for (int x = x0; x < x1; ++x)
             {
+#pragma HLS LOOP_FLATTEN
 #pragma HLS loop_tripcount min = 10 max = 10 avg = 10
 
                 // Top-left rule adjustments (include pixels on top/left edges)
@@ -272,12 +273,19 @@ protected:
                 eAB += eAB_dx;
                 eBC += eBC_dx;
                 eCA += eCA_dx;
-            }
 
-            // next row y+1: add dy increments and reset x terms
-            eAB_row += eAB_dy;
-            eBC_row += eBC_dy;
-            eCA_row += eCA_dy;
+                // advance to y+1: add dy increments and reset x terms
+                if (x == x1 - 1)
+                {
+                    eAB_row += eAB_dy;
+                    eBC_row += eBC_dy;
+                    eCA_row += eCA_dy;
+
+                    eAB = eAB_row;
+                    eBC = eBC_row;
+                    eCA = eCA_row;
+                }
+            }
         }
     }
 

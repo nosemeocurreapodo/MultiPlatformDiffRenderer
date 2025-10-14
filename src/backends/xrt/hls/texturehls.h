@@ -316,6 +316,7 @@ protected:
             for (int i = 0; i < max_x; i++)
             {
 #pragma HLS loop_tripcount min = max_x max = max_x avg = max_x
+#pragma HLS LOOP_FLATTEN
 
                 int addr_x = cache_x_ + i;
                 int addr_y = cache_y_ + j;
