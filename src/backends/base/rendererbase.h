@@ -7,17 +7,18 @@
 #include "core/render_constants.h"
 // #include "core/error_handling.h"
 
-template <typename T>
-inline T cross(const linalg::Vec2<T> &a, const linalg::Vec2<T> &b) { return a(0) * b(1) - a(1) * b(0); }
+// template <typename T>
+// inline T cross(const linalg::Vec2<T> &a, const linalg::Vec2<T> &b) { return a(0) * b(1) - a(1) * b(0); }
 
-template <typename T>
-inline T triangle_area(const linalg::Vec2<T> &p0, const linalg::Vec2<T> &p1, const linalg::Vec2<T> &p2) { return cross<T>(p1 - p0, p2 - p0); }
+// template <typename T>
+// inline T triangle_area(const linalg::Vec2<T> &p0, const linalg::Vec2<T> &p1, const linalg::Vec2<T> &p2) { return cross<T>(p1 - p0, p2 - p0); }
 
 // Edge function E_ab(p) = (yb-ya)*px + (xa-xb)*py + (xb*ya - xa*yb)
 template <typename T>
 inline T edge_func(T ax, T ay, T bx, T by, T px, T py)
 {
-    return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
+    return (by - ay) * (px - ax) + (ax - bx) * (py - ay);
+    // return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
 }
 
 // Top-left test: returns true if edge is a "top" or "left" edge
@@ -139,11 +140,27 @@ protected:
         }
 
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        const MathType area = triangle_area<MathType>(vout[0].screen,
-                                                      vout[1].screen,
-                                                      vout[2].screen);
-        // ErrorHandling::ValidateTriangleArea(area);
-        //  if (area <= 0) return;            // enable to cull backfaces
+        // const MathType area = triangle_area<MathType>(vout[0].screen,
+        //                                              vout[1].screen,
+        //                                              vout[2].screen);
+        MathType area2 = edge_func(vout[0].screen(0), vout[0].screen(1),
+                                   vout[1].screen(0), vout[1].screen(1),
+                                   vout[2].screen(0), vout[2].screen(1)); // 2*area with sign
+                                                                          // ErrorHandling::ValidateTriangleArea(area);
+        if (area2 == MathType(0))
+            return; // enable to cull backfaces
+
+        // Enforce CCW so the inside test is consistent
+        if (area2 < MathType(0))
+        {
+            std::swap(vout[1], vout[2]);
+            // area2 = edge(X(0), Y(0), X(1), Y(1), X(2), Y(2));
+            area2 = edge_func(vout[0].screen(0), vout[0].screen(1),
+                              vout[1].screen(0), vout[1].screen(1),
+                              vout[2].screen(0), vout[2].screen(1));
+            if (area2 <= MathType(0))
+                return; // still degenerate
+        }
 
         // Triangle bounding box (float → int, clamp to viewport)
         MathType minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
@@ -158,6 +175,8 @@ protected:
         if (x0 >= x1 || y0 >= y1)
             return;
 
+        const MathType inv_area2 = MathType(1) / area2;
+
         // Edge setup (top-left rule)
         const MathType xA = vout[0].screen(0), yA = vout[0].screen(1);
         const MathType xB = vout[1].screen(0), yB = vout[1].screen(1);
@@ -166,8 +185,6 @@ protected:
         // const MathType area2 = edge_func(xA, yA, xB, yB, xC, yC); // 2*area with sign
         // ErrorHandling::ValidateTriangleArea(area2);
         // ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
-
-        const MathType inv_area = MathType(1) / area;
 
         const bool tlAB = is_top_left(xA, yA, xB, yB);
         const bool tlBC = is_top_left(xB, yB, xC, yC);
@@ -213,9 +230,9 @@ protected:
                 if (inside)
                 {
                     // Barycentric weights normalized
-                    const MathType w0 = eBC * inv_area;
-                    const MathType w1 = eCA * inv_area;
-                    const MathType w2 = eAB * inv_area;
+                    const MathType w0 = eBC * inv_area2;
+                    const MathType w1 = eCA * inv_area2;
+                    const MathType w2 = eAB * inv_area2;
 
                     // Perspective: 1/w at pixel
                     const MathType invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;

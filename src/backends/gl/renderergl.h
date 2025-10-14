@@ -265,9 +265,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(depth_texture.height(out_lvl));
@@ -364,9 +364,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -496,9 +496,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -639,9 +639,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -791,9 +791,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -962,9 +962,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jtra_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
@@ -1261,9 +1261,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1584,9 +1584,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
