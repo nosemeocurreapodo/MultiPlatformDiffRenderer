@@ -5,6 +5,7 @@ project(MultiPlatformDiffRenderer)
 option(COMPILE_GL "Enable OpenGL compilation" ON)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
+option(COMPILE_DEMO "Enable Demo compilation" ON)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -79,6 +80,10 @@ if(COMPILE_HLS AND VITIS_EXECUTABLE)
       REQUIRED
   )
   message(STATUS "Found Vitis settings script: ${VITIS_SETTINGS_SCRIPT}")
+endif()
+
+if(COMPILE_DEMO)
+    add_subdirectory(demo)
 endif()
 
 include(CTest)

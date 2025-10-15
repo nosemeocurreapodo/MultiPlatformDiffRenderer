@@ -1,13 +1,46 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformRenderer/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
 
 #include "loaddataset.h"
 #include "common/test_helpers.h"
-#include "core/types.h"
 #include "core/camera.h"
 #include "core/common.h"
-#include "backends/xrt/hls/diffrendererhls.h"
+
+extern "C"
+{
+    void DiffRenderHLS(const float *pos_buffer_data,
+                       const float *tex_buffer_data,
+                       const float *wei_buffer_data,
+                       const unsigned int *ebo_buffer_data,
+                       float *f_texture_data,
+                       float *image_texture_data,
+                       float *depth_texture_data,
+                       linalg::Vec3<float> *jtra_texture_data,
+                       linalg::Vec3<float> *jrot_texture_data,
+                       linalg::Vec3<float> *jmap_texture_data,
+                       linalg::Vec3<float> *pids_texture_data,
+                       unsigned int pos_buffer_size,
+                       unsigned int tex_buffer_size,
+                       unsigned int wei_buffer_size,
+                       unsigned int ebo_buffer_size,
+                       unsigned int f_texture_width,
+                       unsigned int f_texture_height,
+                       float f_nodata_value,
+                       unsigned int in_lvl,
+                       unsigned int out_texture_width,
+                       unsigned int out_texture_height,
+                       float image_nodata_value,
+                       float depth_nodata_value,
+                       linalg::Vec3<float> jtra_nodata_value,
+                       linalg::Vec3<float> jrot_nodata_value,
+                       linalg::Vec3<float> jmap_nodata_value,
+                       linalg::Vec3<float> pids_nodata_value,
+                       unsigned int out_lvl,
+                       float q_x, float q_y, float q_z, float q_w,
+                       float t_x, float t_y, float t_z,
+                       float fx, float fy, float cx, float cy);
+}
 
 int main()
 {
@@ -16,9 +49,9 @@ int main()
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
-    std::vector<SE3> poses = dataset.GetPoses();
+    std::vector<linalg::SE3<float>> poses = dataset.GetPoses();
     float depth_factor = dataset.GetDepthFactor();
-    Camera cam = dataset.GetCamera();
+    Camera<float> cam = dataset.GetCamera();
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
@@ -26,7 +59,7 @@ int main()
 
     cv::Mat image_src_cv = ReadMat(image_files[0]);
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
-    SE3 pose_src = poses[0];
+    linalg::SE3<float> pose_src = poses[0];
 
     TextureCPU<float> image_src_cpu(w, h, -1.0f);
     TextureCPU<float> depth_src_cpu(w, h, -1.0f);
@@ -36,7 +69,7 @@ int main()
 
     cv::Mat image_dst_cv = ReadMat(image_files[50]);
     cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
-    SE3 pose_dst = poses[50];
+    linalg::SE3<float> pose_dst = poses[50];
 
     std::vector<float> vertices, texcoords, weights;
     std::vector<unsigned int> indices;
@@ -46,18 +79,19 @@ int main()
     std::vector<unsigned int> screen_indices;
     CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
 
-    SE3 pose = pose_dst * pose_src.inverse();
+    linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    int lvl = 0;
+    int lvl = 3;
 
-    auto image_in_map = image_src_cpu.MapRead(0);
+    // auto image_in_map = image_src_cpu.MapRead(0);
+    auto image_in_map = image_src_cpu.MapWrite(0);
 
-    TextureCPU<Scalar> image_out_cpu(w, h, -1.0f);
-    TextureCPU<Scalar> depth_out_cpu(w, h, -1.0f);
-    TextureCPU<Vec3> jtra_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jrot_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> jmap_out_cpu(w, h, Vec3(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3> pids_out_cpu(w, h, Vec3(-1.0f, -1.0f, -1.0f));
+    TextureCPU<float> image_out_cpu(w, h, -1.0f);
+    TextureCPU<float> depth_out_cpu(w, h, -1.0f);
+    TextureCPU<linalg::Vec3<float>> jtra_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jrot_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jmap_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> pids_out_cpu(w, h, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
 
     auto image_out_map = image_out_cpu.MapWrite(0);
     auto depth_out_map = depth_out_cpu.MapWrite(0);
@@ -67,25 +101,25 @@ int main()
     auto pids_out_map = pids_out_cpu.MapWrite(0);
 
     DiffRenderHLS(
-        (Scalar *)vertices.data(),
-        (Scalar *)texcoords.data(),
-        (Scalar *)weights.data(),
-        (UInt *)indices.data(),
-        (Scalar *)image_in_map.data(),
-        (Scalar *)image_out_map.data(),
-        (Scalar *)depth_out_map.data(),
-        (Vec3 *)jtra_out_map.data(),
-        (Vec3 *)jrot_out_map.data(),
-        (Vec3 *)jmap_out_map.data(),
-        (Vec3 *)pids_out_map.data(),
-        UInt(vertices.size()), UInt(texcoords.size()), UInt(weights.size()), UInt(indices.size()),
-        UInt(w), UInt(h), Scalar(-1), UInt(lvl),
-        UInt(w), UInt(h),
+        vertices.data(),
+        texcoords.data(),
+        weights.data(),
+        indices.data(),
+        image_in_map.data(),
+        image_out_map.data(),
+        depth_out_map.data(),
+        jtra_out_map.data(),
+        jrot_out_map.data(),
+        jmap_out_map.data(),
+        pids_out_map.data(),
+        vertices.size(), texcoords.size(), weights.size(), indices.size(),
+        w, h, -1.0f, lvl,
+        w, h,
         image_out_cpu.nodata(), depth_out_cpu.nodata(), jtra_out_cpu.nodata(), jrot_out_cpu.nodata(), jmap_out_cpu.nodata(), pids_out_cpu.nodata(),
-        UInt(lvl),
-        Scalar(pose.so3().unit_quaternion().x()), Scalar(pose.so3().unit_quaternion().y()), Scalar(pose.so3().unit_quaternion().z()), Scalar(pose.so3().unit_quaternion().w()),
-        Scalar(pose.translation()(0)), Scalar(pose.translation()(1)), Scalar(pose.translation()(2)),
-        Scalar(cam.GetParams()(0)), Scalar(cam.GetParams()(1)), Scalar(cam.GetParams()(2)), Scalar(cam.GetParams()(3)));
+        lvl,
+        pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
+        pose.translation()(0), pose.translation()(1), pose.translation()(2),
+        cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
     cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
     cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl, CV_32FC1);

@@ -6,10 +6,10 @@
 #include "core/common.h"
 #include "common/test_helpers.h"
 #include "core/format_converters.h"
-#include "core/types.h"
-// #include "backends/cpu/buffercpu.h"
-// #include "backends/cpu/texturecpu.h"
-// #include "backends/cpu/meshcpu.h"
+// #include "core/types.h"
+//  #include "backends/cpu/buffercpu.h"
+//  #include "backends/cpu/texturecpu.h"
+//  #include "backends/cpu/meshcpu.h"
 #include "backends/xrt/devicexrt.h"
 #include "backends/xrt/bufferxrt.h"
 #include "backends/xrt/texturexrt.h"
@@ -34,10 +34,10 @@ int main(int argc, char **argv)
 
     std::vector<std::string> image_files = dataset.GetImageFiles();
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
-    std::vector<SE3> poses = dataset.GetPoses();
+    std::vector<linalg::SE3<float>> poses = dataset.GetPoses();
     float depth_factor = dataset.GetDepthFactor();
     // std::vector<double> timestamps = dataset.GetTimestamps();
-    Camera cam = dataset.GetCamera();
+    Camera<float> cam = dataset.GetCamera();
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 
     cv::Mat image_src_cv = ReadMat(image_files[0]);
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
-    SE3 pose_src = poses[0];
+    linalg::SE3<float> pose_src = poses[0];
 
     // TextureXRT<float> image_src_cpu(w, h, -1.0f);
     TextureCPU<float> depth_src_cpu(w, h, -1.0f);
@@ -92,9 +92,9 @@ int main(int argc, char **argv)
 
         // cv::Mat image_dst_cv = ReadMat(image_files[1]);
         // cv::Mat depth_dst_cv = ReadMat(depth_files[1]) * scale;
-        SE3 pose_dst = poses[i];
+        linalg::SE3<float> pose_dst = poses[i];
 
-        SE3 pose_transform = pose_dst * pose_src.inverse();
+        linalg::SE3<float> pose_transform = pose_dst * pose_src.inverse();
 
         auto t0 = std::chrono::high_resolution_clock::now();
         renderer.Render(mesh, pose_transform, cam, in_lvl, out_lvl, input, output);

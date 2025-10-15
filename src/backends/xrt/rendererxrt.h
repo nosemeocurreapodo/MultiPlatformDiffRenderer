@@ -8,7 +8,7 @@
 
 #include "backends/xrt/devicexrt.h"
 // #include "core/format_converters.h"
-#include "core/types.h"
+// #include "core/types.h"
 #include "core/camera.h"
 #include "core/render_constants.h"
 #include "core/error_handling.h"
@@ -34,8 +34,8 @@ public:
     }
 
     void Render(MeshXRT &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int out_lvl,
                 TextureXRT<float> &depth_texture)
     {
@@ -73,8 +73,8 @@ public:
     }
 
     void Render(MeshXRT &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 TextureXRT<float> &in_texture,
@@ -107,6 +107,61 @@ public:
     xrt::kernel kernel_;
 };
 
+class DiffRendererXRT
+{
+public:
+    DiffRendererXRT()
+    {
+        kernel_ = xrt::kernel(device_xrt, uuid_xrt, "DiffRenderHLS");
+    }
+
+    void Render(MeshXRT &mesh,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                TextureXRT<float> &f_texture,
+                TextureXRT<float> &image_texture,
+                TextureXRT<float> &depth_texture,
+                TextureXRT<linalg::Vec3<float>> &jtra_texture,
+                TextureXRT<linalg::Vec3<float>> &jrot_texture,
+                TextureXRT<linalg::Vec3<float>> &jmap_texture,
+                TextureXRT<linalg::Vec3<float>> &pids_texture)
+    {
+        // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(1) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(2) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(3) == mesh.ebo.bo_.get_memory_group());
+        // assert(kernel_.group_id(4) == depth_texture.storage_.bo_.get_memory_group());
+
+        mesh.pos_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.tex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        f_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        xrt::run run = kernel_(mesh.pos_buffer_.bo_, mesh.tex_buffer_.bo_, mesh.wei_buffer_.bo_, mesh.ebo_buffer_.bo_,
+                               f_texture.storage_.bo_, image_texture.storage_.bo_, depth_texture.storage_.bo_, jtra_texture.storage_.bo_, jrot_texture.storage_.bo_, pids_texture.storage_.bo_,
+                               mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
+                               f_texture.width(0), f_texture.height(0), f_texture.nodata(), in_lvl,
+                               image_texture.width(0), image_texture.height(0),
+                               image_texture.nodata(), depth_texture.nodata(), jtra_texture.nodata(), jrot_texture.nodata(), pids_texture.nodata(),
+                               out_lvl,
+                               pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
+                               pose.translation()(0), pose.translation()(1), pose.translation()(2),
+                               cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
+        run.wait();
+        image_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jtra_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jrot_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jmap_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        pids_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+    }
+
+    // private:
+    xrt::kernel kernel_;
+};
+
 class TestRendererXRT
 {
 public:
@@ -116,8 +171,8 @@ public:
     }
 
     void Render(MeshXRT &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int out_lvl,
                 TextureXRT<float> &depth_texture)
     {

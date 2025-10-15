@@ -123,8 +123,8 @@ template <class T>
 class TextureRAMCached
 {
 public:
-    static constexpr int max_x = 20;
-    static constexpr int max_y = 20;
+    static constexpr int max_x = 32;
+    static constexpr int max_y = 32;
 
     TextureRAMCached() = default;
 
@@ -193,12 +193,14 @@ public:
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
 
-        sync_cache_(x, y, lvl);
-        need_sync_write_ = true;
+        // sync_cache_(x, y, lvl);
+        // need_sync_write_ = true;
 
-        int lx = int(x) - cache_x_;
-        int ly = int(y) - cache_y_;
-        cache_[lx + ly * max_x] = v;
+        // int lx = int(x) - cache_x_;
+        // int ly = int(y) - cache_y_;
+        // cache_[lx + ly * max_x] = v;
+
+        storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
 protected:
@@ -257,11 +259,11 @@ protected:
     {
         if (cache_miss_(x, y, lvl))
         {
-            if (need_sync_write_)
-                cache_write_();
-            need_sync_write_ = false;
-            cache_x_ = x - max_x / 2;
-            cache_y_ = y - max_y / 2;
+            // if (need_sync_write_)
+            //     cache_write_();
+            // need_sync_write_ = false;
+            cache_x_ = int(x) - max_x / 2;
+            cache_y_ = int(y) - max_y / 2;
             cache_lvl_ = lvl;
             cache_read_();
         }
@@ -282,52 +284,66 @@ protected:
 
     void cache_read_()
     {
+        int w = width(cache_lvl_);
+        int h = height(cache_lvl_);
+        int offset = levels_[cache_lvl_].offset;
+
     texturehls_cache_read_y_loop:
         for (int j = 0; j < max_y; j++)
         {
 #pragma HLS loop_tripcount min = max_y max = max_y avg = max_y
+            // #pragma HLS PIPELINE II = 1
+
         texturehls_cache_read_x_loop:
             for (int i = 0; i < max_x; i++)
             {
 #pragma HLS loop_tripcount min = max_x max = max_x avg = max_x
+                // #pragma HLS LOOP_FLATTEN
+                // #pragma HLS PIPELINE II=1
 
                 int addr_x = cache_x_ + i;
                 int addr_y = cache_y_ + j;
+                int hh = addr_y * w;
 
-                if (addr_x >= width(cache_lvl_) || addr_y >= height(cache_lvl_) || addr_x < 0 || addr_y < 0)
+                if (addr_x >= w || addr_x < 0 || addr_y >= h || addr_y < 0)
                 {
-                    cache_[i + j * max_x] = nodata_;
+                    continue;
                 }
-                else
-                {
-                    cache_[i + j * max_x] = storage_[levels_[cache_lvl_].offset + addr_y * levels_[cache_lvl_].w + addr_x];
-                }
+
+                cache_[i + j * max_x] = storage_[offset + hh + addr_x];
             }
         }
     }
 
     void cache_write_()
     {
+        int w = width(cache_lvl_);
+        int h = height(cache_lvl_);
+        int offset = levels_[cache_lvl_].offset;
+
     texturehls_cache_write_y_loop:
         for (int j = 0; j < max_y; j++)
         {
 #pragma HLS loop_tripcount min = max_y max = max_y avg = max_y
+            // #pragma HLS PIPELINE II = 1
+
         texturehls_cache_write_x_loop:
             for (int i = 0; i < max_x; i++)
             {
 #pragma HLS loop_tripcount min = max_x max = max_x avg = max_x
-#pragma HLS LOOP_FLATTEN
+                // #pragma HLS LOOP_FLATTEN
+                // #pragma HLS PIPELINE II=1
 
                 int addr_x = cache_x_ + i;
                 int addr_y = cache_y_ + j;
+                int hh = addr_y * w;
 
-                if (addr_x >= width(cache_lvl_) || addr_y >= height(cache_lvl_) || addr_x < 0 || addr_y < 0)
+                if (addr_x >= w || addr_x < 0 || addr_y >= h || addr_y < 0)
                 {
                     continue;
                 }
 
-                T data = cache_[i + j * max_x];
-                storage_[levels_[cache_lvl_].offset + addr_y * levels_[cache_lvl_].w + addr_x] = data;
+                storage_[offset + hh + addr_x] = cache_[i + j * max_x];
             }
         }
     }

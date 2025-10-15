@@ -66,7 +66,7 @@ public:
     void generate_mipmaps(int base_lvl)
     {
         // build lower levels
-        for (UInt lvl = base_lvl + 1; lvl < levels(); ++lvl)
+        for (int lvl = base_lvl + 1; lvl < levels(); ++lvl)
         {
             // generate_mipmap_(lvl);
             generate_mipmap<T, TextureXRT>(*this, lvl);
@@ -132,7 +132,7 @@ public:
 
     BufferXRT<T> storage_;
     std::vector<Level> levels_;
-    UInt total_size_;
+    unsigned int total_size_;
     // std::vector<Level> lvls_;
     T nodata_{};
 };
