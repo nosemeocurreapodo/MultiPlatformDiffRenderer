@@ -81,7 +81,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    int lvl = 3;
+    int lvl = 1;
 
     // auto image_in_map = image_src_cpu.MapRead(0);
     auto image_in_map = image_src_cpu.MapWrite(0);

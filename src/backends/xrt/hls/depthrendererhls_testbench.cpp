@@ -64,7 +64,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 3;
+    unsigned int lvl = 1;
 
     TextureCPU<float> depth_out_cpu(w, h, -1.0f);
     auto depth_map = depth_out_cpu.MapWrite(0);

@@ -132,8 +132,7 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = BufferRAM<T>(total_size_, base);
-        cache_.size_ = max_x * max_y;
+        ram_ = base;
 
         // ensure cache is invalid
         cache_x_ = w;
@@ -169,7 +168,7 @@ public:
         {
 #pragma HLS loop_tripcount min = 307200 max = 307200 avg = 307200
 
-            storage_[levels_[lvl].offset + i] = v;
+            ram_[levels_[lvl].offset + i] = v;
         }
     }
 
@@ -193,14 +192,14 @@ public:
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
 
-        // sync_cache_(x, y, lvl);
-        // need_sync_write_ = true;
+        sync_cache_(x, y, lvl);
+        need_sync_write_ = true;
 
-        // int lx = int(x) - cache_x_;
-        // int ly = int(y) - cache_y_;
-        // cache_[lx + ly * max_x] = v;
+        int lx = int(x) - cache_x_;
+        int ly = int(y) - cache_y_;
+        cache_[lx + ly * max_x] = v;
 
-        storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
+        // ram_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
 protected:
@@ -259,9 +258,9 @@ protected:
     {
         if (cache_miss_(x, y, lvl))
         {
-            // if (need_sync_write_)
-            //     cache_write_();
-            // need_sync_write_ = false;
+            if (need_sync_write_)
+                cache_write_();
+            need_sync_write_ = false;
             cache_x_ = int(x) - max_x / 2;
             cache_y_ = int(y) - max_y / 2;
             cache_lvl_ = lvl;
@@ -294,23 +293,28 @@ protected:
 #pragma HLS loop_tripcount min = max_y max = max_y avg = max_y
             // #pragma HLS PIPELINE II = 1
 
+            int addr_y = cache_y_ + j;
+            int ram_base = offset + addr_y * w + cache_x_;
+            int bram_base = j * max_x;
+
+            if (addr_y >= h || addr_y < 0)
+            {
+                continue;
+            }
+
         texturehls_cache_read_x_loop:
             for (int i = 0; i < max_x; i++)
             {
 #pragma HLS loop_tripcount min = max_x max = max_x avg = max_x
-                // #pragma HLS LOOP_FLATTEN
-                // #pragma HLS PIPELINE II=1
+#pragma HLS LOOP_FLATTEN off
+#pragma HLS PIPELINE II = 1
 
-                int addr_x = cache_x_ + i;
-                int addr_y = cache_y_ + j;
-                int hh = addr_y * w;
+                // if (addr_x >= w || addr_x < 0)
+                // {
+                //    continue;
+                //}
 
-                if (addr_x >= w || addr_x < 0 || addr_y >= h || addr_y < 0)
-                {
-                    continue;
-                }
-
-                cache_[i + j * max_x] = storage_[offset + hh + addr_x];
+                cache_[bram_base + i] = ram_[ram_base + i];
             }
         }
     }
@@ -327,23 +331,28 @@ protected:
 #pragma HLS loop_tripcount min = max_y max = max_y avg = max_y
             // #pragma HLS PIPELINE II = 1
 
+            int addr_y = cache_y_ + j;
+            int ram_base = offset + addr_y * w + cache_x_;
+            int bram_base = j * max_x;
+
+            if (addr_y >= h || addr_y < 0)
+            {
+                continue;
+            }
+
         texturehls_cache_write_x_loop:
             for (int i = 0; i < max_x; i++)
             {
 #pragma HLS loop_tripcount min = max_x max = max_x avg = max_x
-                // #pragma HLS LOOP_FLATTEN
-                // #pragma HLS PIPELINE II=1
+#pragma HLS LOOP_FLATTEN off
+#pragma HLS PIPELINE II = 1
 
-                int addr_x = cache_x_ + i;
-                int addr_y = cache_y_ + j;
-                int hh = addr_y * w;
+                // if (addr_x >= w || addr_x < 0)
+                //{
+                //     continue;
+                // }
 
-                if (addr_x >= w || addr_x < 0 || addr_y >= h || addr_y < 0)
-                {
-                    continue;
-                }
-
-                storage_[offset + hh + addr_x] = cache_[i + j * max_x];
+                ram_[ram_base + i] = cache_[bram_base + i];
             }
         }
     }
@@ -351,14 +360,15 @@ protected:
     unsigned int total_size_;
     Level levels_[15];
     unsigned int n_levels_;
-    BufferRAM<T> storage_;
+    T nodata_;
+
     int cache_x_;
     int cache_y_;
     int cache_lvl_;
     bool need_sync_write_;
-    BufferBRAM<T, int(max_x *max_y)> cache_;
 
-    T nodata_;
+    T *ram_;
+    T cache_[int(max_x * max_y)];
 };
 
 template <class T>
