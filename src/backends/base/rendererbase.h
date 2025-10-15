@@ -251,17 +251,23 @@ protected:
 
                 if (inside)
                 {
-                    // Barvout[2].screen(1)entric weights normalized
-                    const MathType w0 = eBC * inv_area2;
-                    const MathType w1 = eCA * inv_area2;
-                    const MathType w2 = eAB * inv_area2;
+                    // Baricentric weights normalized
+                    // const MathType w0 = eBC * inv_area2;
+                    // const MathType w1 = eCA * inv_area2;
+                    // const MathType w2 = eAB * inv_area2;
+                    // Baricentric weights normalized (perpective)
+                    MathType w0 = eBC * inv_area2 * vout[0].invW;
+                    MathType w1 = eCA * inv_area2 * vout[1].invW;
+                    MathType w2 = eAB * inv_area2 * vout[2].invW;
 
                     // Perspective: 1/w at pixel
-                    const MathType invW_px = w0 * vout[0].invW + w1 * vout[1].invW + w2 * vout[2].invW;
+                    const MathType invW_px = w0 + w1 + w2;
+
+                    w0 /= invW_px;
+                    w1 /= invW_px;
+                    w2 /= invW_px;
 
                     typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
-                                                                                            vout[0].invW, vout[1].invW, vout[2].invW,
-                                                                                            invW_px,
                                                                                             vout[0].var, vout[1].var, vout[2].var);
 
                     // Interpolate varyings divided by w, then divide by invW_px
@@ -272,10 +278,9 @@ protected:
                     // Varyings varying_px = var_over_w_px * (1.0f / invW_px);
 
                     // Depth (if needed; same trick)
-                    MathType depth_px = w0 * (vout[0].depth * vout[0].invW) +
-                                        w1 * (vout[1].depth * vout[1].invW) +
-                                        w2 * (vout[2].depth * vout[2].invW);
-                    depth_px *= MathType(1) / invW_px;
+                    MathType depth_px = w0 * vout[0].depth +
+                                        w1 * vout[1].depth +
+                                        w2 * vout[2].depth;
                     // Depth test could go here
 
                     linalg::Vec4<MathType> gl_FragCoord;
@@ -367,18 +372,15 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.depth =
-            (w0 * varying_px0.depth * invW0 +
-             w1 * varying_px1.depth * invW1 +
-             w2 * varying_px2.depth * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.depth +
+             w1 * varying_px1.depth +
+             w2 * varying_px2.depth);
         return var_over_w_px;
     }
 
@@ -462,18 +464,15 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         return var_over_w_px;
     }
 
@@ -564,18 +563,15 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -669,18 +665,15 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -768,18 +761,15 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         return var_over_w_px;
     }
 
@@ -918,23 +908,19 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         var_over_w_px.f_ver =
-            (w0 * varying_px0.f_ver * invW0 +
-             w1 * varying_px1.f_ver * invW1 +
-             w2 * varying_px2.f_ver * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -1072,36 +1058,30 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         var_over_w_px.f_ver =
-            (w0 * varying_px0.f_ver * invW0 +
-             w1 * varying_px1.f_ver * invW1 +
-             w2 * varying_px2.f_ver * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
         var_over_w_px.kf_ray =
-            (w0 * varying_px0.kf_ray * invW0 +
-             w1 * varying_px1.kf_ray * invW1 +
-             w2 * varying_px2.kf_ray * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.kf_ray +
+             w1 * varying_px1.kf_ray +
+             w2 * varying_px2.kf_ray);
         // var_over_w_px.barvout[2].screen(1)entric = linalg::Vec3<MathType>(w0 * invW0 * varying_px0.depth,
         //                                  w1 * invW1 * varying_px1.depth,
         //                                  w2 * invW2 * varying_px2.depth) *
         //                             (1.0f / invW_px);
-        var_over_w_px.baricentric = linalg::Vec3<MathType>(w0 * invW0,
-                                                           w1 * invW1,
-                                                           w2 * invW2) *
-                                    (MathType(1) / invW_px);
+        var_over_w_px.baricentric = linalg::Vec3<MathType>(w0,
+                                                           w1,
+                                                           w2);
         var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
@@ -1267,32 +1247,26 @@ public:
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const MathType invW0, const MathType invW1, const MathType invW2,
-                                  const MathType invW_px,
                                   const Varyings &varying_px0,
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord * invW0 +
-             w1 * varying_px1.texcoord * invW1 +
-             w2 * varying_px2.texcoord * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
         var_over_w_px.f_ver =
-            (w0 * varying_px0.f_ver * invW0 +
-             w1 * varying_px1.f_ver * invW1 +
-             w2 * varying_px2.f_ver * invW2) *
-            (MathType(1) / invW_px);
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
         var_over_w_px.kf_ray =
-            (w0 * varying_px0.kf_ray * invW0 +
-             w1 * varying_px1.kf_ray * invW1 +
-             w2 * varying_px2.kf_ray * invW2) *
-            (MathType(1) / invW_px);
-        var_over_w_px.baricentric = linalg::Vec3<MathType>(w0 * invW0,
-                                                           w1 * invW1,
-                                                           w2 * invW2) *
-                                    (MathType(1) / invW_px);
+            (w0 * varying_px0.kf_ray +
+             w1 * varying_px1.kf_ray +
+             w2 * varying_px2.kf_ray);
+        var_over_w_px.baricentric = linalg::Vec3<MathType>(w0,
+                                                           w1,
+                                                           w2);
 
         var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
