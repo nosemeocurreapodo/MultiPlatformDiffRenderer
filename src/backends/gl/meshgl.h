@@ -18,23 +18,15 @@ public:
     MeshGL(const std::vector<float> &positions, // 3 floats/vertex
            const std::vector<float> &texcoords, // 2 floats/vertex
            const std::vector<float> &weights,   // 1 float /vertex
-           const std::vector<index_type> &indices = {})
+           const std::vector<index_type> &indices)
     {
-        std::vector<index_type> idx =
-            indices.empty() ? [&]
-        {
-            std::vector<unsigned int> tris = BuildTriangles(texcoords);
-            return std::vector<index_type>(tris.begin(), tris.end());
-        }()
-                            : indices;
-
-        validate_(positions.size(), texcoords.size(), weights.size(), idx.size());
+        validate_(positions.size(), texcoords.size(), weights.size(), indices.size());
 
         // Create and fill buffers
         vbo_pos_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(positions.size(), positions.data());
         vbo_uv_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(texcoords.size(), texcoords.data());
         vbo_w_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(weights.size(), weights.data());
-        ebo_ = BufferGL<index_type, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(idx.size(), idx.data());
+        ebo_ = BufferGL<index_type, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
 
         create_vao_();
     }
@@ -61,34 +53,6 @@ public:
         return *this;
     }
 
-    /*
-    // --- Whole-buffer updates via MapWrite (no global binds) ---
-    void update_positions(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_ * 3);
-        auto m = vbo_pos_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_texcoords(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_ * 2);
-        auto m = vbo_uv_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_weights(const float *data, std::size_t count)
-    {
-        assert(count == vertex_count_);
-        auto m = vbo_w_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(float));
-    }
-    void update_indices(const index_type *data, std::size_t count)
-    {
-        index_count_ = count;
-        auto m = ebo_.MapWrite();
-        std::memcpy(m.data(), data, count * sizeof(index_type));
-    }
-    */
-
     // Cross-backend style mapped views (avoid storing the view)
     [[nodiscard]] MappedView<const float, GLUnmap> MapReadPositions() const & { return vbo_pos_.MapRead(); }
     [[nodiscard]] MappedView<const float, GLUnmap> MapReadTexcoords() const & { return vbo_uv_.MapRead(); }
@@ -113,6 +77,7 @@ private:
     friend class DIDxyRendererGL;
     friend class JPoseRendererGL;
     friend class JMapRendererGL;
+    friend class DiffRendererGL;
 
     // Attribute locations (match your shaders)
     static constexpr GLuint ATTR_POS = 0;

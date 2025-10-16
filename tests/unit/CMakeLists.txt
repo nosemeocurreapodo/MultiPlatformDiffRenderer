@@ -26,4 +26,8 @@ if(COMPILE_GL)
     target_compile_definitions(renderer_tests PRIVATE COMPILE_GL)
 endif()
 
+if(COMPILE_HLS)
+    target_compile_definitions(renderer_tests PRIVATE COMPILE_HLS)
+endif()
+
 gtest_discover_tests(renderer_tests)

@@ -7,8 +7,8 @@
 
 namespace RenderConstants {
     // Camera projection parameters
-    constexpr float NEAR_PLANE = 0.01f;  ///< Near clipping plane distance
-    constexpr float FAR_PLANE = 100.0f;  ///< Far clipping plane distance
+    constexpr float NEAR_PLANE = 0.001f;  ///< Near clipping plane distance
+    constexpr float FAR_PLANE = 1000.0f;  ///< Far clipping plane distance
     
     // Numerical precision constants
     constexpr float EPSILON = 1e-8f;      ///< Small value for floating point comparisons

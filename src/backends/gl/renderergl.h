@@ -31,7 +31,7 @@ public:
             glGenFramebuffers(1, &fbo_);
         }
 
-        opencv2opengl_ = Mat4::Identity();
+        opencv2opengl_ = linalg::Mat4<float>::Identity();
         opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
     }
 
@@ -159,7 +159,7 @@ protected:
 
     GLint prevFbo_ = 0, prevProg_ = 0, prevViewport_[4];
 
-    Mat4 opencv2opengl_;
+    linalg::Mat4<float> opencv2opengl_;
 
     // common uniform locations (optional to use in derived shaders)
     // GLint view_matrix_loc_ = -1;
@@ -187,6 +187,7 @@ private:
             glGetShaderInfoLog(id, sizeof(log), nullptr, log);
             std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
             glDeleteShader(id);
+            std::cout << log << std::endl;
             throw RendererExceptions::OpenGLException(shader_type + " shader compilation", ok);
         }
         return id;
@@ -245,15 +246,15 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int out_lvl,
                 TextureGL<float> &depth_texture)
     {
         // Validate inputs
         ErrorHandling::ValidateTextureDimensions(depth_texture.width(out_lvl), depth_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-        
+
         save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
@@ -264,9 +265,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(depth_texture.height(out_lvl));
@@ -274,17 +275,16 @@ public:
 
         float clear[4] = {depth_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
         glUseProgram(program_);
-        // set_uniforms();
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         mesh.bind();
@@ -347,8 +347,8 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &in_texture,
@@ -364,9 +364,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -374,29 +374,28 @@ public:
 
         float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindTextureUnit(0, in_texture.id());
-        }
-        else
-#endif
+        // #if defined(GL_VERSION_4_5)
+        //         if (GLAD_GL_VERSION_4_5)
+        //         {
+        //             glBindTextureUnit(0, in_texture.id());
+        //         }
+        //         else
+        // #endif
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, in_texture.id());
         }
 
         glUseProgram(program_);
-        // set_uniforms();
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(image_loc_, 0);                          // texture unit
@@ -479,8 +478,8 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &kf_texture,
@@ -497,9 +496,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -507,12 +506,12 @@ public:
 
         float clear[4] = {r_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -531,7 +530,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
@@ -540,7 +539,7 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         mesh.bind();
         mesh.draw();
@@ -622,8 +621,8 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &kf_texture,
@@ -640,9 +639,9 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -650,12 +649,12 @@ public:
 
         float clear[4] = {r_texture.nodata(), 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -674,7 +673,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);                          // texture unit
@@ -683,7 +682,7 @@ public:
 
         glUniform1i(f_image_loc_, 1);                         // texture unit
         glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
-        glUniform1i(f_image_lvl_loc_, in_lvl);                // **int**, not float
+        glUniform1i(f_image_lvl_loc_, out_lvl);               // **int**, not float
 
         mesh.bind();
         mesh.draw();
@@ -780,7 +779,7 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &in_texture,
-                TextureGL<Vec3> &out_texture)
+                TextureGL<linalg::Vec3<float>> &out_texture)
     {
         save_state();
 
@@ -792,23 +791,23 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        Vec3 nodata = out_texture.nodata();
+        linalg::Vec3<float> nodata = out_texture.nodata();
         float clear[4] = {nodata(0), nodata(1), nodata(2), 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, clear);
-#else
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
-#endif
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -940,15 +939,15 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &kf_texture,
                 const TextureGL<float> &f_texture,
-                const TextureGL<Vec3> &dfdxy_texture,
-                TextureGL<Vec3> &jtra_texture,
-                TextureGL<Vec3> &jrot_texture,
+                const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
+                TextureGL<linalg::Vec3<float>> &jtra_texture,
+                TextureGL<linalg::Vec3<float>> &jrot_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -963,28 +962,28 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jtra_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        Vec3 jtra_nodata = jtra_texture.nodata();
-        Vec3 jrot_nodata = jrot_texture.nodata();
+        linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
+        linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
         float r_nodata = r_texture.nodata();
 
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, jtra_clear);
-        glClearBufferfv(GL_COLOR, 1, jrot_clear);
-        glClearBufferfv(GL_COLOR, 2, r_clear);
-#else
-        // Clear GL_COLOR_ATTACHMENT0
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jtra_clear);
+        //         glClearBufferfv(GL_COLOR, 1, jrot_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
         glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
@@ -1002,9 +1001,9 @@ public:
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(2, bufs_restore);
-#endif
+        const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, bufs_restore);
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -1026,8 +1025,8 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
-        const Mat4 pose_matrix = pose.matrix();
+        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const linalg::Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -1038,11 +1037,11 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform1f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
+        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1239,15 +1238,15 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const SE3 &pose,
-                const Camera &cam,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<float> &kf_texture,
                 const TextureGL<float> &f_texture,
-                const TextureGL<Vec3> &dfdxy_texture,
-                TextureGL<Vec3> &jmap_texture,
-                TextureGL<Vec3> &pids_texture,
+                const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
+                TextureGL<linalg::Vec3<float>> &jmap_texture,
+                TextureGL<linalg::Vec3<float>> &pids_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -1262,28 +1261,28 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        Vec3 jmap_nodata = jmap_texture.nodata();
-        Vec3 pids_nodata = pids_texture.nodata();
+        linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
+        linalg::Vec3<float> pids_nodata = pids_texture.nodata();
         float r_nodata = r_texture.nodata();
 
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
         float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
-#if defined(GL_VERSION_3_0)
-        glClearBufferfv(GL_COLOR, 0, jmap_clear);
-        glClearBufferfv(GL_COLOR, 1, pids_clear);
-        glClearBufferfv(GL_COLOR, 2, r_clear);
-#else
-        // Clear GL_COLOR_ATTACHMENT0
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
+        //         glClearBufferfv(GL_COLOR, 1, pids_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
         const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs0);
         glClearColor(jmap_clear[0], jmap_clear[1], jmap_clear[2], jmap_clear[3]);
@@ -1301,9 +1300,9 @@ public:
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(2, bufs_restore);
-#endif
+        const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, bufs_restore);
+        // #endif
 
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
@@ -1325,8 +1324,8 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4 view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
-        const Mat4 pose_matrix = pose.matrix();
+        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const linalg::Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -1337,11 +1336,11 @@ public:
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
+        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
-        //glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
+        // glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
+        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1371,4 +1370,327 @@ private:
     GLint dfdxy_image_loc_ = -1;
     GLint dfdxy_image_nodata_loc_ = -1;
     GLint dfdxy_image_lvl_loc_ = -1;
+};
+
+class DiffRendererGL : public BaseRendererGL
+{
+public:
+    DiffRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in float a_weight;
+            //layout (location = 3) in uint a_VertexID;
+
+            uniform mat4 view_matrix;
+            uniform mat4 pose_matrix;
+
+            out vec3 v_f_ver;
+            out vec3 v_kf_ray;
+            out vec2 v_texcoord;
+            flat out int v_vertexID;
+
+            void main() {
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
+                gl_Position = view_matrix * ver;
+                v_f_ver = ver.xyz;
+                v_kf_ray = rray.xyz;
+                v_texcoord = a_texcoord;
+                v_vertexID = gl_VertexID;
+            }
+            )Shader";
+
+        const char *geometry_shader = R"Shader(
+            #version 330 core
+            layout(triangles) in;
+            layout(triangle_strip, max_vertices = 3) out;
+
+            in vec3 v_f_ver[];
+            in vec3 v_kf_ray[];
+            in vec2 v_texcoord[];
+            flat in int v_vertexID[];           // from VS (Option A)
+
+            out vec3 f_ver;
+            out vec3 kf_ray;
+            out vec2 texcoord;
+            flat out ivec3 triIDs;         // to FS: the 3 vertex IDs of this triangle
+            smooth out vec3  bc;           // perspective-correct barycentrics to FS
+            // noperspective out vec3 bc;  // uncomment for screen-space-linear barycentrics
+
+            // Option B: fetch element indices from a texture buffer that mirrors your EBO
+            // uniform usamplerBuffer uIndexBuf;  // each texel = one uint index
+
+            void main() {
+                // Build the per-triangle ID triplet
+                // Option A: use IDs passed from VS
+                ivec3 ids = ivec3(v_vertexID[0], v_vertexID[1], v_vertexID[2]);
+
+                // Option B: if using a TBO that mirrors your index buffer:
+                // uint base = 3u * uint(gl_PrimitiveIDIn);
+                // uvec3 ids = uvec3(
+                //     texelFetch(uIndexBuf, int(base+0)).x,
+                //     texelFetch(uIndexBuf, int(base+1)).x,
+                //     texelFetch(uIndexBuf, int(base+2)).x
+                // );
+
+                for (int i = 0; i < 3; ++i) {
+                    f_ver = v_f_ver[i];
+                    kf_ray = v_kf_ray[i];
+                    texcoord = v_texcoord[i];
+                    triIDs = ids;
+                    bc     = vec3(i == 0, i == 1, i == 2);
+                    gl_Position = gl_in[i].gl_Position;
+                    EmitVertex();
+                }
+                EndPrimitive();
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out float image_output;
+            layout(location = 1) out float depth_output;
+            layout(location = 2) out vec3 jtra_output;
+            layout(location = 3) out vec3 jrot_output;
+            layout(location = 4) out vec3 jmap_output;
+            layout(location = 5) out vec3 pids_output;
+
+            in vec3 f_ver;
+            in vec3 kf_ray;
+            in vec2 texcoord;
+
+            smooth in vec3  bc;          // or noperspective if chosen above
+            flat   in ivec3 triIDs;
+
+            uniform sampler2D f_image;
+            uniform float f_image_nodata;
+            uniform int f_image_lvl;
+
+            uniform float fx;
+            uniform float fy;
+
+            vec2 get_dfdxy(sampler2D image, ivec2 tc, ivec2 tex_size, float nodata, int lvl)
+            {
+                int x_p = tc.x + 1;
+                int x_m = tc.x - 1;
+                int y_p = tc.y + 1;
+                int y_m = tc.y - 1;
+
+                if (x_p >= tex_size.x || x_m < 0 || y_p >= tex_size.y || y_m < 0)
+                {
+                    return vec2(nodata, nodata);
+                }
+
+                //Scalar f = Scalar(tex.texel_(y, x, lvl));
+                float f_y_p = texelFetch(image, ivec2(tc.x, y_p), lvl).r;
+                float f_y_m = texelFetch(image, ivec2(tc.x, y_m), lvl).r;
+                float f_x_p = texelFetch(image, ivec2(x_p, tc.y), lvl).r;
+                float f_x_m = texelFetch(image, ivec2(x_m, tc.y), lvl).r;
+
+                if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
+                {
+                    return vec2(nodata, nodata);
+                }
+
+                return vec2((f_x_p - f_x_m) / 2.0f, (f_y_p - f_y_m) / 2.0f);
+            }
+
+            void main()
+            {
+                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+
+                //float f = texelFetch(f_image, ivec2(gl_FragCoord.xy), f_image_lvl).r;
+                float f = textureLod(f_image, texcoord, float(f_image_lvl)).r;
+
+                if (f == f_image_nodata)
+                {
+                    discard;
+                }
+
+                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.xy), tex_size, f_image_nodata, f_image_lvl);
+
+                if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
+                {
+                    discard;
+                }
+
+                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
+                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
+
+                vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
+                vec3 d_f_i_d_rot = vec3(-f_ver.z * v1 + f_ver.y * v2, f_ver.z * v0 - f_ver.x * v2, -f_ver.y * v0 + f_ver.x * v1);
+
+                //jtra_output = d_f_i_d_tra;
+                //jrot_output = d_f_i_d_rot;
+
+                vec3 d_f_ver_d_kf_depth = kf_ray;
+                float d_f_i_d_kf_depth = dot(d_f_i_d_f_ver, d_f_ver_d_kf_depth);
+
+                vec3 d_depth_d_vert_depth = bc;
+
+                vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+
+                image_output = f;
+                depth_output = f_ver.z;
+                jtra_output = d_f_i_d_f_ver;
+                jrot_output = d_f_i_d_rot;
+                jmap_output = jac;
+                pids_output = triIDs;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+
+        view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
+        pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
+
+        fx_loc_ = glGetUniformLocation(program_, "fx");
+        fy_loc_ = glGetUniformLocation(program_, "fy");
+
+        f_image_loc_ = glGetUniformLocation(program_, "f_image");
+        f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
+        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
+    }
+
+    void Render(const MeshGL &mesh,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureGL<float> &f_texture,
+                TextureGL<float> &image_texture,
+                TextureGL<float> &depth_texture,
+                TextureGL<linalg::Vec3<float>> &jtra_texture,
+                TextureGL<linalg::Vec3<float>> &jrot_texture,
+                TextureGL<linalg::Vec3<float>> &jmap_texture,
+                TextureGL<linalg::Vec3<float>> &pids_texture)
+    {
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, image_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, depth_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, jtra_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, jrot_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, jmap_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, pids_texture.id(), out_lvl);
+
+        const GLenum bufs[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(6, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_SCISSOR_TEST);
+
+        const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        float image_nodata = image_texture.nodata();
+        float depth_nodata = depth_texture.nodata();
+        linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
+        linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
+        linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
+        linalg::Vec3<float> pids_nodata = pids_texture.nodata();
+
+        float image_clear[4] = {image_nodata, 0, 0, 1.f};
+        float depth_clear[4] = {depth_nodata, 0, 0, 1.f};
+        float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
+        float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
+        float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
+        float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
+        //         glClearBufferfv(GL_COLOR, 1, pids_clear);
+        //         glClearBufferfv(GL_COLOR, 2, r_clear);
+        // #else
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs0[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs0);
+        glClearColor(image_clear[0], image_clear[1], image_clear[2], image_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs1[1] = {GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(1, bufs1);
+        glClearColor(depth_clear[0], depth_clear[1], depth_clear[2], depth_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs2[1] = {GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(1, bufs2);
+        glClearColor(jtra_clear[0], jtra_clear[1], jtra_clear[2], jtra_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //  Clear GL_COLOR_ATTACHMENT0
+        const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(1, bufs3);
+        glClearColor(jrot_clear[0], jrot_clear[1], jrot_clear[2], jrot_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT2
+        const GLenum bufs4[1] = {GL_COLOR_ATTACHMENT4};
+        glDrawBuffers(1, bufs4);
+        glClearColor(jmap_clear[0], jmap_clear[1], jmap_clear[2], jmap_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT1
+        const GLenum bufs5[1] = {GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(1, bufs5);
+        glClearColor(pids_clear[0], pids_clear[1], pids_clear[2], pids_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Restore glDrawBuffers for subsequent rendering.
+        // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
+        // as done in the clear_buffers function.
+        const GLenum bufs_restore[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+        glDrawBuffers(6, bufs_restore);
+        // #endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, f_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, f_texture.id());
+        }
+
+        glUseProgram(program_);
+
+        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const linalg::Mat4<float> pose_matrix = pose.matrix();
+
+        glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
+        glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
+
+        glUniform1i(f_image_loc_, 0);
+        glUniform1f(f_image_nodata_loc_, f_texture.nodata());
+        glUniform1i(f_image_lvl_loc_, out_lvl);
+
+        glUniform1f(fx_loc_, cam.GetParams()(0));
+        glUniform1f(fy_loc_, cam.GetParams()(1));
+
+        mesh.bind();
+        mesh.draw();
+        mesh.unbind();
+
+        restore_state();
+    }
+
+private:
+    GLint view_matrix_loc_ = -1;
+    GLint pose_matrix_loc_ = -1;
+
+    GLint fx_loc_ = -1;
+    GLint fy_loc_ = -1;
+
+    GLint f_image_loc_ = -1;
+    GLint f_image_nodata_loc_ = -1;
+    GLint f_image_lvl_loc_ = -1;
 };

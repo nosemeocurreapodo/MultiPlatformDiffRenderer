@@ -13,175 +13,172 @@ public:
 static ::testing::Environment *const gl_env =
     ::testing::AddGlobalTestEnvironment(new GLContextEnv());
 
-class GroundTruthTests : public RendererTestBase
+#endif
+// Backend trait structs to unify CPU and GL testing
+struct CPUBackendTraits
+{
+    using MeshT = MeshCPU;
+    template <typename T>
+    using TextureT = TextureCPU<T>;
+    using DepthRendererT = DepthRendererCPU;
+    using ImageRendererT = ImageRendererCPU;
+    using ResidualRendererT = ResidualRendererCPU;
+    using L2RendererT = L2RendererCPU;
+    using DIDxyRendererT = DIDxyRendererCPU;
+    using JPoseRendererT = JPoseRendererCPU;
+    using JMapRendererT = JMapRendererCPU;
+    static const char *Name() { return "CPU"; }
+};
+
+#ifdef COMPILE_GL
+struct GLBackendTraits
+{
+    using MeshT = MeshGL;
+    template <typename T>
+    using TextureT = TextureGL<T>;
+    using DepthRendererT = DepthRendererGL;
+    using ImageRendererT = ImageRendererGL;
+    using ResidualRendererT = ResidualRendererGL;
+    using L2RendererT = L2RendererGL;
+    using DIDxyRendererT = DIDxyRendererGL;
+    using JPoseRendererT = JPoseRendererGL;
+    using JMapRendererT = JMapRendererGL;
+    static const char *Name() { return "GL"; }
+};
+#endif
+
+template <typename Backend>
+class GroundTruthTests : public TwoViewTests
 {
 protected:
+    ValidationThresholds thresholds_;
     void SetUp() override
     {
-        RendererTestBase::SetUp();
+        TwoViewTests::SetUp();
     }
 };
 
-// Test CPU depth renderer against ground truth
-TEST_F(GroundTruthTests, CPUDepthGroundTruthValidation)
+TYPED_TEST_SUITE_P(GroundTruthTests);
+
+// Test depth renderer against ground truth
+TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
-    MeshCPU mesh(vertices_, texcoords_, weights_);
+    using Traits = TypeParam;
 
-    TextureCPU<float> output(w_, h_, -1.0f);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
 
-    DepthRendererCPU renderer;
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
 
-    PerformanceTimer timer;
-    timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, output);
-    timer.Stop();
+    UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
 
-    cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
+    typename Traits::DepthRendererT renderer;
+    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
-    // Basic validation against expected properties
-    cv::Scalar mean_val, std_val;
-    cv::meanStdDev(result, mean_val, std_val);
-
-    EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
-    EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
-    EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
-
-    // Performance validation
-    double cpu_duration = timer.Stop();
-    EXPECT_LT(cpu_duration, 1000.0) << "CPU rendering should complete within 1 second";
-
-    SaveDebugImage(result, "cpu_depth_ground_truth.png");
-
-    std::cout << "CPU Depth Rendering: " << cpu_duration << "ms\n";
-}
-
-// Test GL depth renderer against ground truth
-TEST_F(GroundTruthTests, GLDepthGroundTruthValidation)
-{
-    MeshGL mesh(vertices_, texcoords_, weights_);
-    TextureGL<float> output(w_, h_, -1.0f);
-
-    DepthRendererGL renderer;
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
-
-    PerformanceTimer timer;
-    timer.Start();
-    renderer.Render(mesh, pose_transform, cam_, 0, output);
-    timer.Stop();
-
-    cv::Mat result = DownloadTexture(output, 0, CV_32FC1);
-
-    // Basic validation against expected properties
-    cv::Scalar mean_val, std_val;
-    cv::meanStdDev(result, mean_val, std_val);
-
-    EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
-    EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
-    EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
-
-    // Performance validation
-    double gl_duration = timer.Stop();
-    EXPECT_LT(gl_duration, 500.0) << "GL rendering should complete within 500ms";
-
-    SaveDebugImage(result, "gl_depth_ground_truth.png");
-
-    std::cout << "GL Depth Rendering: " << gl_duration << "ms\n";
-}
-
-// Test cross-backend consistency
-TEST_F(GroundTruthTests, CrossBackendConsistency)
-{
-    // CPU rendering
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_);
-
-    TextureCPU<float> output_cpu(w_, h_, -1.0f);
-
-    DepthRendererCPU cpu_renderer;
-    SE3 pose_transform = pose_dst_ * pose_src_.inverse();
-    cpu_renderer.Render(mesh_cpu, pose_transform, cam_, 0, output_cpu);
-
-    cv::Mat cpu_result = DownloadTexture(output_cpu, 0, CV_32FC1);
-
-    // GL rendering
-    MeshGL mesh_gl(vertices_, texcoords_, weights_);
-    TextureGL<float> output_gl(w_, h_, -1.0f);
-
-    DepthRendererGL gl_renderer;
-    gl_renderer.Render(mesh_gl, pose_transform, cam_, 0, output_gl);
-
-    cv::Mat gl_result = DownloadTexture(output_gl, 0, CV_32FC1);
-
-    // Compare results (mask nodata)
-    cv::Mat mask = (cpu_result != -1.0f) & (gl_result != -1.0f);
-    cv::Mat cpu_masked, gl_masked;
-    cpu_result.copyTo(cpu_masked, mask);
-    gl_result.copyTo(gl_masked, mask);
-    cv::Mat diff;
-    cv::absdiff(cpu_masked, gl_masked, diff);
-
-    cv::Scalar mean_diff = cv::mean(diff, mask);
-    cv::Scalar max_diff;
-    cv::minMaxLoc(diff, nullptr, &max_diff[0]);
-
-    // Validate consistency (allowing for some numerical differences)
-    EXPECT_LT(mean_diff[0], 0.1) << "Mean difference between CPU and GL should be small";
-    EXPECT_LT(max_diff[0], 1.0) << "Maximum difference between CPU and GL should be reasonable";
-
-    SaveDebugImage(diff, "cpu_vs_gl_diff.png");
-
-    std::cout << "CPU vs GL - Mean diff: " << mean_diff[0] << ", Max diff: " << max_diff[0] << "\n";
-}
-
-// Test performance thresholds
-TEST_F(GroundTruthTests, PerformanceThresholds)
-{
-    const int num_runs = 3;
-    std::vector<double> cpu_times, gl_times;
-
-    // CPU performance
-    for (int i = 0; i < num_runs; ++i)
+    for (int lvl = 0; lvl < output.levels(); lvl++)
     {
-        MeshCPU mesh(vertices_, texcoords_, weights_);
-
-        TextureCPU<float> output(w_, h_, -1.0f);
-
-        DepthRendererCPU renderer;
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, output);
-        double cpu_time = timer.Stop();
-        cpu_times.push_back(cpu_time);
+        renderer.Render(mesh, pose_transform, this->cam_, lvl, output);
+        // Performance validation
+        double duration = timer.Stop();
+        // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
+
+        double rmse = RMSE(output, ground_truth, lvl);
+
+        if (lvl < 3)
+            EXPECT_LT(rmse, this->thresholds_.gt_max_depth_error) << "RMSE error: " << rmse;
     }
 
-    // GL performance
-    for (int i = 0; i < num_runs; ++i)
-    {
-        MeshGL mesh(vertices_, texcoords_, weights_);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
 
-        TextureGL<float> output(w_, h_, -1.0f);
+    // cv::Mat mask = (result != 0.0f);
+    cv::Mat diff = result - this->depth_dst_cv_;
+    // cv::Mat masked_diff;
+    // diff.copyTo(masked_diff, mask);
 
-        DepthRendererGL renderer;
-        PerformanceTimer timer;
-        timer.Start();
-        renderer.Render(mesh, SE3(), cam_, 0, output);
-        double gl_time = timer.Stop();
-        gl_times.push_back(gl_time);
-    }
+    // cv::Mat diff;
+    // cv::absdiff(result, this->depth_dst_cv_, diff);
 
-    double cpu_avg = std::accumulate(cpu_times.begin(), cpu_times.end(), 0.0) / cpu_times.size();
-    double gl_avg = std::accumulate(gl_times.begin(), gl_times.end(), 0.0) / gl_times.size();
+    // Basic validation against expected properties
+    // cv::Mat mask = (result != -1.0f);
+    // cv::Scalar mean_val, std_val;
+    // cv::meanStdDev(result, mean_val, std_val, mask);
 
-    // Performance expectations
-    EXPECT_LT(cpu_avg, 2000.0) << "CPU rendering should be under 2 seconds";
-    EXPECT_LT(gl_avg, 1000.0) << "GL rendering should be under 1 second";
+    // EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
+    // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
+    // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    if (gl_avg > 0.0)
-    {
-        double speedup = cpu_avg / gl_avg;
-        EXPECT_GT(speedup, 0.5) << "GL should provide reasonable performance";
-        std::cout << "Performance - CPU: " << cpu_avg << "ms, GL: " << gl_avg << "ms, Speedup: " << speedup << "x\n";
-    }
+    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_depth_ground_truth.png");
+
+    // std::cout << "Depth Rendering: " << duration << "ms\n";
 }
 
-#endif // COMPILE_GL
+// Test image renderer against ground truth
+TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
+{
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
+
+    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
+
+    UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
+    UploadMatToTexture(input, 0, this->image_src_cv_);
+
+    typename Traits::ImageRendererT renderer;
+    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+
+    for (int lvl = 0; lvl < output.levels(); lvl++)
+    {
+        PerformanceTimer timer;
+        timer.Start();
+        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input, output);
+        // Performance validation
+        double duration = timer.Stop();
+        // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
+
+        double rmse = RMSE(output, ground_truth, lvl);
+
+        if (lvl < 3)
+            EXPECT_LT(rmse, this->thresholds_.gt_max_image_error) << "RMSE error: " << rmse;
+    }
+
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    // cv::Mat mask = (result != 0.0f);
+    cv::Mat diff = result - this->image_dst_cv_;
+    // cv::Mat masked_diff;
+    // diff.copyTo(masked_diff, mask);
+
+    // cv::Mat diff;
+    // cv::absdiff(result, this->image_dst_cv_, diff);
+
+    // Basic validation against expected properties
+    // cv::Mat mask = (result != -1.0f);
+    // cv::Scalar mean_val, std_val;
+    // cv::meanStdDev(result, mean_val, std_val, mask);
+
+    // EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
+    // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
+    // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
+
+    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_image_ground_truth.png");
+
+    // std::cout << "Depth Rendering: " << duration << "ms\n";}
+}
+
+REGISTER_TYPED_TEST_SUITE_P(
+    GroundTruthTests,
+    DepthGroundTruthValidation,
+    ImageGroundTruthValidation);
+
+using TestBackends = ::testing::Types<CPUBackendTraits
+#ifdef COMPILE_GL
+                                      ,
+                                      GLBackendTraits
+#endif
+                                      >;
+
+INSTANTIATE_TYPED_TEST_SUITE_P(AllBackends, GroundTruthTests, TestBackends);

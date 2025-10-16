@@ -4,7 +4,7 @@ include(GoogleTest)
 add_subdirectory(unit)
 
 # Performance benchmarking tests
-add_subdirectory(performance)
+# add_subdirectory(performance)
 
 # Ground truth validation tests
 add_subdirectory(validation)

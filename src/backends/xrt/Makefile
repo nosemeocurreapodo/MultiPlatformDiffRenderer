@@ -4,13 +4,26 @@
 #*/
 
 ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
-SRC_DIR=$(ROOT_DIR)
+# SRC_DIR=$(ROOT_DIR)/src
 
-PLATFORM_NAME=xilinx_u280_gen3x16_xdma_1_202211_1
-PLATFORM=/opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/$(PLATFORM_NAME).xpfm
+NAME = depthrendererhls
+TOP_NAME = DepthRenderHLS
+#NAME = imagerendererhls
+#TOP_NAME = ImageRenderHLS
 
-#PLATFORM_NAME=xilinx_u280_xdma_201920_3
-#PLATFORM=/opt/xilinx/platforms/xilinx_u280_xdma_201920_3/$(PLATFORM_NAME).xpfm
+PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
+PLATFORM_NAME=kv260
+VERSION ?=2023.2
+
+COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/xilinx-zynqmp-common-v$(VERSION)/
+
+MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
+HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
+
+PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
+#SW_COMP = $(ROOT_DIR)/../step2_pfm/sw_comp/
+SYSROOTDIR= $(COMMON_IMAGE_ZYNQMP)/sysroots/cortexa72-cortexa53-xilinx-linux
+#COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/sw/zynqmp/xilinx-zynqmp-common-v$(VERSION)/
 
 BUILD_PATH=$(ROOT_DIR)/build
 PLATFORM_INFO_PATH=$(BUILD_PATH)/platforminfo.txt
@@ -21,22 +34,23 @@ PACKAGE_PATH=$(BUILD_PATH)/package
 
 #PL_EXAMPLE_PATH = $(BUILD_PATH)/Vitis_Accel_Examples/cpp_kernels/simple_vadd/
 
-CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g -std=c++17
-CXXFLAGS += -fmessage-length=0
-CXXFLAGS += -I$(SRC_DIR)/../../../tests
-# CXXFLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
-CXXFLAGS += -I$(SRC_DIR)/../../
-CXXFLAGS += -I/usr/include/eigen3
-CXXFLAGS += -I$(SRC_DIR)/../../../thirdparty/Sophus
+CXXFLAGS += -I$(SYSROOTDIR)/usr/include/xrt -I$(XILINX_VIVADO)/include -Wall -O0 -g -std=c++1y
+CXXFLAGS += -I$(HLSLINEARALGEBRA_PATH)/include
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/src
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/tests
+CXXFLAGS += -I$(SYSROOTDIR)/usr/include/opencv4
+# CXXFLAGS += -fmessage-length=0
 
-LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
+LDFLAGS += -L$(SYSROOTDIR)/usr/lib -pthread -lxilinxopencl
 LDFLAGS += -lrt -lstdc++ 
 LDFLAGS += -luuid -lxrt_coreutil
 LDFLAGS += -lopencv_core -lopencv_highgui -lopencv_imgcodecs
+LDFLAGS += --sysroot=$(SYSROOTDIR)
 
+VPP_FLAGS += -I$(HLSLINEARALGEBRA_PATH)/include
+VPP_FLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/src
+VPP_FLAGS += -DUSE_VITIS
 #VPP_FLAGS += --save-temps 
-VPP_FLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/src
-VPP_FLAGS += -I$(SRC_DIR)/../../
 VPP_LDFLAGS :=
 
 TARGET := hw
@@ -75,18 +89,19 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k DepthRenderFPGA -o $(XO_PATH)/depthrendererfpga.xo $(SRC_DIR)/depthrendererfpga.cpp
+	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/src/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"
 	mkdir -p $(XCLBIN_PATH)
 #	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
-	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/depthrendererfpga.xclbin $(XO_PATH)/depthrendererfpga.xo
+	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
 
 $(HOST_PATH):
 	@echo "Making host"
 	mkdir -p $(HOST_PATH)
-	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/depthrendererfpga_host $(SRC_DIR)/depthrendererfpga_test_xrt.cpp $(LDFLAGS)
+	cd $(HOST_PATH) && $(XILINX_VITIS)/gnu/aarch64/lin/aarch64-linux/bin/aarch64-linux-gnu-g++ $(CXXFLAGS) $(LDFLAGS) -o $(HOST_PATH)/$(NAME)_host $(MULTIPLATFORMRENDERER_PATH)/src/backends/xrt/$(NAME)_test_xrt.cpp
+
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:
@@ -102,15 +117,17 @@ create_json:
 $(PACKAGE_PATH): create_json
 	@echo "INFO: Packaging Completed"
 	mkdir -p $(PACKAGE_PATH)
+	cp $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/dtb/pl.dtbo $(PACKAGE_PATH)
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
-	cp $(XCLBIN_PATH)/depthrendererfpga.xclbin $(PACKAGE_PATH)
-	cp $(HOST_PATH)/depthrendererfpga_host $(PACKAGE_PATH)
+	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
+	cp $(HOST_PATH)/$(NAME)_host $(PACKAGE_PATH)
+# cp -r $(MULTIPLATFORMRENDERER_PATH)/tests/data $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
 	@echo "then use xmutil to load hardware."
 	@echo "xmutil unloadapp"
-	@echo "xmutil loadapp vadd"
-	@echo "Go to /lib/firmware/xilinx/vadd directory and run application"
-	@echo "$ ./depthrendererfpga_host ./depthrendererfpga.xclbin"
+	@echo "xmutil loadapp $(NAME)"
+	@echo "Go to /lib/firmware/xilinx/$(NAME) directory and run application"
+	@echo "$ ./$(NAME)_host ./$(NAME).xclbin" 0 /data
 
 clean:
 	rm -rf build

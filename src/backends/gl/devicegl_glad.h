@@ -205,21 +205,48 @@ inline bool InitEGL()
     return true;
 }
 
+template <typename T>
+inline int getChannels()
+{
+    if constexpr (std::is_same_v<T, float>)
+    {
+        return 1;
+    }
+    else if constexpr (std::is_same_v<T, linalg::Vec2<float>>)
+    {
+        return 2;
+    }
+    else if constexpr (std::is_same_v<T, linalg::Vec3<float>>)
+    {
+        return 3;
+    }
+    else if constexpr (std::is_same_v<T, linalg::Vec4<float>>)
+    {
+        return 4;
+    }
+    else
+    {
+        // static_assert(false, "Unsupported type for getChannels");
+        // assert(false);
+        return 0; // Unreachable
+    }
+}
+
 inline GLint GetGLInternalFormat(std::type_index tindex)
 {
     // static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
     static std::map<std::type_index, GLint> internal_format_map;
-    //internal_format_map[GetTypeIndex<float>()] = GL_R32F;
-    //internal_format_map[GetTypeIndex<ImageType>()] = GL_R32F;
-    internal_format_map[GetTypeIndex<Scalar>()] = GL_R32F;
-    internal_format_map[GetTypeIndex<Vec2>()] = GL_RG32F;
-    internal_format_map[GetTypeIndex<Vec3>()] = GL_RGB32F;
-    internal_format_map[GetTypeIndex<Vec4>()] = GL_RGBA32F;
+    // internal_format_map[GetTypeIndex<float>()] = GL_R32F;
+    // internal_format_map[GetTypeIndex<ImageType>()] = GL_R32F;
+    internal_format_map[GetTypeIndex<float>()] = GL_R32F;
+    internal_format_map[GetTypeIndex<linalg::Vec2<float>>()] = GL_RG32F;
+    internal_format_map[GetTypeIndex<linalg::Vec3<float>>()] = GL_RGB32F;
+    internal_format_map[GetTypeIndex<linalg::Vec4<float>>()] = GL_RGBA32F;
 
-    internal_format_map[GetTypeIndex<Int>()] = GL_R32I;
-    internal_format_map[GetTypeIndex<Vec2i>()] = GL_RG32I;
-    internal_format_map[GetTypeIndex<Vec3i>()] = GL_RGB32I;
-    internal_format_map[GetTypeIndex<Vec4i>()] = GL_RGBA32I;
+    internal_format_map[GetTypeIndex<int>()] = GL_R32I;
+    internal_format_map[GetTypeIndex<linalg::Vec2<int>>()] = GL_RG32I;
+    internal_format_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_RGB32I;
+    internal_format_map[GetTypeIndex<linalg::Vec4<int>>()] = GL_RGBA32I;
 
     internal_format_map[GetTypeIndex<unsigned char>()] = GL_R8;
     // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 2)] = GL_RG8;
@@ -244,16 +271,16 @@ inline GLenum GetGLFormat(int channels)
 inline GLenum GetGLType(std::type_index tindex)
 {
     static std::map<std::type_index, GLenum> type_map;
-    //type_map[GetTypeIndex<float>()] = GL_FLOAT;
-    //type_map[GetTypeIndex<ImageType>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Scalar>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec2>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec3>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec4>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Int>()] = GL_INT;
-    type_map[GetTypeIndex<Vec2i>()] = GL_INT;
-    type_map[GetTypeIndex<Vec2i>()] = GL_INT;
-    type_map[GetTypeIndex<Vec2i>()] = GL_INT;
+    // type_map[GetTypeIndex<float>()] = GL_FLOAT;
+    // type_map[GetTypeIndex<ImageType>()] = GL_FLOAT;
+    type_map[GetTypeIndex<float>()] = GL_FLOAT;
+    type_map[GetTypeIndex<linalg::Vec2<float>>()] = GL_FLOAT;
+    type_map[GetTypeIndex<linalg::Vec3<float>>()] = GL_FLOAT;
+    type_map[GetTypeIndex<linalg::Vec4<float>>()] = GL_FLOAT;
+    type_map[GetTypeIndex<int>()] = GL_INT;
+    type_map[GetTypeIndex<linalg::Vec2<int>>()] = GL_INT;
+    type_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_INT;
+    type_map[GetTypeIndex<linalg::Vec4<int>>()] = GL_INT;
     type_map[GetTypeIndex<unsigned char>()] = GL_UNSIGNED_BYTE;
 
     return type_map[tindex];
