@@ -98,7 +98,7 @@ public:
 
                 out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
-                RendererBase::Render(mesh, viewport, textures);
+                RendererBase::Render(viewport, mesh, textures);
 
             depth_renderer_copy_loop_y:
                 for (int y = 0; y < crop_H; y++)
@@ -196,7 +196,7 @@ public:
 
                 out_texture_part.fill(out_lvl, out_texture_part.nodata());
 
-                RendererBase::Render(mesh, viewport, textures);
+                RendererBase::Render(viewport, mesh, textures);
 
             depth_renderer_copy_loop_y:
                 for (int y = 0; y < crop_H; y++)

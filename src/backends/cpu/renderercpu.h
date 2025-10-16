@@ -14,6 +14,36 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
+class GouraudRendererCPU
+    : public GouraudRendererBase<float, float, MeshCPU, TextureCPU>
+{
+public:
+    GouraudRendererCPU() = default;
+    ~GouraudRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
+                const linalg::Vec3<float> &light_pos,
+                const linalg::Vec3<float> &light_color,
+                const linalg::Vec3<float> &ambient_reflectance,
+                const linalg::Vec3<float> &diffuse_reflectance,
+                const linalg::Vec3<float> &specular_reflectance,
+                const float shininess,
+                const linalg::Vec3<float> &ambient_light,
+                unsigned int out_lvl,
+                TextureCPU<linalg::Vec3<float>> &out_texture)
+    {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        GouraudRendererBase::Render(mesh, pose, cam, light_pos, light_color, ambient_reflectance, diffuse_reflectance, specular_reflectance, shininess, ambient_light, out_lvl, out_texture);
+    }
+
+private:
+};
+
 // -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z

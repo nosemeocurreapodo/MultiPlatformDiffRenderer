@@ -204,6 +204,182 @@ private:
     }
 };
 
+class GouraudRendererGL : public BaseRendererGL
+{
+public:
+    GouraudRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec3 aNormal;
+
+            uniform mat4 uModel;
+            uniform mat4 uView;
+            uniform mat4 uProjection;
+            uniform mat3 uNormalMatrix;   // transpose(inverse(mat3(uModel))) computed on CPU
+
+            uniform vec3 uLightPos;       // world-space
+            uniform vec3 uViewPos;        // camera position in world-space
+
+            // Material and light
+            uniform vec3 uKa;             // ambient reflectance (rgb)
+            uniform vec3 uKd;             // diffuse reflectance (rgb)
+            uniform vec3 uKs;             // specular reflectance (rgb)
+            uniform float uShininess;     // specular exponent
+            uniform vec3 uLightColor;     // light color/intensity (rgb)
+            uniform vec3 uAmbientLight;   // ambient light (rgb)
+
+            out vec3 vColor;              // lit color computed per-vertex
+
+            void main() {
+                // Transform to world space
+                vec3 fragPos = vec3(uModel * vec4(aPos, 1.0));
+                vec3 N = normalize(uNormalMatrix * aNormal);
+
+                // Lighting vectors
+                vec3 L = normalize(uLightPos - fragPos);
+                vec3 V = normalize(uViewPos  - fragPos);
+                vec3 R = reflect(-L, N);
+
+                // Phong reflectance model (computed per-vertex)
+                float NdotL = max(dot(N, L), 0.0);
+                float spec = 0.0;
+                if (NdotL > 0.0) {
+                    spec = pow(max(dot(V, R), 0.0), uShininess);
+                }
+
+                vec3 ambient  = uAmbientLight * uKa;
+                vec3 diffuse  = uLightColor * uKd * NdotL;
+                vec3 specular = uLightColor * uKs * spec;
+
+                vColor = ambient + diffuse + specular;
+
+                gl_Position = uProjection * uView * vec4(fragPos, 1.0);
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+
+            in vec3 vColor;
+            out vec4 FragColor;
+
+            void main() {
+                FragColor = vec4(vColor, 1.0);
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+
+        uModel_loc_ = glGetUniformLocation(program_, "uModel");
+        uView_loc_ = glGetUniformLocation(program_, "uView");
+        uProjection_loc_ = glGetUniformLocation(program_, "uProjection");
+        uNormalMatrix_loc_ = glGetUniformLocation(program_, "uNormalMatrix");
+        uLightPos_loc_ = glGetUniformLocation(program_, "uLightPos");
+        uViewPos_loc_ = glGetUniformLocation(program_, "uViewPos");
+        uKa_loc_ = glGetUniformLocation(program_, "uKa");
+        uKd_loc_ = glGetUniformLocation(program_, "uKd");
+        uKs_loc_ = glGetUniformLocation(program_, "uKs");
+        uShininess_loc_ = glGetUniformLocation(program_, "uShininess");
+        uLightColor_loc_ = glGetUniformLocation(program_, "uLightColor");
+        uAmbientLight_loc_ = glGetUniformLocation(program_, "uAmbientLight");
+    }
+
+    void Render(const MeshGL &mesh,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
+                const linalg::Vec3<float> &light_pos,
+                const linalg::Vec3<float> &light_color,
+                const linalg::Vec3<float> &ambient_reflectance,
+                const linalg::Vec3<float> &diffuse_reflectance,
+                const linalg::Vec3<float> &specular_reflectance,
+                const float shininess,
+                const linalg::Vec3<float> &ambient_light,
+                unsigned int out_lvl,
+                TextureGL<linalg::Vec3<float>> &out_texture)
+    {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_SCISSOR_TEST);
+
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {out_texture.nodata()(0), out_texture.nodata()(1), out_texture.nodata()(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // #endif
+
+        glUseProgram(program_);
+
+        linalg::SE3<float> cam2world = pose.inverse();
+
+        // model already in world space
+        linalg::Mat4<float> uModel = linalg::Mat4<float>::Identity();
+        linalg::Mat4<float> uView = pose.matrix();
+        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        linalg::Mat3<float> uNormalMatrix = linalg::Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
+
+        linalg::Vec3<float> uViewPos = cam2world.translation(); // camera position in world space
+
+        glUniformMatrix4fv(uModel_loc_, 1, GL_FALSE, uModel.data());
+        glUniformMatrix4fv(uView_loc_, 1, GL_FALSE, uView.data());
+        glUniformMatrix4fv(uProjection_loc_, 1, GL_FALSE, uProjection.data());
+        glUniformMatrix3fv(uNormalMatrix_loc_, 1, GL_FALSE, uNormalMatrix.data());
+
+        glUniform3fv(uLightPos_loc_, 1, light_pos.data());
+        glUniform3fv(uViewPos_loc_, 1, uViewPos.data());
+
+        glUniform3fv(uKa_loc_, 1, ambient_reflectance.data());
+        glUniform3fv(uKd_loc_, 1, diffuse_reflectance.data());
+        glUniform3fv(uKs_loc_, 1, specular_reflectance.data());
+
+        glUniform1fv(uShininess_loc_, 1, &shininess);
+
+        glUniform3fv(uLightColor_loc_, 1, light_color.data());
+        glUniform3fv(uAmbientLight_loc_, 1, ambient_light.data());
+
+        mesh.draw();
+
+        restore_state();
+    }
+
+private:
+    GLint uModel_loc_ = -1;
+    GLint uView_loc_ = -1;
+    GLint uProjection_loc_ = -1;
+    GLint uNormalMatrix_loc_ = -1;
+    GLint uLightPos_loc_ = -1;
+    GLint uViewPos_loc_ = -1;
+    GLint uKa_loc_ = -1;
+    GLint uKd_loc_ = -1;
+    GLint uKs_loc_ = -1;
+    GLint uShininess_loc_ = -1;
+    GLint uLightColor_loc_ = -1;
+    GLint uAmbientLight_loc_ = -1;
+};
+
 class DepthRendererGL : public BaseRendererGL
 {
 public:
@@ -212,8 +388,6 @@ public:
         const char *vertex_shader = R"Shader(
             #version 330 core
             layout (location = 0) in vec3 a_position;
-            layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             out float depth;
             
@@ -267,7 +441,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(depth_texture.height(out_lvl));
@@ -287,9 +461,7 @@ public:
         const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -307,7 +479,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             uniform mat4 t_matrix;
 
@@ -366,7 +537,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -402,9 +573,7 @@ public:
         glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
         glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -426,7 +595,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             uniform mat4 t_matrix;
 
@@ -498,7 +666,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -541,9 +709,7 @@ public:
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
         glUniform1i(f_image_lvl_loc_, out_lvl);
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -569,7 +735,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             uniform mat4 t_matrix;
 
@@ -641,7 +806,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -684,9 +849,7 @@ public:
         glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
         glUniform1i(f_image_lvl_loc_, out_lvl);               // **int**, not float
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -712,7 +875,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             out vec2 texcoord;
 
@@ -793,7 +955,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -827,9 +989,7 @@ public:
         glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
         glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -849,7 +1009,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
             
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -964,7 +1123,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jtra_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
@@ -1046,9 +1205,7 @@ public:
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -1082,8 +1239,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
-            //layout (location = 3) in uint a_VertexID;
 
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -1263,7 +1418,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1345,9 +1500,7 @@ public:
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }
@@ -1381,8 +1534,6 @@ public:
             #version 330 core
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
-            layout (location = 2) in float a_weight;
-            //layout (location = 3) in uint a_VertexID;
 
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
@@ -1586,7 +1737,7 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        //glEnable(GL_SCISSOR_TEST);
+        // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1676,9 +1827,7 @@ public:
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
 
-        mesh.bind();
         mesh.draw();
-        mesh.unbind();
 
         restore_state();
     }

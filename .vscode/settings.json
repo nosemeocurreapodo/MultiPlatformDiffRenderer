@@ -91,6 +91,7 @@
         "buffer": "cpp",
         "regex": "cpp",
         "shared_mutex": "cpp",
-        "execution": "cpp"
+        "execution": "cpp",
+        "matrixfunctions": "cpp"
     }
 }

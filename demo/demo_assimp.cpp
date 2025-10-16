@@ -23,6 +23,18 @@
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
 
+// #ifdef COMPILE_GL
+#include "backends/gl/devicegl_glad.h"
+#include "backends/gl/texturegl.h"
+#include "backends/gl/meshgl.h"
+#include "backends/gl/renderergl.h"
+// #endif
+
+template <typename T>
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
+using ImageRenderer = ImageRendererGL;
+
 // ---------- helpers ----------
 
 static cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32)
@@ -58,6 +70,7 @@ static cv::Mat ToGrayFloat01(const cv::Mat &bgr)
 // weights: we’ll use 1.0f per-vertex as a neutral attribute (matches your depth-mesh path’s shape)
 static bool LoadAssimpMesh(const std::string &path,
                            std::vector<float> &vertices,
+                           std::vector<float> &normals,
                            std::vector<float> &texcoords,
                            std::vector<float> &weights,
                            std::vector<unsigned int> &indices,
@@ -103,6 +116,11 @@ static bool LoadAssimpMesh(const std::string &path,
             vertices.push_back(p.x);
             vertices.push_back(p.y);
             vertices.push_back(p.z);
+
+            aiVector3D n = mesh->mNormals[v];
+            normals.push_back(n.x);
+            normals.push_back(n.y);
+            normals.push_back(n.z);
 
             minB = minB.cwiseMin(Eigen::Vector3f(p.x, p.y, p.z));
             maxB = maxB.cwiseMax(Eigen::Vector3f(p.x, p.y, p.z));
@@ -221,7 +239,7 @@ int main(int argc, char **argv)
     }
 
     std::string model_path = argv[1];
-    std::string tex_override = (argc == 2) ? argv[1] : "";
+    std::string tex_override = (argc == 3) ? argv[2] : "";
 
     // Choose render size & camera
     const unsigned int w = 1280;
@@ -229,11 +247,11 @@ int main(int argc, char **argv)
     Camera<float> cam = MakeCamera(w, h, 55.0f);
 
     // Load mesh via Assimp
-    std::vector<float> vertices, texcoords, weights;
+    std::vector<float> vertices, normals, texcoords, weights;
     std::vector<unsigned int> indices;
     aiVector3D center;
     float radius = 1.0f;
-    if (!LoadAssimpMesh(model_path, vertices, texcoords, weights, indices, &center, &radius))
+    if (!LoadAssimpMesh(model_path, vertices, normals, texcoords, weights, indices, &center, &radius))
     {
         return 1;
     }
@@ -256,6 +274,12 @@ int main(int argc, char **argv)
     }
     cv::Mat tex_gray_f = ToGrayFloat01(tex_bgr);
 
+    if (!InitEGL())
+    {
+        std::cout << "Error initializing gl backend!" << std::endl;
+        return 1;
+    }
+
     // Init XRT backend
     // if (!InitXRT(xclbin_file, device_index))
     //{
@@ -268,12 +292,12 @@ int main(int argc, char **argv)
     const int in_lvl = 0;
     const int out_lvl = 0;
 
-    ImageRendererCPU renderer;
+    ImageRenderer renderer;
 
-    MeshCPU mesh(vertices, texcoords, weights, indices);
+    Mesh mesh(vertices, normals, texcoords, indices);
 
-    TextureCPU<float> input(w, h, -1.0f);
-    TextureCPU<float> output(w, h, -1.0f);
+    Texture<float> input(w, h, -1.0f);
+    Texture<float> output(w, h, -1.0f);
 
     // Upload texture (resized to render size for simplicity)
     cv::Mat tex_resized;
@@ -285,28 +309,60 @@ int main(int argc, char **argv)
     std::vector<double> times;
     times.reserve(max_frames);
 
-    cv::namedWindow("RasterizerXRT", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
 
     // Distance so model fits view
-    float dist = 2.8f * radius;
+    float dist = 1000.0 * radius; // 2.8f * radius;
     Eigen::Vector3f modelCenter(center.x, center.y, center.z);
 
-    for (int i = 0; i < max_frames; ++i)
+    // for (int i = 0; i < max_frames; ++i)
+    int i = 0;
+    while (true)
     {
-        float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
-        Eigen::Matrix3f R =
-            (Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitX()) *
-             Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))
-                .toRotationMatrix();
+        i++;
+        // float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
+        //  Eigen::Matrix3f R =
+        //      (Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitX()) *
+        //       Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))
+        //          .toRotationMatrix();
 
         // Camera looks at modelCenter from +Z at distance 'dist'
-        Eigen::Vector3f camPos = modelCenter + R * Eigen::Vector3f(0, 0, dist);
+        // Eigen::Vector3f camPos = modelCenter + R * Eigen::Vector3f(0, 0, dist);
 
         // Build world->camera SE3 (view). If your Render expects src->dst pose, adapt accordingly.
-        Eigen::Matrix3f Rc = R.transpose(); // looking-at rotation
-        Eigen::Vector3f tc = -Rc * camPos;
+        // Eigen::Matrix3f Rc = R.transpose(); // looking-at rotation
+        // Eigen::Vector3f tc = -Rc * camPos;
+        // linalg::SE3<float> pose_transform = MakePose(Rc, tc);
 
-        linalg::SE3<float> pose_transform = MakePose(Rc, tc);
+        // --- compute FOVs from intrinsics (Camera has fx, fy, width, height) ---
+        const float fov_x = 2.0f * std::atan2(float(w), 2.0f * cam.GetParams()(0) * w);
+        const float fov_y = 2.0f * std::atan2(float(h), 2.0f * cam.GetParams()(1) * h);
+
+        // choose how much of the screen the model should occupy (diameter ≈ 90% => k=0.45)
+        const float k = 0.45f;
+
+        // for a bounding sphere of radius 'radius', distance to fully fit is:
+        const float z_fit_x = radius / (k * std::tan(0.5f * fov_x));
+        const float z_fit_y = radius / (k * std::tan(0.5f * fov_y));
+        float z = std::max(z_fit_x, z_fit_y);
+
+        // If your camera looks along +Z (OpenCV-style), keep z positive.
+        // If it looks along -Z (classic OpenGL-style), flip the sign:
+        constexpr float CAMERA_FORWARD_SIGN = -1.0f; // change to -1.0f if your pipeline uses -Z forward
+        z *= CAMERA_FORWARD_SIGN;
+
+        // Optional animation (turntable)
+        auto R_model =
+            (Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitX()) * // tweak if you want pitch
+             Eigen::AngleAxisf(0.8f * float(i) * 0.016f, Eigen::Vector3f::UnitY()))
+                .toRotationMatrix();
+
+        // Build a single model->camera SE3
+        // We want: X_cam = R_model * (X_model - center) + [0,0,z]^T
+        Eigen::Vector3f c(center.x, center.y, center.z);
+        Eigen::Vector3f t = Eigen::Vector3f(0.0f, 0.0f, z) - R_model * c;
+
+        linalg::SE3<float> pose_transform = MakePose(R_model, t);
 
         auto t0 = std::chrono::high_resolution_clock::now();
         renderer.Render(mesh, pose_transform, cam, in_lvl, out_lvl, input, output);
@@ -323,16 +379,22 @@ int main(int argc, char **argv)
         cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
 
         // Overlay FPS
-        double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
+        double avg = 0.0;
+        for (auto time : times)
+        {
+            avg += time;
+        }
+        avg /= times.size();
+        // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
         double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
         cv::putText(out_color,
                     "Frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
-        cv::imshow("RasterizerCPU", out_color);
+        cv::imshow("Rasterizer Demo", out_color);
         if (i % 60 == 0)
         {
-            SaveDebugImage(out_color, "rasterizerxrt_frame_" + std::to_string(i) + ".png");
+            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
         }
 
         int key = cv::waitKey(1);
@@ -342,7 +404,12 @@ int main(int argc, char **argv)
 
     // Stats
     std::sort(times.begin(), times.end());
-    double sum = std::accumulate(times.begin(), times.end(), 0.0);
+    // double sum = std::accumulate(times.begin(), times.end(), 0.0);
+    double sum = 0.0;
+    for (auto time : times)
+    {
+        sum += time;
+    }
     double avg = (times.empty() ? 0.0 : sum / times.size());
     double med = (times.empty() ? 0.0 : times[times.size() / 2]);
     double minv = (times.empty() ? 0.0 : times.front());

@@ -70,8 +70,26 @@ public:
 protected:
     template <class T2>
     friend class TextureCPU;
-    template <class T2, class Derived>
+    template <typename MathType, class Derived>
     friend class RendererBase;
+    template <typename MathType, typename DepthType, class Mesh, template <class> class Texture>
+    friend class GouraudRendererBase;
+    template <typename MathType, typename DepthType, class Mesh, template <class> class Texture>
+    friend class DepthRendererBase;
+    template <typename MathType, typename ImageType, class Mesh, template <class> class Texture>
+    friend class ImageRendererBase;
+    template <typename MathType, typename ImageType, typename ResType, class Mesh, template <class> class Texture>
+    friend class ResidualRendererBase;
+    template <typename MathType, typename DepthType, typename ResType, class Mesh, template <class> class Texture>
+    friend class L2RendererBase;
+    template <typename MathType, typename ImageType, typename DType, class Mesh, template <class> class Texture>
+    friend class DIDxyRendererBase;
+    template <typename MathType, typename ImageType, typename DType, typename ErrorType, class Mesh, template <class> class Texture>
+    friend class JPoseRendererBase;
+    template <typename MathType, typename ImageType, typename DType, typename ErrorType, typename IdType, class Mesh, template <class> class Texture>
+    friend class JMapRendererBase;
+    template <typename MathType, typename ImageType, typename DType, typename ErrorType, typename IdType, class Mesh, template <class> class Texture>
+    friend class DiffRendererBase;
 
     void swap(BufferCPU &o) noexcept
     {

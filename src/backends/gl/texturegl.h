@@ -245,6 +245,7 @@ public:
     }
 
 protected:
+    friend class GouraudRendererGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;
     friend class ResidualRendererGL;
@@ -261,13 +262,6 @@ protected:
     }
 
 private:
-    GLuint tex_ = 0;
-    std::vector<std::size_t> widths_, heights_;
-    GLint internal_{};
-    GLenum format_{};
-    GLenum T_{};
-    T nodata_{};
-
     /*
     static std::size_t mip_levels_(int w, int h)
     {
@@ -385,4 +379,11 @@ private:
 
     // void bind_() const { glBindTexture(GL_TEXTURE_2D, tex_); }
     // void unbind_() const { glBindTexture(GL_TEXTURE_2D, 0); }
+
+    GLuint tex_ = 0;
+    std::vector<std::size_t> widths_, heights_;
+    GLint internal_{};
+    GLenum format_{};
+    GLenum T_{};
+    T nodata_{};
 };

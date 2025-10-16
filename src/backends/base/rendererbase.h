@@ -44,8 +44,8 @@ public:
     ~RendererBase() = default;
 
     template <typename Mesh, typename Textures>
-    void Render(const Mesh &mesh,
-                const BoundingBox<int> &viewport,
+    void Render(const BoundingBox<int> &viewport,
+                const Mesh &mesh,
                 Textures &textures)
     {
     // ---- Map mesh buffers (no copies) ----
@@ -66,19 +66,19 @@ public:
 #pragma HLS loop_tripcount min = 6144 max = 6144 avg = 6144
             // #pragma HLS PIPELINE II = 1
 
-            const unsigned int i0 = mesh.ebo_buffer_[i + 0];
-            const unsigned int i1 = mesh.ebo_buffer_[i + 1];
-            const unsigned int i2 = mesh.ebo_buffer_[i + 2];
+            unsigned int vertexids[3];
 
-            linalg::Vec3<MathType> v[3];
-            linalg::Vec2<MathType> uv[3];
-            MathType wght[3];
-            unsigned int id[3];
+            vertexids[0] = mesh.ebo_buffer_[i + 0];
+            vertexids[1] = mesh.ebo_buffer_[i + 1];
+            vertexids[2] = mesh.ebo_buffer_[i + 2];
 
-            id[0] = i0;
-            id[1] = i1;
-            id[2] = i2;
+            typename Derived::VertexData vertexdata[3];
 
+            vertexdata[0] = derived_().get_vertex_data(mesh, vertexids[0]);
+            vertexdata[1] = derived_().get_vertex_data(mesh, vertexids[1]);
+            vertexdata[2] = derived_().get_vertex_data(mesh, vertexids[2]);
+
+            /*
         renderbase_gather_loop:
             for (int k = 0; k < 3; ++k)
             {
@@ -92,17 +92,16 @@ public:
                 uv[k](1) = mesh.tex_buffer_[vi * 2 + 1];
                 wght[k] = mesh.wei_buffer_[vi];
             }
+            */
 
-            this->draw_triangle_(v, uv, wght, id, viewport, textures);
+            this->draw_triangle_(vertexdata, vertexids, viewport, textures);
         }
     }
 
 protected:
     // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename Textures>
-    void draw_triangle_(const linalg::Vec3<MathType> *verts,
-                        const linalg::Vec2<MathType> *texcoords,
-                        const MathType *weights,
+    template <typename VertexData, typename Textures>
+    void draw_triangle_(const VertexData *vertexdata,
                         const unsigned int *vertexid,
                         const BoundingBox<int> &viewport,
                         Textures &textures)
@@ -127,7 +126,7 @@ protected:
 
             linalg::Vec4<MathType> gl_Position;
             typename Derived::Varyings varyings;
-            derived_().vertex_shader(verts[i], texcoords[i], weights[i], vertexid[i], gl_Position, varyings);
+            derived_().vertex_shader(vertexdata[i], vertexid[i], gl_Position, varyings);
 
             const MathType invW = MathType(1) / gl_Position(3);
             const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
@@ -326,6 +325,285 @@ protected:
     linalg::Mat4<MathType> opencv2opengl_;
 };
 
+template <typename MathType, typename OutType, class Mesh, template <class> class Texture>
+class GouraudRendererBase
+    : public RendererBase<MathType, GouraudRendererBase<MathType, OutType, Mesh, Texture>>
+{
+public:
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
+
+    struct Textures
+    {
+        Texture<linalg::Vec3<OutType>> &out_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec3<MathType> normal;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec3<OutType> vColor;
+    };
+
+    GouraudRendererBase() = default;
+    ~GouraudRendererBase() = default;
+
+    void Render(const Mesh &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                const linalg::Vec3<MathType> &light_pos,
+                const linalg::Vec3<MathType> &light_color,
+                const linalg::Vec3<MathType> &ambient_reflectance,
+                const linalg::Vec3<MathType> &diffuse_reflectance,
+                const linalg::Vec3<MathType> &specular_reflectance,
+                const MathType shininess,
+                const linalg::Vec3<MathType> &ambient_light,
+                unsigned int out_lvl,
+                Texture<linalg::Vec3<OutType>> &out_texture)
+    {
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        linalg::SE3<MathType> cam2world = pose.inverse();
+
+        // model already in world space
+        uModel_ = linalg::Mat4<MathType>::Identity();
+        uView_ = pose.matrix();
+        uProjection_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        uNormalMatrix_ = linalg::Mat3<MathType>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
+
+        uLightPos_ = light_pos;
+        uViewPos_ = cam2world.translation(); // camera position in world space
+
+        uKa_ = ambient_reflectance;
+        uKd_ = diffuse_reflectance;
+        uKs_ = specular_reflectance;
+        uShininess_ = shininess;
+        uLightColor_ = light_color;
+        uAmbientLight_ = ambient_light;
+
+        out_lvl_ = out_lvl;
+
+        // out_texture_ = &out_texture;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        // Buffers buffers{mesh.pos_buffer_, mesh.ebo_buffer_};
+        Textures textures{out_texture};
+
+        RendererBase<MathType, GouraudRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.normal(0) = mesh.nor_buffer_[vertexid * 3 + 0];
+        vertexdata.normal(1) = mesh.nor_buffer_[vertexid * 3 + 1];
+        vertexdata.normal(2) = mesh.nor_buffer_[vertexid * 3 + 2];
+
+        return vertexdata;
+    }
+
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.vColor =
+            (w0 * varying_px0.vColor +
+             w1 * varying_px1.vColor +
+             w2 * varying_px2.vColor);
+        return var_over_w_px;
+    }
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const VertexData &vertexdata,
+                       const unsigned int &vertexid,
+                       linalg::Vec4<MathType> &gl_Position,
+                       Varyings &outVarying)
+    {
+        // Transform to world space
+        linalg::Vec3<MathType> fragPos = linalg::Vec3<MathType>(uModel_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1)));
+        linalg::Vec3<MathType> N = (uNormalMatrix_ * vertexdata.normal).normalized();
+
+        // Lighting vectors
+        linalg::Vec3<MathType> L = (uLightPos_ - fragPos).normalized();
+        linalg::Vec3<MathType> V = (uViewPos_ - fragPos).normalized();
+        MathType n_dot_l = N.dot(-L);
+        linalg::Vec3<MathType> R = -L - MathType(2) * n_dot_l * N; // opengls reflect
+
+        // Phong reflectance model (computed per-vertex)
+        MathType NdotL = max(n_dot_l, MathType(0));
+        MathType spec = 0.0;
+        if (NdotL > 0.0)
+        {
+            spec = pow(max(V.dot(R), MathType(0)), uShininess_);
+        }
+
+        linalg::Vec3<MathType> ambient = uAmbientLight_ * uKa_;
+        linalg::Vec3<MathType> diffuse = uLightColor_ * uKd_ * NdotL;
+        linalg::Vec3<MathType> specular = uLightColor_ * uKs_ * spec;
+
+        outVarying.vColor = ambient + diffuse + specular;
+
+        gl_Position = uProjection_ * uView_ * linalg::Vec4<MathType>(fragPos, MathType(1));
+    }
+
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         Textures &textures)
+    {
+        // std::cout << "calling fragment shader " << std::endl;
+        textures.out_texture.set_texel_(in_varying.vColor, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+    }
+
+    linalg::Mat4<MathType> uModel_;        // model to world space
+    linalg::Mat4<MathType> uView_;         // world space to camera space
+    linalg::Mat4<MathType> uProjection_;   // camera space to clip space
+    linalg::Mat3<MathType> uNormalMatrix_; // transpose(inverse(mat3(uModel))) computed on CPU
+
+    linalg::Vec3<MathType> uLightPos_; // world space
+    linalg::Vec3<MathType> uViewPos_;  // camera position in world space
+
+    // Material and light
+    linalg::Vec3<MathType> uKa_;           // ambient reflectance (rgb)
+    linalg::Vec3<MathType> uKd_;           // diffuse reflectance (rgb)
+    linalg::Vec3<MathType> uKs_;           // specular reflectance (rgb)
+    MathType uShininess_;                  // specular exponent
+    linalg::Vec3<MathType> uLightColor_;   // light color/intensity (rgb)
+    linalg::Vec3<MathType> uAmbientLight_; // ambient light (rgb)
+
+    unsigned int out_lvl_;
+};
+
+/*
+template <typename MathType, typename DepthType, class Mesh, template <class> class Texture>
+class PhongRendererBase
+    : public RendererBase<MathType, DepthRendererBase<MathType, DepthType, Mesh, Texture>>
+{
+public:
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
+
+    struct Textures
+    {
+        Texture<DepthType> &out_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec3<MathType> normal;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        float depth;
+    };
+
+    PhongRendererBase() = default;
+    ~PhongRendererBase() = default;
+
+    void Render(const Mesh &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int out_lvl,
+                Texture<DepthType> &out_texture)
+    {
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+        out_lvl_ = out_lvl;
+
+        // out_texture_ = &out_texture;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        // Buffers buffers{mesh.pos_buffer_, mesh.ebo_buffer_};
+        Textures textures{out_texture};
+
+        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.normal(0) = mesh.nor_buffer_[vertexid * 3 + 0];
+        vertexdata.normal(1) = mesh.nor_buffer_[vertexid * 3 + 1];
+        vertexdata.normal(2) = mesh.nor_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
+    }
+
+    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
+                                  const Varyings &varying_px0,
+                                  const Varyings &varying_px1,
+                                  const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.depth =
+            (w0 * varying_px0.depth +
+             w1 * varying_px1.depth +
+             w2 * varying_px2.depth);
+        return var_over_w_px;
+    }
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    void vertex_shader(const VertexData &vertexdata,
+                       const unsigned int &vertexid,
+                       linalg::Vec4<MathType> &gl_Position,
+                       Varyings &outVarying)
+    {
+        // #pragma HLS INLINE
+        //  std::cout << "calling vertex shader " << std::endl;
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        outVarying.depth = vertexdata.vertex(2);
+    }
+
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         Textures &textures)
+    {
+        // std::cout << "calling fragment shader " << std::endl;
+        textures.out_texture.set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+    }
+
+    linalg::Mat4<MathType> t_matrix_;
+    unsigned int out_lvl_;
+};
+*/
 // -----------------------------------------------------------------------------
 // DepthRenderer
 //   Evout[0].screen(0)mple derived renderer that outputs a "depth" or modifies Z
@@ -336,14 +614,25 @@ class DepthRendererBase
     : public RendererBase<MathType, DepthRendererBase<MathType, DepthType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        float depth;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
         Texture<DepthType> &out_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+    };
+
+    struct Varyings
+    {
+        float depth;
     };
 
     DepthRendererBase() = default;
@@ -366,9 +655,21 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.ebo_buffer_};
         Textures textures{out_texture};
 
-        RendererBase<MathType, DepthRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -387,17 +688,15 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
         // #pragma HLS INLINE
         //  std::cout << "calling vertex shader " << std::endl;
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.depth = inVertex(2);
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        outVarying.depth = vertexdata.vertex(2);
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -422,15 +721,28 @@ class ImageRendererBase
     : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
         Texture<ImageType> &in_texture;
         Texture<ImageType> &out_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
     };
 
     ImageRendererBase() = default;
@@ -458,9 +770,25 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{in_texture, out_texture};
 
-        RendererBase<MathType, ImageRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -479,15 +807,13 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.texcoord = inTexcoord;
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -519,16 +845,29 @@ class ResidualRendererBase
     : public RendererBase<MathType, ResidualRendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
         Texture<ImageType> &kf_texture;
         Texture<ImageType> &f_texture;
         Texture<ErrorType> &r_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
     };
 
     ResidualRendererBase() = default;
@@ -557,9 +896,24 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{kf_texture, f_texture, r_texture};
 
-        RendererBase<MathType, ResidualRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, ResidualRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -577,15 +931,13 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.texcoord = inTexcoord;
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -622,16 +974,29 @@ class L2RendererBase
     : public RendererBase<MathType, L2RendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
         Texture<ImageType> &kf_texture;
         Texture<ImageType> &f_texture;
         Texture<ErrorType> &r_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
     };
 
     L2RendererBase() = default;
@@ -659,9 +1024,24 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{kf_texture, f_texture, r_texture};
 
-        RendererBase<MathType, L2RendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, L2RendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -679,15 +1059,13 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        outVarying.texcoord = inTexcoord;
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -724,15 +1102,26 @@ class DIDxyRendererBase
     : public RendererBase<MathType, DIDxyRendererBase<MathType, ImageType, DType, Mesh, Texture>>
 {
 public:
-    struct Varyings
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
+
+    struct Textures
+    {
+        Texture<ImageType> &in_texture;
+        Texture<linalg::Vec3<DType>> &out_texture;
+    };
+
+    struct VertexData
     {
         linalg::Vec2<MathType> texcoord;
     };
 
-    struct Textures
+    struct Varyings
     {
-        const Texture<ImageType> &in_texture;
-        Texture<linalg::Vec3<DType>> &out_texture;
+        linalg::Vec2<MathType> texcoord;
     };
 
     DIDxyRendererBase() = default;
@@ -741,7 +1130,7 @@ public:
     void Render(const Mesh &mesh,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &in_texture,
+                Texture<ImageType> &in_texture,
                 Texture<linalg::Vec3<DType>> &out_texture)
     {
         out_texture.fill(out_lvl, out_texture.nodata());
@@ -755,9 +1144,20 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{in_texture, out_texture};
 
-        RendererBase<MathType, DIDxyRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DIDxyRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -776,16 +1176,14 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
         // gl_Position = (view_matrix * pose_matrix) * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
-        gl_Position = linalg::Vec4<MathType>(2.0 * inTexcoord(0) - 1.0, 2.0 * inTexcoord(1) - 1.0, 0.0, 1.0);
-        outVarying.texcoord = inTexcoord;
+        gl_Position = linalg::Vec4<MathType>(2.0 * vertexdata.texcoord(0) - 1.0, 2.0 * vertexdata.texcoord(1) - 1.0, 0.0, 1.0);
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -850,11 +1248,12 @@ class JPoseRendererBase
     : public RendererBase<MathType, JPoseRendererBase<MathType, ImageType, DType, ErrorType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-        linalg::Vec3<MathType> f_ver;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
@@ -864,6 +1263,18 @@ public:
         Texture<linalg::Vec3<DType>> &jtra_texture;
         Texture<linalg::Vec3<DType>> &jrot_texture;
         Texture<ErrorType> &r_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
     };
 
     JPoseRendererBase() = default;
@@ -902,9 +1313,24 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
 
-        RendererBase<MathType, JPoseRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -926,18 +1352,16 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
         gl_Position = view_matrix_ * f_ver;
 
-        outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
-        outVarying.texcoord = inTexcoord;
+        outVarying.f_ver = linalg::Vec3<MathType>(f_ver);
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -995,16 +1419,12 @@ class JMapRendererBase
     : public RendererBase<MathType, JMapRendererBase<MathType, ImageType, DType, IdType, ErrorType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-        linalg::Vec3<MathType> f_ver;
-        linalg::Vec3<MathType> kf_ray;
-        MathType depth;
-        linalg::Vec3<MathType> baricentric;
-        unsigned int vertexId;
-        linalg::Vec3<int> pids;
-    };
+    // struct Buffers
+    //{
+    //     const Buffer<MathType> &pos_buffer;
+    //     const Buffer<MathType> &tex_buffer;
+    //     const Buffer<unsigned int> &ebo_buffer;
+    // };
 
     struct Textures
     {
@@ -1014,6 +1434,22 @@ public:
         Texture<linalg::Vec3<DType>> &jmap_texture;
         Texture<linalg::Vec3<IdType>> &pids_texture;
         Texture<ErrorType> &r_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
+        linalg::Vec3<MathType> kf_ray;
+        MathType depth;
+        linalg::Vec3<MathType> baricentric;
+        unsigned int vertexId;
+        linalg::Vec3<int> pids;
     };
 
     JMapRendererBase() = default;
@@ -1052,9 +1488,24 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
 
-        RendererBase<MathType, JMapRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -1090,25 +1541,23 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const float &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
         gl_Position = view_matrix_ * f_ver;
 
-        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), MathType(1));
-        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), MathType(0));
+        linalg::Vec3<MathType> kf_ray(vertexdata.vertex(0) / vertexdata.vertex(2), vertexdata.vertex(1) / vertexdata.vertex(2), MathType(1));
+        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray, MathType(0));
         linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
         outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
         outVarying.kf_ray = d_f_ver_d_kf_depth;
-        outVarying.depth = inVertex(2);
+        outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
-        outVarying.texcoord = inTexcoord;
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -1179,16 +1628,12 @@ class DiffRendererBase
     : public RendererBase<MathType, DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, Mesh, Texture>>
 {
 public:
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-        linalg::Vec3<MathType> f_ver;
-        linalg::Vec3<MathType> kf_ray;
-        MathType depth;
-        linalg::Vec3<MathType> baricentric;
-        unsigned int vertexId;
-        linalg::Vec3<int> pids;
-    };
+    // struct Buffers
+    // {
+    //    const Buffer<MathType> &pos_buffer;
+    //   const Buffer<MathType> &tex_buffer;
+    //   const Buffer<unsigned int> &ebo_buffer;
+    //};
 
     struct Textures
     {
@@ -1199,6 +1644,23 @@ public:
         Texture<linalg::Vec3<DType>> &jrot_texture;
         Texture<linalg::Vec3<DType>> &jmap_texture;
         Texture<linalg::Vec3<IdType>> &pids_texture;
+    };
+
+    struct VertexData
+    {
+        linalg::Vec3<MathType> vertex;
+        linalg::Vec2<MathType> texcoord;
+    };
+
+    struct Varyings
+    {
+        linalg::Vec2<MathType> texcoord;
+        linalg::Vec3<MathType> f_ver;
+        linalg::Vec3<MathType> kf_ray;
+        MathType depth;
+        linalg::Vec3<MathType> baricentric;
+        unsigned int vertexId;
+        linalg::Vec3<int> pids;
     };
 
     DiffRendererBase() = default;
@@ -1241,9 +1703,25 @@ public:
         const int H = static_cast<int>(jtra_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
+        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
         Textures textures{f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
-        RendererBase<MathType, DiffRendererBase>::Render(mesh, viewport, textures);
+        RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, textures);
+    }
+
+    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    {
+
+        VertexData vertexdata;
+
+        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
+        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
+        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+
+        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
+        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+
+        return vertexdata;
     }
 
     Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
@@ -1276,25 +1754,23 @@ public:
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------
-    void vertex_shader(const linalg::Vec3<MathType> &inVertex,
-                       const linalg::Vec2<MathType> &inTexcoord,
-                       const MathType &inWeight,
+    void vertex_shader(const VertexData &vertexdata,
                        const unsigned int &vertexid,
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(inVertex(0), inVertex(1), inVertex(2), 1.0f);
+        linalg::Vec4<MathType> f_ver = pose_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
         gl_Position = view_matrix_ * f_ver;
 
-        linalg::Vec3<MathType> kf_ray(inVertex(0) / inVertex(2), inVertex(1) / inVertex(2), MathType(1));
-        linalg::Vec4<MathType> d_f_ver_d_kf_depth_ = pose_matrix_ * linalg::Vec4<MathType>(kf_ray(0), kf_ray(1), kf_ray(2), 0.0);
-        linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
+        linalg::Vec3<MathType> kf_ray(vertexdata.vertex(0) / vertexdata.vertex(2), vertexdata.vertex(1) / vertexdata.vertex(2), MathType(1));
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth = linalg::Vec3<MathType>(pose_matrix_ * linalg::Vec4<MathType>(kf_ray, MathType(0)));
+        // linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
-        outVarying.f_ver = linalg::Vec3<MathType>(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.f_ver = linalg::Vec3<MathType>(f_ver);
         outVarying.kf_ray = d_f_ver_d_kf_depth;
-        outVarying.depth = inVertex(2);
+        outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
-        outVarying.texcoord = inTexcoord;
+        outVarying.texcoord = vertexdata.texcoord;
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,

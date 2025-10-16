@@ -89,12 +89,89 @@ TEST_F(CrossBackendTests, MipMapComparison)
 }
 
 // Compare CPU vs GL depth rendering
+TEST_F(CrossBackendTests, GouraudRenderingComparison)
+{
+    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+
+    MeshCPU mesh_cpu(vertices_, normals_, texcoords_, indices_);
+    MeshGL mesh_gl(vertices_, normals_, texcoords_, indices_);
+
+    TextureCPU<linalg::Vec3<float>> output_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+    TextureGL<linalg::Vec3<float>> output_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+
+    GouraudRendererCPU renderer_cpu;
+    GouraudRendererGL renderer_gl;
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
+    linalg::Vec3<float> light_pos(10.0, 0.0, 0.0);
+    linalg::Vec3<float> light_color(0.2, 0.0, 0.0);
+    linalg::Vec3<float> ambient_reflectance(0.2, 0.2, 0.2);
+    linalg::Vec3<float> diffuse_reflectance(0.2, 0.2, 0.2);
+    linalg::Vec3<float> specular_reflectance(0.2, 0.2, 0.2);
+    float shininess = 0.0;
+    linalg::Vec3<float> ambient_light(0.0, 0.0, 0.2);
+
+    for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
+    {
+        if (lvl > 3)
+            continue;
+
+        timer_.Start();
+        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, light_pos, light_color, ambient_reflectance, diffuse_reflectance, specular_reflectance, shininess, ambient_light, lvl, output_cpu);
+        cv::Mat cpu_result = DownloadTextureToMat(output_cpu, lvl, CV_32FC3);
+        acc_cpu_time += timer_.Stop();
+
+        timer_.Start();
+        renderer_gl.Render(mesh_gl, pose_transform, cam_, light_pos, light_color, ambient_reflectance, diffuse_reflectance, specular_reflectance, shininess, ambient_light, lvl, output_gl);
+        cv::Mat gl_result = DownloadTextureToMat(output_gl, lvl, CV_32FC3);
+        acc_gl_time += timer_.Stop();
+
+        int valid_cpu = CountValid(output_cpu, lvl);
+        int valid_gl = CountValid(output_gl, lvl);
+        int valid_diff = std::abs(valid_cpu - valid_gl);
+
+        EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " lvl " << lvl;
+
+        // Detailed error analysis
+        double l2_error = ComputeL2Error(cpu_result, gl_result, cv::Vec3f(-1.0f, -1.0f, -1.0f));
+        EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error << " lvl " << lvl;
+        acc_l2_error = std::max(acc_l2_error, l2_error);
+    }
+
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC3);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC3);
+
+    // Save comparison images
+    SaveDebugImage(cpu_result, "cross_gouraud_cpu.png");
+    SaveDebugImage(gl_result, "cross_gouraud_gl.png");
+
+    // Create difference image
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImage(diff_image, "cross_depth_diff.png");
+
+    std::cout << "Gouraud Rendering Cross-Backend Comparison:\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // Cross-backend validation
+    // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
+    // EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error;
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_depth_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+    //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+}
+
+// Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> output_cpu(w_, h_, -1.0f);
     TextureGL<float> output_gl(w_, h_, -1.0f);
@@ -162,8 +239,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> input_cpu(w_, h_, -1.0f);
     TextureCPU<float> output_cpu(w_, h_, -1.0f);
@@ -238,8 +315,8 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> input1_cpu(w_, h_, -1.0f);
     TextureCPU<float> input2_cpu(w_, h_, -1.0f);
@@ -319,8 +396,8 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> input1_cpu(w_, h_, -1.0f);
     TextureCPU<float> input2_cpu(w_, h_, -1.0f);
@@ -400,8 +477,8 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 TEST_F(CrossBackendTests, GradientComputationComparison)
 {
 
-    MeshCPU mesh_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+    MeshCPU mesh_cpu(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshGL mesh_gl(screen_vertices_, screen_texcoords_, screen_indices_);
 
     TextureCPU<float> input_cpu(w_, h_, -1.0f);
     TextureCPU<linalg::Vec3<float>> output_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -476,10 +553,10 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> kf_cpu(w_, h_, -1.0f);
     TextureCPU<float> f_cpu(w_, h_, -1.0f);
@@ -590,10 +667,10 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> kf_cpu(w_, h_, -1.0f);
     TextureCPU<float> f_cpu(w_, h_, -1.0f);
@@ -702,10 +779,10 @@ TEST_F(CrossBackendTests, DiffPipelineComparison)
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
-    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+    MeshCPU mesh_img_cpu(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
+    MeshGL mesh_img_gl(screen_vertices_, screen_texcoords_, screen_indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_);
 
     TextureCPU<float> f_cpu(w_, h_, -1.0f);
     TextureCPU<float> image_cpu(w_, h_, -1.0f);
@@ -927,7 +1004,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
     for (int i = 0; i < iterations; ++i)
     {
         // CPU
-        MeshCPU mesh_cpu(vertices_, texcoords_, weights_, indices_);
+        MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
         TextureCPU<float> output_cpu(w_, h_, 0.0f);
 
         DepthRendererCPU renderer_cpu;
@@ -935,7 +1012,7 @@ TEST_F(CrossBackendTests, NumericalPrecisionComparison)
         cpu_results.push_back(DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1));
 
         // GL
-        MeshGL mesh_gl(vertices_, texcoords_, weights_, indices_);
+        MeshGL mesh_gl(vertices_, texcoords_, indices_);
         TextureGL<float> output_gl(w_, h_, 0.0f);
 
         DepthRendererGL renderer_gl;

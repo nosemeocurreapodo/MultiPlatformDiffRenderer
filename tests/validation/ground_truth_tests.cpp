@@ -65,7 +65,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_);
 
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
@@ -119,7 +119,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->weights_, this->indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_);
 
     typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);

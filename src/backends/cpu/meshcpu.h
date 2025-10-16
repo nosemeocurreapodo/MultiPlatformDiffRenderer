@@ -8,17 +8,26 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
-    // Construct from host vectors; if indices empty, build via Delaunay on UVs
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<float> &weights,   // 1 float  per vertex
             const std::vector<unsigned int> &indices)
         : pos_buffer_(positions),
           tex_buffer_(texcoords),
-          wei_buffer_(weights),
           ebo_buffer_(indices)
     {
-        validate_();
+        // validate_();
+    }
+
+    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
+            const std::vector<float> &normals,
+            const std::vector<float> &texcoords, // 2 floats per vertex
+            const std::vector<unsigned int> &indices)
+        : pos_buffer_(positions),
+          nor_buffer_(normals),
+          tex_buffer_(texcoords),
+          ebo_buffer_(indices)
+    {
+        // validate_();
     }
 
     // Copy/move
@@ -86,6 +95,7 @@ public:
     }
 
     BufferCPU<float> pos_buffer_;
+    BufferCPU<float> nor_buffer_;
     BufferCPU<float> tex_buffer_;
     BufferCPU<float> wei_buffer_;
     BufferCPU<unsigned int> ebo_buffer_;

@@ -5,7 +5,7 @@ project(MultiPlatformDiffRenderer)
 option(COMPILE_GL "Enable OpenGL compilation" ON)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
-option(COMPILE_DEMO "Enable Demo compilation" OFF)
+option(COMPILE_DEMO "Enable Demo compilation" ON)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)

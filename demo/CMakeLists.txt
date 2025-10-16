@@ -1,5 +1,6 @@
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(assimp REQUIRED)
 #find_package(Pangolin REQUIRED)
 
 if(NOT TARGET Eigen3::Eigen)
@@ -20,4 +21,4 @@ include_directories("../HLSLinearAlgebra/include")
 #include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR}) 
 
 add_executable(demo demo_assimp.cpp)
-target_link_libraries(demo ${OpenCV_LIBS}  ${CMAKE_DL_LIBS})
+target_link_libraries(demo ${OpenCV_LIBS} ${CMAKE_DL_LIBS} assimp EGL glad)

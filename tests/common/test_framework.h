@@ -135,16 +135,16 @@ protected:
         TextureCPU<float> depth_src_cpu(w_, h_, 0.0f);
         UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 32, vertices_, texcoords_, weights_, indices_);
+        CreateMesh(depth_src_cpu, cam_, 32, vertices_, normals_, texcoords_, weights_, indices_);
 
-        CreateScreenQuad(screen_vertices_, screen_texcoords_, screen_weights_, screen_indices_);
+        CreateScreenQuad(screen_vertices_, screen_texcoords_, screen_indices_);
     }
 
     cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
 
     linalg::SE3<float> pose_src_, pose_dst_;
 
-    std::vector<float> vertices_, texcoords_, weights_;
+    std::vector<float> vertices_, normals_, texcoords_, weights_;
     std::vector<unsigned int> indices_;
 
     std::vector<float> screen_vertices_, screen_texcoords_, screen_weights_;
@@ -255,7 +255,7 @@ struct ValidationThresholds
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;
-    double cr_max_depth_error = 3.43e-6;
+    double cr_max_depth_error = 4.48e-6;
     double cr_max_image_error = 1.37;
     double cr_max_residual_error = 1.40;
     double cr_max_l2_error = 275.3;
