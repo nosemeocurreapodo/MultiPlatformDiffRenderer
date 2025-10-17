@@ -704,7 +704,7 @@ public:
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
-        textures.out_texture.set_texel_(in_varying.depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        textures.out_texture.set_texel_(gl_FragCoord(2), int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
     linalg::Mat4<MathType> t_matrix_;

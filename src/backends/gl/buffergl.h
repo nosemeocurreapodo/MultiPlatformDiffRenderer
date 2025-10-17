@@ -34,14 +34,14 @@ public:
     {
         glGenBuffers(1, &id_);
         glBindBuffer(Target, id_);
-        glBufferData(Target, bytes(), nullptr, Usage);
+        glBufferData(Target, n * sizeof(T), nullptr, Usage);
     }
 
     BufferGL(std::size_t n, const T *src) : BufferGL(n)
     {
         if (n)
         {
-            glBufferSubData(Target, 0, bytes(), src);
+            glBufferSubData(Target, 0, n * sizeof(T), src);
         }
     }
 
@@ -91,7 +91,7 @@ public:
         if (!id_)
             throw std::runtime_error("BufferGL::MapRead on empty buffer");
         glBindBuffer(Target, id_);
-        void *p = glMapBufferRange(Target, 0, bytes(), GL_MAP_READ_BIT);
+        void *p = glMapBufferRange(Target, 0, size_ * sizeof(T), GL_MAP_READ_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(read) failed");
         return MappedView<const T, GLUnmap>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
@@ -103,7 +103,7 @@ public:
             throw std::runtime_error("BufferGL::MapWrite on empty buffer");
         glBindBuffer(Target, id_);
         // If you need read-modify-write, add GL_MAP_READ_BIT.
-        void *p = glMapBufferRange(Target, 0, bytes(),
+        void *p = glMapBufferRange(Target, 0, size_ * sizeof(T),
                                    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(write) failed");
@@ -116,11 +116,6 @@ private:
     friend class MeshGL;
 
     GLuint id() const noexcept { return id_; }
-
-    GLsizeiptr bytes() const noexcept
-    {
-        return static_cast<GLsizeiptr>(size_) * static_cast<GLsizeiptr>(sizeof(T));
-    }
 
     GLuint id_ = 0;
     std::size_t size_ = 0;

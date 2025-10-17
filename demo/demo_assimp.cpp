@@ -33,7 +33,7 @@
 template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
-using ImageRenderer = ImageRendererGL;
+using ImageRenderer = DepthRendererGL;
 
 // ---------- helpers ----------
 
@@ -69,33 +69,36 @@ static cv::Mat ToGrayFloat01(const cv::Mat &bgr)
 // texcoords: (u,v)
 // weights: we’ll use 1.0f per-vertex as a neutral attribute (matches your depth-mesh path’s shape)
 static bool LoadAssimpMesh(const std::string &path,
-                           std::vector<float> &vertices,
-                           std::vector<float> &normals,
-                           std::vector<float> &texcoords,
-                           std::vector<float> &weights,
-                           std::vector<unsigned int> &indices,
-                           aiVector3D *outCenter = nullptr,
-                           float *outRadius = nullptr)
+                           std::vector<Eigen::Vector3f> &vertices,
+                           std::vector<Eigen::Vector3f> &normals,
+                           std::vector<Eigen::Vector2f> &texcoords,
+                           std::vector<unsigned int> &indices)
 {
     Assimp::Importer imp;
     const aiScene *scene = imp.ReadFile(
         path,
         aiProcess_Triangulate |
-            aiProcess_JoinIdenticalVertices |
+            // aiProcess_JoinIdenticalVertices |
             aiProcess_GenNormals |
             aiProcess_CalcTangentSpace |
-            aiProcess_ImproveCacheLocality |
-            aiProcess_OptimizeMeshes |
+            // aiProcess_ImproveCacheLocality |
+            // aiProcess_OptimizeMeshes |
             aiProcess_FlipUVs);
-    if (!scene || !scene->HasMeshes())
+    // if (!scene || !scene->HasMeshes())
+    //{
+    //     std::cerr << "Assimp error: " << imp.GetErrorString() << std::endl;
+    //     return false;
+    // }
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
     {
-        std::cerr << "Assimp error: " << imp.GetErrorString() << std::endl;
+        std::cout << "ERROR::ASSIMP:: " << imp.GetErrorString() << std::endl;
         return false;
     }
 
     vertices.clear();
+    normals.clear();
     texcoords.clear();
-    weights.clear();
     indices.clear();
 
     size_t baseVertex = 0;
@@ -106,38 +109,38 @@ static bool LoadAssimpMesh(const std::string &path,
                          -std::numeric_limits<float>::max(),
                          -std::numeric_limits<float>::max());
 
-    for (unsigned m = 0; m < scene->mNumMeshes; ++m)
+    // aiNode *root = scene->mRootNode;
+
+    // for (unsigned m = 0; m < scene->mNumMeshes; ++m)
+    unsigned m = 0;
     {
         const aiMesh *mesh = scene->mMeshes[m];
         // vertices & uvs
         for (unsigned v = 0; v < mesh->mNumVertices; ++v)
         {
             aiVector3D p = mesh->mVertices[v];
-            vertices.push_back(p.x);
-            vertices.push_back(p.y);
-            vertices.push_back(p.z);
+            Eigen::Vector3f vertice(p.x, p.y, p.z);
+            vertices.push_back(vertice);
 
-            aiVector3D n = mesh->mNormals[v];
-            normals.push_back(n.x);
-            normals.push_back(n.y);
-            normals.push_back(n.z);
+            if (mesh->HasNormals())
+            {
+                aiVector3D n = mesh->mNormals[v];
+                Eigen::Vector3f normal(n.x, n.y, n.z);
+                normals.push_back(normal);
+            }
 
-            minB = minB.cwiseMin(Eigen::Vector3f(p.x, p.y, p.z));
-            maxB = maxB.cwiseMax(Eigen::Vector3f(p.x, p.y, p.z));
+            minB = minB.cwiseMin(vertice);
+            maxB = maxB.cwiseMax(vertice);
 
             if (mesh->HasTextureCoords(0))
             {
                 aiVector3D t = mesh->mTextureCoords[0][v];
-                texcoords.push_back(t.x);
-                texcoords.push_back(t.y);
+                texcoords.push_back(Eigen::Vector2f(t.x, t.y));
             }
             else
             {
-                texcoords.push_back(0.0f);
-                texcoords.push_back(0.0f);
+                texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
             }
-
-            weights.push_back(1.0f); // neutral per-vertex weight
         }
         // indices
         for (unsigned f = 0; f < mesh->mNumFaces; ++f)
@@ -152,20 +155,13 @@ static bool LoadAssimpMesh(const std::string &path,
         baseVertex += mesh->mNumVertices;
     }
 
-    if (outCenter || outRadius)
+    Eigen::Vector3f center = 0.5f * (minB + maxB);
+    float radius = (maxB - center).norm();
+
+    for (size_t i = 0; i < vertices.size(); ++i)
     {
-        Eigen::Vector3f c = 0.5f * (minB + maxB);
-        if (outCenter)
-        {
-            outCenter->x = c.x();
-            outCenter->y = c.y();
-            outCenter->z = c.z();
-        }
-        if (outRadius)
-        {
-            float r = (maxB - c).norm();
-            *outRadius = r;
-        }
+        vertices[i] -= center;
+        vertices[i] /= radius;
     }
 
     return true;
@@ -244,14 +240,15 @@ int main(int argc, char **argv)
     // Choose render size & camera
     const unsigned int w = 1280;
     const unsigned int h = 720;
-    Camera<float> cam = MakeCamera(w, h, 55.0f);
+    Camera<float> cam = MakeCamera(w, h, 90.0f);
 
     // Load mesh via Assimp
-    std::vector<float> vertices, normals, texcoords, weights;
+    std::vector<Eigen::Vector3f> vertices, normals;
+    std::vector<Eigen::Vector2f> texcoords;
     std::vector<unsigned int> indices;
-    aiVector3D center;
+    Eigen::Vector3f modelCenter(0.0f, 0.0f, 0.0f);
     float radius = 1.0f;
-    if (!LoadAssimpMesh(model_path, vertices, normals, texcoords, weights, indices, &center, &radius))
+    if (!LoadAssimpMesh(model_path, vertices, normals, texcoords, indices))
     {
         return 1;
     }
@@ -294,10 +291,10 @@ int main(int argc, char **argv)
 
     ImageRenderer renderer;
 
-    Mesh mesh(vertices, normals, texcoords, indices);
+    Mesh mesh(vertices, indices);
 
-    Texture<float> input(w, h, -1.0f);
-    Texture<float> output(w, h, -1.0f);
+    Texture<float> input(w, h, 0.0f);
+    Texture<float> output(w, h, 0.0f);
 
     // Upload texture (resized to render size for simplicity)
     cv::Mat tex_resized;
@@ -312,60 +309,63 @@ int main(int argc, char **argv)
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
 
     // Distance so model fits view
-    float dist = 1000.0 * radius; // 2.8f * radius;
-    Eigen::Vector3f modelCenter(center.x, center.y, center.z);
+    float dist = 10.0f * radius;
 
     // for (int i = 0; i < max_frames; ++i)
     int i = 0;
     while (true)
     {
         i++;
-        // float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
-        //  Eigen::Matrix3f R =
-        //      (Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitX()) *
-        //       Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))
-        //          .toRotationMatrix();
+        float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
+        Eigen::Matrix3f R =
+
+            Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitX())
+                //     Eigen::AngleAxisf(M_PI / 2.0f, Eigen::Vector3f::UnitX())*/
+                //        /*(Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))*/
+                .toRotationMatrix();
 
         // Camera looks at modelCenter from +Z at distance 'dist'
         // Eigen::Vector3f camPos = modelCenter + R * Eigen::Vector3f(0, 0, dist);
+        Eigen::Vector3f camPos = modelCenter + Eigen::Vector3f(0, 0, dist);
 
         // Build world->camera SE3 (view). If your Render expects src->dst pose, adapt accordingly.
-        // Eigen::Matrix3f Rc = R.transpose(); // looking-at rotation
-        // Eigen::Vector3f tc = -Rc * camPos;
-        // linalg::SE3<float> pose_transform = MakePose(Rc, tc);
+        Eigen::Matrix3f Rc = R.transpose(); // looking-at rotation
+        Eigen::Vector3f tc = -Rc * camPos;
+        linalg::SE3<float> pose_transform = MakePose(Rc, tc);
 
         // --- compute FOVs from intrinsics (Camera has fx, fy, width, height) ---
-        const float fov_x = 2.0f * std::atan2(float(w), 2.0f * cam.GetParams()(0) * w);
-        const float fov_y = 2.0f * std::atan2(float(h), 2.0f * cam.GetParams()(1) * h);
+        // const float fov_x = 2.0f * std::atan2(float(w), 2.0f * cam.GetParams()(0) * w);
+        // const float fov_y = 2.0f * std::atan2(float(h), 2.0f * cam.GetParams()(1) * h);
 
         // choose how much of the screen the model should occupy (diameter ≈ 90% => k=0.45)
-        const float k = 0.45f;
+        // const float k = 0.45f;
 
         // for a bounding sphere of radius 'radius', distance to fully fit is:
-        const float z_fit_x = radius / (k * std::tan(0.5f * fov_x));
-        const float z_fit_y = radius / (k * std::tan(0.5f * fov_y));
-        float z = std::max(z_fit_x, z_fit_y);
+        // const float z_fit_x = radius / (k * std::tan(0.5f * fov_x));
+        // const float z_fit_y = radius / (k * std::tan(0.5f * fov_y));
+        // float z = std::max(z_fit_x, z_fit_y);
 
         // If your camera looks along +Z (OpenCV-style), keep z positive.
         // If it looks along -Z (classic OpenGL-style), flip the sign:
-        constexpr float CAMERA_FORWARD_SIGN = -1.0f; // change to -1.0f if your pipeline uses -Z forward
-        z *= CAMERA_FORWARD_SIGN;
+        // constexpr float CAMERA_FORWARD_SIGN = -1.0f; // change to -1.0f if your pipeline uses -Z forward
+        // z *= CAMERA_FORWARD_SIGN;
 
         // Optional animation (turntable)
-        auto R_model =
-            (Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitX()) * // tweak if you want pitch
-             Eigen::AngleAxisf(0.8f * float(i) * 0.016f, Eigen::Vector3f::UnitY()))
-                .toRotationMatrix();
+        // auto R_model =
+        //    (Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitX()) * // tweak if you want pitch
+        //     Eigen::AngleAxisf(0.8f * float(i) * 0.016f, Eigen::Vector3f::UnitY()))
+        //        .toRotationMatrix();
 
         // Build a single model->camera SE3
         // We want: X_cam = R_model * (X_model - center) + [0,0,z]^T
-        Eigen::Vector3f c(center.x, center.y, center.z);
-        Eigen::Vector3f t = Eigen::Vector3f(0.0f, 0.0f, z) - R_model * c;
+        // Eigen::Vector3f c(center.x, center.y, center.z);
+        // Eigen::Vector3f t = Eigen::Vector3f(0.0f, 0.0f, z) - R_model * c;
 
-        linalg::SE3<float> pose_transform = MakePose(R_model, t);
+        // linalg::SE3<float> pose_transform = MakePose(R_model, t);
 
         auto t0 = std::chrono::high_resolution_clock::now();
-        renderer.Render(mesh, pose_transform, cam, in_lvl, out_lvl, input, output);
+        renderer.Render(mesh, pose_transform, cam, out_lvl, output);
+        // renderer.Render(mesh, pose_transform, cam, in_lvl, out_lvl, input, output);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -392,10 +392,10 @@ int main(int argc, char **argv)
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
         cv::imshow("Rasterizer Demo", out_color);
-        if (i % 60 == 0)
-        {
-            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
-        }
+        // if (i % 60 == 0)
+        //{
+        //     SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
+        // }
 
         int key = cv::waitKey(1);
         if (key == 27 || key == 'q')

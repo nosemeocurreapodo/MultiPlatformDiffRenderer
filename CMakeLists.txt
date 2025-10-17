@@ -84,6 +84,7 @@ endif()
 
 if(COMPILE_DEMO)
     add_subdirectory(demo)
+    add_subdirectory(simple_example)
 endif()
 
 include(CTest)

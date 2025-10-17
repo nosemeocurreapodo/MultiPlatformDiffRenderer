@@ -72,6 +72,7 @@ public:
     {
         linalg::Mat4<T> projmat = linalg::Mat4<T>::Zero();
 
+        /*
         projmat(0, 0) = T(2) * fx_;
         projmat(1, 1) = T(2) * fy_;
         projmat(0, 2) = T(1) - T(2) * cx_;
@@ -79,6 +80,30 @@ public:
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
         projmat(3, 2) = -T(1);
         projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+        */
+
+        projmat(0, 0) = T(2) * fx_;
+        projmat(1, 1) = -T(2) * fy_;
+        projmat(0, 2) = T(2) * cx_ - T(1);
+        projmat(1, 2) = T(1) - T(2) * cy_;
+        projmat(2, 2) = (zfar + znear) / (zfar - znear);
+        projmat(3, 2) = T(1);
+        projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+
+        /*
+        T l = -znear * cx_ / fx_;
+        T r = znear * (T(1) - cx_) / fx_;
+        T t = znear * (T(1) - cy_) / fy_;
+        T b = -znear * cy_ / fy_;
+
+        projmat(0, 0) = T(2) * znear / (r - l);
+        projmat(1, 1) = T(2) * znear / (t - b);
+        projmat(0, 2) = (r + l) / (r - l);
+        projmat(1, 2) = (t + b) / (t - b);
+        projmat(2, 2) = -(zfar + znear) / (zfar - znear);
+        projmat(3, 2) = -T(1);
+        projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+        */
 
         return projmat;
     }

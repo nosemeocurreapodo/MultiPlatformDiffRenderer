@@ -204,6 +204,127 @@ private:
     }
 };
 
+class SimpleExampleRendererGL : public BaseRendererGL
+{
+public:
+    SimpleExampleRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec3 aNormal;
+            layout (location = 2) in vec2 aTexCoords;
+
+            out vec2 TexCoords;
+
+            uniform mat4 model;
+            uniform mat4 view;
+            uniform mat4 projection;
+
+            void main()
+            {
+                TexCoords = aTexCoords;    
+                gl_Position = projection * view * model * vec4(aPos, 1.0);
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            out vec4 FragColor;
+
+            in vec2 TexCoords;
+
+            uniform sampler2D image;
+            uniform float image_nodata;
+            uniform int image_lvl;
+
+            void main()
+            {    
+                FragColor = texture(image, TexCoords);
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+
+        projection_loc_ = glGetUniformLocation(program_, "pojection");
+        view_loc_ = glGetUniformLocation(program_, "view");
+        model_loc_ = glGetUniformLocation(program_, "model");
+
+        image_loc_ = glGetUniformLocation(program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
+    }
+
+    void Render(const MeshGL &mesh,
+                linalg::Mat4<float> &projection,
+                linalg::Mat4<float> &view,
+                linalg::Mat4<float> &model,
+                int in_lvl,
+                int out_lvl,
+                TextureGL<float> &in_texture,
+                TextureGL<float> &out_texture)
+    {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
+        check_framebuffer();
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        // glEnable(GL_SCISSOR_TEST);
+
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // #endif
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, in_texture.id());
+
+        linalg::Mat4<float> transform = linalg::Mat4<float>::Identity();
+
+        glUseProgram(program_);
+
+        glUniformMatrix4fv(projection_loc_, 1, GL_FALSE, projection.data());
+        glUniformMatrix4fv(view_loc_, 1, GL_FALSE, view.data());
+        glUniformMatrix4fv(model_loc_, 1, GL_FALSE, model.data());
+
+        glUniform1i(image_loc_, 0);                          // texture unit
+        glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
+
+        mesh.draw();
+
+        restore_state();
+    }
+
+private:
+    GLint projection_loc_ = -1;
+    GLint view_loc_ = -1;
+    GLint model_loc_ = -1;
+
+    GLint image_loc_ = -1;
+    GLint image_nodata_loc_ = -1;
+    GLint image_lvl_loc_ = -1;
+};
+
 class GouraudRendererGL : public BaseRendererGL
 {
 public:
@@ -395,7 +516,7 @@ public:
 
             void main() {
                 gl_Position = t_matrix * vec4(a_position, 1.0);
-                depth = a_position.z;
+                depth = 1.0f;//a_position.z;
             }
             )Shader";
 
@@ -410,7 +531,7 @@ public:
 
             void main()
             {
-                a_output = depth;
+                a_output = gl_FragCoord.z;
             }
             )Shader";
 
@@ -439,8 +560,8 @@ public:
 
         check_framebuffer();
 
-        glEnable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
@@ -458,7 +579,9 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        // const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
+
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         mesh.draw();

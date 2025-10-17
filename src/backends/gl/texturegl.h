@@ -245,6 +245,7 @@ public:
     }
 
 protected:
+    friend class SimpleExampleRendererGL;
     friend class GouraudRendererGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;

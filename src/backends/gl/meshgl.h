@@ -1,18 +1,100 @@
 #pragma once
-#include <vector>
-#include <cstdint>
-#include <cassert>
-#include <algorithm>
-#include <cstring> // memcpy
+//#include <vector>
+//#include <cstdint>
+//#include <cassert>
+//#include <algorithm>
+//#include <cstring> // memcpy
 
-#include "backends/gl/devicegl_glad.h"
-#include "core/delaunaytriangulation.h"
+#include <Eigen/Core>
+//#include "backends/gl/devicegl_glad.h"
+//#include "core/delaunaytriangulation.h"
 #include "backends/gl/buffergl.h" // your BufferGL
 #include "backends/base/MappedView.h"
 
 class MeshGL
 {
 public:
+    MeshGL(const std::vector<Eigen::Vector3f> &positions, // 3 floats/vertex
+           const std::vector<unsigned int> &indices)
+    {
+        // validate_(positions.size(), texcoords.size(), weights.size(), indices.size());
+
+        // Create and fill buffers
+        vbo_pos_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(positions.size() * 3, (const float *)&positions[0]);
+        ebo_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
+
+        glGenVertexArrays(1, &vao_);
+        glBindVertexArray(vao_);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_pos_.id());
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
+
+        glBindVertexArray(0);
+    }
+
+    MeshGL(const std::vector<Eigen::Vector3f> &positions, // 3 floats/vertex
+           const std::vector<Eigen::Vector2f> &texcoords, // 2 floats/vertex
+           const std::vector<unsigned int> &indices)
+    {
+        // validate_(positions.size(), texcoords.size(), weights.size(), indices.size());
+
+        // Create and fill buffers
+        vbo_pos_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(positions.size() * 3, (const float *)&positions[0]);
+        vbo_uv_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(texcoords.size() * 2, (const float *)&texcoords[0]);
+        ebo_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
+
+        glGenVertexArrays(1, &vao_);
+        glBindVertexArray(vao_);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_pos_.id());
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_uv_.id());
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
+
+        glBindVertexArray(0);
+    }
+
+    MeshGL(const std::vector<Eigen::Vector3f> &positions, // 3 floats/vertex
+           const std::vector<Eigen::Vector3f> &normals,   // 3 floats/vertex
+           const std::vector<Eigen::Vector2f> &texcoords, // 2 floats/vertex
+           const std::vector<unsigned int> &indices)
+    {
+        // validate_(positions.size(), texcoords.size(), weights.size(), indices.size());
+
+        // Create and fill buffers
+        vbo_pos_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(positions.size() * 3, (const float *)&positions[0]);
+        vbo_nor_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(normals.size() * 3, (const float *)&normals[0]);
+        vbo_uv_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(texcoords.size() * 2, (const float *)&texcoords[0]);
+        ebo_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
+
+        glGenVertexArrays(1, &vao_);
+        glBindVertexArray(vao_);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_pos_.id());
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_nor_.id());
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_uv_.id());
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
+
+        glBindVertexArray(0);
+    }
+
     MeshGL(const std::vector<float> &positions, // 3 floats/vertex
            const std::vector<unsigned int> &indices)
     {
@@ -131,6 +213,7 @@ public:
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
 private:
+    friend class SimpleExampleRendererGL;
     friend class GouraudRendererGL;
     friend class DepthRendererGL;
     friend class ImageRendererGL;

@@ -1,12 +1,36 @@
 #pragma once
 
+#include <Eigen/Core>
 #include "backends/cpu/buffercpu.h"
+#include "backends/base/MappedView.h"
 
 class MeshCPU
 {
 public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
+
+    MeshCPU(const std::vector<Eigen::Vector3f> &positions,
+            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+            const std::vector<unsigned int> &indices)
+        : pos_buffer_(positions.size() * 3, (const float *)&positions[0]),
+          tex_buffer_(texcoords.size() * 2, (const float *)&texcoords[0]),
+          ebo_buffer_(indices.size() * 3, (const unsigned int *)&indices[0])
+    {
+        // validate_();
+    }
+
+    MeshCPU(const std::vector<Eigen::Vector3f> &positions, // 3 floats per vertex
+            const std::vector<Eigen::Vector3f> &normals,
+            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+            const std::vector<unsigned int> &indices)
+        : pos_buffer_(positions.size() * 3, (const float *)&positions[0]),
+          nor_buffer_(normals.size() * 3, (const float *)&normals[0]),
+          tex_buffer_(texcoords.size() * 2, (const float *)&texcoords[0]),
+          ebo_buffer_(indices.size() * 3, (const unsigned int *)&indices[0])
+    {
+        // validate_();
+    }
 
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex

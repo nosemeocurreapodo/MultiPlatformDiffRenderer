@@ -5,6 +5,7 @@
 
 #include <map>
 #include "core/format_converters.h"
+#include "linalg/linalg.h"
 
 struct EGLInternalData2
 {
