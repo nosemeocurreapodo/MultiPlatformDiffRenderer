@@ -230,7 +230,7 @@ public:
 
         const char *fragment_shader = R"Shader(
             #version 330 core
-            out vec4 FragColor;
+            out vec3 FragColor;
 
             in vec2 TexCoords;
 
@@ -240,13 +240,13 @@ public:
 
             void main()
             {    
-                FragColor = texture(image, TexCoords);
+                FragColor = texture(image, TexCoords).xyz;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
 
-        projection_loc_ = glGetUniformLocation(program_, "pojection");
+        projection_loc_ = glGetUniformLocation(program_, "projection");
         view_loc_ = glGetUniformLocation(program_, "view");
         model_loc_ = glGetUniformLocation(program_, "model");
 
@@ -261,8 +261,8 @@ public:
                 linalg::Mat4<float> &model,
                 int in_lvl,
                 int out_lvl,
-                TextureGL<float> &in_texture,
-                TextureGL<float> &out_texture)
+                TextureGL<linalg::Vec3<float>> &in_texture,
+                TextureGL<linalg::Vec3<float>> &out_texture)
     {
         // Validate inputs
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -278,27 +278,27 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+        float clear[4] = {out_texture.nodata()(0), out_texture.nodata()(1), out_texture.nodata()(2), 1.f};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
-        glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        // glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        // glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, in_texture.id());
-
-        linalg::Mat4<float> transform = linalg::Mat4<float>::Identity();
 
         glUseProgram(program_);
 
@@ -306,9 +306,9 @@ public:
         glUniformMatrix4fv(view_loc_, 1, GL_FALSE, view.data());
         glUniformMatrix4fv(model_loc_, 1, GL_FALSE, model.data());
 
-        glUniform1i(image_loc_, 0);                          // texture unit
-        glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
-        glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
+        glUniform1i(image_loc_, 0); // texture unit
+        // glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl); // **int**, not float
 
         mesh.draw();
 

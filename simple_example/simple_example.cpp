@@ -12,10 +12,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include "core/common.h"
 #include "common/test_helpers.h"
 #include "core/format_converters.h"
@@ -34,12 +30,21 @@
 #include "backends/gl/renderergl.h"
 // #endif
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <iostream>
 
+// static bool LoadAssimpMesh(const std::string &path,
+//                            std::vector<Eigen::Vector3f> &vertices,
+//                            std::vector<Eigen::Vector3f> &normals,
+//                            std::vector<Eigen::Vector2f> &texcoords,
+//                            std::vector<unsigned int> &indices)
 static bool LoadAssimpMesh(const std::string &path,
-                           std::vector<Eigen::Vector3f> &vertices,
-                           std::vector<Eigen::Vector3f> &normals,
-                           std::vector<Eigen::Vector2f> &texcoords,
+                           std::vector<float> &vertices,
+                           std::vector<float> &normals,
+                           std::vector<float> &texcoords,
                            std::vector<unsigned int> &indices)
 {
     Assimp::Importer imp;
@@ -89,24 +94,38 @@ static bool LoadAssimpMesh(const std::string &path,
             aiVector3D p = mesh->mVertices[v];
             aiVector3D n = mesh->mNormals[v];
 
-            Eigen::Vector3f vertice(p.x, p.y, -p.z);
-            Eigen::Vector3f normal(n.x, n.y, n.z);
-
+            Eigen::Vector3f vertice(p.x, p.y, p.z);
             // p.z = -p.z;
-            vertices.push_back(vertice);
-            normals.push_back(normal);
+            // vertices.push_back(vertice);
+            vertices.push_back(p.x);
+            vertices.push_back(p.y);
+            vertices.push_back(p.z);
+
+            if (mesh->HasNormals())
+            {
+                Eigen::Vector3f normal(n.x, n.y, n.z);
+                // normals.push_back(normal);
+                normals.push_back(n.x);
+                normals.push_back(n.y);
+                normals.push_back(n.z);
+            }
 
             minB = minB.cwiseMin(vertice);
             maxB = maxB.cwiseMax(vertice);
 
-            if (mesh->HasTextureCoords(0))
+            // if (mesh->HasTextureCoords(0))
+            if (mesh->mTextureCoords[0])
             {
                 aiVector3D t = mesh->mTextureCoords[0][v];
-                texcoords.push_back(Eigen::Vector2f(t.x, t.y));
+                // texcoords.push_back(Eigen::Vector2f(t.x, t.y));
+                texcoords.push_back(t.x);
+                texcoords.push_back(t.y);
             }
             else
             {
-                texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
+                // texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
+                texcoords.push_back(0.0f);
+                texcoords.push_back(0.0f);
             }
         }
         // indices
@@ -122,6 +141,7 @@ static bool LoadAssimpMesh(const std::string &path,
         baseVertex += mesh->mNumVertices;
     }
 
+    /*
     Eigen::Vector3f center = 0.5f * (minB + maxB);
     float radius = (maxB - center).norm();
 
@@ -130,19 +150,20 @@ static bool LoadAssimpMesh(const std::string &path,
         vertices[i] -= center;
         vertices[i] /= radius;
     }
+    */
 
     return true;
 }
 
 static cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32)
 {
-    cv::Mat tex(h, w, CV_8UC3);
+    cv::Mat tex(h, w, CV_32FC3);
     for (int y = 0; y < h; ++y)
     {
         for (int x = 0; x < w; ++x)
         {
             bool c = ((x / checker) + (y / checker)) & 1;
-            tex.at<cv::Vec3b>(y, x) = c ? cv::Vec3b(40, 40, 40) : cv::Vec3b(220, 220, 220);
+            tex.at<cv::Vec3f>(y, x) = c ? cv::Vec3f(0.5, 0.5, 0.5) : cv::Vec3f(1.0, 1.0, 1.0);
         }
     }
     return tex;
@@ -165,7 +186,7 @@ const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
 
 // An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL
-class Camera
+class Camera2
 {
 public:
     // camera Attributes
@@ -183,7 +204,7 @@ public:
     float Zoom;
 
     // constructor with vectors
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    Camera2(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
     {
         Position = position;
         WorldUp = up;
@@ -192,7 +213,7 @@ public:
         updateCameraVectors();
     }
     // constructor with scalar values
-    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+    Camera2(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
     {
         Position = glm::vec3(posX, posY, posZ);
         WorldUp = glm::vec3(upX, upY, upZ);
@@ -274,26 +295,25 @@ linalg::Mat4<float> GlmToLinalg(const glm::mat4 &m)
     linalg::Mat4<float> lm;
     for (int r = 0; r < 4; ++r)
         for (int c = 0; c < 4; ++c)
-            lm(r, c) = m(r, c);
+            lm(r, c) = m[c][r];
     return lm;
 };
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera2 camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 int main()
 {
-    if (!InitEGL())
-    {
-        std::cout << "Failed to initialize EGL" << std::endl;
-        return -1;
-    }
+    // std::vector<Eigen::Vector3f> vertices;
+    // std::vector<Eigen::Vector3f> normals;
+    // std::vector<Eigen::Vector2f> texcoords;
+    // std::vector<unsigned int> indices;
 
-    std::vector<Eigen::Vector3f> vertices;
-    std::vector<Eigen::Vector3f> normals;
-    std::vector<Eigen::Vector2f> texcoords;
+    std::vector<float> vertices;
+    std::vector<float> normals;
+    std::vector<float> texcoords;
     std::vector<unsigned int> indices;
 
-    if (!LoadAssimpMesh("/home/emanuel/workspace/",
+    if (!LoadAssimpMesh("/workspaces/MultiPlatformDiffRenderer/tests/data/planet/planet.obj",
                         vertices,
                         normals,
                         texcoords,
@@ -303,16 +323,22 @@ int main()
         return -1;
     }
 
+    if (!InitEGL())
+    {
+        std::cout << "Failed to initialize EGL" << std::endl;
+        return -1;
+    }
+
     int width = 640;
     int height = 480;
 
-    TextureGL<float> in_texture(width, height, 0);
-    TextureGL<float> out_texture(width, height, 0);
+    TextureGL<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
     cv::Mat checker = MakeCheckerTex(width, height, 32);
     UploadMatToTexture(in_texture, 0, checker);
 
-    MeshGL mesh(vertices, indices);
+    MeshGL mesh(vertices, normals, texcoords, indices);
 
     SimpleExampleRendererGL renderer;
 
@@ -328,16 +354,21 @@ int main()
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));     // it's a bit too big for our scene, so scale it down
 
-        renderer.Render(mesh, GlmToLinalg(projection), GlmToLinalg(view), GlmToLinalg(model), 0, 0, in_texture, out_texture);
+        linalg::Mat4<float> p_ = GlmToLinalg(projection);
+        linalg::Mat4<float> v_ = GlmToLinalg(view);
+        linalg::Mat4<float> m_ = GlmToLinalg(model);
 
-        cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC1);
+        renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
+        camera.ProcessKeyboard(Camera_Movement::BACKWARD, 0.01f);
+
+        cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC3);
 
         // Pretty up the single-channel output
         cv::Mat out_u8, out_color;
         out_f.convertTo(out_u8, CV_8U, 255.0);
-        cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
+        // cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
 
-        cv::imshow("Simple Example", out_color);
+        cv::imshow("Simple Example", out_u8);
         cv::waitKey(30);
     }
 
