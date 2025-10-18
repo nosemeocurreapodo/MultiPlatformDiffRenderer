@@ -759,7 +759,7 @@ public:
         out_texture.fill(out_lvl, out_texture.nodata());
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                    this->opencv2opengl_ *
+                    /*this->opencv2opengl_ */
                     pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;

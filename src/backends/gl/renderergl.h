@@ -689,7 +689,9 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                                             /*opencv2opengl_*/
+                                             pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(image_loc_, 0);                          // texture unit

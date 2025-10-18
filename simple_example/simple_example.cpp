@@ -30,22 +30,23 @@
 #include "backends/gl/renderergl.h"
 // #endif
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include <iostream>
 
-// static bool LoadAssimpMesh(const std::string &path,
-//                            std::vector<Eigen::Vector3f> &vertices,
-//                            std::vector<Eigen::Vector3f> &normals,
-//                            std::vector<Eigen::Vector2f> &texcoords,
-//                            std::vector<unsigned int> &indices)
+template <typename T>
+using Texture = TextureCPU<T>;
+using Mesh = MeshCPU;
+using Renderer = ImageRendererCPU;
+
 static bool LoadAssimpMesh(const std::string &path,
-                           std::vector<float> &vertices,
-                           std::vector<float> &normals,
-                           std::vector<float> &texcoords,
+                           std::vector<Eigen::Vector3f> &vertices,
+                           std::vector<Eigen::Vector3f> &normals,
+                           std::vector<Eigen::Vector2f> &texcoords,
                            std::vector<unsigned int> &indices)
+// static bool LoadAssimpMesh(const std::string &path,
+//                            std::vector<float> &vertices,
+//                            std::vector<float> &normals,
+//                            std::vector<float> &texcoords,
+//                            std::vector<unsigned int> &indices)
 {
     Assimp::Importer imp;
     const aiScene *scene = imp.ReadFile(
@@ -96,18 +97,18 @@ static bool LoadAssimpMesh(const std::string &path,
 
             Eigen::Vector3f vertice(p.x, p.y, p.z);
             // p.z = -p.z;
-            // vertices.push_back(vertice);
-            vertices.push_back(p.x);
-            vertices.push_back(p.y);
-            vertices.push_back(p.z);
+            vertices.push_back(vertice);
+            // vertices.push_back(p.x);
+            // vertices.push_back(p.y);
+            // vertices.push_back(p.z);
 
             if (mesh->HasNormals())
             {
                 Eigen::Vector3f normal(n.x, n.y, n.z);
-                // normals.push_back(normal);
-                normals.push_back(n.x);
-                normals.push_back(n.y);
-                normals.push_back(n.z);
+                normals.push_back(normal);
+                // normals.push_back(n.x);
+                // normals.push_back(n.y);
+                // normals.push_back(n.z);
             }
 
             minB = minB.cwiseMin(vertice);
@@ -117,15 +118,15 @@ static bool LoadAssimpMesh(const std::string &path,
             if (mesh->mTextureCoords[0])
             {
                 aiVector3D t = mesh->mTextureCoords[0][v];
-                // texcoords.push_back(Eigen::Vector2f(t.x, t.y));
-                texcoords.push_back(t.x);
-                texcoords.push_back(t.y);
+                texcoords.push_back(Eigen::Vector2f(t.x, t.y));
+                // texcoords.push_back(t.x);
+                // texcoords.push_back(t.y);
             }
             else
             {
-                // texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
-                texcoords.push_back(0.0f);
-                texcoords.push_back(0.0f);
+                texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
+                // texcoords.push_back(0.0f);
+                // texcoords.push_back(0.0f);
             }
         }
         // indices
@@ -141,7 +142,6 @@ static bool LoadAssimpMesh(const std::string &path,
         baseVertex += mesh->mNumVertices;
     }
 
-    /*
     Eigen::Vector3f center = 0.5f * (minB + maxB);
     float radius = (maxB - center).norm();
 
@@ -150,168 +150,54 @@ static bool LoadAssimpMesh(const std::string &path,
         vertices[i] -= center;
         vertices[i] /= radius;
     }
-    */
 
     return true;
 }
 
-static cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32)
+static cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels = 3)
 {
-    cv::Mat tex(h, w, CV_32FC3);
+
+    cv::Mat tex;
+
+    if (channels == 3)
+        tex = cv::Mat(h, w, CV_32FC3);
+    else
+        tex = cv::Mat(h, w, CV_32FC1);
+
     for (int y = 0; y < h; ++y)
     {
         for (int x = 0; x < w; ++x)
         {
             bool c = ((x / checker) + (y / checker)) & 1;
-            tex.at<cv::Vec3f>(y, x) = c ? cv::Vec3f(0.5, 0.5, 0.5) : cv::Vec3f(1.0, 1.0, 1.0);
+            if (channels == 3)
+                tex.at<cv::Vec3f>(y, x) = c ? cv::Vec3f(0.5, 0.5, 0.5) : cv::Vec3f(1.0, 1.0, 1.0);
+            else
+                tex.at<float>(y, x) = c ? 0.5f : 1.0f;
         }
     }
     return tex;
 }
 
-// Defines several possible options for camera movement. Used as abstraction to stay away from window-system specific input methods
-enum Camera_Movement
-{
-    FORWARD,
-    BACKWARD,
-    LEFT,
-    RIGHT
-};
-
-// Default camera values
-const float YAW = -90.0f;
-const float PITCH = 0.0f;
-const float SPEED = 2.5f;
-const float SENSITIVITY = 0.1f;
-const float ZOOM = 45.0f;
-
-// An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL
-class Camera2
-{
-public:
-    // camera Attributes
-    glm::vec3 Position;
-    glm::vec3 Front;
-    glm::vec3 Up;
-    glm::vec3 Right;
-    glm::vec3 WorldUp;
-    // euler Angles
-    float Yaw;
-    float Pitch;
-    // camera options
-    float MovementSpeed;
-    float MouseSensitivity;
-    float Zoom;
-
-    // constructor with vectors
-    Camera2(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
-    {
-        Position = position;
-        WorldUp = up;
-        Yaw = yaw;
-        Pitch = pitch;
-        updateCameraVectors();
-    }
-    // constructor with scalar values
-    Camera2(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
-    {
-        Position = glm::vec3(posX, posY, posZ);
-        WorldUp = glm::vec3(upX, upY, upZ);
-        Yaw = yaw;
-        Pitch = pitch;
-        updateCameraVectors();
-    }
-
-    // returns the view matrix calculated using Euler Angles and the LookAt Matrix
-    glm::mat4 GetViewMatrix()
-    {
-        return glm::lookAt(Position, Position + Front, Up);
-    }
-
-    // processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
-    void ProcessKeyboard(Camera_Movement direction, float deltaTime)
-    {
-        float velocity = MovementSpeed * deltaTime;
-        if (direction == FORWARD)
-            Position += Front * velocity;
-        if (direction == BACKWARD)
-            Position -= Front * velocity;
-        if (direction == LEFT)
-            Position -= Right * velocity;
-        if (direction == RIGHT)
-            Position += Right * velocity;
-    }
-
-    // processes input received from a mouse input system. Expects the offset value in both the x and y direction.
-    void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
-    {
-        xoffset *= MouseSensitivity;
-        yoffset *= MouseSensitivity;
-
-        Yaw += xoffset;
-        Pitch += yoffset;
-
-        // make sure that when pitch is out of bounds, screen doesn't get flipped
-        if (constrainPitch)
-        {
-            if (Pitch > 89.0f)
-                Pitch = 89.0f;
-            if (Pitch < -89.0f)
-                Pitch = -89.0f;
-        }
-
-        // update Front, Right and Up Vectors using the updated Euler angles
-        updateCameraVectors();
-    }
-
-    // processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
-    void ProcessMouseScroll(float yoffset)
-    {
-        Zoom -= (float)yoffset;
-        if (Zoom < 1.0f)
-            Zoom = 1.0f;
-        if (Zoom > 45.0f)
-            Zoom = 45.0f;
-    }
-
-private:
-    // calculates the front vector from the Camera's (updated) Euler Angles
-    void updateCameraVectors()
-    {
-        // calculate the new Front vector
-        glm::vec3 front;
-        front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-        front.y = sin(glm::radians(Pitch));
-        front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-        Front = glm::normalize(front);
-        // also re-calculate the Right and Up vector
-        Right = glm::normalize(glm::cross(Front, WorldUp)); // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
-        Up = glm::normalize(glm::cross(Right, Front));
-    }
-};
-
-linalg::Mat4<float> GlmToLinalg(const glm::mat4 &m)
+linalg::Mat4<float> EigenToLinalg(const Eigen::Matrix4f &m)
 {
     linalg::Mat4<float> lm;
     for (int r = 0; r < 4; ++r)
         for (int c = 0; c < 4; ++c)
-            lm(r, c) = m[c][r];
+            lm(r, c) = m(r, c);
     return lm;
-};
-
-Camera2 camera(glm::vec3(0.0f, 0.0f, 3.0f));
+}
 
 int main()
 {
-    // std::vector<Eigen::Vector3f> vertices;
-    // std::vector<Eigen::Vector3f> normals;
-    // std::vector<Eigen::Vector2f> texcoords;
-    // std::vector<unsigned int> indices;
-
-    std::vector<float> vertices;
-    std::vector<float> normals;
-    std::vector<float> texcoords;
+    std::vector<Eigen::Vector3f> vertices;
+    std::vector<Eigen::Vector3f> normals;
+    std::vector<Eigen::Vector2f> texcoords;
     std::vector<unsigned int> indices;
+
+    // std::vector<float> vertices;
+    // std::vector<float> normals;
+    // std::vector<float> texcoords;
+    // std::vector<unsigned int> indices;
 
     if (!LoadAssimpMesh("/workspaces/MultiPlatformDiffRenderer/tests/data/planet/planet.obj",
                         vertices,
@@ -332,36 +218,69 @@ int main()
     int width = 640;
     int height = 480;
 
-    TextureGL<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
-    cv::Mat checker = MakeCheckerTex(width, height, 32);
+    Texture<float> in_texture(width, height, -1.0);
+    Texture<float> out_texture(width, height, -1.0);
+
+    cv::Mat checker = MakeCheckerTex(width, height, 32, 1);
     UploadMatToTexture(in_texture, 0, checker);
 
-    MeshGL mesh(vertices, normals, texcoords, indices);
+    Mesh mesh(vertices, normals, texcoords, indices);
 
-    SimpleExampleRendererGL renderer;
+    Renderer renderer;
 
     cv::namedWindow("Simple Example", cv::WINDOW_AUTOSIZE);
 
     // render loop
     // -----------
+    float dist = 2.0f;
+
+    float fov_deg = 90.0f;
+
+    float fx = 0.5f * width / std::tan(0.5f * fov_deg * float(M_PI / 180.0));
+    float fy = fx;
+    float cx = 0.5f * (width - 1);
+    float cy = 0.5f * (height - 1);
+
+    Camera<float> camera1(fx, fy, cx, cy, width, height);
+
+    linalg::Mat4<float> p_ = camera1.GetProjectiveMatrix(0.1f, 100.0f);
+
+    linalg::SE3<float> view_l_;
+    view_l_.translation() = linalg::Vec3<float>(0.0f, 0.0f, -dist);
+    linalg::Mat4<float> v_ = view_l_.matrix();
+
+    linalg::SE3<float> model_l_;
+    linalg::Mat4<float> m_ = model_l_.matrix();
+
+    int i = 0;
     while (true)
     {
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)width / (float)height, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));     // it's a bit too big for our scene, so scale it down
+        i++;
+        float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
+        Eigen::Matrix3f R =
+            Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitY())
+                //     Eigen::AngleAxisf(M_PI / 2.0f, Eigen::Vector3f::UnitX())*/
+                //        /*(Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))*/
+                .toRotationMatrix();
 
-        linalg::Mat4<float> p_ = GlmToLinalg(projection);
-        linalg::Mat4<float> v_ = GlmToLinalg(view);
-        linalg::Mat4<float> m_ = GlmToLinalg(model);
+        Eigen::Vector3f camPos = R.transpose() * Eigen::Vector3f(0, 0, dist);
 
-        renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
-        camera.ProcessKeyboard(Camera_Movement::BACKWARD, 0.01f);
+        Eigen::Matrix4f view_e_;
+        view_e_.block<3, 3>(0, 0) = R.transpose();
+        view_e_.block<3, 1>(0, 3) = -R * camPos;
+        view_e_.row(3) = Eigen::Vector4f(0, 0, 0, 1);
 
-        cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC3);
+        v_ = EigenToLinalg(view_e_);
+
+        linalg::SE3<float> transform(v_);
+
+        // renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
+        renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
+
+        cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC1);
 
         // Pretty up the single-channel output
         cv::Mat out_u8, out_color;
