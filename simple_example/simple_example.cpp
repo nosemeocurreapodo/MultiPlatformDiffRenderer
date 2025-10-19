@@ -46,7 +46,8 @@ static bool LoadAssimpMesh(const std::string &path,
                            std::vector<Eigen::Vector3f> &vertices,
                            std::vector<Eigen::Vector3f> &normals,
                            std::vector<Eigen::Vector2f> &texcoords,
-                           std::vector<unsigned int> &indices)
+                           std::vector<unsigned int> &indices,
+                           std::vector<std::string> &textures)
 // static bool LoadAssimpMesh(const std::string &path,
 //                            std::vector<float> &vertices,
 //                            std::vector<float> &normals,
@@ -79,6 +80,8 @@ static bool LoadAssimpMesh(const std::string &path,
     normals.clear();
     texcoords.clear();
     indices.clear();
+
+    std::string base_path = path.substr(0, path.find_last_of('/'));
 
     size_t baseVertex = 0;
     Eigen::Vector3f minB(std::numeric_limits<float>::max(),
@@ -145,6 +148,17 @@ static bool LoadAssimpMesh(const std::string &path,
             indices.push_back(static_cast<unsigned>(baseVertex) + face.mIndices[2]);
         }
         baseVertex += mesh->mNumVertices;
+
+        // materials
+        aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+
+        for (unsigned int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); i++)
+        {
+            aiString str;
+            material->GetTexture(aiTextureType_DIFFUSE, 0, &str);
+            textures.push_back(base_path + "/" + str.C_Str());
+            // std::cout << str.C_Str() << std::endl;
+        }
     }
 
     Eigen::Vector3f center = 0.5f * (minB + maxB);
@@ -198,17 +212,22 @@ int main()
     std::vector<Eigen::Vector3f> normals;
     std::vector<Eigen::Vector2f> texcoords;
     std::vector<unsigned int> indices;
+    std::vector<std::string> textures;
 
     // std::vector<float> vertices;
     // std::vector<float> normals;
     // std::vector<float> texcoords;
     // std::vector<unsigned int> indices;
 
-    if (!LoadAssimpMesh("/workspaces/MultiPlatformDiffRenderer/tests/data/planet/planet.obj",
+    std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/planet/planet.obj";
+    // std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/bunny/bun_zipper_res4.ply";
+
+    if (!LoadAssimpMesh(mesh_path,
                         vertices,
                         normals,
                         texcoords,
-                        indices))
+                        indices,
+                        textures))
     {
         std::cout << "Failed to load model" << std::endl;
         return -1;
@@ -223,16 +242,27 @@ int main()
     int width = 640;
     int height = 480;
 
-    //Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    //Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
-     Texture<float> in_texture(width, height, -1.0);
-     Texture<float> out_texture(width, height, -1.0);
+    Texture<float> in_texture(width, height, -1.0);
+    Texture<float> out_texture(width, height, -1.0);
 
-    cv::Mat checker = MakeCheckerTex(width, height, 32, 1);
-    UploadMatToTexture(in_texture, 0, checker);
+    cv::Mat diffuse;
+    if (textures.size() > 0)
+    {
+        diffuse = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
+        cv::resize(diffuse, diffuse, cv::Size(width, height), 0, 0, cv::INTER_LINEAR);
+        diffuse.convertTo(diffuse, CV_32F, 1.0 / 255.0);
+    }
+    else
+    {
+        diffuse = MakeCheckerTex(width, height, 32, 1);
+    }
 
-    //Mesh mesh(vertices, normals, texcoords, indices);
+    UploadMatToTexture(in_texture, 0, diffuse);
+
+    // Mesh mesh(vertices, normals, texcoords, indices);
     Mesh mesh(vertices, normals, texcoords, indices);
 
     Renderer renderer;
@@ -283,8 +313,8 @@ int main()
 
         linalg::SE3<float> transform(v_);
 
-        //renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
-         renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
+        // renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
+        renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
 
         cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC1);
 
