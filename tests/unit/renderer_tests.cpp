@@ -128,7 +128,7 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     typename Traits::ImageRendererT renderer;
     linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
-    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, output));
 
     cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC1);
     cv::Scalar mean_val, std_val;

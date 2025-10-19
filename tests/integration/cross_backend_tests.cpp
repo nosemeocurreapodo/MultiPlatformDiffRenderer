@@ -93,8 +93,8 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, normals_, texcoords_, indices_);
-    MeshGL mesh_gl(vertices_, normals_, texcoords_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, normals_, indices_);
+    MeshGL mesh_gl(vertices_, texcoords_, normals_, indices_);
 
     TextureCPU<linalg::Vec3<float>> output_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
     TextureGL<linalg::Vec3<float>> output_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
@@ -239,17 +239,17 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_, image_src_cv_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_, image_src_cv_);
 
-    TextureCPU<float> input_cpu(w_, h_, -1.0f);
+    // TextureCPU<float> input_cpu(w_, h_, -1.0f);
     TextureCPU<float> output_cpu(w_, h_, -1.0f);
 
-    TextureGL<float> input_gl(w_, h_, -1.0f);
+    // TextureGL<float> input_gl(w_, h_, -1.0f);
     TextureGL<float> output_gl(w_, h_, -1.0f);
 
-    UploadMatToTexture(input_cpu, 0, image_src_cv_);
-    UploadMatToTexture(input_gl, 0, image_src_cv_);
+    // UploadMatToTexture(input_cpu, 0, image_src_cv_);
+    // UploadMatToTexture(input_gl, 0, image_src_cv_);
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
 
@@ -265,13 +265,13 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 
             ImageRendererCPU renderer_cpu;
             timer_.Start();
-            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, output_cpu);
             cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             ImageRendererGL renderer_gl;
             timer_.Start();
-            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, output_gl);
             cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 

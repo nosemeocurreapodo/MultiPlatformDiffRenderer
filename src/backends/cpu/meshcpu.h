@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <opencv2/opencv.hpp>
 #include "backends/cpu/buffercpu.h"
 #include "backends/base/MappedView.h"
 
@@ -19,6 +20,32 @@ public:
           nor_offset_(-1),
           vertex_buffer_(positions.size() * 5),
           ebo_buffer_(indices)
+    {
+        assert(positions.size() == texcoords.size());
+
+        for (int i = 0; i < positions.size(); ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
+
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
+        }
+        // validate_();
+    }
+
+    MeshCPU(const std::vector<Eigen::Vector3f> &positions,
+            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+            const std::vector<unsigned int> &indices,
+            const cv::Mat &diffuse)
+        : stride_(5),
+          pos_offset_(0),
+          tex_offset_(3),
+          nor_offset_(-1),
+          vertex_buffer_(positions.size() * 5),
+          ebo_buffer_(indices),
+          diffuse_(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr())
     {
         assert(positions.size() == texcoords.size());
 
@@ -60,6 +87,40 @@ public:
             vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[i].y();
             vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[i].z();
         }
+
+        // validate_();
+    }
+
+    MeshCPU(const std::vector<Eigen::Vector3f> &positions, // 3 floats per vertex
+            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+            const std::vector<Eigen::Vector3f> &normals,
+            const std::vector<unsigned int> &indices,
+            const cv::Mat &diffuse)
+        : stride_(8),
+          pos_offset_(0),
+          tex_offset_(3),
+          nor_offset_(5),
+          vertex_buffer_(positions.size() * 8),
+          ebo_buffer_(indices),
+          diffuse_(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr())
+    {
+        assert(positions.size() == texcoords.size());
+
+        for (int i = 0; i < positions.size(); ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
+
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
+
+            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[i].x();
+            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[i].y();
+            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[i].z();
+        }
+
+        diffuse_.generate_mipmaps(0);
 
         // validate_();
     }
@@ -150,4 +211,5 @@ public:
     int pos_offset_;
     int tex_offset_;
     int nor_offset_;
+    TextureCPU<float> diffuse_;
 };

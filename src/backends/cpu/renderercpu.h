@@ -84,12 +84,11 @@ public:
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &in_texture,
                 TextureCPU<float> &out_texture)
     {
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -97,7 +96,7 @@ public:
 
         TextureCPU<float> depth_texture(out_texture.width(0), out_texture.height(0), -1.0f);
 
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, in_texture, out_texture);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, out_texture);
     }
 
 private:

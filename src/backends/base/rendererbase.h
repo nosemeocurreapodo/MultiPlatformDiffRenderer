@@ -749,13 +749,12 @@ public:
     ImageRendererBase() = default;
     ~ImageRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
                 Texture<MathType> &depth_texture,
-                Texture<ImageType> &in_texture,
                 Texture<ImageType> &out_texture)
     {
         depth_texture.fill(out_lvl, depth_texture.nodata());
@@ -774,7 +773,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{depth_texture, in_texture, out_texture};
+        Textures textures{depth_texture, mesh.diffuse_, out_texture};
 
         RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, textures);
     }

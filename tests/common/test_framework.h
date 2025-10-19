@@ -135,7 +135,7 @@ protected:
         TextureCPU<float> depth_src_cpu(w_, h_, 0.0f);
         UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 32, vertices_, normals_, texcoords_, weights_, indices_);
+        CreateMesh(depth_src_cpu, cam_, 32, vertices_, texcoords_, normals_, indices_);
 
         CreateScreenQuad(screen_vertices_, screen_texcoords_, screen_indices_);
     }
@@ -144,10 +144,12 @@ protected:
 
     linalg::SE3<float> pose_src_, pose_dst_;
 
-    std::vector<float> vertices_, normals_, texcoords_, weights_;
+    std::vector<Eigen::Vector3f> vertices_, normals_;
+    std::vector<Eigen::Vector2f> texcoords_;
     std::vector<unsigned int> indices_;
 
-    std::vector<float> screen_vertices_, screen_texcoords_, screen_weights_;
+    std::vector<Eigen::Vector3f> screen_vertices_;
+    std::vector<Eigen::Vector2f> screen_texcoords_;
     std::vector<unsigned int> screen_indices_;
 };
 

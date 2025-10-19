@@ -135,7 +135,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     {
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input, output);
+        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, output);
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";

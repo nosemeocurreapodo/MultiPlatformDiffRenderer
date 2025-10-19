@@ -32,15 +32,15 @@
 
 #include <iostream>
 
-template <typename T>
-using Texture = TextureCPU<T>;
-using Mesh = MeshCPU;
-using Renderer = ImageRendererCPU;
-
 // template <typename T>
-// using Texture = TextureGL<T>;
-// using Mesh = MeshGL;
-// using Renderer = ImageRendererGL;
+// using Texture = TextureCPU<T>;
+// using Mesh = MeshCPU;
+// using Renderer = ImageRendererCPU;
+
+template <typename T>
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
+using Renderer = ImageRendererGL;
 
 static bool LoadAssimpMesh(const std::string &path,
                            std::vector<Eigen::Vector3f> &vertices,
@@ -175,7 +175,6 @@ static bool LoadAssimpMesh(const std::string &path,
 
 static cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels = 3)
 {
-
     cv::Mat tex;
 
     if (channels == 3)
@@ -245,7 +244,7 @@ int main()
     // Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
-    Texture<float> in_texture(width, height, -1.0);
+    // Texture<float> in_texture(width, height, -1.0);
     Texture<float> out_texture(width, height, -1.0);
 
     cv::Mat diffuse;
@@ -260,10 +259,10 @@ int main()
         diffuse = MakeCheckerTex(width, height, 32, 1);
     }
 
-    UploadMatToTexture(in_texture, 0, diffuse);
+    // UploadMatToTexture(in_texture, 0, diffuse);
 
     // Mesh mesh(vertices, normals, texcoords, indices);
-    Mesh mesh(vertices, texcoords, normals, indices);
+    Mesh mesh(vertices, texcoords, normals, indices, diffuse);
 
     Renderer renderer;
 
@@ -271,7 +270,7 @@ int main()
 
     // render loop
     // -----------
-    float dist = 2.0f;
+    float dist = 1.5f;
 
     float fov_deg = 90.0f;
 
@@ -314,7 +313,7 @@ int main()
         linalg::SE3<float> transform(v_);
 
         // renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
-        renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
+        renderer.Render(mesh, transform, camera1, 0, 0, out_texture);
 
         cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC1);
 

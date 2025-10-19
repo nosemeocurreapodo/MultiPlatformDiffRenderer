@@ -642,12 +642,11 @@ public:
         image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
     }
 
-    void Render(const MeshGL &mesh,
+    void Render(MeshGL &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &in_texture,
                 TextureGL<float> &out_texture)
     {
         save_state();
@@ -686,7 +685,7 @@ public:
         // #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
         }
 
         glUseProgram(program_);
@@ -696,9 +695,9 @@ public:
                                              pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
-        glUniform1i(image_loc_, 0);                          // texture unit
-        glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
-        glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
+        glUniform1i(image_loc_, 0);                             // texture unit
+        glUniform1f(image_nodata_loc_, mesh.diffuse_.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl);                    // **int**, not float
 
         mesh.draw();
 

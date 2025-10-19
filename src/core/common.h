@@ -37,13 +37,13 @@ inline float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, flo
     return depth;
 }
 
-inline void BuildTriangles(const std::vector<float> &tex_coords, std::vector<unsigned int> &tris_f)
+inline void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<unsigned int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
     std::vector<linalg::Vec2<float>> tex_coords_2d;
-    for (size_t i = 0; i < tex_coords.size(); i += 2)
+    for (size_t i = 0; i < tex_coords.size(); i++)
     {
-        tex_coords_2d.push_back(linalg::Vec2<float>(tex_coords[i], tex_coords[i + 1]));
+        tex_coords_2d.push_back(linalg::Vec2<float>(tex_coords[i].x(), tex_coords[i].y()));
     }
     triangulator_.LoadPoints(tex_coords_2d);
     triangulator_.Triangulate();
@@ -59,37 +59,32 @@ inline void BuildTriangles(const std::vector<float> &tex_coords, std::vector<uns
 }
 
 // Screen quad for image-space rendering
-inline void CreateScreenQuad(std::vector<float> &pos,
-                             std::vector<float> &uv,
+inline void CreateScreenQuad(std::vector<Eigen::Vector3f> &pos,
+                             std::vector<Eigen::Vector2f> &uv,
                              std::vector<unsigned int> &indices)
 {
-    pos = {-1.f, 1.f, 1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f,
-           -1.f, 1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, 1.f};
-    uv = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f,
-          0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
+    pos = {{-1.f, 1.f, 1.f}, {-1.f, -1.f, 1.f}, {1.f, -1.f, 1.f}, {-1.f, 1.f, 1.f}, {1.f, -1.f, 1.f}, {1.f, 1.f, 1.f}};
+    uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     // indices = {0, 1, 2, 0, 2, 3};
     BuildTriangles(uv, indices);
 }
 
 inline void CreateMesh(const TextureCPU<float> &depth,
                        Camera<float> &cam, int grid_size,
-                       std::vector<float> &vertices,
-                       std::vector<float> &normals, // <-- NEW
-                       std::vector<float> &texcoords,
-                       std::vector<float> &weights,
+                       std::vector<Eigen::Vector3f> &vertices,
+                       std::vector<Eigen::Vector2f> &texcoords,
+                       std::vector<Eigen::Vector3f> &normals,
                        std::vector<unsigned int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
-    weights.clear();
-    normals.clear(); // <-- NEW
+    normals.clear();
 
-    vertices.reserve(grid_uv.size() * 3);
-    texcoords.reserve(grid_uv.size() * 2);
-    weights.reserve(grid_uv.size());
-    normals.reserve(grid_uv.size() * 3); // <-- NEW
+    vertices.reserve(grid_uv.size());
+    texcoords.reserve(grid_uv.size());
+    normals.reserve(grid_uv.size()); // <-- NEW
 
     const int w = depth.width(0);
     const int h = depth.height(0);
@@ -173,18 +168,9 @@ inline void CreateMesh(const TextureCPU<float> &depth,
         }
 
         // Output streams
-        vertices.push_back(P(0));
-        vertices.push_back(P(1));
-        vertices.push_back(P(2));
-
-        texcoords.push_back(u);
-        texcoords.push_back(v);
-
-        normals.push_back(N(0)); // <-- NEW
-        normals.push_back(N(1));
-        normals.push_back(N(2));
-
-        weights.push_back(1.0f);
+        vertices.push_back(Eigen::Vector3f(P(0), P(1), P(2)));
+        texcoords.push_back(Eigen::Vector2f(u, v));
+        normals.push_back(Eigen::Vector3f(N(0), N(1), N(2))); // <-- NEW
     }
 
     BuildTriangles(texcoords, indices);
@@ -192,20 +178,17 @@ inline void CreateMesh(const TextureCPU<float> &depth,
 
 inline void CreateFlatMesh(float min_depth, float max_depth,
                            Camera<float> &cam, int grid_size,
-                           std::vector<float> &vertices,
-                           std::vector<float> &texcoords,
-                           std::vector<float> &weights,
+                           std::vector<Eigen::Vector3f> &vertices,
+                           std::vector<Eigen::Vector2f> &texcoords,
                            std::vector<unsigned int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
-    weights.clear();
 
-    vertices.reserve(grid_uv.size() * 3);
-    texcoords.reserve(grid_uv.size() * 2);
-    weights.reserve(grid_uv.size());
+    vertices.reserve(grid_uv.size());
+    texcoords.reserve(grid_uv.size());
 
     for (const linalg::Vec2<float> &uv : grid_uv)
     {
@@ -217,12 +200,8 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
         const linalg::Vec3<float> ray = cam.PixToRay(uv);
         const linalg::Vec3<float> vertex = ray * depth;
 
-        vertices.push_back(vertex(0));
-        vertices.push_back(vertex(1));
-        vertices.push_back(vertex(2));
-        texcoords.push_back(uv(0));
-        texcoords.push_back(uv(1));
-        weights.push_back(1.0f);
+        vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
+        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
     }
 
     BuildTriangles(texcoords, indices);
@@ -230,20 +209,17 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
 
 inline void CreateSphereMesh(float depth,
                              Camera<float> &cam, int grid_size,
-                             std::vector<float> &vertices,
-                             std::vector<float> &texcoords,
-                             std::vector<float> &weights,
+                             std::vector<Eigen::Vector3f> &vertices,
+                             std::vector<Eigen::Vector2f> &texcoords,
                              std::vector<unsigned int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
-    weights.clear();
 
-    vertices.reserve(grid_uv.size() * 3);
-    texcoords.reserve(grid_uv.size() * 2);
-    weights.reserve(grid_uv.size());
+    vertices.reserve(grid_uv.size());
+    texcoords.reserve(grid_uv.size());
 
     for (const linalg::Vec2<float> &uv : grid_uv)
     {
@@ -254,12 +230,8 @@ inline void CreateSphereMesh(float depth,
         ray = ray / ray.norm();
         const linalg::Vec3<float> vertex = ray * depth;
 
-        vertices.push_back(vertex(0));
-        vertices.push_back(vertex(1));
-        vertices.push_back(vertex(2));
-        texcoords.push_back(uv(0));
-        texcoords.push_back(uv(1));
-        weights.push_back(1.0f);
+        vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
+        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
     }
 
     BuildTriangles(texcoords, indices);
