@@ -406,13 +406,13 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.normal(0) = mesh.nor_buffer_[vertexid * 3 + 0];
-        vertexdata.normal(1) = mesh.nor_buffer_[vertexid * 3 + 1];
-        vertexdata.normal(2) = mesh.nor_buffer_[vertexid * 3 + 2];
+        vertexdata.normal(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 0];
+        vertexdata.normal(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 1];
+        vertexdata.normal(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 2];
 
         return vertexdata;
     }
@@ -665,9 +665,9 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
         return vertexdata;
     }
@@ -783,12 +783,12 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -914,12 +914,12 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1042,12 +1042,12 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1162,8 +1162,8 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1331,12 +1331,12 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1506,12 +1506,12 @@ public:
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1719,15 +1719,14 @@ public:
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
-        vertexdata.vertex(1) = mesh.pos_buffer_[vertexid * 3 + 1];
-        vertexdata.vertex(2) = mesh.pos_buffer_[vertexid * 3 + 2];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.tex_buffer_[vertexid * 2 + 0];
-        vertexdata.texcoord(1) = mesh.tex_buffer_[vertexid * 2 + 1];
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }

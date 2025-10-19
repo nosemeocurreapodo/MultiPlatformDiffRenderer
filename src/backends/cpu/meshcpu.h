@@ -13,44 +13,97 @@ public:
     MeshCPU(const std::vector<Eigen::Vector3f> &positions,
             const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
             const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions.size() * 3, (const float *)&positions[0]),
-          tex_buffer_(texcoords.size() * 2, (const float *)&texcoords[0]),
+        : stride_(5),
+          pos_offset_(0),
+          tex_offset_(3),
+          nor_offset_(-1),
+          vertex_buffer_(positions.size() * 5),
           ebo_buffer_(indices)
     {
+        assert(positions.size() == texcoords.size());
+
+        for (int i = 0; i < positions.size(); ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
+
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
+        }
         // validate_();
     }
 
     MeshCPU(const std::vector<Eigen::Vector3f> &positions, // 3 floats per vertex
-            const std::vector<Eigen::Vector3f> &normals,
             const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+            const std::vector<Eigen::Vector3f> &normals,
             const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions.size() * 3, (const float *)&positions[0]),
-          nor_buffer_(normals.size() * 3, (const float *)&normals[0]),
-          tex_buffer_(texcoords.size() * 2, (const float *)&texcoords[0]),
+        : stride_(8),
+          pos_offset_(0),
+          tex_offset_(3),
+          nor_offset_(5),
+          vertex_buffer_(positions.size() * 8),
           ebo_buffer_(indices)
     {
+        assert(positions.size() == texcoords.size());
+
+        for (int i = 0; i < positions.size(); ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
+
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
+
+            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[i].x();
+            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[i].y();
+            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[i].z();
+        }
+
         // validate_();
     }
 
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
             const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions),
-          tex_buffer_(texcoords),
+        : stride_(5),
+          pos_offset_(0),
+          tex_offset_(3),
+          nor_offset_(-1),
+          vertex_buffer_(positions.size() + texcoords.size()),
           ebo_buffer_(indices)
     {
+        for (int i = 0; i < positions.size() / 3; ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[3 * i + 0];
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[3 * i + 1];
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[3 * i + 2];
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[2 * i + 0];
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[2 * i + 1];
+        }
+
         // validate_();
     }
 
     MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
+            const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<float> &normals,
-            const std::vector<float> &texcoords, // 2 floats per vertex
             const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions),
-          nor_buffer_(normals),
-          tex_buffer_(texcoords),
+        : vertex_buffer_(positions.size() + normals.size() + texcoords.size()),
           ebo_buffer_(indices)
     {
+        for (int i = 0; i < positions.size() / 3; ++i)
+        {
+            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[3 * i + 0];
+            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[3 * i + 1];
+            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[3 * i + 2];
+            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[2 * i + 0];
+            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[2 * i + 1];
+            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[3 * i + 0];
+            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[3 * i + 1];
+            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[3 * i + 2];
+        }
         // validate_();
     }
 
@@ -73,7 +126,7 @@ public:
     //[[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
-    unsigned int vertex_count() const noexcept { return pos_buffer_.size() / 3; }
+    unsigned int vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
     unsigned int index_count() const noexcept { return ebo_buffer_.size(); }
     unsigned int triangle_count() const noexcept { return index_count() / 3; }
 
@@ -91,36 +144,10 @@ public:
     // BufferCPU<float> &Weights() { return wei_buffer_; }
     // BufferCPU<index_type> &Indices() { return ebo_buffer_; }
 
-    // private:
-    void validate_() const
-    {
-        // position size must be multiple of 3
-        assert(pos_buffer_.size() % 3 == 0);
-        const std::size_t nverts = pos_buffer_.size() / 3;
-
-        // tex must be multiple of 2 and match vertex count
-        assert(tex_buffer_.size() % 2 == 0);
-        assert(tex_buffer_.size() / 2 == nverts);
-
-        // weights match vertex count
-        assert(wei_buffer_.size() == nverts);
-
-        // indices multiple of 3
-        assert(ebo_buffer_.size() % 3 == 0);
-
-        // (Optional) indices range check in debug
-#ifndef NDEBUG
-        auto idx = ebo_buffer_.MapRead();
-        for (std::size_t i = 0; i < idx.size(); ++i)
-        {
-            assert(idx[i] < static_cast<std::size_t>(nverts));
-        }
-#endif
-    }
-
-    BufferCPU<float> pos_buffer_;
-    BufferCPU<float> nor_buffer_;
-    BufferCPU<float> tex_buffer_;
-    BufferCPU<float> wei_buffer_;
+    BufferCPU<float> vertex_buffer_;
     BufferCPU<unsigned int> ebo_buffer_;
+    int stride_;
+    int pos_offset_;
+    int tex_offset_;
+    int nor_offset_;
 };

@@ -32,15 +32,15 @@
 
 #include <iostream>
 
-// template <typename T>
-// using Texture = TextureCPU<T>;
-// using Mesh = MeshCPU;
-// using Renderer = ImageRendererCPU;
-
 template <typename T>
-using Texture = TextureGL<T>;
-using Mesh = MeshGL;
-using Renderer = ImageRendererGL;
+using Texture = TextureCPU<T>;
+using Mesh = MeshCPU;
+using Renderer = ImageRendererCPU;
+
+// template <typename T>
+// using Texture = TextureGL<T>;
+// using Mesh = MeshGL;
+// using Renderer = ImageRendererGL;
 
 static bool LoadAssimpMesh(const std::string &path,
                            std::vector<Eigen::Vector3f> &vertices,
@@ -263,7 +263,7 @@ int main()
     UploadMatToTexture(in_texture, 0, diffuse);
 
     // Mesh mesh(vertices, normals, texcoords, indices);
-    Mesh mesh(vertices, normals, texcoords, indices);
+    Mesh mesh(vertices, texcoords, normals, indices);
 
     Renderer renderer;
 
