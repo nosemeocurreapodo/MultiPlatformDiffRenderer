@@ -730,6 +730,7 @@ public:
 
     struct Textures
     {
+        Texture<MathType> &depth_texture;
         Texture<ImageType> &in_texture;
         Texture<ImageType> &out_texture;
     };
@@ -753,9 +754,11 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
+                Texture<MathType> &depth_texture,
                 Texture<ImageType> &in_texture,
                 Texture<ImageType> &out_texture)
     {
+        depth_texture.fill(out_lvl, depth_texture.nodata());
         out_texture.fill(out_lvl, out_texture.nodata());
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
@@ -771,14 +774,13 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{in_texture, out_texture};
+        Textures textures{depth_texture, in_texture, out_texture};
 
         RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, textures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-
         VertexData vertexdata;
 
         vertexdata.vertex(0) = mesh.pos_buffer_[vertexid * 3 + 0];
@@ -820,17 +822,23 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        MathType depth = textures.depth_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        if (depth != textures.depth_texture.nodata() && depth < gl_FragCoord(2))
+            return;
+
         // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         // ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         linalg::Vec2<MathType> coord;
         coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
         coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
+
         // ImageType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
         ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
 
         if (pix == textures.in_texture.nodata())
             return;
         textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        textures.depth_texture.set_texel_(gl_FragCoord(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     linalg::Mat4<MathType> t_matrix_;

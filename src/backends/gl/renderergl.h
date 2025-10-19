@@ -625,6 +625,8 @@ public:
             void main()
             {
                 float val = textureLod(image, texcoord, float(image_lvl)).r;
+                //float val = texture(image, texcoord).r;
+
                 if (val == image_nodata)
                     discard;
                 a_output = val;

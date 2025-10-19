@@ -1,13 +1,13 @@
 #pragma once
-//#include <vector>
-//#include <cstdint>
-//#include <cassert>
-//#include <algorithm>
-//#include <cstring> // memcpy
+// #include <vector>
+// #include <cstdint>
+// #include <cassert>
+// #include <algorithm>
+// #include <cstring> // memcpy
 
 #include <Eigen/Core>
-//#include "backends/gl/devicegl_glad.h"
-//#include "core/delaunaytriangulation.h"
+// #include "backends/gl/devicegl_glad.h"
+// #include "core/delaunaytriangulation.h"
 #include "backends/gl/buffergl.h" // your BufferGL
 #include "backends/base/MappedView.h"
 
@@ -82,13 +82,13 @@ public:
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_nor_.id());
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-
         glBindBuffer(GL_ARRAY_BUFFER, vbo_uv_.id());
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_nor_.id());
         glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
 
@@ -163,13 +163,13 @@ public:
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_nor_.id());
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-
         glBindBuffer(GL_ARRAY_BUFFER, vbo_uv_.id());
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_nor_.id());
         glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
 

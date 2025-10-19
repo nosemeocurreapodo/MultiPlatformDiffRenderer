@@ -32,10 +32,15 @@
 
 #include <iostream>
 
+// template <typename T>
+// using Texture = TextureCPU<T>;
+// using Mesh = MeshCPU;
+// using Renderer = ImageRendererCPU;
+
 template <typename T>
-using Texture = TextureCPU<T>;
-using Mesh = MeshCPU;
-using Renderer = ImageRendererCPU;
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
+using Renderer = ImageRendererGL;
 
 static bool LoadAssimpMesh(const std::string &path,
                            std::vector<Eigen::Vector3f> &vertices,
@@ -218,15 +223,16 @@ int main()
     int width = 640;
     int height = 480;
 
-    // Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    // Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    //Texture<linalg::Vec3<float>> in_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    //Texture<linalg::Vec3<float>> out_texture(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
-    Texture<float> in_texture(width, height, -1.0);
-    Texture<float> out_texture(width, height, -1.0);
+     Texture<float> in_texture(width, height, -1.0);
+     Texture<float> out_texture(width, height, -1.0);
 
     cv::Mat checker = MakeCheckerTex(width, height, 32, 1);
     UploadMatToTexture(in_texture, 0, checker);
 
+    //Mesh mesh(vertices, normals, texcoords, indices);
     Mesh mesh(vertices, normals, texcoords, indices);
 
     Renderer renderer;
@@ -277,8 +283,8 @@ int main()
 
         linalg::SE3<float> transform(v_);
 
-        // renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
-        renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
+        //renderer.Render(mesh, p_, v_, m_, 0, 0, in_texture, out_texture);
+         renderer.Render(mesh, transform, camera1, 0, 0, in_texture, out_texture);
 
         cv::Mat out_f = DownloadTextureToMat(out_texture, 0, CV_32FC1);
 

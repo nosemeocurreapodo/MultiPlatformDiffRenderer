@@ -95,7 +95,9 @@ public:
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
+        TextureCPU<float> depth_texture(out_texture.width(0), out_texture.height(0), -1.0f);
+
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, in_texture, out_texture);
     }
 
 private:
