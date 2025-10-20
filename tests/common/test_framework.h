@@ -252,8 +252,11 @@ public:
 // Validation thresholds
 struct ValidationThresholds
 {
-    double gt_max_depth_error = 0.4;
-    double gt_max_image_error = 20.0;
+    double gt_max_depth_error = 0.27;
+    double gt_max_image_error = 14.0;
+
+    double ref_max_depth_error = 0.27;
+    double ref_max_image_error = 14.0;
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;

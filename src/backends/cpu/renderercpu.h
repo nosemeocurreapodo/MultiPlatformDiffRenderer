@@ -140,12 +140,11 @@ public:
     L2RendererCPU() = default;
     ~L2RendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
                 TextureCPU<float> &f_texture,
                 TextureCPU<float> &r_texture)
     {
@@ -153,7 +152,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
+        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, r_texture);
     }
 
 private:

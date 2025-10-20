@@ -211,7 +211,6 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
     cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
 
-    // Save comparison images
     SaveDebugImage(cpu_result, "cross_depth_cpu.png");
     SaveDebugImage(gl_result, "cross_depth_gl.png");
 
@@ -396,8 +395,8 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertices_, texcoords_, indices_);
-    MeshGL mesh_gl(vertices_, texcoords_, indices_);
+    MeshCPU mesh_cpu(vertices_, texcoords_, indices_, image_src_cv_);
+    MeshGL mesh_gl(vertices_, texcoords_, indices_, image_src_cv_);
 
     TextureCPU<float> input1_cpu(w_, h_, -1.0f);
     TextureCPU<float> input2_cpu(w_, h_, -1.0f);
@@ -407,10 +406,7 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
     TextureGL<float> input2_gl(w_, h_, -1.0f);
     TextureGL<float> output_gl(w_, h_, -1.0f);
 
-    UploadMatToTexture(input1_cpu, 0, image_src_cv_);
     UploadMatToTexture(input2_cpu, 0, image_dst_cv_);
-
-    UploadMatToTexture(input1_gl, 0, image_src_cv_);
     UploadMatToTexture(input2_gl, 0, image_dst_cv_);
 
     L2RendererCPU renderer_cpu;
@@ -429,12 +425,12 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
                 continue;
 
             timer_.Start();
-            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
+            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input2_cpu, output_cpu);
             cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl, CV_32FC1);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
-            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input2_gl, output_gl);
             cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl, CV_32FC1);
             acc_gl_time += timer_.Stop();
 

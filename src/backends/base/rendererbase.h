@@ -1030,18 +1030,19 @@ public:
     L2RendererBase() = default;
     ~L2RendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &kf_texture,
                 Texture<ImageType> &f_texture,
                 Texture<ErrorType> &r_texture)
     {
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                    this->opencv2opengl_ *
+                    pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
         // kf_texture_ = &kf_texture;
@@ -1053,7 +1054,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{kf_texture, f_texture, r_texture};
+        Textures textures{mesh.diffuse_, f_texture, r_texture};
 
         RendererBase<MathType, L2RendererBase>::Render(viewport, mesh, textures);
     }
