@@ -119,14 +119,14 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_, this->image_src_cv_);
 
-    typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
+    //typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
 
     UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
-    UploadMatToTexture(input, 0, this->image_src_cv_);
+    //UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
     linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();

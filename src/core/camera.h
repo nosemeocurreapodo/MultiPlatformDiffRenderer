@@ -73,7 +73,8 @@ public:
         linalg::Mat4<T> projmat = linalg::Mat4<T>::Zero();
 
         projmat(0, 0) = T(2) * fx_;
-        projmat(1, 1) = T(2) * fy_;
+        //- here to flip the y axis (to render like opencv)
+        projmat(1, 1) = -T(2) * fy_;
         projmat(0, 2) = T(1) - T(2) * cx_;
         projmat(1, 2) = -T(1) + T(2) * cy_;
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);

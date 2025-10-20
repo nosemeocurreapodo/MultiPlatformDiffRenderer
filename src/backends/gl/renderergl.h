@@ -32,6 +32,7 @@ public:
         }
 
         opencv2opengl_ = linalg::Mat4<float>::Identity();
+        opencv2opengl_(1, 1) = -1.0;
         opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
     }
 
@@ -515,29 +516,37 @@ public:
             uniform mat4 t_matrix;
 
             void main() {
-                gl_Position = t_matrix * vec4(a_position, 1.0);
-                depth = 1.0f;//a_position.z;
+                vec4 t_position = t_matrix * vec4(a_position, 1.0);
+                gl_Position = t_position;
+                depth = t_position.z;
             }
             )Shader";
 
         const char *fragment_shader = R"Shader(
             #version 330 core
             layout(location = 0) out float a_output;
+
             in float depth;
 
+            uniform float near_plane;
+            uniform float far_plane;
+            
             //uniform sampler2D image;
             //uniform float image_nodata;
             //uniform int image_lvl;
 
             void main()
             {
-                a_output = gl_FragCoord.z;
+                a_output = depth;
+                //a_output = (far_plane - near_plane) * (0.5 * gl_FragCoord.z + 0.5) + near_plane;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
 
         t_matrix_loc_ = glGetUniformLocation(program_, "t_matrix");
+        near_plane_loc_ = glGetUniformLocation(program_, "near_plane");
+        far_plane_loc_ = glGetUniformLocation(program_, "far_plane");
     }
 
     void Render(const MeshGL &mesh,
@@ -560,9 +569,11 @@ public:
 
         check_framebuffer();
 
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(depth_texture.height(out_lvl));
@@ -574,15 +585,19 @@ public:
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
         glUseProgram(program_);
 
-        // const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                                             opencv2opengl_ *
+                                             pose.matrix();
+        // const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
 
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
+        glUniform1f(near_plane_loc_, RenderConstants::NEAR_PLANE);
+        glUniform1f(far_plane_loc_, RenderConstants::FAR_PLANE);
 
         mesh.draw();
 
@@ -591,6 +606,8 @@ public:
 
 private:
     GLint t_matrix_loc_ = -1;
+    GLint near_plane_loc_ = -1;
+    GLint far_plane_loc_ = -1;
 };
 
 class ImageRendererGL : public BaseRendererGL
@@ -661,7 +678,11 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_SCISSOR_TEST);
+        // glDisable(GL_SCISSOR_TEST);
+        // this is because of the flip in y in the output image
+        // so that we can display using opencv
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -673,7 +694,7 @@ public:
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
         // #if defined(GL_VERSION_4_5)
@@ -691,7 +712,7 @@ public:
         glUseProgram(program_);
 
         const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                             /*opencv2opengl_*/
+                                             opencv2opengl_ *
                                              pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
@@ -916,7 +937,6 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
                 const TextureGL<float> &f_texture,
                 TextureGL<float> &r_texture)
     {
@@ -950,14 +970,14 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, kf_texture.id());
+            glBindTextureUnit(0, mesh.diffuse_.id());
             glBindTextureUnit(1, f_texture.id());
         }
         else
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
+            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, f_texture.id());
         }
@@ -968,7 +988,7 @@ public:
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);                          // texture unit
-        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata()); // **int**, not float
+        glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata()); // **int**, not float
         glUniform1i(kf_image_lvl_loc_, in_lvl);                 // **int**, not float
 
         glUniform1i(f_image_loc_, 1);                         // texture unit
@@ -1223,12 +1243,11 @@ public:
         dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
     }
 
-    void Render(const MeshGL &mesh,
+    void Render(MeshGL &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
                 const TextureGL<float> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
@@ -1293,7 +1312,7 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, kf_texture.id());
+            glBindTextureUnit(0, mesh.diffuse_.id());
             glBindTextureUnit(1, f_texture.id());
             glBindTextureUnit(2, dfdxy_texture.id());
         }
@@ -1301,7 +1320,7 @@ public:
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
+            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, f_texture.id());
             glActiveTexture(GL_TEXTURE2);
@@ -1317,7 +1336,7 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
-        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
+        glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata());
         glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
@@ -1523,7 +1542,6 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
                 const TextureGL<float> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
@@ -1545,6 +1563,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1588,7 +1608,7 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, kf_texture.id());
+            glBindTextureUnit(0, mesh.diffuse_.id());
             glBindTextureUnit(1, f_texture.id());
             glBindTextureUnit(2, dfdxy_texture.id());
         }
@@ -1596,7 +1616,7 @@ public:
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
+            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, f_texture.id());
             glActiveTexture(GL_TEXTURE2);
@@ -1612,7 +1632,7 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
-        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
+        glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata());
         glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
@@ -1838,7 +1858,6 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &f_texture,
                 TextureGL<float> &image_texture,
                 TextureGL<float> &depth_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
@@ -1864,6 +1883,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1929,13 +1950,13 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, f_texture.id());
+            glBindTextureUnit(0, mesh.diffuse_.id());
         }
         else
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, f_texture.id());
+            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
         }
 
         glUseProgram(program_);
@@ -1947,7 +1968,7 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(f_image_loc_, 0);
-        glUniform1f(f_image_nodata_loc_, f_texture.nodata());
+        glUniform1f(f_image_nodata_loc_, mesh.diffuse_.nodata());
         glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));

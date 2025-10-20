@@ -32,15 +32,15 @@
 
 #include <iostream>
 
-// template <typename T>
-// using Texture = TextureCPU<T>;
-// using Mesh = MeshCPU;
-// using Renderer = ImageRendererCPU;
-
 template <typename T>
-using Texture = TextureGL<T>;
-using Mesh = MeshGL;
-using Renderer = ImageRendererGL;
+using Texture = TextureCPU<T>;
+using Mesh = MeshCPU;
+using Renderer = ImageRendererCPU;
+
+// template <typename T>
+// using Texture = TextureGL<T>;
+// using Mesh = MeshGL;
+// using Renderer = ImageRendererGL;
 
 static bool LoadAssimpMesh(const std::string &path,
                            std::vector<Eigen::Vector3f> &vertices,
@@ -218,7 +218,7 @@ int main()
     // std::vector<float> texcoords;
     // std::vector<unsigned int> indices;
 
-    std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/planet/planet.obj";
+    std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/rock/rock.obj";
     // std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/bunny/bun_zipper_res4.ply";
 
     if (!LoadAssimpMesh(mesh_path,
@@ -270,7 +270,7 @@ int main()
 
     // render loop
     // -----------
-    float dist = 1.5f;
+    float dist = -1.5f;
 
     float fov_deg = 90.0f;
 
@@ -281,14 +281,14 @@ int main()
 
     Camera<float> camera1(fx, fy, cx, cy, width, height);
 
-    linalg::Mat4<float> p_ = camera1.GetProjectiveMatrix(0.1f, 100.0f);
+    // linalg::Mat4<float> p_ = camera1.GetProjectiveMatrix(0.1f, 100.0f);
 
-    linalg::SE3<float> view_l_;
-    view_l_.translation() = linalg::Vec3<float>(0.0f, 0.0f, -dist);
-    linalg::Mat4<float> v_ = view_l_.matrix();
+    // linalg::SE3<float> view_l_;
+    // view_l_.translation() = linalg::Vec3<float>(0.0f, 0.0f, dist);
+    // linalg::Mat4<float> v_ = view_l_.matrix();
 
-    linalg::SE3<float> model_l_;
-    linalg::Mat4<float> m_ = model_l_.matrix();
+    // linalg::SE3<float> model_l_;
+    // linalg::Mat4<float> m_ = model_l_.matrix();
 
     int i = 0;
     while (true)
@@ -308,7 +308,7 @@ int main()
         view_e_.block<3, 1>(0, 3) = -R * camPos;
         view_e_.row(3) = Eigen::Vector4f(0, 0, 0, 1);
 
-        v_ = EigenToLinalg(view_e_);
+        linalg::Mat4<float> v_ = EigenToLinalg(view_e_);
 
         linalg::SE3<float> transform(v_);
 

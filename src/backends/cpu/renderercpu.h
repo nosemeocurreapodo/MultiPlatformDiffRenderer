@@ -189,12 +189,11 @@ public:
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
                 TextureCPU<float> &f_texture,
                 TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
@@ -205,7 +204,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        JPoseRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture);
+        JPoseRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture);
     }
 
 private:
@@ -218,12 +217,11 @@ public:
     JMapRendererCPU() = default;
     ~JMapRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
                 TextureCPU<float> &f_texture,
                 TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
@@ -234,7 +232,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        JMapRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture);
+        JMapRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture);
     }
 
 private:
@@ -247,12 +245,11 @@ public:
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &f_texture,
                 TextureCPU<float> &image_texture,
                 TextureCPU<float> &depth_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
@@ -264,7 +261,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
     }
 
 private:

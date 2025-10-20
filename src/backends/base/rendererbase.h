@@ -15,17 +15,28 @@
 
 // Edge function E_ab(p) = (vout[1].screen(1)-vout[0].screen(1))*px + (vout[0].screen(0)-vout[1].screen(0))*py + (vout[1].screen(0)*vout[0].screen(1) - vout[0].screen(0)*vout[1].screen(1))
 template <typename T>
-inline T edge_func(T ax, T ay, T bx, T by, T px, T py)
+inline T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
-    return (by - ay) * (px - ax) + (ax - bx) * (py - ay);
-    // return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
+    // return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
+    //  return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
+    linalg::Vec2<T> v10 = v1 - v0;
+    linalg::Vec2<T> v20 = v2 - v0;
+    // for y up
+    // return v10.cross(v20);
+    // for y down
+    return v20.cross(v10);
+    // return (v2(1) - v0(1)) * (v1(0) - v0(0)) - (v2(0) - v0(0)) * (v1(1) - v0(1));
 }
 
 // Top-left test: returns true if edge is a "top" or "left" edge
 template <typename T>
-inline bool is_top_left(T ax, T ay, T bx, T by)
+inline bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
-    return (ay == by) ? (bx < ax) : (ay < by);
+    // return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
+    // for y up
+    // return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
+    // for y down
+    return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
 // -----------------------------------------------------------------------------
@@ -38,6 +49,7 @@ public:
     RendererBase()
     {
         opencv2opengl_ = linalg::Mat4<MathType>::Identity();
+        opencv2opengl_(1, 1) = -1.0; // flip Z like your original intent
         opencv2opengl_(2, 2) = -1.0; // flip Z like your original intent
     };
     // virtual ~RendererBase() = default;
@@ -146,24 +158,22 @@ protected:
         // const MathType area = triangle_area<MathType>(vout[0].screen,
         //                                              vout[1].screen,
         //                                              vout[2].screen);
-        MathType area2 = edge_func(vout[0].screen(0), vout[0].screen(1),
-                                   vout[1].screen(0), vout[1].screen(1),
-                                   vout[2].screen(0), vout[2].screen(1)); // 2*area with sign
-                                                                          // ErrorHandling::ValidateTriangleArea(area);
-        if (area2 == MathType(0))
+        MathType area2 = edge_func(vout[0].screen, vout[1].screen, vout[2].screen); // 2*area with sign
+
+        if (area2 < MathType(0))
             return; // enable to cull backfaces
 
-        // Enforce CCW so the inside test is consistent
-        if (area2 < MathType(0))
-        {
-            std::swap(vout[1], vout[2]);
-            // area2 = edge(X(0), Y(0), X(1), Y(1), X(2), Y(2));
-            area2 = edge_func(vout[0].screen(0), vout[0].screen(1),
-                              vout[1].screen(0), vout[1].screen(1),
-                              vout[2].screen(0), vout[2].screen(1));
-            if (area2 <= MathType(0))
-                return; // still degenerate
-        }
+        /*
+    // Enforce CCW so the inside test is consistent
+    if (area2 < MathType(0))
+    {
+        std::swap(vout[1], vout[2]);
+        // area2 = edge(X(0), Y(0), X(1), Y(1), X(2), Y(2));
+        area2 = edge_func(vout[0].screen, vout[1].screen, vout[2].screen);
+        if (area2 <= MathType(0))
+            return; // still degenerate
+    }
+    */
 
         // Triangle bounding box (float → int, clamp to viewport)
         MathType minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
@@ -189,29 +199,31 @@ protected:
         // ErrorHandling::ValidateTriangleArea(area2);
         // ErrorHandling::ValidateNonZero(area2, "triangle area calculation");
 
-        const bool tlAB = is_top_left(vout[0].screen(0), vout[0].screen(1), vout[1].screen(0), vout[1].screen(1));
-        const bool tlBC = is_top_left(vout[1].screen(0), vout[1].screen(1), vout[2].screen(0), vout[2].screen(1));
-        const bool tlCA = is_top_left(vout[2].screen(0), vout[2].screen(1), vout[0].screen(0), vout[0].screen(1));
+        const bool tlAB = is_top_left(vout[0].screen, vout[1].screen);
+        const bool tlBC = is_top_left(vout[1].screen, vout[2].screen);
+        const bool tlCA = is_top_left(vout[2].screen, vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        const MathType px0 = static_cast<MathType>(x0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-        const MathType py0 = static_cast<MathType>(y0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        linalg::Vec2<MathType> p;
+        p(0) = static_cast<MathType>(x0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p(1) = static_cast<MathType>(y0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
 
-        MathType eAB_row = edge_func(vout[0].screen(0), vout[0].screen(1), vout[1].screen(0), vout[1].screen(1), px0, py0);
-        MathType eBC_row = edge_func(vout[1].screen(0), vout[1].screen(1), vout[2].screen(0), vout[2].screen(1), px0, py0);
-        MathType eCA_row = edge_func(vout[2].screen(0), vout[2].screen(1), vout[0].screen(0), vout[0].screen(1), px0, py0);
+        MathType eAB_row = edge_func(vout[0].screen, vout[1].screen, p);
+        MathType eBC_row = edge_func(vout[1].screen, vout[2].screen, p);
+        MathType eCA_row = edge_func(vout[2].screen, vout[0].screen, p);
 
         // MathType eAB = eAB_row;
         // MathType eBC = eBC_row;
         // MathType eCA = eCA_row;
 
         // Step increments when moving +1 in X or +1 in Y
-        const MathType eAB_dx = (vout[1].screen(1) - vout[0].screen(1));
-        const MathType eAB_dy = (vout[0].screen(0) - vout[1].screen(0));
-        const MathType eBC_dx = (vout[2].screen(1) - vout[1].screen(1));
-        const MathType eBC_dy = (vout[1].screen(0) - vout[2].screen(0));
-        const MathType eCA_dx = (vout[0].screen(1) - vout[2].screen(1));
-        const MathType eCA_dy = (vout[2].screen(0) - vout[0].screen(0));
+        // for y down, the - is needed
+        const MathType eAB_dx = -(vout[0].screen(1) - vout[1].screen(1));
+        const MathType eAB_dy = -(vout[1].screen(0) - vout[0].screen(0));
+        const MathType eBC_dx = -(vout[1].screen(1) - vout[2].screen(1));
+        const MathType eBC_dy = -(vout[2].screen(0) - vout[1].screen(0));
+        const MathType eCA_dx = -(vout[2].screen(1) - vout[0].screen(1));
+        const MathType eCA_dy = -(vout[0].screen(0) - vout[2].screen(0));
 
     // Rasterize
     draw_triangle_raster_loop_y:
@@ -696,7 +708,7 @@ public:
         // #pragma HLS INLINE
         //  std::cout << "calling vertex shader " << std::endl;
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
-        outVarying.depth = vertexdata.vertex(2);
+        outVarying.depth = gl_Position(2);
     }
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
@@ -704,7 +716,16 @@ public:
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
-        textures.out_texture.set_texel_(gl_FragCoord(2), int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        // MathType depth = (far_plane - near_plane)*gl_FragCoord(2) + near_plane;
+        MathType depth = in_varying.depth;
+
+        MathType depth_old = textures.out_texture.texel_(int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
+        {
+            return;
+        }
+
+        textures.out_texture.set_texel_(depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
     linalg::Mat4<MathType> t_matrix_;
@@ -761,7 +782,7 @@ public:
         out_texture.fill(out_lvl, out_texture.nodata());
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                    /*this->opencv2opengl_ */
+                    this->opencv2opengl_ *
                     pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
@@ -1287,12 +1308,11 @@ public:
     JPoseRendererBase() = default;
     ~JPoseRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &kf_texture,
                 Texture<ImageType> &f_texture,
                 Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,
@@ -1321,7 +1341,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
+        Textures textures{mesh.diffuse_, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
 
         RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, textures);
     }
@@ -1462,12 +1482,11 @@ public:
     JMapRendererBase() = default;
     ~JMapRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &kf_texture,
                 Texture<ImageType> &f_texture,
                 Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jmap_texture,
@@ -1496,7 +1515,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
+        Textures textures{mesh.diffuse_, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
 
         RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, textures);
     }
@@ -1644,7 +1663,7 @@ public:
 
     struct Textures
     {
-        Texture<ImageType> &f_texture;
+        Texture<ImageType> &diffuse_texture;
         Texture<ImageType> &image_texture;
         Texture<DepthType> &depth_texture;
         Texture<linalg::Vec3<DType>> &jtra_texture;
@@ -1673,12 +1692,11 @@ public:
     DiffRendererBase() = default;
     ~DiffRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &f_texture,
                 Texture<ImageType> &image_texture,
                 Texture<DepthType> &depth_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,
@@ -1711,7 +1729,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
+        Textures textures{mesh.diffuse_, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
         RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, textures);
     }
@@ -1786,8 +1804,6 @@ public:
         unsigned int width = textures.jmap_texture.width(out_lvl_);
         unsigned int height = textures.jmap_texture.height(out_lvl_);
 
-        // linalg::Vec2<MathType>screen_tevout[2].screen(0)oord(gl_FragCoord(0) / T(width), gl_FragCoord(1) / T(height));
-
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
         linalg::Vec2<MathType> texcoord = in_varying.texcoord;
@@ -1795,13 +1811,13 @@ public:
         linalg::Vec3<int> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        ImageType f = sample<ImageType, Texture<ImageType>>(textures.f_texture, in_varying.texcoord(1), in_varying.texcoord(0), out_lvl_);
-        if (f == textures.f_texture.nodata())
+        ImageType f = sample<ImageType, Texture<ImageType>>(textures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        if (f == textures.diffuse_texture.nodata())
             return;
 
-        linalg::Vec3<DType> f_der = compute_didxy(textures.f_texture, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = compute_didxy(textures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
 
-        if (f_der(0) == textures.f_texture.nodata() && f_der(1) == textures.f_texture.nodata())
+        if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
             return;
 
         linalg::Vec3<MathType> d_f_i_d_f_ver;
