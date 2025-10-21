@@ -1,12 +1,12 @@
 #pragma once
 
 // #include "core/types.h"
+#include <Eigen/Core>
 #include "core/camera.h"
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
-#include "backends/cpu/meshcpu.h"
 
-inline std::vector<linalg::Vec2<float>> UniformTexCoords(int width, int height)
+std::vector<linalg::Vec2<float>> UniformTexCoords(int width, int height)
 {
     std::vector<linalg::Vec2<float>> texcoords;
     for (int y = 0; y < height; y++)
@@ -24,20 +24,20 @@ inline std::vector<linalg::Vec2<float>> UniformTexCoords(int width, int height)
     return texcoords;
 }
 
-inline float RandomDepth(float min_depth, float max_depth)
+float RandomDepth(float min_depth, float max_depth)
 {
     float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
     return depth;
 }
 
-inline float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_depth)
+float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
     return depth;
 }
 
-inline void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<unsigned int> &tris_f)
+void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<unsigned int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
     std::vector<linalg::Vec2<float>> tex_coords_2d;
@@ -59,9 +59,9 @@ inline void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::
 }
 
 // Screen quad for image-space rendering
-inline void CreateScreenQuad(std::vector<Eigen::Vector3f> &pos,
-                             std::vector<Eigen::Vector2f> &uv,
-                             std::vector<unsigned int> &indices)
+void CreateScreenQuad(std::vector<Eigen::Vector3f> &pos,
+                      std::vector<Eigen::Vector2f> &uv,
+                      std::vector<unsigned int> &indices)
 {
     pos = {{-1.f, 1.f, 1.f}, {-1.f, -1.f, 1.f}, {1.f, -1.f, 1.f}, {-1.f, 1.f, 1.f}, {1.f, -1.f, 1.f}, {1.f, 1.f, 1.f}};
     uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
@@ -69,30 +69,37 @@ inline void CreateScreenQuad(std::vector<Eigen::Vector3f> &pos,
     BuildTriangles(uv, indices);
 }
 
-inline void CreateMesh(const TextureCPU<float> &depth,
-                       Camera<float> &cam, int grid_size,
-                       std::vector<Eigen::Vector3f> &vertices,
-                       std::vector<Eigen::Vector2f> &texcoords,
-                       std::vector<Eigen::Vector3f> &normals,
-                       std::vector<unsigned int> &indices)
+void CreateMesh(const TextureCPU<float> &depth,
+                Camera<float> &cam, int grid_size,
+                std::vector<float> &vertex,
+                std::vector<unsigned int> &indices,
+                bool add_pos = true,
+                bool add_tex = true,
+                bool add_normal = true)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
-    vertices.clear();
-    texcoords.clear();
-    normals.clear();
+    int stride = 0;
+    if (add_pos)
+        stride += 3;
+    if (add_tex)
+        stride += 2;
+    if (add_normal)
+        stride += 3;
 
-    vertices.reserve(grid_uv.size());
+    std::vector<Eigen::Vector2f> texcoords;
     texcoords.reserve(grid_uv.size());
-    normals.reserve(grid_uv.size()); // <-- NEW
+
+    vertex.clear();
+    vertex.reserve(grid_uv.size() * stride);
 
     const int w = depth.width(0);
     const int h = depth.height(0);
     auto depth_mm = depth.MapRead(0);
 
     // UV step for the grid (neighbors)
-    const float du = (grid_size > 1) ? 1.0f / float(grid_size - 1) : 1.0f;
-    const float dv = du;
+    const float du = 5.0f / float(w - 1);
+    const float dv = 5.0f / float(h - 1);
 
     auto clamp01 = [](float x)
     { return std::max(0.0f, std::min(1.0f, x)); };
@@ -100,8 +107,11 @@ inline void CreateMesh(const TextureCPU<float> &depth,
     // Sample a 3D point from (u,v) using nearest-neighbor depth. Returns false if invalid.
     auto sample_pos = [&](float u, float v, linalg::Vec3<float> &out) -> bool
     {
-        u = clamp01(u);
-        v = clamp01(v);
+        // u = clamp01(u);
+        // v = clamp01(v);
+
+        if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
+            return false;
 
         const float ix = u * float(w - 1);
         const float iy = v * float(h - 1);
@@ -109,7 +119,7 @@ inline void CreateMesh(const TextureCPU<float> &depth,
         const int y = static_cast<int>(iy + 0.5f);
 
         const float z = depth_mm[y * w + x];
-        if (z <= 0.0f)
+        if (z <= 0.0f || z == depth.nodata())
             return false;
 
         const linalg::Vec2<float> uv{u, v};
@@ -144,6 +154,8 @@ inline void CreateMesh(const TextureCPU<float> &depth,
             dUvec = PR - P; // forward diff
         else if (hasL)
             dUvec = P - PL; // backward diff
+        else
+            continue;
 
         if (hasU && hasD)
             dVvec = PU - PD;
@@ -151,14 +163,143 @@ inline void CreateMesh(const TextureCPU<float> &depth,
             dVvec = PU - P;
         else if (hasD)
             dVvec = P - PD;
+        else
+            continue;
 
         // Normal from cross product (right-handed): n = normalize(dU x dV)
-        linalg::Vec3<float> N = dUvec.cross(dVvec);
-        const float len2 = N(0) * N(0) + N(1) * N(1) + N(2) * N(2);
+        linalg::Vec3<float> N = -dUvec.cross(dVvec);
+        const float len2 = N.norm();
         if (len2 > 1e-12f)
         {
-            const float invLen = 1.0f / std::sqrt(len2);
-            N = N * invLen;
+            N = N / len2;
+        }
+        else
+        {
+            // Degenerate neighborhood: fall back to a view-facing normal
+            const linalg::Vec3<float> ray = -cam.PixToRay(uv);
+            N = ray.normalized();
+        }
+
+        if (add_pos)
+        {
+            vertex.push_back(P(0));
+            vertex.push_back(P(1));
+            vertex.push_back(P(2));
+        }
+        if (add_tex)
+        {
+            vertex.push_back(u);
+            vertex.push_back(v);
+        }
+        if (add_normal)
+        {
+            vertex.push_back(N(0));
+            vertex.push_back(N(1));
+            vertex.push_back(N(2));
+        }
+
+        texcoords.push_back(Eigen::Vector2f(u, v));
+    }
+
+    BuildTriangles(texcoords, indices);
+}
+
+void CreateMesh(const TextureCPU<float> &depth,
+                Camera<float> &cam, int grid_size,
+                std::vector<Eigen::Vector3f> &vertices,
+                std::vector<Eigen::Vector2f> &texcoords,
+                std::vector<Eigen::Vector3f> &normals,
+                std::vector<unsigned int> &indices)
+{
+    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+
+    vertices.clear();
+    texcoords.clear();
+    normals.clear();
+
+    vertices.reserve(grid_uv.size());
+    texcoords.reserve(grid_uv.size());
+    normals.reserve(grid_uv.size()); // <-- NEW
+
+    const int w = depth.width(0);
+    const int h = depth.height(0);
+    auto depth_mm = depth.MapRead(0);
+
+    // UV step for the grid (neighbors)
+    const float du = 5.0f / float(w - 1);
+    const float dv = 5.0f / float(h - 1);
+
+    auto clamp01 = [](float x)
+    { return std::max(0.0f, std::min(1.0f, x)); };
+
+    // Sample a 3D point from (u,v) using nearest-neighbor depth. Returns false if invalid.
+    auto sample_pos = [&](float u, float v, linalg::Vec3<float> &out) -> bool
+    {
+        // u = clamp01(u);
+        // v = clamp01(v);
+
+        if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
+            return false;
+
+        const float ix = u * float(w - 1);
+        const float iy = v * float(h - 1);
+        const int x = static_cast<int>(ix + 0.5f); // nearest; switch to bilinear if you like
+        const int y = static_cast<int>(iy + 0.5f);
+
+        const float z = depth_mm[y * w + x];
+        if (z <= 0.0f || z == depth.nodata())
+            return false;
+
+        const linalg::Vec2<float> uv{u, v};
+        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        out = ray * z; // camera/world space position along the ray
+        return true;
+    };
+
+    for (const linalg::Vec2<float> &uv : grid_uv)
+    {
+        const float u = uv(0), v = uv(1);
+
+        // Center point
+        linalg::Vec3<float> P;
+        if (!sample_pos(u, v, P))
+            continue; // skip invalid vertex entirely (keep this if your pipeline expects sparse vertices)
+
+        // Neighbors for finite differences
+        linalg::Vec3<float> PR, PL, PU, PD;
+        const bool hasR = sample_pos(u + du, v, PR);
+        const bool hasL = sample_pos(u - du, v, PL);
+        const bool hasU = sample_pos(u, v + dv, PU);
+        const bool hasD = sample_pos(u, v - dv, PD);
+
+        // Tangents in world/camera space
+        linalg::Vec3<float> dUvec{0, 0, 0};
+        linalg::Vec3<float> dVvec{0, 0, 0};
+
+        if (hasR && hasL)
+            dUvec = PR - PL; // central diff
+        else if (hasR)
+            dUvec = PR - P; // forward diff
+        else if (hasL)
+            dUvec = P - PL; // backward diff
+        else
+            continue;
+
+        if (hasU && hasD)
+            dVvec = PU - PD;
+        else if (hasU)
+            dVvec = PU - P;
+        else if (hasD)
+            dVvec = P - PD;
+        else
+            continue;
+
+        // Normal from cross product (right-handed): n = normalize(dU x dV)
+        linalg::Vec3<float> N = -dUvec.cross(dVvec);
+        const float len2 = N.norm();
+        if (len2 > 1e-12f)
+        {
+            N = N / len2;
         }
         else
         {
@@ -176,11 +317,11 @@ inline void CreateMesh(const TextureCPU<float> &depth,
     BuildTriangles(texcoords, indices);
 }
 
-inline void CreateFlatMesh(float min_depth, float max_depth,
-                           Camera<float> &cam, int grid_size,
-                           std::vector<Eigen::Vector3f> &vertices,
-                           std::vector<Eigen::Vector2f> &texcoords,
-                           std::vector<unsigned int> &indices)
+void CreateFlatMesh(float min_depth, float max_depth,
+                    Camera<float> &cam, int grid_size,
+                    std::vector<Eigen::Vector3f> &vertices,
+                    std::vector<Eigen::Vector2f> &texcoords,
+                    std::vector<unsigned int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
@@ -207,11 +348,11 @@ inline void CreateFlatMesh(float min_depth, float max_depth,
     BuildTriangles(texcoords, indices);
 }
 
-inline void CreateSphereMesh(float depth,
-                             Camera<float> &cam, int grid_size,
-                             std::vector<Eigen::Vector3f> &vertices,
-                             std::vector<Eigen::Vector2f> &texcoords,
-                             std::vector<unsigned int> &indices)
+void CreateSphereMesh(float depth,
+                      Camera<float> &cam, int grid_size,
+                      std::vector<Eigen::Vector3f> &vertices,
+                      std::vector<Eigen::Vector2f> &texcoords,
+                      std::vector<unsigned int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 

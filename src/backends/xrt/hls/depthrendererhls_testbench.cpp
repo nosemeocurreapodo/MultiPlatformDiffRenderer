@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <Eigen/Core>
 
 #define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
 
@@ -10,14 +11,10 @@
 
 extern "C"
 {
-    void DepthRenderHLS(const float *pos_buffer_data,
-                        const float *tex_buffer_data,
-                        const float *wei_buffer_data,
+    void DepthRenderHLS(const float *vertex_buffer_data,
                         const unsigned int *ebo_buffer_data,
                         float *out_texture_data,
-                        unsigned int pos_buffer_size,
-                        unsigned int tex_buffer_size,
-                        unsigned int wei_buffer_size,
+                        unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
@@ -54,13 +51,20 @@ int main()
     cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
-    std::vector<float> vertices, texcoords, weights;
-    std::vector<unsigned int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
+    // std::vector<Eigen::Vector3f> vertices, normals;
+    // std::vector<Eigen::Vector2f> texcoords;
+    // std::vector<unsigned int> indices;
+    // CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, normals, indices);
 
-    std::vector<float> screen_vertices, screen_texcoords, screen_weights;
-    std::vector<unsigned int> screen_indices;
-    CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
+    std::vector<float> vertex;
+    std::vector<unsigned int> indices;
+
+    CreateMesh(depth_src_cpu, cam, 32,
+               vertex,
+               indices,
+               true,
+               true,
+               true);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
@@ -70,12 +74,10 @@ int main()
     auto depth_map = depth_out_cpu.MapWrite(0);
 
     DepthRenderHLS(
-        vertices.data(),
-        texcoords.data(),
-        weights.data(),
+        vertex.data(),
         indices.data(),
         depth_map.data(),
-        vertices.size(), texcoords.size(), weights.size(), indices.size(),
+        vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),

@@ -335,7 +335,8 @@ public:
             #version 330 core
 
             layout (location = 0) in vec3 aPos;
-            layout (location = 1) in vec3 aNormal;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 aNormal;
 
             uniform mat4 uModel;
             uniform mat4 uView;
@@ -363,10 +364,12 @@ public:
                 // Lighting vectors
                 vec3 L = normalize(uLightPos - fragPos);
                 vec3 V = normalize(uViewPos  - fragPos);
-                vec3 R = reflect(-L, N);
+                float n_dot_l = dot(N, L);
+                //vec3 R = reflect(L, N);
+                vec3 R = L - 2.0f * n_dot_l * N; // opengls reflect
 
                 // Phong reflectance model (computed per-vertex)
-                float NdotL = max(dot(N, L), 0.0);
+                float NdotL = max(n_dot_l, 0.0);
                 float spec = 0.0;
                 if (NdotL > 0.0) {
                     spec = pow(max(dot(V, R), 0.0), uShininess);
@@ -439,6 +442,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -459,8 +464,8 @@ public:
 
         // model already in world space
         linalg::Mat4<float> uModel = linalg::Mat4<float>::Identity();
-        linalg::Mat4<float> uView = pose.matrix();
-        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        linalg::Mat4<float> uView = this->opencv2opengl_ * pose.matrix();
+        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         linalg::Mat3<float> uNormalMatrix = linalg::Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
 
         linalg::Vec3<float> uViewPos = cam2world.translation(); // camera position in world space

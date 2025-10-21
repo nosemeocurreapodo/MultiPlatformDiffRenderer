@@ -43,7 +43,7 @@ public:
 
 private:
 };
-
+/*
 class DepthRendererBRAM
     : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType>, TextureBRAM>
 {
@@ -116,7 +116,7 @@ public:
 
 private:
 };
-
+*/
 class ImageRendererRAM
     : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureRAM>
 {
@@ -124,20 +124,21 @@ public:
     ImageRendererRAM() = default;
     ~ImageRendererRAM() = default;
 
-    void Render(const MeshHLS<MeshType> &mesh,
+    void Render(MeshHLS<MeshType> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAM<ImageType> &in_texture,
+                TextureRAM<MathType> &depth_texture,
                 TextureRAM<ImageType> &out_texture)
     {
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, out_texture);
     }
 
 private:
 };
 
+/*
 class ImageRendererBRAM
     : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType>, TextureBRAM>
 {
@@ -145,7 +146,7 @@ public:
     ImageRendererBRAM() = default;
     ~ImageRendererBRAM() = default;
 
-    void Render(const MeshHLS<MeshType> &mesh,
+    void Render(MeshHLS<MeshType> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
@@ -215,139 +216,6 @@ public:
 private:
 };
 
-class ResidualRendererRAM
-    : public ResidualRendererBase<MathType, ImageType, ErrorType, MeshHLS<MeshType>, TextureRAM>
-{
-public:
-    ResidualRendererRAM() = default;
-    ~ResidualRendererRAM() = default;
-
-    void Render(const MeshHLS<MeshType> &mesh,
-                const linalg::SE3<MathType> &pose,
-                const Camera<MathType> &cam,
-                int in_lvl,
-                int out_lvl,
-                TextureRAM<ImageType> &kf_texture,
-                TextureRAM<ImageType> &f_texture,
-                TextureRAM<ErrorType> &r_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        ResidualRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
-    }
-
-private:
-};
-
-class L2RendererRAM
-    : public L2RendererBase<MathType, ImageType, ErrorType, MeshHLS<MeshType>, TextureRAM>
-{
-public:
-    L2RendererRAM() = default;
-    ~L2RendererRAM() = default;
-
-    void Render(const MeshHLS<MeshType> &mesh,
-                const linalg::SE3<MathType> &pose,
-                const Camera<MathType> &cam,
-                unsigned int in_lvl,
-                unsigned int out_lvl,
-                TextureRAM<ImageType> &kf_texture,
-                TextureRAM<ImageType> &f_texture,
-                TextureRAM<ErrorType> &r_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
-    }
-
-private:
-};
-
-class DIDxyRendererRAM
-    : public DIDxyRendererBase<MathType, ImageType, DType, MeshHLS<MeshType>, TextureRAM>
-{
-public:
-    DIDxyRendererRAM() = default;
-    ~DIDxyRendererRAM() = default;
-
-    void Render(const MeshHLS<MeshType> &mesh,
-                unsigned int in_lvl,
-                unsigned int out_lvl,
-                TextureRAM<ImageType> &in_texture,
-                TextureRAM<linalg::Vec3<DType>> &out_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        DIDxyRendererBase::Render(mesh, in_lvl, out_lvl, in_texture, out_texture);
-    }
-
-private:
-};
-
-class JPoseRendererRAM
-    : public JPoseRendererBase<MathType, ImageType, DType, ErrorType, MeshHLS<MeshType>, TextureRAM>
-{
-public:
-    JPoseRendererRAM() = default;
-    ~JPoseRendererRAM() = default;
-
-    void Render(const MeshHLS<MeshType> &mesh,
-                const linalg::SE3<MathType> &pose,
-                const Camera<MathType> &cam,
-                unsigned int in_lvl,
-                unsigned int out_lvl,
-                TextureRAM<ImageType> &kf_texture,
-                TextureRAM<ImageType> &f_texture,
-                TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
-                TextureRAM<linalg::Vec3<DType>> &jtra_texture,
-                TextureRAM<linalg::Vec3<DType>> &jrot_texture,
-                TextureRAM<ErrorType> &r_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        JPoseRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture);
-    }
-
-private:
-};
-
-class JMapRendererRAM
-    : public JMapRendererBase<MathType, ImageType, DType, IdType, ErrorType, MeshHLS<MeshType>, TextureRAM>
-{
-public:
-    JMapRendererRAM() = default;
-    ~JMapRendererRAM() = default;
-
-    void Render(const MeshHLS<MeshType> &mesh,
-                const linalg::SE3<MathType> &pose,
-                const Camera<MathType> &cam,
-                unsigned int in_lvl,
-                unsigned int out_lvl,
-                TextureRAM<ImageType> &kf_texture,
-                TextureRAM<ImageType> &f_texture,
-                TextureRAM<linalg::Vec3<DType>> &dfdxy_texture,
-                TextureRAM<linalg::Vec3<DType>> &jmap_texture,
-                TextureRAM<linalg::Vec3<DType>> &pids_texture,
-                TextureRAM<ErrorType> &r_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        JMapRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture);
-    }
-
-private:
-};
-
 class DiffRendererRAM
     : public DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, MeshHLS<MeshType>, TextureRAM>
 {
@@ -355,12 +223,11 @@ public:
     DiffRendererRAM() = default;
     ~DiffRendererRAM() = default;
 
-    void Render(const MeshHLS<MeshType> &mesh,
+    void Render(MeshHLS<MeshType> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAM<ImageType> &f_texture,
                 TextureRAM<ImageType> &image_texture,
                 TextureRAM<DepthType> &depth_texture,
                 TextureRAM<linalg::Vec3<DType>> &jtra_texture,
@@ -372,8 +239,9 @@ public:
         // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
     }
 
 private:
 };
+*/

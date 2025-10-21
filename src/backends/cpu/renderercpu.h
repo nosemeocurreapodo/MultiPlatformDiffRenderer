@@ -14,6 +14,72 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
+void DepthRendererRef(const TextureCPU<float> &depth_texture,
+                      const linalg::SE3<float> &pose,
+                      const Camera<float> &cam,
+                      int out_lvl,
+                      TextureCPU<float> &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
+            linalg::Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
+            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
+            f_pix(1) = f_pix(1) * out_texture.height(out_lvl);
+            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
+            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
+                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
+void ImageRendererRef(const TextureCPU<float> &depth_texture,
+                      const TextureCPU<float> &image_texture,
+                      const linalg::SE3<float> &pose,
+                      const Camera<float> &cam,
+                      int out_lvl,
+                      TextureCPU<float> &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            float kf = image_texture.texel_(y, x, out_lvl);
+            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
+            linalg::Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
+            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
+            f_pix(1) = f_pix(1) * out_texture.height(out_lvl);
+            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
 class GouraudRendererCPU
     : public GouraudRendererBase<float, float, MeshCPU, TextureCPU>
 {

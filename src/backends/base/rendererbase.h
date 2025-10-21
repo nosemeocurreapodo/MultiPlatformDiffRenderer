@@ -4,6 +4,7 @@
 // #include <cmath>
 // #include <cstdint>
 #include "linalg/linalg.h"
+#include "backends/base/texturebase.h"
 #include "core/render_constants.h"
 // #include "core/error_handling.h"
 
@@ -15,7 +16,7 @@
 
 // Edge function E_ab(p) = (vout[1].screen(1)-vout[0].screen(1))*px + (vout[0].screen(0)-vout[1].screen(0))*py + (vout[1].screen(0)*vout[0].screen(1) - vout[0].screen(0)*vout[1].screen(1))
 template <typename T>
-inline T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
+T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
     // return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
     //  return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
@@ -30,7 +31,7 @@ inline T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const l
 
 // Top-left test: returns true if edge is a "top" or "left" edge
 template <typename T>
-inline bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
+bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
     // return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
     // for y up
@@ -386,8 +387,8 @@ public:
 
         // model already in world space
         uModel_ = linalg::Mat4<MathType>::Identity();
-        uView_ = pose.matrix();
-        uProjection_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        uView_ = this->opencv2opengl_ * pose.matrix();
+        uProjection_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uNormalMatrix_ = linalg::Mat3<MathType>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
 
         uLightPos_ = light_pos;
@@ -457,8 +458,8 @@ public:
         // Lighting vectors
         linalg::Vec3<MathType> L = (uLightPos_ - fragPos).normalized();
         linalg::Vec3<MathType> V = (uViewPos_ - fragPos).normalized();
-        MathType n_dot_l = N.dot(-L);
-        linalg::Vec3<MathType> R = -L - MathType(2) * n_dot_l * N; // opengls reflect
+        MathType n_dot_l = N.dot(L);
+        linalg::Vec3<MathType> R = L - MathType(2) * n_dot_l * N; // opengls reflect
 
         // Phong reflectance model (computed per-vertex)
         MathType NdotL = max(n_dot_l, MathType(0));
@@ -482,7 +483,7 @@ public:
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
-        textures.out_texture.set_texel_(in_varying.vColor, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        textures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     linalg::Mat4<MathType> uModel_;        // model to world space
@@ -719,13 +720,13 @@ public:
         // MathType depth = (far_plane - near_plane)*gl_FragCoord(2) + near_plane;
         MathType depth = in_varying.depth;
 
-        MathType depth_old = textures.out_texture.texel_(int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
-        if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
-        {
-            return;
-        }
+        // MathType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
+        //{
+        //     return;
+        // }
 
-        textures.out_texture.set_texel_(depth, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
+        textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     linalg::Mat4<MathType> t_matrix_;
@@ -847,13 +848,13 @@ public:
             return;
 
         // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // linalg::Vec2<MathType> coord;
-        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
-        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
+        // ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        linalg::Vec2<MathType> coord;
+        coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
+        coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
 
         // ImageType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
-        // ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
+        ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
 
         if (pix == textures.in_texture.nodata())
             return;

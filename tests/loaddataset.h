@@ -467,6 +467,14 @@ private:
                 pose.setQuaternion(linalg::Quaternion<float>(values[7], values[4], values[5], values[6]));
                 pose.translation() = linalg::Vec3<float>(values[1], values[2], values[3]);
 
+                // linalg::Mat4<float> pos2opencv = linalg::Mat4<float>::Identity();
+                // pos2opencv(1, 1) = -1.0f;
+                // pos2opencv(2, 2) = -1.0f;
+
+                // linalg::Mat4<float> corrected = pos2opencv * pose.matrix();
+
+                // linalg::SE3<float> posecorrected(corrected);
+
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);
             }
@@ -491,10 +499,10 @@ public:
         std::string depth_path = dataset_path + "/depths";
         std::string poses_path = dataset_path + "/poses";
 
-        this->depth_factor_ = 3.0;
+        this->depth_factor_ = 1.0 / 255.0; // 275.0;
 
         getdir(images_path, this->image_files_);
-        // getdir(depth_path, this->depth_files_);
+        getdir(depth_path, this->depth_files_);
         std::vector<std::string> pose_files;
         getdir(poses_path, pose_files);
 

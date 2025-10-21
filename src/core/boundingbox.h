@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/types.h"
-#include "core/common.h"
 
 template <typename T>
 class BoundingBox
@@ -18,10 +17,10 @@ public:
     template <typename Vec2Type>
     BoundingBox(Vec2Type t1, Vec2Type t2, Vec2Type t3)
     {
-        min_x_ = Type(min(min(t1(0), t2(0)), t3(0)));
-        max_x_ = Type(max(max(t1(0), t2(0)), t3(0)));
-        min_y_ = Type(min(min(t1(1), t2(1)), t3(1)));
-        max_y_ = Type(max(max(t1(1), t2(1)), t3(1)));
+        min_x_ = T(min(min(t1(0), t2(0)), t3(0)));
+        max_x_ = T(max(max(t1(0), t2(0)), t3(0)));
+        min_y_ = T(min(min(t1(1), t2(1)), t3(1)));
+        max_y_ = T(max(max(t1(1), t2(1)), t3(1)));
     }
 
     bool IsPixInBoundingBox(T x, T y)

@@ -87,7 +87,7 @@ TEST_F(CrossBackendTests, MipMapComparison)
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
-/*
+
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, GouraudRenderingComparison)
 {
@@ -104,13 +104,13 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
 
-    linalg::Vec3<float> light_pos(10.0, 0.0, 0.0);
-    linalg::Vec3<float> light_color(0.2, 0.0, 0.0);
-    linalg::Vec3<float> ambient_reflectance(0.2, 0.2, 0.2);
-    linalg::Vec3<float> diffuse_reflectance(0.2, 0.2, 0.2);
-    linalg::Vec3<float> specular_reflectance(0.2, 0.2, 0.2);
-    float shininess = 0.0;
-    linalg::Vec3<float> ambient_light(0.0, 0.0, 0.2);
+    linalg::Vec3<float> light_pos(0.0, -0.5, 0.1);
+    linalg::Vec3<float> light_color(1.0, 0.0, 0.0);
+    linalg::Vec3<float> ambient_reflectance(0.0, 0.0, 0.0);
+    linalg::Vec3<float> diffuse_reflectance(0.0, 0.0, 0.0);
+    linalg::Vec3<float> specular_reflectance(1.0, 1.0, 1.0);
+    float shininess = 1.0;
+    linalg::Vec3<float> ambient_light(0.0, 0.0, 0.0);
 
     for (int lvl = 0; lvl < output_cpu.levels(); ++lvl)
     {
@@ -164,7 +164,7 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
     // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
 }
-*/
+
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
