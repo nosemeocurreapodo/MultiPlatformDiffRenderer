@@ -53,7 +53,7 @@ extern "C"
                                ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAMCached<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererRAM renderer;
         // DepthRendererBRAM renderer;

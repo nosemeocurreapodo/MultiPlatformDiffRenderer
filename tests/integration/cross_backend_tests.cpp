@@ -135,7 +135,7 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
 
         // Detailed error analysis
         double l2_error = ComputeL2Error(cpu_result, gl_result, cv::Vec3f(-1.0f, -1.0f, -1.0f));
-        EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error << " lvl " << lvl;
+        EXPECT_LT(l2_error, thresholds_.cr_max_gouraud_error) << "Cross-backend validation failed with L2 error: " << l2_error << " lvl " << lvl;
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 

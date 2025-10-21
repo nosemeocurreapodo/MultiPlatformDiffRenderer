@@ -26,7 +26,7 @@ using DType = float;
 using IdType = float;
 
 class DepthRendererRAM
-    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType>, TextureRAM>
+    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType>, TextureRAMCached>
 {
 public:
     DepthRendererRAM() = default;
@@ -36,7 +36,7 @@ public:
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int out_lvl,
-                TextureRAM<float> &out_texture)
+                TextureRAMCached<float> &out_texture)
     {
         DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
     }

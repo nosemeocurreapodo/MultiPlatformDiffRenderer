@@ -218,13 +218,21 @@ protected:
         // MathType eCA = eCA_row;
 
         // Step increments when moving +1 in X or +1 in Y
+        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
+        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
+        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
+        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
+        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
+        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
         // for y down, the - is needed
-        const MathType eAB_dx = -(vout[0].screen(1) - vout[1].screen(1));
-        const MathType eAB_dy = -(vout[1].screen(0) - vout[0].screen(0));
-        const MathType eBC_dx = -(vout[1].screen(1) - vout[2].screen(1));
-        const MathType eBC_dy = -(vout[2].screen(0) - vout[1].screen(0));
-        const MathType eCA_dx = -(vout[2].screen(1) - vout[0].screen(1));
-        const MathType eCA_dy = -(vout[0].screen(0) - vout[2].screen(0));
+        const MathType eAB_dx = (vout[1].screen(1) - vout[0].screen(1));
+        const MathType eAB_dy = (vout[0].screen(0) - vout[1].screen(0));
+        const MathType eBC_dx = (vout[2].screen(1) - vout[1].screen(1));
+        const MathType eBC_dy = (vout[1].screen(0) - vout[2].screen(0));
+        const MathType eCA_dx = (vout[0].screen(1) - vout[2].screen(1));
+        const MathType eCA_dy = (vout[2].screen(0) - vout[0].screen(0));
+
+        // derived_().read_cache(y0, y1, x0, x1, textures);
 
     // Rasterize
     draw_triangle_raster_loop_y:
@@ -273,11 +281,11 @@ protected:
                     MathType w2 = eAB * inv_area2 * vout[2].invW;
 
                     // Perspective: 1/w at pixel
-                    const MathType invW_px = w0 + w1 + w2;
+                    const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
 
-                    w0 /= invW_px;
-                    w1 /= invW_px;
-                    w2 /= invW_px;
+                    w0 *= inv_invW_px;
+                    w1 *= inv_invW_px;
+                    w2 *= inv_invW_px;
 
                     typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
                                                                                             vout[0].var, vout[1].var, vout[2].var);
@@ -299,7 +307,7 @@ protected:
                     gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                     gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                     gl_FragCoord(2) = depth_px;
-                    gl_FragCoord(3) = MathType(1) / invW_px;
+                    gl_FragCoord(3) = inv_invW_px;
 
                     derived_().fragment_shader(gl_FragCoord, varying_px, textures);
                 }
@@ -328,6 +336,8 @@ protected:
             // eBC_row += eBC_dy;
             // eCA_row += eCA_dy;
         }
+
+        // derived_().write_cache(y0, y1, x0, x1, textures);
     }
 
     // Derived derived_() { return static_cast<Derived &>(*this); }
@@ -645,7 +655,7 @@ public:
 
     struct Varyings
     {
-        float depth;
+        MathType depth;
     };
 
     DepthRendererBase() = default;
@@ -677,10 +687,10 @@ public:
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
         VertexData vertexdata;
-
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        unsigned int base = vertexid * mesh.stride_ + mesh.pos_offset_;
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + 2];
 
         return vertexdata;
     }
@@ -720,16 +730,41 @@ public:
         // MathType depth = (far_plane - near_plane)*gl_FragCoord(2) + near_plane;
         MathType depth = in_varying.depth;
 
-        // MathType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        // if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
-        //{
-        //     return;
-        // }
+        DepthType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
+        {
+            return;
+        }
 
         textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
+    /*
+    void read_cache(int y0, int y1, int x0, int x1, int lvl, Textures &textures)
+    {
+        for (int y = 0; y < y1 - y0; ++y)
+        {
+            for (int x = 0; x < x1 - x0; ++x)
+            {
+                cashe_[y * 32 + x] = textures.out_texture.texel_(y + y0, x + x0, lvl);
+            }
+        }
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, int lvl, Textures &textures)
+    {
+        for (int y = 0; y < y1 - y0; ++y)
+        {
+            for (int x = 0; x < x1 - x0; ++x)
+            {
+                MathType data = cashe_[y * 32 + x];
+                textures.out_texture.set_texel_(data, y + y0, x + x0, lvl);
+            }
+        }
+    }
+    */
 
     linalg::Mat4<MathType> t_matrix_;
+    MathType cashe_[32 * 32];
     unsigned int out_lvl_;
 };
 
@@ -848,13 +883,13 @@ public:
             return;
 
         // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        linalg::Vec2<MathType> coord;
-        coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
-        coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
+        ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // linalg::Vec2<MathType> coord;
+        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
+        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
 
         // ImageType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
-        ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
+        // ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
 
         if (pix == textures.in_texture.nodata())
             return;
