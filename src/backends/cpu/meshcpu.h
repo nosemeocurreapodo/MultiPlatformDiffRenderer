@@ -58,6 +58,7 @@ public:
             vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
             vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
         }
+        diffuse_.generate_mipmaps(0);
         // validate_();
     }
 

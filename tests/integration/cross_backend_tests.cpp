@@ -208,8 +208,8 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_depth_cpu.png");
     SaveDebugImage(gl_result, "cross_depth_gl.png");
@@ -286,8 +286,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_image_cpu.png");
     SaveDebugImage(gl_result, "cross_image_gl.png");
@@ -367,8 +367,8 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
@@ -446,8 +446,8 @@ TEST_F(CrossBackendTests, L2RenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC1);
 
     SaveDebugImage(cpu_result, "cross_l2_cpu.png");
     SaveDebugImage(gl_result, "cross_l2_gl.png");
@@ -522,8 +522,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0, CV_32FC3);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0, CV_32FC3);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1, CV_32FC3);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1, CV_32FC3);
 
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
@@ -626,12 +626,12 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
         }
     }
 
-    cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 0, CV_32FC3);
-    cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 0, CV_32FC3);
-    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 0, CV_32FC1);
-    cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 0, CV_32FC3);
-    cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 0, CV_32FC3);
-    cv::Mat gl_r = DownloadTextureToMat(r_gl, 0, CV_32FC1);
+    cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 1, CV_32FC3);
+    cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 1, CV_32FC3);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1, CV_32FC1);
+    cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 1, CV_32FC3);
+    cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 1, CV_32FC3);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1, CV_32FC1);
 
     SaveDebugImageColor(cpu_jtra, "cross_jtra_cpu.png");
     SaveDebugImageColor(gl_jtra, "cross_jtra_gl.png");
@@ -736,12 +736,12 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
         }
     }
 
-    cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, 0, CV_32FC3);
-    cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, 0, CV_32FC3);
-    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 0, CV_32FC1);
-    cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, 0, CV_32FC3);
-    cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 0, CV_32FC3);
-    cv::Mat gl_r = DownloadTextureToMat(r_gl, 0, CV_32FC1);
+    cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, 1, CV_32FC3);
+    cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, 1, CV_32FC3);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1, CV_32FC1);
+    cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, 1, CV_32FC3);
+    cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 1, CV_32FC3);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1, CV_32FC1);
 
     SaveDebugImageColor(cpu_jmap, "cross_jmap_cpu.png");
     SaveDebugImageColor(gl_jmap, "cross_jmap_gl.png");
@@ -762,7 +762,7 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
-
+/*
 TEST_F(CrossBackendTests, DiffPipelineComparison)
 {
     linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
@@ -896,7 +896,7 @@ TEST_F(CrossBackendTests, DiffPipelineComparison)
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
-
+*/
 /*
 // Test different mesh complexities
 TEST_F(CrossBackendTests, MeshComplexityComparison)

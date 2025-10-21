@@ -6,6 +6,7 @@
 // #include <utility>
 // #include <vector>
 // #include <cmath>
+#include <cstring>
 #include "backends/base/texturebase.h"
 #include "backends/cpu/buffercpu.h"
 
@@ -35,7 +36,8 @@ public:
         : TextureCPU(w, h, nodata)
     {
         auto m = MapWrite(0);
-        std::copy_n(base, w * h, m.data());
+        // std::copy_n(base, w * h, m.data());
+        std::memcpy(m.data(), base, w * h * sizeof(T));
     }
 
     // Rule of 5

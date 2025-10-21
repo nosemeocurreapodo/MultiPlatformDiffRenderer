@@ -170,7 +170,7 @@ TYPED_TEST_P(RendererTypedTests, L2RendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_, this->image_src_cv_);
-    typename Traits::template TextureT<float> input2(this->w_, this->h_, -.0f);
+    typename Traits::template TextureT<float> input2(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     UploadMatToTexture(input2, 0, this->image_dst_cv_);
@@ -268,8 +268,8 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh_img(this->screen_vertices_, this->screen_texcoords_, this->screen_indices_, this->image_src_cv_);
-    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_);
+    typename Traits::MeshT mesh_img(this->screen_vertices_, this->screen_texcoords_, this->screen_indices_);
+    typename Traits::MeshT mesh(this->vertices_, this->texcoords_, this->indices_, this->image_src_cv_);
 
     typename Traits::template TextureT<float> f_tex(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));

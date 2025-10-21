@@ -847,13 +847,13 @@ public:
             return;
 
         // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        linalg::Vec2<MathType> coord;
-        coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
-        coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
+        ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // linalg::Vec2<MathType> coord;
+        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
+        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
 
         // ImageType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
-        ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
+        // ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
 
         if (pix == textures.in_texture.nodata())
             return;

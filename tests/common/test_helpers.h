@@ -201,8 +201,8 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nod
             if (val1 != nodata_value && val2 != nodata_value)
             {
                 double diff = static_cast<double>(val1 - val2);
+                
                 total_error += diff * diff;
-
                 valid_pixels++;
             }
         }
@@ -230,12 +230,14 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, cv::Vec3f
             {
                 // Handle vector types like cv::Vec3f
                 auto diff = val1 - val2;
+                double l2_error = 0.0;
                 for (int i = 0; i < diff.channels; ++i)
                 {
                     double d = static_cast<double>(diff[i]);
-                    total_error += d * d;
+                    l2_error += d * d;
                 }
-
+                l2_error = std::sqrt(l2_error);
+                total_error += l2_error;
                 valid_pixels++;
             }
         }

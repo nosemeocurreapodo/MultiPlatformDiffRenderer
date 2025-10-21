@@ -814,6 +814,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -953,6 +955,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -987,9 +991,9 @@ public:
         const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
-        glUniform1i(kf_image_loc_, 0);                          // texture unit
+        glUniform1i(kf_image_loc_, 0);                             // texture unit
         glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata()); // **int**, not float
-        glUniform1i(kf_image_lvl_loc_, in_lvl);                 // **int**, not float
+        glUniform1i(kf_image_lvl_loc_, in_lvl);                    // **int**, not float
 
         glUniform1i(f_image_loc_, 1);                         // texture unit
         glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
@@ -1102,6 +1106,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -1807,7 +1813,7 @@ public:
                     discard;
                 }
 
-                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.xy), tex_size, f_image_nodata, f_image_lvl);
+                vec2 dfdxy = get_dfdxy(f_image, ivec2(texcoord.x*tex_size.x, texcoord.y*tex_size.y), tex_size, f_image_nodata, f_image_lvl);
 
                 if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
                 {
