@@ -29,6 +29,13 @@ public:
             glGenFramebuffers(1, &fbo_);
         }
 
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glGenRenderbuffers(1, &rbo_);
+        glBindRenderbuffer(GL_RENDERBUFFER, rbo_);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1280, 1280); // use a single renderbuffer object for both a depth AND stencil buffer.
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         opencv2opengl_ = linalg::Mat4<float>::Identity();
         opencv2opengl_(1, 1) = -1.0;
         opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
@@ -155,6 +162,7 @@ protected:
 
     GLuint program_ = 0;
     GLuint fbo_ = 0;
+    GLuint rbo_;
 
     GLint prevFbo_ = 0, prevProg_ = 0, prevViewport_[4];
 
@@ -673,6 +681,7 @@ public:
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_); // now actually attach it
 
         const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs);
@@ -1884,6 +1893,8 @@ public:
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, jmap_texture.id(), out_lvl);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, pids_texture.id(), out_lvl);
 
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_); // now actually attach it
+
         const GLenum bufs[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
         glDrawBuffers(6, bufs);
 
@@ -1947,7 +1958,7 @@ public:
         const GLenum bufs5[1] = {GL_COLOR_ATTACHMENT5};
         glDrawBuffers(1, bufs5);
         glClearColor(pids_clear[0], pids_clear[1], pids_clear[2], pids_clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1

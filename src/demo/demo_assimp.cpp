@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
 
-    float dist = -1.5f;
+    float dist = -5.5f;
     float fov_deg = 90.0f;
 
     float fx = 0.5f * width / std::tan(0.5f * fov_deg * float(M_PI / 180.0));
