@@ -22,12 +22,6 @@
 #include "backends/gl/renderergl.h"
 // #endif
 
-template <typename T>
-using Texture = TextureGL<T>;
-using Mesh = MeshGL;
-using ImageRenderer = DiffRendererGL;
-// using ImageRenderer = ImageRendererGL;
-
 int main(int argc, char **argv)
 {
     // Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
@@ -92,16 +86,25 @@ int main(int argc, char **argv)
     const int in_lvl = 0;
     const int out_lvl = 0;
 
-    ImageRenderer renderer;
+    DiffRendererCPU renderercpu;
+    DiffRendererGL renderergl;
 
-    Mesh mesh(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshCPU meshcpu(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshGL meshgl(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
 
-    Texture<float> image(width, height, -1.0f);
-    Texture<float> depth(width, height, -1.0f);
-    Texture<linalg::Vec3<float>> jtra(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    Texture<linalg::Vec3<float>> jrot(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    Texture<linalg::Vec3<float>> jmap(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    Texture<linalg::Vec3<float>> pids(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<float> imagecpu(width, height, -1.0f);
+    TextureCPU<float> depthcpu(width, height, -1.0f);
+    TextureCPU<linalg::Vec3<float>> jtracpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jrotcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> jmapcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<linalg::Vec3<float>> pidscpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+
+    TextureGL<float> imagegl(width, height, -1.0f);
+    TextureGL<float> depthgl(width, height, -1.0f);
+    TextureGL<linalg::Vec3<float>> jtragl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jrotgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> jmapgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<linalg::Vec3<float>> pidsgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
     // Turntable loop
     const int max_frames = 600; // ~20 seconds at 30 FPS
@@ -128,9 +131,14 @@ int main(int argc, char **argv)
     texture_names.push_back("jmap");
     texture_names.push_back("pids");
 
+    std::vector<std::string> backend_names;
+    backend_names.push_back("cpu");
+    backend_names.push_back("gl");
+
     // for (int i = 0; i < max_frames; ++i)
     int i = 0;
     int toshow = 0;
+    int backend = 0;
     while (true)
     {
         i++;
@@ -153,18 +161,32 @@ int main(int argc, char **argv)
         linalg::SE3<float> transform(v_);
 
         auto t0 = std::chrono::high_resolution_clock::now();
-        // renderer.Render(mesh, transform, camera, in_lvl, out_lvl, image);
-        renderer.Render(mesh,
-                        transform,
-                        camera,
-                        in_lvl,
-                        out_lvl,
-                        image,
-                        depth,
-                        jtra,
-                        jrot,
-                        jmap,
-                        pids);
+        if (backend == 0)
+            // renderercpu.Render(meshcpu, transform, camera, in_lvl, out_lvl, imagecpu);
+            renderercpu.Render(meshcpu,
+                               transform,
+                               camera,
+                               in_lvl,
+                               out_lvl,
+                               imagecpu,
+                               depthcpu,
+                               jtracpu,
+                               jrotcpu,
+                               jmapcpu,
+                               pidscpu);
+        if (backend == 1)
+            // renderergl.Render(meshgl, transform, camera, in_lvl, out_lvl, imagegl);
+            renderergl.Render(meshgl,
+                              transform,
+                              camera,
+                              in_lvl,
+                              out_lvl,
+                              imagegl,
+                              depthgl,
+                              jtragl,
+                              jrotgl,
+                              jmapgl,
+                              pidsgl);
 
         auto t1 = std::chrono::high_resolution_clock::now();
 
@@ -173,17 +195,35 @@ int main(int argc, char **argv)
 
         cv::Mat out_f;
         if (toshow == 0)
-            out_f = DownloadTextureToMat(image, out_lvl, CV_32FC1);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(imagecpu, out_lvl, CV_32FC1);
+            else
+                out_f = DownloadTextureToMat(imagegl, out_lvl, CV_32FC1);
         if (toshow == 1)
-            out_f = DownloadTextureToMat(depth, out_lvl, CV_32FC1);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(depthcpu, out_lvl, CV_32FC1);
+            else
+                out_f = DownloadTextureToMat(depthgl, out_lvl, CV_32FC1);
         if (toshow == 2)
-            out_f = DownloadTextureToMat(jtra, out_lvl, CV_32FC3);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(jtracpu, out_lvl, CV_32FC3);
+            else
+                out_f = DownloadTextureToMat(jtragl, out_lvl, CV_32FC3);
         if (toshow == 3)
-            out_f = DownloadTextureToMat(jrot, out_lvl, CV_32FC3);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(jrotcpu, out_lvl, CV_32FC3);
+            else
+                out_f = DownloadTextureToMat(jrotgl, out_lvl, CV_32FC3);
         if (toshow == 4)
-            out_f = DownloadTextureToMat(jmap, out_lvl, CV_32FC3);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(jmapcpu, out_lvl, CV_32FC3);
+            else
+                out_f = DownloadTextureToMat(jmapgl, out_lvl, CV_32FC3);
         if (toshow == 5)
-            out_f = DownloadTextureToMat(pids, out_lvl, CV_32FC3);
+            if (backend == 0)
+                out_f = DownloadTextureToMat(pidscpu, out_lvl, CV_32FC3);
+            else
+                out_f = DownloadTextureToMat(pidsgl, out_lvl, CV_32FC3);
 
         // Pretty up the single-channel output
         cv::Mat out_u8, out_color;
@@ -201,7 +241,7 @@ int main(int argc, char **argv)
         // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
         double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
         cv::putText(out_color,
-                    std::string(typeid(renderer).name()) + "  " + texture_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
+                    backend_names[backend] + "  " + texture_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
         cv::imshow("Rasterizer Demo", out_color);
@@ -217,6 +257,11 @@ int main(int argc, char **argv)
         {
             toshow++;
             toshow %= 6;
+        }
+        if (key == 'z')
+        {
+            backend++;
+            backend %= 2;
         }
     }
 
