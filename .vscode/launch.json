@@ -104,9 +104,9 @@
             "name": "(gdb) Launch Renderer Demo",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/demo/demo",
+            "program": "${workspaceFolder}/build/src/demo/demo",
             "args": [
-                "${workspaceFolder}/tests/data/bunny/bun_zipper_res4.ply",
+                "${workspaceFolder}/src/tests/data/planet/planet.obj",
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

@@ -25,9 +25,9 @@
 #include <iostream>
 
 template <typename T>
-using Texture = TextureCPU<T>;
-using Mesh = MeshCPU;
-using Renderer = ImageRendererCPU;
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
+using Renderer = ImageRendererGL;
 
 // template <typename T>
 // using Texture = TextureGL<T>;
@@ -36,26 +36,27 @@ using Renderer = ImageRendererCPU;
 
 int main()
 {
-    std::vector<Eigen::Vector3f> vertices;
-    std::vector<Eigen::Vector3f> normals;
-    std::vector<Eigen::Vector2f> texcoords;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
     std::vector<std::string> textures;
+    bool has_positions, has_texcoords, has_normals;
 
     // std::vector<float> vertices;
     // std::vector<float> normals;
     // std::vector<float> texcoords;
     // std::vector<unsigned int> indices;
 
-    std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/cyborg/cyborg.obj";
+    //std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/src/tests/data/cyborg/cyborg.obj";
+    std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/src/tests/data/planet/planet.obj";
     // std::string mesh_path = "/workspaces/MultiPlatformDiffRenderer/tests/data/bunny/bun_zipper_res4.ply";
 
     if (!LoadAssimpMesh(mesh_path,
-                        vertices,
-                        texcoords,
-                        normals,
+                        vertex,
                         indices,
-                        textures))
+                        textures,
+                        has_positions,
+                        has_texcoords,
+                        has_normals))
     {
         std::cout << "Failed to load model" << std::endl;
         return -1;
@@ -91,7 +92,7 @@ int main()
     // UploadMatToTexture(in_texture, 0, diffuse);
 
     // Mesh mesh(vertices, normals, texcoords, indices);
-    Mesh mesh(vertices, texcoords, normals, indices, diffuse);
+    Mesh mesh(vertex, indices, diffuse, has_positions, has_texcoords, has_normals);
 
     Renderer renderer;
 

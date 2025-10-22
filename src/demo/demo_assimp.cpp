@@ -26,6 +26,7 @@ template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
 using ImageRenderer = DiffRendererGL;
+// using ImageRenderer = ImageRendererGL;
 
 int main(int argc, char **argv)
 {
@@ -44,17 +45,17 @@ int main(int argc, char **argv)
     const unsigned int height = 720;
 
     // Load mesh via Assimp
-    std::vector<Eigen::Vector3f> vertices, normals;
-    std::vector<Eigen::Vector2f> texcoords;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
     std::vector<std::string> textures;
+    bool has_positions, has_texcoords, has_normals;
 
-    if (!LoadAssimpMesh(model_path, vertices, texcoords, normals, indices, textures))
+    if (!LoadAssimpMesh(model_path, vertex, indices, textures, has_positions, has_texcoords, has_normals))
     {
         return 1;
     }
 
-    std::cout << "Model loaded. Vertices: " << (vertices.size() / 3)
+    std::cout << "Model loaded. Vertices: " << (vertex.size() / 3)
               << "  Tris: " << (indices.size() / 3) << std::endl;
 
     if (!InitEGL())
@@ -93,7 +94,7 @@ int main(int argc, char **argv)
 
     ImageRenderer renderer;
 
-    Mesh mesh(vertices, texcoords, normals, indices, diffuse_cv);
+    Mesh mesh(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
 
     Texture<float> image(width, height, -1.0f);
     Texture<float> depth(width, height, -1.0f);
@@ -152,7 +153,7 @@ int main(int argc, char **argv)
         linalg::SE3<float> transform(v_);
 
         auto t0 = std::chrono::high_resolution_clock::now();
-        // renderer.Render(mesh, transform, camera, in_lvl, out_lvl, output);
+        // renderer.Render(mesh, transform, camera, in_lvl, out_lvl, image);
         renderer.Render(mesh,
                         transform,
                         camera,
@@ -200,7 +201,7 @@ int main(int argc, char **argv)
         // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
         double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
         cv::putText(out_color,
-                    "Frame " + std::to_string(i) + "  " + texture_names[toshow] + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
+                    std::string(typeid(renderer).name()) + "  " + texture_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
         cv::imshow("Rasterizer Demo", out_color);

@@ -31,11 +31,12 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
 }
 
 bool LoadAssimpMesh(const std::string &path,
-                    std::vector<Eigen::Vector3f> &vertices,
-                    std::vector<Eigen::Vector2f> &texcoords,
-                    std::vector<Eigen::Vector3f> &normals,
+                    std::vector<float> &vertex,
                     std::vector<unsigned int> &indices,
-                    std::vector<std::string> &textures)
+                    std::vector<std::string> &textures,
+                    bool &has_positions,
+                    bool &has_texcoords,
+                    bool &has_normals)
 // static bool LoadAssimpMesh(const std::string &path,
 //                            std::vector<float> &vertices,
 //                            std::vector<float> &normals,
@@ -64,9 +65,7 @@ bool LoadAssimpMesh(const std::string &path,
         return false;
     }
 
-    vertices.clear();
-    normals.clear();
-    texcoords.clear();
+    vertex.clear();
     indices.clear();
 
     std::string base_path = path.substr(0, path.find_last_of('/'));
@@ -85,45 +84,54 @@ bool LoadAssimpMesh(const std::string &path,
     unsigned m = 0;
     {
         const aiMesh *mesh = scene->mMeshes[m];
+
+        has_positions = true;
+
+        if (mesh->mTextureCoords[0])
+            has_texcoords = true;
+        else
+            has_texcoords = false;
+
+        if (mesh->HasNormals())
+            has_normals = true;
+        else
+            has_normals = false;
+
+        vertex.reserve(mesh->mNumVertices * 8);
+        indices.reserve(mesh->mNumFaces * 3);
+
         // vertices & uvs
         for (unsigned v = 0; v < mesh->mNumVertices; ++v)
         {
             aiVector3D p = mesh->mVertices[v];
-            aiVector3D n = mesh->mNormals[v];
-
             Eigen::Vector3f vertice(p.x, p.y, p.z);
             // p.z = -p.z;
-            vertices.push_back(vertice);
-            // vertices.push_back(p.x);
-            // vertices.push_back(p.y);
-            // vertices.push_back(p.z);
+            // vertex.push_back(vertice);
+            vertex.push_back(p.x);
+            vertex.push_back(p.y);
+            vertex.push_back(p.z);
 
-            if (mesh->HasNormals())
+            // if (mesh->HasTextureCoords(0))
+            if (has_texcoords)
             {
-                Eigen::Vector3f normal(n.x, n.y, n.z);
-                normals.push_back(normal);
-                // normals.push_back(n.x);
-                // normals.push_back(n.y);
-                // normals.push_back(n.z);
+                aiVector3D t = mesh->mTextureCoords[0][v];
+                // texcoords.push_back(Eigen::Vector2f(t.x, t.y));
+                vertex.push_back(t.x);
+                vertex.push_back(t.y);
+            }
+
+            if (has_normals)
+            {
+                aiVector3D n = mesh->mNormals[v];
+                // Eigen::Vector3f normal(n.x, n.y, n.z);
+                // normals.push_back(normal);
+                vertex.push_back(n.x);
+                vertex.push_back(n.y);
+                vertex.push_back(n.z);
             }
 
             minB = minB.cwiseMin(vertice);
             maxB = maxB.cwiseMax(vertice);
-
-            // if (mesh->HasTextureCoords(0))
-            if (mesh->mTextureCoords[0])
-            {
-                aiVector3D t = mesh->mTextureCoords[0][v];
-                texcoords.push_back(Eigen::Vector2f(t.x, t.y));
-                // texcoords.push_back(t.x);
-                // texcoords.push_back(t.y);
-            }
-            else
-            {
-                texcoords.push_back(Eigen::Vector2f(0.0f, 0.0f));
-                // texcoords.push_back(0.0f);
-                // texcoords.push_back(0.0f);
-            }
         }
         // indices
         for (unsigned f = 0; f < mesh->mNumFaces; ++f)
@@ -149,6 +157,7 @@ bool LoadAssimpMesh(const std::string &path,
         }
     }
 
+    /*
     Eigen::Vector3f center = 0.5f * (minB + maxB);
     float radius = (maxB - center).norm();
 
@@ -157,6 +166,7 @@ bool LoadAssimpMesh(const std::string &path,
         vertices[i] -= center;
         vertices[i] /= radius;
     }
+    */
 
     return true;
 }

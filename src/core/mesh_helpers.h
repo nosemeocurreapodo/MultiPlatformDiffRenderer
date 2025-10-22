@@ -59,17 +59,21 @@ void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<
 }
 
 // Screen quad for image-space rendering
-void CreateScreenQuad(std::vector<Eigen::Vector3f> &pos,
-                      std::vector<Eigen::Vector2f> &uv,
+void CreateScreenQuad(std::vector<float> &vertex,
                       std::vector<unsigned int> &indices)
 {
-    pos = {{-1.f, 1.f, 1.f}, {-1.f, -1.f, 1.f}, {1.f, -1.f, 1.f}, {-1.f, 1.f, 1.f}, {1.f, -1.f, 1.f}, {1.f, 1.f, 1.f}};
-    uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
+    vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
+              -1.f, -1.f, 1.f, 0.f, 0.f,
+              1.f, -1.f, 1.f, 1.f, 0.f,
+              -1.f, 1.f, 1.f, 0.f, 1.f,
+              1.f, -1.f, 1.f, 1.f, 0.f,
+              1.f, 1.f, 1.f, 1.f, 1.f};
+    std::vector<Eigen::Vector2f> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     // indices = {0, 1, 2, 0, 2, 3};
     BuildTriangles(uv, indices);
 }
 
-void CreateMesh(const TextureCPU<float> &depth,
+void CreateMesh(const cv::Mat &depth,
                 Camera<float> &cam, int grid_size,
                 std::vector<float> &vertex,
                 std::vector<unsigned int> &indices,
@@ -93,9 +97,8 @@ void CreateMesh(const TextureCPU<float> &depth,
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
 
-    const int w = depth.width(0);
-    const int h = depth.height(0);
-    auto depth_mm = depth.MapRead(0);
+    const int w = depth.cols;
+    const int h = depth.rows;
 
     // UV step for the grid (neighbors)
     const float du = 5.0f / float(w - 1);
@@ -118,8 +121,8 @@ void CreateMesh(const TextureCPU<float> &depth,
         const int x = static_cast<int>(ix + 0.5f); // nearest; switch to bilinear if you like
         const int y = static_cast<int>(iy + 0.5f);
 
-        const float z = depth_mm[y * w + x];
-        if (z <= 0.0f || z == depth.nodata())
+        const float z = depth.at<float>(y, x);
+        if (z <= 0.0f)
             return false;
 
         const linalg::Vec2<float> uv{u, v};

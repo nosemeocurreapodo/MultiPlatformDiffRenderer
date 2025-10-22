@@ -14,7 +14,7 @@ target_include_directories(renderer_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/thirdparty
     ${OpenCV_INCLUDE_DIRS}
 )
-target_compile_definitions(renderer_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+target_compile_definitions(renderer_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/src/tests/data")
 
 # Add GL-specific libs/defs when enabled
 if(COMPILE_GL)

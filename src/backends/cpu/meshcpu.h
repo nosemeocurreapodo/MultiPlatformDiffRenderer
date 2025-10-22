@@ -11,162 +11,48 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
-    MeshCPU(const std::vector<Eigen::Vector3f> &positions,
-            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
-            const std::vector<unsigned int> &indices)
-        : stride_(5),
-          pos_offset_(0),
-          tex_offset_(3),
-          nor_offset_(-1),
-          vertex_buffer_(positions.size() * 5),
-          ebo_buffer_(indices)
-    {
-        assert(positions.size() == texcoords.size());
-
-        for (int i = 0; i < positions.size(); ++i)
-        {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
-
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
-        }
-        // validate_();
-    }
-
-    MeshCPU(const std::vector<Eigen::Vector3f> &positions,
-            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
+    MeshCPU(const std::vector<float> &vertex,
             const std::vector<unsigned int> &indices,
-            const cv::Mat &diffuse)
-        : stride_(5),
-          pos_offset_(0),
-          tex_offset_(3),
-          nor_offset_(-1),
-          vertex_buffer_(positions.size() * 5),
-          ebo_buffer_(indices),
-          diffuse_(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr())
+            const cv::Mat &diffuse,
+            bool has_position = true,
+            bool has_texcoord = true,
+            bool has_normal = true)
     {
-        assert(positions.size() == texcoords.size());
+        stride_ = 0;
 
-        for (int i = 0; i < positions.size(); ++i)
+        if (has_position)
         {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
-
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
+            pos_offset_ = 0;
+            stride_ += 3;
         }
+        else
+        {
+            pos_offset_ = -1;
+        }
+        if (has_texcoord)
+        {
+            tex_offset_ = 3;
+            stride_ += 2;
+        }
+        else
+        {
+            tex_offset_ = -1;
+        }
+        if (has_normal)
+        {
+            nor_offset_ = 5;
+            stride_ += 3;
+        }
+        else
+        {
+            nor_offset_ = -1;
+        }
+
+        vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
+        ebo_buffer_ = BufferCPU<unsigned int>(indices.size(), indices.data());
+
+        diffuse_ = TextureCPU<float>(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr());
         diffuse_.generate_mipmaps(0);
-        // validate_();
-    }
-
-    MeshCPU(const std::vector<Eigen::Vector3f> &positions, // 3 floats per vertex
-            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
-            const std::vector<Eigen::Vector3f> &normals,
-            const std::vector<unsigned int> &indices)
-        : stride_(8),
-          pos_offset_(0),
-          tex_offset_(3),
-          nor_offset_(5),
-          vertex_buffer_(positions.size() * 8),
-          ebo_buffer_(indices)
-    {
-        assert(positions.size() == texcoords.size());
-
-        for (int i = 0; i < positions.size(); ++i)
-        {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
-
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
-
-            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[i].x();
-            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[i].y();
-            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[i].z();
-        }
-
-        // validate_();
-    }
-
-    MeshCPU(const std::vector<Eigen::Vector3f> &positions, // 3 floats per vertex
-            const std::vector<Eigen::Vector2f> &texcoords, // 2 floats per vertex
-            const std::vector<Eigen::Vector3f> &normals,
-            const std::vector<unsigned int> &indices,
-            const cv::Mat &diffuse)
-        : stride_(8),
-          pos_offset_(0),
-          tex_offset_(3),
-          nor_offset_(5),
-          vertex_buffer_(positions.size() * 8),
-          ebo_buffer_(indices),
-          diffuse_(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr())
-    {
-        assert(positions.size() == texcoords.size());
-
-        for (int i = 0; i < positions.size(); ++i)
-        {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[i].x();
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[i].y();
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[i].z();
-
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[i].x();
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[i].y();
-
-            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[i].x();
-            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[i].y();
-            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[i].z();
-        }
-
-        diffuse_.generate_mipmaps(0);
-
-        // validate_();
-    }
-
-    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
-            const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<unsigned int> &indices)
-        : stride_(5),
-          pos_offset_(0),
-          tex_offset_(3),
-          nor_offset_(-1),
-          vertex_buffer_(positions.size() + texcoords.size()),
-          ebo_buffer_(indices)
-    {
-        for (int i = 0; i < positions.size() / 3; ++i)
-        {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[3 * i + 0];
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[3 * i + 1];
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[3 * i + 2];
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[2 * i + 0];
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[2 * i + 1];
-        }
-
-        // validate_();
-    }
-
-    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
-            const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<float> &normals,
-            const std::vector<unsigned int> &indices)
-        : vertex_buffer_(positions.size() + normals.size() + texcoords.size()),
-          ebo_buffer_(indices)
-    {
-        for (int i = 0; i < positions.size() / 3; ++i)
-        {
-            vertex_buffer_[stride_ * i + pos_offset_ + 0] = positions[3 * i + 0];
-            vertex_buffer_[stride_ * i + pos_offset_ + 1] = positions[3 * i + 1];
-            vertex_buffer_[stride_ * i + pos_offset_ + 2] = positions[3 * i + 2];
-            vertex_buffer_[stride_ * i + tex_offset_ + 0] = texcoords[2 * i + 0];
-            vertex_buffer_[stride_ * i + tex_offset_ + 1] = texcoords[2 * i + 1];
-            vertex_buffer_[stride_ * i + nor_offset_ + 0] = normals[3 * i + 0];
-            vertex_buffer_[stride_ * i + nor_offset_ + 1] = normals[3 * i + 1];
-            vertex_buffer_[stride_ * i + nor_offset_ + 2] = normals[3 * i + 2];
-        }
-        // validate_();
     }
 
     // Copy/move

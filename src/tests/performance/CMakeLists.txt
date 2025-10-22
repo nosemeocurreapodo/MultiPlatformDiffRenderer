@@ -18,7 +18,7 @@ if(benchmark_FOUND)
         ${CMAKE_SOURCE_DIR}/thirdparty
         ${OpenCV_INCLUDE_DIRS}
     )
-    target_compile_definitions(benchmark_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+    target_compile_definitions(benchmark_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/src/tests/data")
     target_sources(benchmark_tests PRIVATE ../common/test_framework.cpp)
 
     # Add GL support conditionally
