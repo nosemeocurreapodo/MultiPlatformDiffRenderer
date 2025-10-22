@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/types.h"
+#include "core/math_common.h"
 
 template <typename T>
 class BoundingBox

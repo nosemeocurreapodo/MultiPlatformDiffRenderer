@@ -4,12 +4,6 @@
 #include <typeinfo>
 #include <opencv2/opencv.hpp>
 
-template <typename T>
-inline std::type_index GetTypeIndex()
-{
-    return std::type_index(typeid(T));
-}
-
 inline int GetOpenCVFormat(std::type_index tindex, int channels)
 {
     static std::map<std::pair<std::type_index, int>, int> opencv_format_map;

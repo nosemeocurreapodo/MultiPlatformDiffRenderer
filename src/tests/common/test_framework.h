@@ -3,20 +3,19 @@
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
 #include <chrono>
-#include <memory>
-#include <string>
-#include <vector>
-#include <functional>
-#include <fstream>
-#include <sstream>
-#include "../test_config.h"
+// #include <memory>
+// #include <string>
+// #include <vector>
+// #include <functional>
+// #include <fstream>
+// #include <sstream>
 
-#include "core/format_converters.h"
-#include "core/types.h"
-#include "core/common.h"
+#include "core/mesh_helpers.h"
+
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
+
 #ifdef COMPILE_GL
 #include "backends/gl/devicegl_glad.h"
 #include "backends/gl/texturegl.h"
@@ -29,8 +28,10 @@
 #include "backends/xrt/hls/meshhls.h"
 #include "backends/xrt/hls/rendererhls.h"
 #endif
-#include "loaddataset.h"
-#include "test_helpers.h"
+
+#include "tests/common/test_config.h"
+#include "tests/common/loaddataset.h"
+#include "tests/common/test_helpers.h"
 
 // Performance measurement utilities
 class PerformanceTimer

@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "core/common.h"
 #include "common/test_helpers.h"
 #include "model.h"
 #include "linalg/converters.h"

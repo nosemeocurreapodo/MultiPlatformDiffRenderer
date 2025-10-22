@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 project(MultiPlatformDiffRenderer)
 
 option(COMPILE_GL "Enable OpenGL compilation" ON)
+option(COMPILE_GLES2 "Enable GLES2 compilation" OFF)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
 option(COMPILE_DEMO "Enable Demo compilation" ON)
@@ -17,9 +18,8 @@ endif()
 
 include_directories(
         "src"
-        "tests"
         "HLSLinearAlgebra/include"
-        ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+#        ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         ${PROJECT_SOURCE_DIR}/thirdparty
         ${EIGEN3_INCLUDE_DIR}
         ${OpenCV_INCLUDE_DIRS}
@@ -34,15 +34,33 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-# Build glad library
+if(COMPILE_GL AND COMPILE_GLES2)
+    message(WARNING "Both GL and GLES2 are selected, plase just pick one, disabling both for nor")
+    set(COMPILE_GL OFF)
+    set(COMPILE_GLES2 OFF)
+endif()
+
 if(COMPILE_GL)
     add_library(glad STATIC
-        thirdparty/glad/gl.c
-        thirdparty/glad/egl.c
+        thirdparty/glad2/src/gl.c
+        thirdparty/glad2/src/egl.c
     )
     target_include_directories(glad PUBLIC 
         thirdparty
-        thirdparty/glad
+        thirdparty/glad2/include
+    )
+    target_include_directories(glad PRIVATE thirdparty)
+endif()
+
+# Build glad library
+if(COMPILE_GLES2)
+    add_library(glad STATIC
+        thirdparty/glad2/src/gles2.c
+        thirdparty/glad2/src/egl.c
+    )
+    target_include_directories(glad PUBLIC 
+        thirdparty
+        thirdparty/glad2/include
     )
     target_include_directories(glad PRIVATE thirdparty)
 endif()
@@ -83,11 +101,11 @@ if(COMPILE_HLS AND VITIS_EXECUTABLE)
 endif()
 
 if(COMPILE_DEMO)
-    add_subdirectory(demo)
-    add_subdirectory(simple_example)
+    add_subdirectory(src/demo)
+    add_subdirectory(src/simple_example)
 endif()
 
 include(CTest)
 enable_testing()
 
-add_subdirectory(tests)
+add_subdirectory(src/tests)

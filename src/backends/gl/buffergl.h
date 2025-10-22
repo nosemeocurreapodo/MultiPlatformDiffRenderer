@@ -111,10 +111,6 @@ public:
     }
 
     std::size_t size() const noexcept { return size_; }
-
-private:
-    friend class MeshGL;
-
     GLuint id() const noexcept { return id_; }
 
     GLuint id_ = 0;

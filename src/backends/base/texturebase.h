@@ -7,7 +7,7 @@
 // #include <vector>
 // #include <cmath> // std::floor, std::fmod
 
-#include "core/types.h"
+#include "core/math_common.h"
 
 enum class AddressMode
 {
@@ -128,23 +128,20 @@ T sample(Tex &tex,
                : bilinear<T, Tex>(tex, y, x, lvl);
 }
 
-template <class T, class Tex>
-linalg::Vec3<T> compute_didxy(const Tex &tex, T y, T x, unsigned int lvl)
+template <class T, template <class> class V, template <class> class Tex>
+V<T> compute_didxy(const Tex<T> &tex, int y, int x, unsigned int lvl)
 {
     // const UInt w = tex.width(lvl);
     // const UInt h = tex.height(lvl);
 
-    const int xf = int(floor(x));
-    const int yf = int(floor(y));
-
-    int x_p = xf + 1;
-    int x_m = xf - 1;
-    int y_p = yf + 1;
-    int y_m = yf - 1;
+    int x_p = x + 1;
+    int x_m = x - 1;
+    int y_p = y + 1;
+    int y_m = y - 1;
 
     if (x_p >= tex.width(lvl) || x_m < 0 || y_p >= tex.height(lvl) || y_m < 0)
     {
-        return linalg::Vec3<T>(tex.nodata(), tex.nodata(), tex.nodata());
+        return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
     T f = T(tex.texel_(y, x, lvl));
@@ -156,10 +153,10 @@ linalg::Vec3<T> compute_didxy(const Tex &tex, T y, T x, unsigned int lvl)
     if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
         f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
     {
-        return linalg::Vec3<T>(tex.nodata(), tex.nodata(), tex.nodata());
+        return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
-    linalg::Vec3<T> out_fragment;
+    V<T> out_fragment;
     out_fragment(0) = (f_x_p - f_x_m) / T(2);
     out_fragment(1) = (f_y_p - f_y_m) / T(2);
     out_fragment(2) = 0.0; // f; // save the projected frame for later processing

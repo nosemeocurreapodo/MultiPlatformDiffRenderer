@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "core/common.h"
 #include "common/test_helpers.h"
 #include "../simple_example/model.h"
 #include "linalg/converters.h"
@@ -24,9 +23,9 @@
 // #endif
 
 template <typename T>
-using Texture = TextureCPU<T>;
-using Mesh = MeshCPU;
-using ImageRenderer = DiffRendererCPU;
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
+using ImageRenderer = DiffRendererGL;
 
 int main(int argc, char **argv)
 {

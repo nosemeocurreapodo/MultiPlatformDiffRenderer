@@ -1852,7 +1852,7 @@ public:
         if (f == textures.diffuse_texture.nodata())
             return;
 
-        linalg::Vec3<DType> f_der = compute_didxy(textures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
+        linalg::Vec3<DType> f_der = compute_didxy<DType, linalg::Vec3, Texture>(textures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
 
         if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
             return;

@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include "core/common.h"
 #include "../common/test_framework.h"
 
 #ifdef COMPILE_GL
