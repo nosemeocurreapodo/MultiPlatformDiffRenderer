@@ -1,5 +1,5 @@
 #pragma once
-#include "backends/gl/devicegl_glad.h"
+#include "backends/gles2/devicegles2_glad.h"
 #include <stdexcept>
 #include <cstdlib> // malloc/free
 #include <cstring> // memcpy (if needed)
@@ -150,35 +150,35 @@ GLTryMap(GLenum target, GLsizeiptr size, GLMapMode mode, bool invalidateWholeBuf
 // ---------- your class with minimal changes to MapRead/MapWrite ----------
 
 template <typename T, GLenum Target = GL_ARRAY_BUFFER, GLenum Usage = GL_STATIC_DRAW>
-class BufferGL
+class BufferGLES2
 {
 public:
-    BufferGL() = default;
+    BufferGLES2() = default;
 
-    explicit BufferGL(std::size_t n) : size_(n)
+    explicit BufferGLES2(std::size_t n) : size_(n)
     {
         glGenBuffers(1, &id_);
         glBindBuffer(Target, id_);
         glBufferData(Target, n ? GLsizeiptr(n * sizeof(T)) : 0, nullptr, Usage);
     }
 
-    BufferGL(std::size_t n, const T *src) : BufferGL(n)
+    BufferGLES2(std::size_t n, const T *src) : BufferGLES2(n)
     {
         if (n)
             glBufferSubData(Target, 0, GLsizeiptr(n * sizeof(T)), src);
     }
 
-    explicit BufferGL(const std::vector<T> &v) : BufferGL(v.size(), v.data()) {}
+    explicit BufferGLES2(const std::vector<T> &v) : BufferGLES2(v.size(), v.data()) {}
 
-    ~BufferGL()
+    ~BufferGLES2()
     {
         if (id_)
             glDeleteBuffers(1, &id_);
     }
 
-    BufferGL(BufferGL &&o) noexcept : id_(std::exchange(o.id_, 0)),
-                                      size_(std::exchange(o.size_, 0)) {}
-    BufferGL &operator=(BufferGL &&o) noexcept
+    BufferGLES2(BufferGLES2 &&o) noexcept : id_(std::exchange(o.id_, 0)),
+                                            size_(std::exchange(o.size_, 0)) {}
+    BufferGLES2 &operator=(BufferGLES2 &&o) noexcept
     {
         if (this != &o)
         {
@@ -190,14 +190,14 @@ public:
         return *this;
     }
 
-    BufferGL(const BufferGL &) = delete;
-    BufferGL &operator=(const BufferGL &) = delete;
+    BufferGLES2(const BufferGLES2 &) = delete;
+    BufferGLES2 &operator=(const BufferGLES2 &) = delete;
 
     // READ: requires real mapping (ES3 or OES/EXT). Otherwise throws.
     [[nodiscard]] MappedView<const T, GLUnmap> MapRead() const &
     {
         if (!id_)
-            throw std::runtime_error("BufferGL::MapRead on empty buffer");
+            throw std::runtime_error("BufferGLES2::MapRead on empty buffer");
         glBindBuffer(Target, id_);
         const GLsizeiptr nbytes = GLsizeiptr(size_ * sizeof(T));
 
@@ -215,7 +215,7 @@ public:
     [[nodiscard]] MappedView<T, GLUnmap> MapWrite() &
     {
         if (!id_)
-            throw std::runtime_error("BufferGL::MapWrite on empty buffer");
+            throw std::runtime_error("BufferGLES2::MapWrite on empty buffer");
         glBindBuffer(Target, id_);
         const GLsizeiptr nbytes = GLsizeiptr(size_ * sizeof(T));
 

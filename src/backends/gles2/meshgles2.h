@@ -3,7 +3,7 @@
 #include <Eigen/Core>
 #include <opencv2/opencv.hpp>
 
-#include "backends/gl/buffergles2.h"      // BufferGLES2<T, Target, Usage>
+#include "backends/gles2/buffergles2.h"      // BufferGLES2<T, Target, Usage>
 #include "backends/base/MappedView.h"
 // #include "backends/gl/texturegles2.h"   // wherever your TextureGLES2 lives
 // #include "backends/gl/devicegles2_glad.h" // glad ES2 loader (included transitively in BufferGLES2/TextureGLES2)
@@ -160,6 +160,9 @@ public:
         }
     }
 
+    TextureGLES2<float> &diffuse() noexcept { return diffuse_; }
+    const TextureGLES2<float> &diffuse() const noexcept { return diffuse_; }
+
 private:
     void setup_vertex_attribs_()
     {
@@ -199,7 +202,6 @@ private:
         vao_ = 0;
     }
 
-private:
     // geometry
     BufferGLES2<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>            vbo_vertex_{};
     BufferGLES2<unsigned int,   GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo32_{};

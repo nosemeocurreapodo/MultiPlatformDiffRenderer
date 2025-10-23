@@ -2,8 +2,9 @@
 
 #include "glad/egl.h"
 #include "glad/gles2.h" // was glad/gl.h
+#include "backends/base/egl_common.h"
 
-struct EGLInternalData2
+struct EGLInternalData
 {
     bool m_isInitialized;
 
@@ -18,19 +19,20 @@ struct EGLInternalData2
     EGLContext egl_context;
     EGLDisplay egl_display;
 
-    EGLInternalData2()
+    EGLInternalData()
         : m_isInitialized(false),
           m_windowWidth(0),
           m_windowHeight(0),
           m_renderDevice(-1) {} // initialize this (you use it below)
 };
 
+
 inline bool InitEGL_GLES2() // new name to avoid confusion
 {
     int m_windowWidth = 256;
     int m_windowHeight = 256;
 
-    EGLInternalData2 *m_data = new EGLInternalData2();
+    EGLInternalData *m_data = new EGLInternalData();
 
     const EGLint egl_config_attribs[] = {
         EGL_RED_SIZE, 8,
@@ -181,6 +183,8 @@ inline bool InitEGL_GLES2() // new name to avoid confusion
         fprintf(stderr, "Failed to load GLES2 with glad.\n");
         return false;
     }
+
+    PrintEGLAndGLInfo(m_data->egl_display, m_data->egl_context);
 
     return true;
 }

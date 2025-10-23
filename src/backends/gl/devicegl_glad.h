@@ -2,6 +2,7 @@
 
 #include "glad/egl.h"
 #include "glad/gl.h"
+#include "backends/base/egl_common.h"
 
 struct EGLInternalData2
 {
@@ -198,6 +199,8 @@ inline bool InitEGL()
         fprintf(stderr, "failed to load GL with glad.\n");
         return false;
     }
+
+    PrintEGLAndGLInfo(m_data->egl_display, m_data->egl_context);
 
     return true;
 }
