@@ -9,7 +9,7 @@ find_package(assimp REQUIRED)
 #endif()
 
 #include_directories("../src")
-include_directories("../tests")
+#include_directories("../tests")
 #include_directories("../HLSLinearAlgebra/include")
 #include_directories("include")
 #include_directories(

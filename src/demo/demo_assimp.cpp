@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "common/test_helpers.h"
+#include "tests/common/test_helpers.h"
 #include "model.h"
 #include "linalg/converters.h"
 
@@ -75,6 +75,10 @@ int main(int argc, char **argv)
         std::cout << "Error initializing gl backend!" << std::endl;
         return 1;
     }
+    else
+    {
+        std::cout << "Initializing gl backend!" << std::endl;
+    }
     backend_names.push_back("gl");
 #endif
 
@@ -84,6 +88,10 @@ int main(int argc, char **argv)
         std::cout << "Error initializing gles2 backend!" << std::endl;
         return 1;
     }
+    else
+    {
+        std::cout << "Initializing gles2 backend!" << std::endl;
+    }
     backend_names.push_back("gles2");
 #endif
 
@@ -92,6 +100,10 @@ int main(int argc, char **argv)
     {
         std::cout << "Error initializing xrt backend!" << std::endl;
         return 1;
+    }
+    else
+    {
+        std::cout << "Initializing xrt backend!" << std::endl;
     }
     backend_names.push_back("xrt");
 #endif
@@ -194,7 +206,7 @@ int main(int argc, char **argv)
     // for (int i = 0; i < max_frames; ++i)
     int i = 0;
     int toshow = 0;
-    int backend = 0;
+    int backend = 1;
     while (true)
     {
         i++;

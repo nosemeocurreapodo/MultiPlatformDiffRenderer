@@ -1,5 +1,9 @@
+/assimp
+/eigen
 /HLSLinearAlgebra
 /build
+/install
+/src/demo/build
 /src/backends/xrt/build
 /.devcontainer/packages
 .cache

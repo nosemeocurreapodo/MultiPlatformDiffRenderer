@@ -98,6 +98,12 @@ if(COMPILE_HLS AND VITIS_EXECUTABLE)
       REQUIRED
   )
   message(STATUS "Found Vitis settings script: ${VITIS_SETTINGS_SCRIPT}")
+  
+  find_program(VPP v++
+  HINTS "${XILINX_VITIS}/bin" "/opt/xilinx/Vitis/bin"
+  REQUIRED
+  )
+  message(STATUS "Found v++ executable: ${VPP}")
 endif()
 
 if(COMPILE_DEMO)
