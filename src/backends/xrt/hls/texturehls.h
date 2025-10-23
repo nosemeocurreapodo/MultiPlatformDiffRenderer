@@ -1,7 +1,7 @@
 #pragma once
 
 #include "backends/xrt/hls/bufferhls.h"
-#include "core/types.h"
+#include "core/math_common.h"
 
 template <class T>
 class TextureRAM
@@ -115,7 +115,7 @@ protected:
     unsigned int total_size_;
     Level levels_[15];
     unsigned int n_levels_;
-    T* storage_;
+    T *storage_;
     T nodata_;
 };
 
@@ -133,7 +133,7 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        //storage_.size_ = total_size_;
+        // storage_.size_ = total_size_;
     }
 
     TextureBRAM(unsigned int w, unsigned int h, T nodata, T *base)
@@ -246,7 +246,7 @@ protected:
     unsigned int total_size_;
     Level levels_[15];
     unsigned int n_levels_;
-    BufferBRAM<T, int(max_x *max_y * (1.0 + 1.0 / 4.0 + 1.0 / 8.0))> storage_;
+    BufferBRAM<T, int(max_x * max_y * (1.0 + 1.0 / 4.0 + 1.0 / 8.0))> storage_;
     T nodata_;
 };
 

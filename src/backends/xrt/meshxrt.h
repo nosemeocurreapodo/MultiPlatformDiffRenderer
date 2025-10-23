@@ -15,18 +15,51 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
-    // Construct from host vectors; if indices empty, build via Delaunay on UVs
-    MeshXRT(const std::vector<float> &positions, // 3 floats per vertex
-            const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<float> &weights,   // 1 float  per vertex
+    MeshXRT(const std::vector<float> &vertex,
             const std::vector<unsigned int> &indices,
-            int pos_group_id, int tex_group_id, int wei_group_id, int ebo_group_id)
-        : pos_buffer_(positions, pos_group_id),
-          tex_buffer_(texcoords, tex_group_id),
-          wei_buffer_(weights, wei_group_id),
-          ebo_buffer_(indices, ebo_group_id)
+            const cv::Mat &diffuse,
+            bool has_position = true,
+            bool has_texcoord = true,
+            bool has_normal = true,
+            int vertex_group_id,
+            int indices_group_id,
+            int diffuse_group_id)
     {
-        // validate_();
+        stride_ = 0;
+
+        if (has_position)
+        {
+            pos_offset_ = 0;
+            stride_ += 3;
+        }
+        else
+        {
+            pos_offset_ = -1;
+        }
+        if (has_texcoord)
+        {
+            tex_offset_ = 3;
+            stride_ += 2;
+        }
+        else
+        {
+            tex_offset_ = -1;
+        }
+        if (has_normal)
+        {
+            nor_offset_ = 5;
+            stride_ += 3;
+        }
+        else
+        {
+            nor_offset_ = -1;
+        }
+
+        vertex_buffer_ = BufferXRT<float>(vertex.size(), vertex.data(), vertex_group_id);
+        ebo_buffer_ = BufferXRT<unsigned int>(indices.size(), indices.data(), indices_group_id);
+
+        diffuse_ = TextureXRT<float>(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr(), diffuse_group_id);
+        diffuse_.generate_mipmaps(0);
     }
 
     // Copy/move
@@ -56,7 +89,7 @@ public:
     //[[nodiscard]] MappedView<unsigned int> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
-    std::size_t vertex_count() const noexcept { return pos_buffer_.size() / 3; }
+    std::size_t vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
     std::size_t index_count() const noexcept { return ebo_buffer_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
@@ -107,8 +140,11 @@ public:
         }
         */
 
-    BufferXRT<float> pos_buffer_;
-    BufferXRT<float> tex_buffer_;
-    BufferXRT<float> wei_buffer_;
+    BufferXRT<float> vertex_buffer_;
     BufferXRT<unsigned int> ebo_buffer_;
+    int stride_;
+    int pos_offset_;
+    int tex_offset_;
+    int nor_offset_;
+    TextureXRT<float> diffuse_;
 };

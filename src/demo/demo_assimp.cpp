@@ -39,7 +39,7 @@
 int main(int argc, char **argv)
 {
     // Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
-    if (argc < 2 || argc > 3)
+    if (argc < 2) // || argc > 3)
     {
         std::cout << "please provide: model_path [texture_override_path]" << std::endl;
         return 1;
@@ -96,7 +96,10 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef COMPILE_XRT
-    if (!InitXRT())
+    std::string xclbin_file = argv[3];
+    int device_index = atoi(argv[4]);
+
+    if (!InitXRT(xclbin_file, device_index))
     {
         std::cout << "Error initializing xrt backend!" << std::endl;
         return 1;
@@ -168,14 +171,16 @@ int main(int argc, char **argv)
 #ifdef COMPILE_XRT
     ImageRendererXRT rendererxrt;
 
-    MeshXRT meshxrt(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshXRT meshxrt(vertex, indices, diffuse_cv,
+                    has_positions, has_texcoords, has_normals,
+                    renderer.kernel_.group_id(0), renderer.kernel_.group_id(1), renderer.kernel_.group_id(2));
 
-    TextureXRT<float> imagexrt(width, height, -1.0f);
-    TextureXRT<float> depthxrt(width, height, -1.0f);
-    TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureXRT<linalg::Vec3<float>> pidsxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureXRT<float> imagexrt(width, height, -1.0f, renderer.kernel_.group_id(3));
+    TextureXRT<float> depthxrt(width, height, -1.0f, renderer.kernel_.group_id(4));
+    //TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    //TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    //TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    //TextureXRT<linalg::Vec3<float>> pidsxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 #endif
 
     // Turntable loop

@@ -92,6 +92,7 @@
         "regex": "cpp",
         "shared_mutex": "cpp",
         "execution": "cpp",
-        "matrixfunctions": "cpp"
+        "matrixfunctions": "cpp",
+        "alignedvector3": "cpp"
     }
 }

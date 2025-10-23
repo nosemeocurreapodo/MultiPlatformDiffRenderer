@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.14)
 
 project(MultiPlatformDiffRenderer)
 
-option(COMPILE_GL "Enable OpenGL compilation" OFF)
-option(COMPILE_GLES2 "Enable GLES2 compilation" ON)
+option(COMPILE_GL "Enable OpenGL compilation" ON)
+option(COMPILE_GLES2 "Enable GLES2 compilation" OFF)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
 option(COMPILE_DEMO "Enable Demo compilation" ON)

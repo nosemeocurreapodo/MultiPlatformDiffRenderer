@@ -1,29 +1,26 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/src/tests/data"
 
-#include "loaddataset.h"
-#include "common/test_helpers.h"
+#include "tests/common/loaddataset.h"
+#include "tests/common/test_helpers.h"
 // #include "core/types.h"
 #include "core/camera.h"
-#include "core/common.h"
+#include "core/mesh_helpers.h"
 
 extern "C"
 {
-    void ImageRenderHLS(const float *pos_buffer_data,
-                        const float *tex_buffer_data,
-                        const float *wei_buffer_data,
-                        const unsigned int *ebo_buffer_data,
-                        float *in_texture_data,
+    void ImageRenderHLS(float *vertex_buffer_data,
+                        unsigned int *ebo_buffer_data,
+                        float *diffuse_texture_data,
+                        float *depth_texture_data,
                         float *out_texture_data,
-                        unsigned int pos_buffer_size,
-                        unsigned int tex_buffer_size,
-                        unsigned int wei_buffer_size,
+                        unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
-                        unsigned int in_texture_width,
-                        unsigned int in_texture_height,
-                        float in_nodata_value,
-                        unsigned int in_lvl,
+                        unsigned int diffuse_texture_width,
+                        unsigned int diffuse_texture_height,
+                        float diffuse_nodata_value,
+                        unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         float out_nodata_value,
@@ -52,43 +49,39 @@ int main()
     cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    TextureCPU<float> image_src_cpu(w, h, -1.0f);
-    TextureCPU<float> depth_src_cpu(w, h, -1.0f);
-
-    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
-    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
-
     cv::Mat image_dst_cv = ReadMat(image_files[50]);
     cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
-    std::vector<float> vertices, texcoords, weights;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
+    CreateMesh(depth_src_cv, cam, 32, vertex, indices);
 
-    std::vector<float> screen_vertices, screen_texcoords, screen_weights;
+    std::vector<float> screen_vertex;
     std::vector<unsigned int> screen_indices;
-    CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
+    CreateScreenQuad(screen_vertex, screen_indices);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int lvl = 1;
 
-    // Avoid using a const pointer, it does not work so well with TextureRAM (for now at least)
-    // auto image_in_map = image_src_cpu.MapRead(0);
-    auto image_in_map = image_src_cpu.MapWrite(0);
+    TextureCPU<float> diffuse_cpu(w, h, -1.0f);
+    UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
+    auto diffuse_map = diffuse_cpu.MapWrite(0);
+
+    TextureCPU<float> depth_out_cpu(w, h, -1.0f);
+    auto depth_out_map = depth_out_cpu.MapWrite(0);
 
     TextureCPU<float> image_out_cpu(w, h, -1.0f);
     auto image_out_map = image_out_cpu.MapWrite(0);
 
     ImageRenderHLS(
-        vertices.data(),
-        texcoords.data(),
-        weights.data(),
+        vertex.data(),
         indices.data(),
-        image_in_map.data(),
+        diffuse_map.data(),
+        depth_out_map.data(),
         image_out_map.data(),
-        vertices.size(), texcoords.size(), weights.size(), indices.size(),
+        vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
         w, h, -1.0f, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),

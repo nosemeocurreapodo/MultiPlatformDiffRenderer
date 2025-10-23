@@ -10,19 +10,6 @@ public:
     MeshHLS(T *vertexs,
             unsigned int vertex_size,
             unsigned int *indices,
-            unsigned int indices_size)
-        : vertex_buffer_(vertex_size, vertexs),
-          ebo_buffer_(indices_size, indices)
-    {
-        stride_ = 8;
-        pos_offset_ = 0;
-        tex_offset_ = 3;
-        nor_offset_ = 5;
-    }
-
-    MeshHLS(T *vertexs,
-            unsigned int vertex_size,
-            unsigned int *indices,
             unsigned int indices_size,
             float *diffuse_data,
             unsigned int diffuse_width,
