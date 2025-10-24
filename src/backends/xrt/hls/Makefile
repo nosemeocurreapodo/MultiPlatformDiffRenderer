@@ -13,9 +13,6 @@ TOP_NAME = ImageRenderHLS
 
 PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
-VERSION ?=2024.2
-
-COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/xilinx-zynqmp-common-v$(VERSION)/
 
 MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
 HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
