@@ -173,10 +173,10 @@ int main(int argc, char **argv)
 
     MeshXRT meshxrt(vertex, indices, diffuse_cv,
                     has_positions, has_texcoords, has_normals,
-                    renderer.kernel_.group_id(0), renderer.kernel_.group_id(1), renderer.kernel_.group_id(2));
+                    rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1), rendererxrt.kernel_.group_id(2));
 
-    TextureXRT<float> depthxrt(width, height, -1.0f, renderer.kernel_.group_id(3));
-    TextureXRT<float> imagexrt(width, height, -1.0f, renderer.kernel_.group_id(4));
+    TextureXRT<float> depthxrt(width, height, -1.0f, rendererxrt.kernel_.group_id(3));
+    TextureXRT<float> imagexrt(width, height, -1.0f, rendererxrt.kernel_.group_id(4));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));

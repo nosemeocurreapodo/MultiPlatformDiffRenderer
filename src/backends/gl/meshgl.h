@@ -18,9 +18,9 @@ public:
     MeshGL(const std::vector<float> &vertex,
            const std::vector<unsigned int> &indices,
            const cv::Mat &diffuse,
-           bool has_position = true,
-           bool has_texcoord = true,
-           bool has_normal = true)
+           bool has_position,
+           bool has_texcoord,
+           bool has_normal)
     {
         stride_ = 0;
 

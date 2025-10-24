@@ -45,13 +45,11 @@ public:
         // assert(kernel_.group_id(3) == mesh.ebo.bo_.get_memory_group());
         // assert(kernel_.group_id(4) == depth_texture.storage_.bo_.get_memory_group());
 
-        mesh.pos_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.tex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.pos_buffer_.bo_, mesh.tex_buffer_.bo_, mesh.wei_buffer_.bo_, mesh.ebo_buffer_.bo_,
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
                                depth_texture.storage_.bo_,
-                               mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
+                               mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                depth_texture.width(0), depth_texture.height(0), depth_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
@@ -77,7 +75,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureXRT<float> &depth_texture
+                TextureXRT<float> &depth_texture,
                 TextureXRT<float> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
@@ -90,10 +88,10 @@ public:
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
-                               mesh.diffuse.storage_.bo_,
+                               mesh.diffuse_.storage_.bo_,
                                depth_texture.storage_.bo_, 
                                out_texture.storage_.bo_,
-                               mesh.vertex_buffer_.size() mesh.ebo_buffer_.size(),
+                               mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                mesh.diffuse_.width(0), mesh.diffuse_.height(0), mesh.diffuse_.nodata(), in_lvl,
                                out_texture.width(0), out_texture.height(0), out_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
@@ -108,6 +106,7 @@ public:
     xrt::kernel kernel_;
 };
 
+/*
 class DiffRendererXRT
 {
 public:
@@ -121,7 +120,6 @@ public:
                 const Camera<float> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureXRT<float> &f_texture,
                 TextureXRT<float> &image_texture,
                 TextureXRT<float> &depth_texture,
                 TextureXRT<linalg::Vec3<float>> &jtra_texture,
@@ -135,13 +133,11 @@ public:
         // assert(kernel_.group_id(3) == mesh.ebo.bo_.get_memory_group());
         // assert(kernel_.group_id(4) == depth_texture.storage_.bo_.get_memory_group());
 
-        mesh.pos_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.tex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        f_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.pos_buffer_.bo_, mesh.tex_buffer_.bo_, mesh.wei_buffer_.bo_, mesh.ebo_buffer_.bo_,
-                               f_texture.storage_.bo_, image_texture.storage_.bo_, depth_texture.storage_.bo_, jtra_texture.storage_.bo_, jrot_texture.storage_.bo_, pids_texture.storage_.bo_,
+        mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
+                               mesh.diffuce_.storage_.bo_, image_texture.storage_.bo_, depth_texture.storage_.bo_, jtra_texture.storage_.bo_, jrot_texture.storage_.bo_, pids_texture.storage_.bo_,
                                mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
                                f_texture.width(0), f_texture.height(0), f_texture.nodata(), in_lvl,
                                image_texture.width(0), image_texture.height(0),
@@ -162,31 +158,4 @@ public:
     // private:
     xrt::kernel kernel_;
 };
-
-class TestRendererXRT
-{
-public:
-    TestRendererXRT()
-    {
-        kernel_ = xrt::kernel(device_xrt, uuid_xrt, "TestRenderHLS");
-    }
-
-    void Render(MeshXRT &mesh,
-                const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
-                int out_lvl,
-                TextureXRT<float> &depth_texture)
-    {
-        // mesh.pos_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        // mesh.tex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        // mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        // mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(depth_texture.storage_.bo_,
-                               depth_texture.width(0), depth_texture.height(0), depth_texture.nodata(), out_lvl);
-        run.wait();
-        depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-    }
-
-    // private:
-    xrt::kernel kernel_;
-};
+*/
