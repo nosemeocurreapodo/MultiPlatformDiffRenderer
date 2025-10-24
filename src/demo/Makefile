@@ -6,17 +6,13 @@
 ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 # SRC_DIR=$(ROOT_DIR)/src
 
+MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../
+HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../HLSLinearAlgebra
 
-PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
-PLATFORM_NAME=kv260
-VERSION ?=2024.2
+#MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
+#HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
 
-COMMON_IMAGE_ZYNQMP ?=${PLATFORM_REPO_PATHS}/xilinx-zynqmp-common-v$(VERSION)/
-
-MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
-HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
-
-SYSROOTDIR= $(COMMON_IMAGE_ZYNQMP)/sysroots/aarch64-xilinx-linux
+SYSROOTDIR ?= /sysroots
 
 BUILD_PATH=$(ROOT_DIR)/build
 HOST_PATH=$(BUILD_PATH)/host
@@ -50,12 +46,19 @@ help:
 	@echo "Makefile usage"
 	@echo "make all 	## Generate and package application related files"
 
-all: $(BUILD_PATH) $(HOST_PATH)
+all: $(BUILD_PATH) check-sysroot $(HOST_PATH)
 #all: $(BUILD_PATH) $(HOST_PATH)
 
 $(BUILD_PATH):
 	@echo "Creating build dir"
 	mkdir -p $(BUILD_PATH)
+
+check-sysroot:
+ifeq ($(wildcard $(SYSROOTDIR)/usr),)
+	@echo "'SYSROOTDIR' is not accessible, please download common image from Xilinx Downloads website and set this flag to specify the common image path."
+	@make help
+	@echo "exit ....." && exit 1
+endif
 
 $(HOST_PATH):
 	@echo "Making host"

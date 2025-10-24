@@ -11,11 +11,14 @@ ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 NAME = imagerendererhls
 TOP_NAME = ImageRenderHLS
 
-PLATFORMS_PATH = /home/emanuel/workspace/visual_odometry_vitis/platform
+PLATFORMS_PATH ?= /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
 
-MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
-HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
+MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../../
+HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../../HLSLinearAlgebra
+
+#MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
+#HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
 
 PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
 
