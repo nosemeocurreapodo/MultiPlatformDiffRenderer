@@ -16,14 +16,17 @@ if(NOT TARGET Eigen3::Eigen)
   set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}")
 endif()
 
+set(MultiPlatformRenderer_PATH "src")
+set(HLSLInearAlgebra_PATH "HLSLinearAlgebra/include")
+
 include_directories(
-        "src"
-        "HLSLinearAlgebra/include"
-#        ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
-        ${PROJECT_SOURCE_DIR}/thirdparty
-        ${EIGEN3_INCLUDE_DIR}
-        ${OpenCV_INCLUDE_DIRS}
-        )
+    ${MultiPlatformRenderer_PATH}
+    ${HLSLInearAlgebra_PATH}
+#   ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+    ${PROJECT_SOURCE_DIR}/thirdparty
+    ${EIGEN3_INCLUDE_DIR}
+    ${OpenCV_INCLUDE_DIRS}
+)
 
 include(FetchContent)
 
@@ -71,39 +74,87 @@ if(COMPILE_HLS)
     if(NOT XILINX_VITIS_PATH AND DEFINED ENV{XILINX_VITIS})
         set(XILINX_VITIS_PATH $ENV{XILINX_VITIS} CACHE PATH "Path to Xilinx Vitis, initialized from ENV{XILINX_VITIS}")
     else()
-        set(XILINX_VITIS_PATH "/tools/Xilinx/Vitis/2023.2/" CACHE PATH "Path to Xilinx Vitis, initialized to default")
+        set(XILINX_VITIS_PATH "/tools/Xilinx/Vitis/2024.2/" CACHE PATH "Path to Xilinx Vitis, initialized to default")
     endif()
 
     set(XILINX_VITIS_PATH "${XILINX_VITIS_PATH}" CACHE PATH "Path to the Xilinx Vitis installation directory.")
 
-    find_program(VITIS_EXECUTABLE vitis
-        PATHS ${XILINX_VITIS_PATH}/bin
-        NO_DEFAULT_PATH
+    #find_program(VITIS_EXECUTABLE vitis
+    #    PATHS ${XILINX_VITIS_PATH}/bin
+    #    NO_DEFAULT_PATH
+    #)
+
+    #if(NOT VITIS_EXECUTABLE)
+    #    message(WARNING "Vitis executable not found at ${XILINX_VITIS_PATH}/bin. HLS tests will be disabled.")
+    #    set(COMPILE_HLS OFF)
+    #else()
+    #    message(STATUS "Found Vitis executable: ${VITIS_EXECUTABLE}")
+    #endif()
+
+    #find_file(VITIS_SETTINGS_SCRIPT 
+    #    NAMES settings64.sh
+    #    PATHS ${XILINX_VITIS_PATH}
+    #    NO_DEFAULT_PATH
+    #    REQUIRED
+    #)
+    #message(STATUS "Found Vitis settings script: ${VITIS_SETTINGS_SCRIPT}")
+
+    # ---------- Find v++ ----------
+    find_program(VPP v++
+    HINTS "${XILINX_VITIS_PATH}/bin" "/opt/xilinx/Vitis/bin"
+    REQUIRED
+    )
+    message(STATUS "Found v++ executable: ${VPP}")
+
+    # Output dirs
+    set(XO_PATH "${CMAKE_BINARY_DIR}/xo" CACHE PATH "Where to emit .xo")
+    file(MAKE_DIRECTORY "${XO_PATH}")
+
+    # ---------- v++ compile: .xo ----------
+    set(XO_FILE "${XO_PATH}/${NAME}.xo")
+
+    set(PLATFORM "" CACHE PATH "Xilinx .xpfm for KV260")
+    set(TOP_NAME "ImageRendererHLS" CACHE STRING "Kernel top name (-k)")
+    set(NAME "imagerendererhls" CACHE STRING "Kernel/file stem name")
+
+    set(VPP_FLAGS "-I${MultiPlatformRenderer_PATH} -I${HLSLInearAlgebra_PATH} -DUSE_VITIS")
+    set(TARGET "hw")
+
+    set(MPR_PATH "${CMAKE_SOURCE_DIR}" CACHE PATH "Repo root")
+    set(KERNEL_SRC
+        "${MPR_PATH}/src/backends/xrt/hls/rendererhls_kernels.cpp"
+        CACHE FILEPATH "Kernel source for v++"
     )
 
-    if(NOT VITIS_EXECUTABLE)
-        message(WARNING "Vitis executable not found at ${XILINX_VITIS_PATH}/bin. HLS tests will be disabled.")
-        set(COMPILE_HLS OFF)
-    else()
-        message(STATUS "Found Vitis executable: ${VITIS_EXECUTABLE}")
-    endif()
+    add_custom_command(
+    OUTPUT "${XO_FILE}"
+    COMMAND "${VPP}" --jobs 12 -c ${VPP_FLAGS} -t ${TARGET}
+            --platform "${PLATFORM}" -k "${TOP_NAME}"
+            -o "${XO_FILE}" "${KERNEL_SRC}"
+    DEPENDS "${KERNEL_SRC}"
+    BYPRODUCTS "${XO_FILE}"
+    COMMENT "v++: compiling kernel -> ${XO_FILE}"
+    VERBATIM
+    )
 
-endif()
+    # Build the kernel by default (remove ALL if you only want it on-demand)
+    add_custom_target(kernel_xo ALL DEPENDS "${XO_FILE}")
 
-if(COMPILE_HLS AND VITIS_EXECUTABLE)
-  find_file(VITIS_SETTINGS_SCRIPT 
-      NAMES settings64.sh
-      PATHS ${XILINX_VITIS_PATH}
-      NO_DEFAULT_PATH
-      REQUIRED
-  )
-  message(STATUS "Found Vitis settings script: ${VITIS_SETTINGS_SCRIPT}")
-  
-  find_program(VPP v++
-  HINTS "${XILINX_VITIS}/bin" "/opt/xilinx/Vitis/bin"
-  REQUIRED
-  )
-  message(STATUS "Found v++ executable: ${VPP}")
+    # ---------- (Optional) v++ link to .xclbin ----------
+    set(XCLBIN_PATH "${CMAKE_BINARY_DIR}/xclbin")
+    file(MAKE_DIRECTORY "${XCLBIN_PATH}")
+    set(XCLBIN_FILE "${XCLBIN_PATH}/${NAME}.xclbin")
+    add_custom_command(
+      OUTPUT "${XCLBIN_FILE}"
+      COMMAND "${VPP}" -l -t ${TARGET} --platform "${PLATFORM}"
+              -o "${XCLBIN_FILE}" "${XO_FILE}"
+      DEPENDS "${XO_FILE}"
+      BYPRODUCTS "${XCLBIN_FILE}"
+      COMMENT "v++: linking -> ${XCLBIN_FILE}"
+      VERBATIM
+    )
+    add_custom_target(xclbin ALL DEPENDS "${XCLBIN_FILE}")
+
 endif()
 
 if(COMPILE_XRT)
