@@ -29,10 +29,11 @@ if(COMPILE_GL)
 endif()
 if(COMPILE_GLES2)
   target_compile_definitions(demo PRIVATE COMPILE_GLES2)
-    target_link_libraries(demo EGL glad)
+  target_link_libraries(demo EGL glad)
 endif()
 if(COMPILE_XRT)
   target_compile_definitions(demo PRIVATE COMPILE_XRT)
+  target_link_libraries(demo xilinxopencl rt stdc++)
 endif()
 
 

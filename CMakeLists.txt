@@ -106,6 +106,12 @@ if(COMPILE_HLS AND VITIS_EXECUTABLE)
   message(STATUS "Found v++ executable: ${VPP}")
 endif()
 
+if(COMPILE_XRT)
+    include_directories(
+        "/usr/include/xrt"
+        )
+endif()
+
 if(COMPILE_DEMO)
     add_subdirectory(src/demo)
 endif()
