@@ -77,7 +77,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureXRT<float> &in_texture,
+                TextureXRT<float> &depth_texture
                 TextureXRT<float> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
@@ -86,20 +86,21 @@ public:
         // assert(kernel_.group_id(3) == mesh.ebo.bo_.get_memory_group());
         // assert(kernel_.group_id(4) == depth_texture.storage_.bo_.get_memory_group());
 
-        mesh.pos_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.tex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.wei_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        in_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.pos_buffer_.bo_, mesh.tex_buffer_.bo_, mesh.wei_buffer_.bo_, mesh.ebo_buffer_.bo_,
-                               in_texture.storage_.bo_, out_texture.storage_.bo_,
-                               mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
-                               in_texture.width(0), in_texture.height(0), in_texture.nodata(), in_lvl,
+        mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
+                               mesh.diffuse.storage_.bo_,
+                               depth_texture.storage_.bo_, 
+                               out_texture.storage_.bo_,
+                               mesh.vertex_buffer_.size() mesh.ebo_buffer_.size(),
+                               mesh.diffuse_.width(0), mesh.diffuse_.height(0), mesh.diffuse_.nodata(), in_lvl,
                                out_texture.width(0), out_texture.height(0), out_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
                                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
         run.wait();
+        depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         out_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
     }
 

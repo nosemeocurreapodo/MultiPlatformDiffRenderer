@@ -8,6 +8,7 @@
 
 #include "backends/xrt/devicexrt.h"
 #include "backends/xrt/bufferxrt.h"
+#include "backends/xrt/texturexrt.h"
 
 class MeshXRT
 {

@@ -45,7 +45,7 @@ CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/thirdparty/glad2/include
 CXXFLAGS += -I$(SYSROOTDIR)/usr/include/opencv4
 CXXFLAGS += -I$(SYSROOTDIR)/usr/include/eigen3
 CXXFLAGS += -DCOMPILE_GLES2
-# CXXFLAGS += -DCOMPILE_XRT
+CXXFLAGS += -DCOMPILE_XRT
 # CXXFLAGS += -fmessage-length=0
 
 LDFLAGS += -L$(SYSROOTDIR)/usr/lib -pthread -lxilinxopencl
@@ -69,8 +69,8 @@ help:
 	@echo "Makefile usage"
 	@echo "make all 	## Generate and package application related files"
 
-#all: $(BUILD_PATH) $(PLATFORM_INFO_PATH) $(XO_PATH) $(XCLBIN_PATH) $(HOST_PATH) $(PACKAGE_PATH)
-all: $(BUILD_PATH) $(HOST_PATH)
+all: $(BUILD_PATH) $(PLATFORM_INFO_PATH) $(XO_PATH) $(XCLBIN_PATH) $(HOST_PATH) $(PACKAGE_PATH)
+#all: $(BUILD_PATH) $(HOST_PATH)
 
 $(BUILD_PATH):
 	@echo "Creating build dir"

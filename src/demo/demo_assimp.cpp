@@ -175,12 +175,12 @@ int main(int argc, char **argv)
                     has_positions, has_texcoords, has_normals,
                     renderer.kernel_.group_id(0), renderer.kernel_.group_id(1), renderer.kernel_.group_id(2));
 
-    TextureXRT<float> imagexrt(width, height, -1.0f, renderer.kernel_.group_id(3));
-    TextureXRT<float> depthxrt(width, height, -1.0f, renderer.kernel_.group_id(4));
-    //TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    //TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    //TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    //TextureXRT<linalg::Vec3<float>> pidsxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureXRT<float> depthxrt(width, height, -1.0f, renderer.kernel_.group_id(3));
+    TextureXRT<float> imagexrt(width, height, -1.0f, renderer.kernel_.group_id(4));
+    // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    // TextureXRT<linalg::Vec3<float>> pidsxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 #endif
 
     // Turntable loop
@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_XRT
         if (backend_names[backend] == "xrt")
-            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, imagexrt);
+            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, depthxrt, imagexrt);
 
 #endif
 
@@ -329,10 +329,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jtragles2, out_lvl, CV_32FC3);
 #endif
-#ifdef COMPILE_XRT
-            if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(jtraxrt, out_lvl, CV_32FC3);
-#endif
+            // #ifdef COMPILE_XRT
+            //             if (backend_names[backend] == "xrt")
+            //                 out_f = DownloadTextureToMat(jtraxrt, out_lvl, CV_32FC3);
+            // #endif
         }
 
         if (output_names[toshow] == "jrot")
@@ -347,10 +347,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jrotgles2, out_lvl, CV_32FC3);
 #endif
-#ifdef COMPILE_XRT
-            if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(jrotxrt, out_lvl, CV_32FC3);
-#endif
+            // #ifdef COMPILE_XRT
+            //             if (backend_names[backend] == "xrt")
+            //                 out_f = DownloadTextureToMat(jrotxrt, out_lvl, CV_32FC3);
+            // #endif
         }
 
         if (output_names[toshow] == "jmap")
@@ -365,10 +365,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jmapgles2, out_lvl, CV_32FC3);
 #endif
-#ifdef COMPILE_XRT
-            if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(jmapxrt, out_lvl, CV_32FC3);
-#endif
+            // #ifdef COMPILE_XRT
+            //             if (backend_names[backend] == "xrt")
+            //                 out_f = DownloadTextureToMat(jmapxrt, out_lvl, CV_32FC3);
+            // #endif
         }
 
         if (output_names[toshow] == "pids")
@@ -383,10 +383,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(pidsgles2, out_lvl, CV_32FC3);
 #endif
-#ifdef COMPILE_XRT
-            if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(pidsxrt, out_lvl, CV_32FC3);
-#endif
+            // #ifdef COMPILE_XRT
+            //             if (backend_names[backend] == "xrt")
+            //                 out_f = DownloadTextureToMat(pidsxrt, out_lvl, CV_32FC3);
+            // #endif
         }
 
         // Pretty up the single-channel output
