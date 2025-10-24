@@ -8,6 +8,7 @@
 // #include <vector>
 // #include <cmath>
 #include "backends/xrt/bufferxrt.h"
+#include "backends/base/texturebase.h"
 
 template <class T>
 class TextureXRT

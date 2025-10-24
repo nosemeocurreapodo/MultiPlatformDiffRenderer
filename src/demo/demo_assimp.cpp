@@ -9,11 +9,13 @@
 #include "model.h"
 #include "linalg/converters.h"
 
+#ifdef COMPILE_CPU
 // #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
+#endif
 
 #ifdef COMPILE_GL
 #include "backends/gl/devicegl_glad.h"
@@ -38,15 +40,22 @@
 
 int main(int argc, char **argv)
 {
-    // Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
-    if (argc < 2) // || argc > 3)
+// Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
+#ifndef COMPILE_XRT
+    if (argc < 2 || argc > 3)
     {
-        std::cout << "please provide: model_path [texture_override_path]" << std::endl;
+        std::cout << "please provide: model_path" << std::endl;
         return 1;
     }
+#else
+    if (argc < 2 || argc > 5)
+    {
+        std::cout << "please provide: model_path xclbin device_id" << std::endl;
+        return 1;
+    }
+#endif
 
     std::string model_path = argv[1];
-    std::string tex_override = (argc == 3) ? argv[2] : "";
 
     // Choose render size & camera
     const unsigned int width = 1280;
@@ -67,7 +76,10 @@ int main(int argc, char **argv)
               << "  Tris: " << (indices.size() / 3) << std::endl;
 
     std::vector<std::string> backend_names;
+
+#ifdef COMPILE_CPU
     backend_names.push_back("cpu");
+#endif
 
 #ifdef COMPILE_GL
     if (!InitEGL())
@@ -96,8 +108,11 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef COMPILE_XRT
-    std::string xclbin_file = argv[3];
-    int device_index = atoi(argv[4]);
+    std::string xclbin_file = argv[2];
+    int device_index = atoi(argv[3]);
+
+    std::cout << "loading xclbin: " << xclbin_file << std::endl;
+    std::cout << "loading device: " << device_index << std::endl;
 
     if (!InitXRT(xclbin_file, device_index))
     {
@@ -131,6 +146,7 @@ int main(int argc, char **argv)
     const int in_lvl = 0;
     const int out_lvl = 0;
 
+#ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
 
     MeshCPU meshcpu(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
@@ -141,6 +157,7 @@ int main(int argc, char **argv)
     TextureCPU<linalg::Vec3<float>> jrotcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jmapcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> pidscpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+#endif
 
 #ifdef COMPILE_GL
     DiffRendererGL renderergl;
@@ -211,13 +228,15 @@ int main(int argc, char **argv)
     // for (int i = 0; i < max_frames; ++i)
     int i = 0;
     int toshow = 0;
-    int backend = 1;
+    int backend = 0;
     while (true)
     {
         i++;
-        float t = float(i) * 0.016f; // ~60deg/s at 60fps for yaw
+        float r = float(i) * M_PI / 1000.0f; // ~60deg/s at 60fps for yaw
+        if (r > M_PI * 2.0f)
+            i = 0;
         Eigen::Matrix3f R =
-            Eigen::AngleAxisf(0.15f * t, Eigen::Vector3f::UnitY())
+            Eigen::AngleAxisf(r, Eigen::Vector3f::UnitY())
                 //     Eigen::AngleAxisf(M_PI / 2.0f, Eigen::Vector3f::UnitX())*/
                 //        /*(Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))*/
                 .toRotationMatrix();
@@ -234,6 +253,7 @@ int main(int argc, char **argv)
         linalg::SE3<float> transform(v_);
 
         auto t0 = std::chrono::high_resolution_clock::now();
+#ifdef COMPILE_CPU
         if (backend_names[backend] == "cpu")
             // renderercpu.Render(meshcpu, transform, camera, in_lvl, out_lvl, imagecpu);
             renderercpu.Render(meshcpu,
@@ -247,6 +267,7 @@ int main(int argc, char **argv)
                                jrotcpu,
                                jmapcpu,
                                pidscpu);
+#endif
 #ifdef COMPILE_GL
         if (backend_names[backend] == "gl")
             // renderergl.Render(meshgl, transform, camera, in_lvl, out_lvl, imagegl);
@@ -283,8 +304,10 @@ int main(int argc, char **argv)
         cv::Mat out_f;
         if (output_names[toshow] == "image")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(imagecpu, out_lvl, CV_32FC1);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(imagegl, out_lvl, CV_32FC1);
@@ -301,8 +324,10 @@ int main(int argc, char **argv)
 
         if (output_names[toshow] == "depth")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(depthcpu, out_lvl, CV_32FC1);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(depthgl, out_lvl, CV_32FC1);
@@ -319,8 +344,10 @@ int main(int argc, char **argv)
 
         if (output_names[toshow] == "jtra")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(jtracpu, out_lvl, CV_32FC3);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(jtragl, out_lvl, CV_32FC3);
@@ -337,8 +364,10 @@ int main(int argc, char **argv)
 
         if (output_names[toshow] == "jrot")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(jrotcpu, out_lvl, CV_32FC3);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(jrotgl, out_lvl, CV_32FC3);
@@ -355,8 +384,10 @@ int main(int argc, char **argv)
 
         if (output_names[toshow] == "jmap")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(jmapcpu, out_lvl, CV_32FC3);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(jmapgl, out_lvl, CV_32FC3);
@@ -373,8 +404,10 @@ int main(int argc, char **argv)
 
         if (output_names[toshow] == "pids")
         {
+#ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
                 out_f = DownloadTextureToMat(pidscpu, out_lvl, CV_32FC3);
+#endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
                 out_f = DownloadTextureToMat(pidsgl, out_lvl, CV_32FC3);
