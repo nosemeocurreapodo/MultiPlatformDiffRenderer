@@ -57,13 +57,13 @@ public:
                 int out_lvl,
                 TextureRAM<float> &out_texture)
     {
+        const unsigned int crop_W = TextureBRAM<DepthType>::W;
+        const unsigned int crop_H = TextureBRAM<DepthType>::H;
+
         out_lvl_ = out_lvl;
 
         unsigned int W = out_texture.width(out_lvl);
         unsigned int H = out_texture.height(out_lvl);
-
-        unsigned int crop_W = TextureBRAM<DepthType>::max_x;
-        unsigned int crop_H = TextureBRAM<DepthType>::max_y;
 
         unsigned int x_size = W / crop_W;
         unsigned int y_size = H / crop_H;
@@ -72,7 +72,7 @@ public:
         MathType scale_H = MathType(H) / MathType(crop_H);
 
         BoundingBox<int> viewport(0, crop_W, 0, crop_H);
-        TextureBRAM<DepthType> out_texture_part(crop_W, crop_H, out_texture.nodata());
+        TextureBRAM<DepthType> out_texture_part(out_texture.nodata());
         Textures textures{out_texture_part};
 
     depth_renderer_loop_y:
@@ -157,6 +157,9 @@ public:
                 TextureRAM<ImageType> &depth_texture,
                 TextureRAM<ImageType> &out_texture)
     {
+        const unsigned int crop_W = 32;
+        const unsigned int crop_H = 32;
+
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
 
@@ -166,9 +169,6 @@ public:
         unsigned int out_W = out_texture.width(out_lvl);
         unsigned int out_H = out_texture.height(out_lvl);
 
-        unsigned int crop_W = TextureBRAM<ImageType>::max_x;
-        unsigned int crop_H = TextureBRAM<ImageType>::max_y;
-
         unsigned int x_size = out_W / crop_W;
         unsigned int y_size = out_H / crop_H;
 
@@ -177,9 +177,9 @@ public:
 
         BoundingBox<int> viewport(0, crop_W, 0, crop_H);
 
-        TextureBRAM<ImageType> diffuse_texture_part(crop_W, crop_H, mesh.diffuse_.nodata());
-        TextureBRAM<MathType> depth_texture_part(crop_W, crop_H, depth_texture.nodata());
-        TextureBRAM<ImageType> out_texture_part(crop_W, crop_H, out_texture.nodata());
+        TextureBRAM<ImageType> diffuse_texture_part(mesh.diffuse_.nodata());
+        TextureBRAM<MathType> depth_texture_part(depth_texture.nodata());
+        TextureBRAM<ImageType> out_texture_part(out_texture.nodata());
 
         Textures textures{depth_texture_part, diffuse_texture_part, out_texture_part};
 
@@ -218,7 +218,7 @@ public:
                     for (int x = 0; x < crop_W; x++)
                     {
                         ImageType data = mesh.diffuse_.texel_(start_H + y, start_W + x, out_lvl);
-                        out_texture_part.set_texel_(data, y, x, out_lvl);
+                        diffuse_texture_part.set_texel_(data, y, x, out_lvl);
                     }
                 }
 

@@ -733,7 +733,7 @@ public:
         DepthType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
         {
-            return;
+            depth = depth_old;
         }
 
         textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
