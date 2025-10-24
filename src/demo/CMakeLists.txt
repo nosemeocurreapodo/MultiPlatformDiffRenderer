@@ -33,7 +33,7 @@ if(COMPILE_GLES2)
 endif()
 if(COMPILE_XRT)
   target_compile_definitions(demo PRIVATE COMPILE_XRT)
-  target_link_libraries(demo xilinxopencl rt stdc++)
+  target_link_libraries(demo xilinxopencl rt stdc++ uuid xrt_coreutil)
 endif()
 
 
