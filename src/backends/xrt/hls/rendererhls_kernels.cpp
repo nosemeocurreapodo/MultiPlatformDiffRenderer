@@ -61,7 +61,7 @@ extern "C"
         TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         //DepthRendererRAM renderer;
-        DepthRendererBRAM renderer;
+        DepthRendererRAM renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
 

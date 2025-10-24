@@ -35,9 +35,12 @@ public:
     TextureCPU(unsigned int w, unsigned int h, T nodata, const T *base)
         : TextureCPU(w, h, nodata)
     {
-        auto m = MapWrite(0);
-        // std::copy_n(base, w * h, m.data());
-        std::memcpy(m.data(), base, w * h * sizeof(T));
+        if (w > 0 && h > 0)
+        {
+            auto m = MapWrite(0);
+            // std::copy_n(base, w * h, m.data());
+            std::memcpy(m.data(), base, w * h * sizeof(T));
+        }
     }
 
     // Rule of 5

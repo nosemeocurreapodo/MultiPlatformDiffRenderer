@@ -76,7 +76,8 @@ public:
     renderbase_triangle_loop:
         for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
-#pragma HLS loop_tripcount min = 6144 max = 6144 avg = 6144
+            // the amount of in a 32x32 mesh (31x31*2)
+#pragma HLS loop_tripcount min = 1922 max = 1922 avg = 1922
             // #pragma HLS PIPELINE II = 1
 
             unsigned int vertexids[3];
@@ -232,13 +233,14 @@ protected:
         const MathType eCA_dx = (vout[0].screen(1) - vout[2].screen(1));
         const MathType eCA_dy = (vout[2].screen(0) - vout[0].screen(0));
 
-        // derived_().read_cache(y0, y1, x0, x1, textures);
+        derived_().read_cache(y0, y1, x0, x1, textures);
 
     // Rasterize
     draw_triangle_raster_loop_y:
         for (int y = y0, iy = 0; y < y1; ++y, ++iy)
         {
-#pragma HLS loop_tripcount min = 10 max = 10 avg = 10
+            // for 32x32 meshes and 640x480 images
+#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
             // #pragma HLS PIPELINE II = 1
             //   MathType eAB = eAB_row;
             //   MathType eBC = eBC_row;
@@ -255,7 +257,8 @@ protected:
         draw_triangle_raster_loop_x:
             for (int x = x0, ix = 0; x < x1; ++x, ++ix)
             {
-#pragma HLS loop_tripcount min = 10 max = 10 avg = 10
+                // for 32x32 meshes and 640x480 images
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 #pragma HLS loop_flatten
                 //   #pragma HLS PIPELINE II = 1
 
@@ -269,48 +272,45 @@ protected:
                     (eBC > 0 || (eBC == 0 && tlBC)) &&
                     (eCA > 0 || (eCA == 0 && tlCA));
 
-                if (inside)
-                {
-                    // Baricentric weights normalized
-                    // const MathType w0 = eBC * inv_area2;
-                    // const MathType w1 = eCA * inv_area2;
-                    // const MathType w2 = eAB * inv_area2;
-                    // Baricentric weights normalized (perpective)
-                    MathType w0 = eBC * inv_area2 * vout[0].invW;
-                    MathType w1 = eCA * inv_area2 * vout[1].invW;
-                    MathType w2 = eAB * inv_area2 * vout[2].invW;
+                // Baricentric weights normalized
+                // const MathType w0 = eBC * inv_area2;
+                // const MathType w1 = eCA * inv_area2;
+                // const MathType w2 = eAB * inv_area2;
+                // Baricentric weights normalized (perpective)
+                MathType w0 = eBC * inv_area2 * vout[0].invW;
+                MathType w1 = eCA * inv_area2 * vout[1].invW;
+                MathType w2 = eAB * inv_area2 * vout[2].invW;
 
-                    // Perspective: 1/w at pixel
-                    const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
+                // Perspective: 1/w at pixel
+                const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
 
-                    w0 *= inv_invW_px;
-                    w1 *= inv_invW_px;
-                    w2 *= inv_invW_px;
+                w0 *= inv_invW_px;
+                w1 *= inv_invW_px;
+                w2 *= inv_invW_px;
 
-                    typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
-                                                                                            vout[0].var, vout[1].var, vout[2].var);
+                typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
+                                                                                        vout[0].var, vout[1].var, vout[2].var);
 
-                    // Interpolate varyings divided by w, then divide by invW_px
-                    // Varyings var_over_w_px =
-                    //    w0 * vout[0].var_over_w +
-                    //    w1 * vout[1].var_over_w +
-                    //    w2 * vout[2].var_over_w;
-                    // Varyings varying_px = var_over_w_px * (1.0f / invW_px);
+                // Interpolate varyings divided by w, then divide by invW_px
+                // Varyings var_over_w_px =
+                //    w0 * vout[0].var_over_w +
+                //    w1 * vout[1].var_over_w +
+                //    w2 * vout[2].var_over_w;
+                // Varyings varying_px = var_over_w_px * (1.0f / invW_px);
 
-                    // Depth (if needed; same trick)
-                    MathType depth_px = w0 * vout[0].depth +
-                                        w1 * vout[1].depth +
-                                        w2 * vout[2].depth;
-                    // Depth test could go here
+                // Depth (if needed; same trick)
+                MathType depth_px = w0 * vout[0].depth +
+                                    w1 * vout[1].depth +
+                                    w2 * vout[2].depth;
+                // Depth test could go here
 
-                    linalg::Vec4<MathType> gl_FragCoord;
-                    gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                    gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                    gl_FragCoord(2) = depth_px;
-                    gl_FragCoord(3) = inv_invW_px;
+                linalg::Vec4<MathType> gl_FragCoord;
+                gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(2) = depth_px;
+                gl_FragCoord(3) = inv_invW_px;
 
-                    derived_().fragment_shader(gl_FragCoord, varying_px, textures);
-                }
+                derived_().fragment_shader(inside, gl_FragCoord, varying_px, textures);
 
                 // advance to x+1
                 // eAB += eAB_dx;
@@ -337,7 +337,7 @@ protected:
             // eCA_row += eCA_dy;
         }
 
-        // derived_().write_cache(y0, y1, x0, x1, textures);
+        derived_().write_cache(y0, y1, x0, x1, textures);
     }
 
     // Derived derived_() { return static_cast<Derived &>(*this); }
@@ -488,12 +488,24 @@ public:
         gl_Position = uProjection_ * uView_ * linalg::Vec4<MathType>(fragPos, MathType(1));
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
+        if (!inside)
+            return;
+
         textures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
     linalg::Mat4<MathType> uModel_;        // model to world space
@@ -722,49 +734,79 @@ public:
         outVarying.depth = gl_Position(2);
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         // std::cout << "calling fragment shader " << std::endl;
         // MathType depth = (far_plane - near_plane)*gl_FragCoord(2) + near_plane;
+        /*
         MathType depth = in_varying.depth;
-
         DepthType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        if (depth_old != textures.out_texture.nodata() && depth_old < depth) // gl_FragCoord(2))
-        {
-            depth = depth_old;
-        }
 
-        textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        if (inside && (depth_old == textures.out_texture.nodata() || depth_old < depth)) // gl_FragCoord(2))
+        {
+            textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        }
+        */
+        int y = int(gl_FragCoord(1));
+        int x = int(gl_FragCoord(0));
+
+        MathType depth = in_varying.depth;
+        DepthType depth_old = cache_[(y - cache_y0_) * 32 + (x - cache_x0_)];
+        if (inside && (depth_old == textures.out_texture.nodata() || depth_old < depth))
+        {
+            cache_[(y - cache_y0_) * 32 + (x - cache_x0_)] = depth;
+        }
     }
-    /*
-    void read_cache(int y0, int y1, int x0, int x1, int lvl, Textures &textures)
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+        cache_y0_ = y0;
+        cache_y1_ = y1;
+        cache_x0_ = x0;
+        cache_x1_ = x1;
+
+    depthrenderer_read_cache_y_loop:
         for (int y = 0; y < y1 - y0; ++y)
         {
+#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+
+        depthrenderer_read_cache_x_loop:
             for (int x = 0; x < x1 - x0; ++x)
             {
-                cashe_[y * 32 + x] = textures.out_texture.texel_(y + y0, x + x0, lvl);
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
+
+                cache_[y * 32 + x] = textures.out_texture.texel_(y + y0, x + x0, out_lvl_);
             }
         }
     }
 
-    void write_cache(int y0, int y1, int x0, int x1, int lvl, Textures &textures)
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+    depthrenderer_write_cache_y_loop:
         for (int y = 0; y < y1 - y0; ++y)
         {
+#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+
+        depthrenderer_write_cache_x_loop:
             for (int x = 0; x < x1 - x0; ++x)
             {
-                MathType data = cashe_[y * 32 + x];
-                textures.out_texture.set_texel_(data, y + y0, x + x0, lvl);
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
+
+                DepthType data = cache_[y * 32 + x];
+                textures.out_texture.set_texel_(data, y + y0, x + x0, out_lvl_);
             }
         }
     }
-    */
 
     linalg::Mat4<MathType> t_matrix_;
-    MathType cashe_[32 * 32];
+    DepthType cache_[32 * 32];
+    int cache_y0_;
+    int cache_y1_;
+    int cache_x0_;
+    int cache_x1_;
     unsigned int out_lvl_;
 };
 
@@ -773,9 +815,9 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <typename MathType, typename ImageType, class Mesh, template <class> class Texture>
+template <typename MathType, typename ImageType, class Mesh, template <class> class InTexture, template <class> class OutTexture>
 class ImageRendererBase
-    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, Texture>>
+    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, InTexture, OutTexture>>
 {
 public:
     // struct Buffers
@@ -787,9 +829,9 @@ public:
 
     struct Textures
     {
-        Texture<MathType> &depth_texture;
-        Texture<ImageType> &in_texture;
-        Texture<ImageType> &out_texture;
+        InTexture<MathType> &depth_texture;
+        InTexture<ImageType> &in_texture;
+        OutTexture<ImageType> &out_texture;
     };
 
     struct VertexData
@@ -811,8 +853,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<MathType> &depth_texture,
-                Texture<ImageType> &out_texture)
+                InTexture<MathType> &depth_texture,
+                OutTexture<ImageType> &out_texture)
     {
         depth_texture.fill(out_lvl, depth_texture.nodata());
         out_texture.fill(out_lvl, out_texture.nodata());
@@ -874,27 +916,28 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        MathType depth = textures.depth_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        if (depth != textures.depth_texture.nodata() && depth < gl_FragCoord(2))
-            return;
+        MathType depth = gl_FragCoord(2);
+        MathType depth_old = textures.depth_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
 
-        // MathType pix = textures.in_texture.sample_(in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        ImageType pix = sample<ImageType, Texture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // linalg::Vec2<MathType> coord;
-        // coord(0) = in_varying.texcoord(0) * textures.in_texture.width(in_lvl_) - MathType(0.5);
-        // coord(1) = in_varying.texcoord(1) * textures.in_texture.height(in_lvl_) - MathType(0.5);
+        if (inside && (depth_old == textures.depth_texture.nodata() || depth < gl_FragCoord(2)))
+        {
+            MathType pix = sample<MathType, InTexture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+            textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+            textures.depth_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        }
+    }
 
-        // ImageType pix = bilinear<T, Texture<MathType>>(textures.in_texture, coord(1), coord(0), in_lvl_);
-        // ImageType pix = textures.in_texture.texel_(int(coord(1)), int(coord(0)), in_lvl_);
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
 
-        if (pix == textures.in_texture.nodata())
-            return;
-        textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        textures.depth_texture.set_texel_(gl_FragCoord(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
     linalg::Mat4<MathType> t_matrix_;
@@ -1004,10 +1047,13 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        if (!inside)
+            return;
         int width = textures.kf_texture.width(out_lvl_);
         int height = textures.kf_texture.height(out_lvl_);
 
@@ -1022,6 +1068,14 @@ public:
 
         ErrorType e = ErrorType(f) - ErrorType(kf);
         textures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:
@@ -1133,10 +1187,14 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        if (!inside)
+            return;
+
         unsigned int width = textures.kf_texture.width(out_lvl_);
         unsigned int height = textures.kf_texture.height(out_lvl_);
 
@@ -1151,6 +1209,14 @@ public:
 
         ErrorType e = ErrorType(f) - ErrorType(kf);
         textures.r_texture.set_texel_(e * e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:
@@ -1251,11 +1317,14 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
         // outFragment = inVarying;
+        if (!inside)
+            return;
 
         unsigned int height = textures.in_texture.height(out_lvl_);
         unsigned int width = textures.in_texture.width(out_lvl_);
@@ -1299,6 +1368,14 @@ public:
         out_fragment(2) = 0.0; // f; // save the projected frame for later processing
 
         textures.out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:
@@ -1428,10 +1505,14 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        if (!inside)
+            return;
+
         unsigned int width = textures.kf_texture.width(out_lvl_);
         unsigned int height = textures.kf_texture.height(out_lvl_);
 
@@ -1461,6 +1542,14 @@ public:
         textures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:
@@ -1623,10 +1712,13 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        if (!inside)
+            return;
         unsigned int width = textures.jmap_texture.width(out_lvl_);
         unsigned int height = textures.jmap_texture.height(out_lvl_);
 
@@ -1669,6 +1761,14 @@ public:
         textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:
@@ -1834,10 +1934,14 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(bool inside,
+                         const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          Textures &textures)
     {
+        if (!inside)
+            return;
+
         unsigned int width = textures.jmap_texture.width(out_lvl_);
         unsigned int height = textures.jmap_texture.height(out_lvl_);
 
@@ -1880,6 +1984,14 @@ public:
         textures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         textures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
+    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
+    }
+
+    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
+    {
     }
 
 private:

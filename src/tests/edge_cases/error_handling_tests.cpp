@@ -261,7 +261,7 @@ TYPED_TEST_P(ErrorHandlingTests, MemoryPressureHandling)
 
         try
         {
-            typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, this->image_src_cv_, true, true, true);
+            typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, this->image_src_cv_, true, true, false);
 
             typename Traits::TextureT<float> output(size, size, -1.0f);
 

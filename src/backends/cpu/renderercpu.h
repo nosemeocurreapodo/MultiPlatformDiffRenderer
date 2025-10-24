@@ -144,7 +144,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<float, float, MeshCPU, TextureCPU>
+    : public ImageRendererBase<float, float, MeshCPU, TextureCPU, TextureCPU>
 {
 public:
     ImageRendererCPU() = default;

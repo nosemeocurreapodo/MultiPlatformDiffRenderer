@@ -42,7 +42,7 @@ inline T wrap(T t, AddressMode addr)
         T ip = floor(t);
         T f = t - ip;
         bool odd = static_cast<long>(ip) & 1L;
-        return odd ? (1.0f - f) : f;
+        return odd ? (T(1) - f) : f;
     }
     }
     return t; // unreachable
@@ -53,7 +53,7 @@ T nearest(Tex &tex, T y, T x, unsigned int lvl)
 {
     const auto xi = static_cast<unsigned int>(lround(x));
     const auto yi = static_cast<unsigned int>(lround(y));
-    return tex.texel_(yi, xi, lvl);
+    return T(tex.texel_(yi, xi, lvl));
 }
 
 template <class T, class Tex>
@@ -87,13 +87,13 @@ T bilinear(Tex &tex, T y, T x, unsigned int lvl)
     const T br = idx(y1, x1);
     */
 
-    const T tl = T(tex.texel_(y0, x0, lvl));
-    const T tr = T(tex.texel_(y0, x1, lvl));
-    const T bl = T(tex.texel_(y1, x0, lvl));
-    const T br = T(tex.texel_(y1, x1, lvl));
+    const auto tl = tex.texel_(y0, x0, lvl);
+    const auto tr = tex.texel_(y0, x1, lvl);
+    const auto bl = tex.texel_(y1, x0, lvl);
+    const auto br = tex.texel_(y1, x1, lvl);
 
     if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
-        return tex.nodata();
+        return T(tex.nodata());
 
     // const Scalar w_tl = (1.0f - dx) * (1.0f - dy);
     // const Scalar w_tr = (dx) * (1.0f - dy);
@@ -101,8 +101,8 @@ T bilinear(Tex &tex, T y, T x, unsigned int lvl)
     // const Scalar w_br = (dx) * (dy);
     // return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
 
-    const T Cx0 = tl * (T(1) - dx) + tr * dx;
-    const T Cx1 = bl * (T(1) - dx) + br * dx;
+    const T Cx0 = T(tl) * (T(1) - dx) + T(tr) * dx;
+    const T Cx1 = T(bl) * (T(1) - dx) + T(br) * dx;
     return static_cast<T>(Cx0 * (T(1) - dy) + Cx1 * dy);
 }
 

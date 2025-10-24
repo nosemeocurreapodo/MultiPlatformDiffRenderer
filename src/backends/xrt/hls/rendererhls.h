@@ -122,7 +122,7 @@ private:
 };
 
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached>, TextureRAMCached>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached>, TextureRAMCached, TextureRAMCached>
 {
 public:
     ImageRendererRAM() = default;
@@ -143,7 +143,7 @@ private:
 };
 
 class ImageRendererBRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureBRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureBRAM, TextureBRAM>
 {
 public:
     ImageRendererBRAM() = default;
