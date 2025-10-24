@@ -65,7 +65,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, -1.0f);
@@ -122,7 +122,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -187,7 +187,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     // typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -245,7 +245,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> input_image(this->w_, this->h_, -1.0f);

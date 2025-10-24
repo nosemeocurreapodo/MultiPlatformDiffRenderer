@@ -14,10 +14,10 @@ TOP_NAME = ImageRenderHLS
 PLATFORMS_PATH ?= /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
 
-MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../../
-HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../../HLSLinearAlgebra
+MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../../../
+HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../../../../HLSLinearAlgebra
 
-#MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer
+#MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/src
 #HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
 
 PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
@@ -29,7 +29,7 @@ XCLBIN_PATH=$(BUILD_PATH)/xclbin
 PACKAGE_PATH=$(BUILD_PATH)/package
 
 VPP_FLAGS += -I$(HLSLINEARALGEBRA_PATH)/include
-VPP_FLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/src
+VPP_FLAGS += -I$(MULTIPLATFORMRENDERER_PATH)
 VPP_FLAGS += -DUSE_VITIS
 #VPP_FLAGS += --save-temps 
 VPP_LDFLAGS :=
@@ -57,7 +57,7 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/src/backends/xrt/hls/rendererhls_kernels.cpp
+	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"

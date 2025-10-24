@@ -3,7 +3,7 @@
 // #include "core/types.h"
 #include "backends/xrt/hls/bufferhls.h"
 
-template <typename T>
+template <typename T, template <class> class Buffer, template <class> class Texture>
 class MeshHLS
 {
 public:
@@ -11,10 +11,10 @@ public:
             unsigned int vertex_size,
             unsigned int *indices,
             unsigned int indices_size,
-            float *diffuse_data,
+            T *diffuse_data,
             unsigned int diffuse_width,
             unsigned int diffuse_height,
-            float diffuse_nodata_value)
+            T diffuse_nodata_value)
         : vertex_buffer_(vertex_size, vertexs),
           ebo_buffer_(indices_size, indices),
           diffuse_(diffuse_width, diffuse_height, diffuse_nodata_value, diffuse_data)
@@ -46,13 +46,13 @@ public:
     // BufferHLS<Scalar> Weights() const { return wei_buffer_; }
     // BufferHLS<UInt> Indices() const { return ebo_buffer_; }
 
-    BufferRAM<T> vertex_buffer_;
-    BufferRAM<unsigned int> ebo_buffer_;
+    Buffer<T> vertex_buffer_;
+    Buffer<unsigned int> ebo_buffer_;
 
     int stride_;
     int pos_offset_;
     int tex_offset_;
     int nor_offset_;
 
-    TextureRAM<float> diffuse_;
+    Texture<T> diffuse_;
 };

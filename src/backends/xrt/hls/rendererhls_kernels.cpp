@@ -53,15 +53,15 @@ extern "C"
         Camera<MathType> cam(fx, fy, cx, cy);
 
         // copy data to bram
-        MeshHLS<MeshType> mesh(vertex_buffer_data, vertex_buffer_size,
-                               ebo_buffer_data, ebo_buffer_size,
-                               diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
+        MeshHLS<MeshType, BufferRAM, TextureRAM> mesh(vertex_buffer_data, vertex_buffer_size,
+                                                      ebo_buffer_data, ebo_buffer_size,
+                                                      diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
 
         // data too large, has to be in ram
         TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
-        DepthRendererRAM renderer;
-        // DepthRendererBRAM renderer;
+        //DepthRendererRAM renderer;
+        DepthRendererBRAM renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
 
@@ -95,14 +95,14 @@ extern "C"
                                    linalg::Vec3<MathType>(t_x, t_y, t_z));
         Camera<MathType> cam(fx, fy, cx, cy);
 
-        MeshHLS<MeshType> mesh(vertex_buffer_data, vertex_buffer_size,
-                               ebo_buffer_data, ebo_buffer_size,
-                               diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
+        MeshHLS<MeshType, BufferRAM, TextureRAM> mesh(vertex_buffer_data, vertex_buffer_size,
+                                                      ebo_buffer_data, ebo_buffer_size,
+                                                      diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
 
         TextureRAM<float> depth_texture(out_texture_width, out_texture_height, out_nodata_value, depth_texture_data);
         TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
-        ImageRendererRAM renderer;
+        ImageRendererBRAM renderer;
         renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, depth_texture, out_texture);
     }
     /*
