@@ -5,5 +5,6 @@
 /install
 /src/demo/build
 /src/backends/xrt/build
+/src/backends/xrt/hls/build
 /.devcontainer/packages
 .cache
