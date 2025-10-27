@@ -104,6 +104,17 @@ public:
         storage_.data()[L.offset + y * L.w + x] = v;
     }
 
+    void set_texel_(const T &v, unsigned int address, unsigned int lvl)
+    {
+        //assert(x < width(lvl) && y < height(lvl));
+
+        const auto &L = levels_[lvl];
+        storage_.data()[L.offset + address] = v;
+    }
+
+    T *data(unsigned int lvl) noexcept { return &storage_[levels_[lvl].offset]; }
+    const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
+
 protected:
     // template <class T, class Mesh, template <class> class Texture>
     // friend class DepthRendererBase;

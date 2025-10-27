@@ -5,7 +5,7 @@
 
 extern "C"
 {
-    /*
+
     void DepthRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
                         float *diffuse_texture_data,
@@ -42,7 +42,6 @@ extern "C"
         DepthRendererRAM renderer;
         renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
-    */
 
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
