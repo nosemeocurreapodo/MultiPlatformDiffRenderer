@@ -27,6 +27,7 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem1 depth = 412800
+//#pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem1 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
         linalg::SE3<MathType> pose(linalg::SO3<MathType>(linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)), linalg::Vec3<MathType>(t_x, t_y, t_z));
         Camera<MathType> cam(fx, fy, cx, cy);

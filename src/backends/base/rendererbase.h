@@ -209,6 +209,9 @@ protected:
 
         derived_().read_cache(y0, y1, x0, x1, textures);
 
+        typename Derived::Fragment frags[500];
+        int addresses[500];
+        int count = 0;
     // Rasterize
     draw_triangle_raster_loop_y:
         for (int y = y0, iy = 0; y < y1; ++y, ++iy)
@@ -223,70 +226,75 @@ protected:
             const MathType eCA_row_local = MathType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_raster_loop_x:
-            for (int x = x0, ix = 0; x < x1; x += 2, ix += 2)
+            for (int x = x0, ix = 0; x < x1; ++x, ++ix)
             {
                 // for 32x32 meshes and 640x480 images
-#pragma HLS loop_tripcount min = 10 max = 10 avg = 10
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 #pragma HLS loop_flatten
                 //   #pragma HLS PIPELINE II = 1
 
-                typename Derived::Fragment frag[2];
+                int address = add_offset + x;
 
-                for (int i = 0; i < 2; i++)
-                {
-#pragma HLS unroll
+                const MathType eAB = MathType(ix) * eAB_dx + eAB_row_local;
+                const MathType eBC = MathType(ix) * eBC_dx + eBC_row_local;
+                const MathType eCA = MathType(ix) * eCA_dx + eCA_row_local;
 
-                    int address = add_offset + x + i;
+                // Top-left rule adjustments (include pixels on top/left edges)
+                const bool inside =
+                    (eAB > 0 || (eAB == 0 && tlAB)) &&
+                    (eBC > 0 || (eBC == 0 && tlBC)) &&
+                    (eCA > 0 || (eCA == 0 && tlCA));
 
-                    const MathType eAB = MathType(ix + i) * eAB_dx + eAB_row_local;
-                    const MathType eBC = MathType(ix + i) * eBC_dx + eBC_row_local;
-                    const MathType eCA = MathType(ix + i) * eCA_dx + eCA_row_local;
+                if (!inside)
+                    continue;
 
-                    // Top-left rule adjustments (include pixels on top/left edges)
-                    const bool inside =
-                        (eAB > 0 || (eAB == 0 && tlAB)) &&
-                        (eBC > 0 || (eBC == 0 && tlBC)) &&
-                        (eCA > 0 || (eCA == 0 && tlCA));
+                // Baricentric weights normalized
+                // const MathType w0 = eBC * inv_area2;
+                // const MathType w1 = eCA * inv_area2;
+                // const MathType w2 = eAB * inv_area2;
+                // Baricentric weights normalized (perpective)
+                MathType w0 = eBC * inv_area2 * vout[0].invW;
+                MathType w1 = eCA * inv_area2 * vout[1].invW;
+                MathType w2 = eAB * inv_area2 * vout[2].invW;
 
-                    // Baricentric weights normalized
-                    // const MathType w0 = eBC * inv_area2;
-                    // const MathType w1 = eCA * inv_area2;
-                    // const MathType w2 = eAB * inv_area2;
-                    // Baricentric weights normalized (perpective)
-                    MathType w0 = eBC * inv_area2 * vout[0].invW;
-                    MathType w1 = eCA * inv_area2 * vout[1].invW;
-                    MathType w2 = eAB * inv_area2 * vout[2].invW;
+                // Perspective: 1/w at pixel
+                const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
 
-                    // Perspective: 1/w at pixel
-                    const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
+                w0 *= inv_invW_px;
+                w1 *= inv_invW_px;
+                w2 *= inv_invW_px;
 
-                    w0 *= inv_invW_px;
-                    w1 *= inv_invW_px;
-                    w2 *= inv_invW_px;
+                typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
+                                                                                        vout[0].var, vout[1].var, vout[2].var);
 
-                    typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
-                                                                                            vout[0].var, vout[1].var, vout[2].var);
+                // Depth (if needed; same trick)
+                MathType depth_px = w0 * vout[0].depth +
+                                    w1 * vout[1].depth +
+                                    w2 * vout[2].depth;
 
-                    // Depth (if needed; same trick)
-                    MathType depth_px = w0 * vout[0].depth +
-                                        w1 * vout[1].depth +
-                                        w2 * vout[2].depth;
+                // Depth test could go here
 
-                    // Depth test could go here
+                linalg::Vec4<MathType> gl_FragCoord;
+                gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(2) = depth_px;
+                gl_FragCoord(3) = inv_invW_px;
 
-                    linalg::Vec4<MathType> gl_FragCoord;
-                    gl_FragCoord(0) = static_cast<MathType>(x + i) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                    gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                    gl_FragCoord(2) = depth_px;
-                    gl_FragCoord(3) = inv_invW_px;
+                // frags[count] = derived_().fragment_shader(inside, address, gl_FragCoord, varying_px, textures);
+                // addresses[count] = address;
+                // count++;
 
-                    frag[i] = derived_().fragment_shader(inside, address, gl_FragCoord, varying_px, textures);
-                }
-
-                derived_().write_fragment(frag[0], add_offset + x + 0, textures);
-                derived_().write_fragment(frag[1], add_offset + x + 1, textures);
+                typename Derived::Fragment frag = derived_().fragment_shader(inside, address, gl_FragCoord, varying_px, textures);
+                derived_().write_fragment(frag, address, textures);
             }
         }
+
+        // renderbase_write_fragment_loop:
+        //     for (int i = 0; i < count; i += 1)
+        //     {
+        // #pragma HLS loop_tripcount min = 300 max = 300 avg = 300
+        //           derived_().write_fragment(frags[i], addresses[i], textures);
+        //      }
 
         derived_().write_cache(y0, y1, x0, x1, textures);
     }
