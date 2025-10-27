@@ -741,28 +741,35 @@ public:
     {
         // std::cout << "calling fragment shader " << std::endl;
         // MathType depth = (far_plane - near_plane)*gl_FragCoord(2) + near_plane;
+
+        if (!inside)
+            return;
+
+        MathType depth = in_varying.depth;
+        // DepthType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+
+        // if (depth_old == textures.out_texture.nodata() || depth_old < depth)
+        //{
+        textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        //}
+
         /*
-        MathType depth = in_varying.depth;
-        DepthType depth_old = textures.out_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+         int y = int(gl_FragCoord(1));
+         int x = int(gl_FragCoord(0));
+         int add = ((y - cache_y0_) << 5) + (x - cache_x0_);
 
-        if (inside && (depth_old == textures.out_texture.nodata() || depth_old < depth)) // gl_FragCoord(2))
-        {
-            textures.out_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        }
-        */
-        int y = int(gl_FragCoord(1));
-        int x = int(gl_FragCoord(0));
-
-        MathType depth = in_varying.depth;
-        DepthType depth_old = cache_[(y - cache_y0_) * 32 + (x - cache_x0_)];
-        if (inside && (depth_old == textures.out_texture.nodata() || depth_old < depth))
-        {
-            cache_[(y - cache_y0_) * 32 + (x - cache_x0_)] = depth;
-        }
+         MathType depth = in_varying.depth;
+         DepthType depth_old = cache_[add];
+         if (inside && (depth_old == textures.out_texture.nodata() || depth_old < depth))
+         {
+             cache_[add] = depth;
+         }
+         */
     }
 
     void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+        /*
         cache_y0_ = y0;
         cache_y1_ = y1;
         cache_x0_ = x0;
@@ -778,13 +785,17 @@ public:
             {
 #pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 
-                cache_[y * 32 + x] = textures.out_texture.texel_(y + y0, x + x0, out_lvl_);
+                DepthType data = textures.out_texture.texel_(y + y0, x + x0, out_lvl_);
+                // cache_[y * 32 + x] = data;
+                cache_[(y << 5) + x] = data;
             }
         }
+            */
     }
 
     void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+        /*
     depthrenderer_write_cache_y_loop:
         for (int y = 0; y < y1 - y0; ++y)
         {
@@ -795,10 +806,12 @@ public:
             {
 #pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 
-                DepthType data = cache_[y * 32 + x];
+                // DepthType data = cache_[y * 32 + x];
+                DepthType data = cache_[(y << 5) + x];
                 textures.out_texture.set_texel_(data, y + y0, x + x0, out_lvl_);
             }
         }
+            */
     }
 
     linalg::Mat4<MathType> t_matrix_;
@@ -815,9 +828,9 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <typename MathType, typename ImageType, class Mesh, template <class> class InTexture, template <class> class OutTexture>
+template <typename MathType, typename ImageType, class Mesh, template <class> class DiffuseTexture, template <class> class DepthTexture, template <class> class OutTexture>
 class ImageRendererBase
-    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, InTexture, OutTexture>>
+    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, DiffuseTexture, DepthTexture, OutTexture>>
 {
 public:
     // struct Buffers
@@ -829,8 +842,8 @@ public:
 
     struct Textures
     {
-        InTexture<MathType> &depth_texture;
-        InTexture<ImageType> &in_texture;
+        DepthTexture<MathType> &depth_texture;
+        DiffuseTexture<ImageType> &in_texture;
         OutTexture<ImageType> &out_texture;
     };
 
@@ -853,9 +866,11 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                InTexture<MathType> &depth_texture,
+                DepthTexture<MathType> &depth_texture,
                 OutTexture<ImageType> &out_texture)
     {
+        // #pragma HLS inline
+
         depth_texture.fill(out_lvl, depth_texture.nodata());
         out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -879,6 +894,8 @@ public:
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
+        // #pragma HLS inline
+
         VertexData vertexdata;
 
         vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
@@ -896,6 +913,8 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
+        // #pragma HLS inline
+
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
             (w0 * varying_px0.texcoord +
@@ -912,6 +931,8 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
+#pragma HLS inline
+
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
         outVarying.texcoord = vertexdata.texcoord;
     }
@@ -921,30 +942,93 @@ public:
                          const Varyings &in_varying,
                          Textures &textures)
     {
-        MathType depth = gl_FragCoord(2);
-        MathType depth_old = textures.depth_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+#pragma HLS inline
 
-        if (inside && (depth_old == textures.depth_texture.nodata() || depth < gl_FragCoord(2)))
+        if (!inside)
+            return;
+
+        int y = int(gl_FragCoord(1));
+        int x = int(gl_FragCoord(0));
+        int add = ((y - cache_y0_) << 5) + (x - cache_x0_);
+
+        MathType depth = gl_FragCoord(2);
+        // MathType depth_old = textures.depth_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+
+        MathType depth_old = depth_cache_[add];
+
+        if (depth_old == textures.depth_texture.nodata() || depth < depth_old)
         {
-            MathType pix = sample<MathType, InTexture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+            MathType pix = sample<MathType, DiffuseTexture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+            // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0)*textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
+            // MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
             textures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-            textures.depth_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+            // textures.depth_texture.set_texel_(depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+            depth_cache_[add] = depth;
         }
     }
 
     void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+#pragma HLS inline
+
+        cache_y0_ = y0;
+        cache_y1_ = y1;
+        cache_x0_ = x0;
+        cache_x1_ = x1;
+
+        unsigned int w = textures.depth_texture.width(out_lvl_);
+        unsigned int h = textures.depth_texture.height(out_lvl_);
+        MathType *depth_data = textures.depth_texture.data(out_lvl_);
+
+    imagerenderer_read_cache_y_loop:
+        for (int y = 0; y < y1 - y0; ++y)
+        {
+#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+
+        imagerenderer_read_cache_x_loop:
+            for (int x = 0; x < x1 - x0; ++x)
+            {
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
+#pragma HLS PIPELINE II = 1
+
+                //MathType data = textures.depth_texture.texel_(y + y0, x + x0, out_lvl_);
+                MathType data = depth_data[(y + y0)*w + x + x0];
+                // depth_cache_[y * 32 + x] = data;
+                depth_cache_[(y << 5) + x] = data;
+            }
+        }
     }
 
     void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
     {
+#pragma HLS inline
+
+    imagerenderer_write_cache_y_loop:
+        for (int y = 0; y < y1 - y0; ++y)
+        {
+#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+
+        imagerenderer_write_cache_x_loop:
+            for (int x = 0; x < x1 - x0; ++x)
+            {
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
+#pragma HLS PIPELINE II = 1
+
+                // DepthType data = cache_[y * 32 + x];
+                MathType data = depth_cache_[(y << 5) + x];
+                textures.depth_texture.set_texel_(data, y + y0, x + x0, out_lvl_);
+            }
+        }
     }
 
     linalg::Mat4<MathType> t_matrix_;
     unsigned int in_lvl_;
     unsigned int out_lvl_;
-    // const Texture<MathType> *in_texture_;
-    // Texture<MathType> *out_texture_;
+    MathType depth_cache_[32 * 32];
+    unsigned int cache_y0_;
+    unsigned int cache_y1_;
+    unsigned int cache_x0_;
+    unsigned int cache_x1_;
 };
 
 template <typename MathType, typename ImageType, typename ErrorType, class Mesh, template <class> class Texture>
@@ -1054,6 +1138,7 @@ public:
     {
         if (!inside)
             return;
+
         int width = textures.kf_texture.width(out_lvl_);
         int height = textures.kf_texture.height(out_lvl_);
 

@@ -43,15 +43,15 @@ public:
 
 private:
 };
-
+/*
 class DepthRendererBRAM
-    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureBRAM>
+    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType, BufferRAM, TextureBRAM>, TextureBRAM>
 {
 public:
     DepthRendererBRAM() = default;
     ~DepthRendererBRAM() = default;
 
-    void Render(const MeshHLS<MeshType, BufferRAM, TextureRAM> &mesh,
+    void Render(const MeshHLS<MeshType, BufferRAM, TextureBRAM> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int out_lvl,
@@ -120,30 +120,30 @@ public:
 
 private:
 };
-
+*/
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached>, TextureRAMCached, TextureRAMCached>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureRAM, TextureRAM>
 {
 public:
     ImageRendererRAM() = default;
     ~ImageRendererRAM() = default;
 
-    void Render(MeshHLS<MeshType, BufferRAM, TextureRAMCached> &mesh,
+    void Render(MeshHLS<MeshType, BufferRAM, TextureRAM> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAMCached<MathType> &depth_texture,
-                TextureRAMCached<ImageType> &out_texture)
+                TextureRAM<MathType> &depth_texture,
+                TextureRAM<ImageType> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, out_texture);
     }
 
 private:
 };
-
+/*
 class ImageRendererBRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureBRAM, TextureBRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureBRAM, TextureBRAM>
 {
 public:
     ImageRendererBRAM() = default;
@@ -154,8 +154,62 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAM<ImageType> &depth_texture,
+                TextureRAM<MathType> &depth_texture,
                 TextureRAM<ImageType> &out_texture)
+    {
+        TextureBRAM<MathType> depth_texture_internal(depth_texture.width(0), depth_texture.height(0), depth_texture.nodata());
+
+    imagerendererbram_incopy_y_loop:
+        for (int y = 0; y < depth_texture.height(out_lvl); y++)
+        {
+#pragma HLS loop_tripcount min = 480 max = 480 avg = 480
+
+        imagerendererbram_incopy_x_loop:
+            for (int x = 0; x < depth_texture.width(out_lvl); x++)
+            {
+#pragma HLS loop_tripcount min = 640 max = 640 avg = 640
+
+                MathType data = depth_texture.texel_(y, x, out_lvl);
+                depth_texture_internal.set_texel_(data, y, x, out_lvl);
+            }
+        }
+
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture_internal, out_texture);
+
+    imagerendererbram_outcopy_y_loop:
+        for (int y = 0; y < depth_texture.height(out_lvl); y++)
+        {
+#pragma HLS loop_tripcount min = 480 max = 480 avg = 480
+
+        imagerendererbram_outcopy_x_loop:
+            for (int x = 0; x < depth_texture.width(out_lvl); x++)
+            {
+#pragma HLS loop_tripcount min = 640 max = 640 avg = 640
+
+                MathType data = depth_texture_internal.texel_(y, x, out_lvl);
+                depth_texture.set_texel_(data, y, x, out_lvl);
+            }
+        }
+    }
+
+private:
+};
+*/
+/*
+class ImageRendererBRAM2
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached2>, TextureRAMCached2, TextureRAMCached2, TextureRAMCached2>
+{
+public:
+    ImageRendererBRAM2() = default;
+    ~ImageRendererBRAM2() = default;
+
+    void Render(MeshHLS<MeshType, BufferRAM, TextureRAMCached2> &mesh,
+                const linalg::SE3<MathType> &pose,
+                const Camera<MathType> &cam,
+                unsigned int in_lvl,
+                unsigned int out_lvl,
+                TextureRAMCached2<ImageType> &depth_texture,
+                TextureRAMCached2<ImageType> &out_texture)
     {
         const unsigned int crop_W = 32;
         const unsigned int crop_H = 32;
@@ -177,11 +231,7 @@ public:
 
         BoundingBox<int> viewport(0, crop_W, 0, crop_H);
 
-        TextureBRAM<ImageType> diffuse_texture_part(mesh.diffuse_.nodata());
-        TextureBRAM<MathType> depth_texture_part(depth_texture.nodata());
-        TextureBRAM<ImageType> out_texture_part(out_texture.nodata());
-
-        Textures textures{depth_texture_part, diffuse_texture_part, out_texture_part};
+        Textures textures{depth_texture, mesh.diffuse_, out_texture};
 
     depth_renderer_loop_y:
         for (int py = 0; py < y_size; py++)
@@ -191,12 +241,16 @@ public:
         depth_renderer_loop_x:
             for (int px = 0; px < x_size; px++)
             {
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 
                 unsigned int start_W = px * crop_W;
                 // Int Wf = (px + 1) * Wn;
                 unsigned int start_H = py * crop_H;
                 // Int Hf = (py + 1) * Hn;
+
+                //depth_texture.set_cache_addr_(start_H, start_W, out_lvl);
+                //mesh.diffuse_.set_cache_addr_(start_H, start_W, out_lvl);
+                //out_texture.set_cache_addr_(start_H, start_W, out_lvl);
 
                 linalg::Vec4<MathType> cam_params = cam.GetParams();
                 cam_params(0) = cam_params(0) * MathType(out_W) / MathType(crop_W);
@@ -206,43 +260,25 @@ public:
                 Camera<MathType> new_cam;
                 new_cam.SetParams(cam_params);
 
-                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+                t_matrix_ = new_cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                            this->opencv2opengl_ *
+                            pose.matrix();
 
-                depth_texture_part.fill(out_lvl, depth_texture_part.nodata());
-                out_texture_part.fill(out_lvl, out_texture_part.nodata());
-
-            image_renderer_in_copy_loop_y:
-                for (int y = 0; y < crop_H; y++)
-                {
-                image_renderer_in_copy_loop_x:
-                    for (int x = 0; x < crop_W; x++)
-                    {
-                        ImageType data = mesh.diffuse_.texel_(start_H + y, start_W + x, out_lvl);
-                        diffuse_texture_part.set_texel_(data, y, x, out_lvl);
-                    }
-                }
+                // depth_texture.fill_cache(depth_texture.nodata());
+                //out_texture.fill_cache(out_texture.nodata());
+                //mesh.diffuse_.cache_read_();
 
                 RendererBase::Render(viewport, mesh, textures);
 
-            image_renderer_out_copy_loop_y:
-                for (int y = 0; y < crop_H; y++)
-                {
-                image_renderer_out_copy_loop_x:
-                    for (int x = 0; x < crop_W; x++)
-                    {
-                        MathType depth = depth_texture_part.texel_(y, x, out_lvl);
-                        depth_texture.set_texel_(depth, start_H + y, start_W + x, out_lvl);
-
-                        ImageType data = out_texture_part.texel_(y, x, out_lvl);
-                        out_texture.set_texel_(data, start_H + y, start_W + x, out_lvl);
-                    }
-                }
+                // depth_texture.cache_write_();
+                //out_texture.cache_write_();
             }
         }
     }
 
 private:
 };
+*/
 /*
     class DiffRendererRAM
     : public DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, MeshHLS<MeshType>, TextureRAM>

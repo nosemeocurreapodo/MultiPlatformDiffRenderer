@@ -94,6 +94,7 @@
         "execution": "cpp",
         "matrixfunctions": "cpp",
         "alignedvector3": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "valarray": "cpp"
     }
 }

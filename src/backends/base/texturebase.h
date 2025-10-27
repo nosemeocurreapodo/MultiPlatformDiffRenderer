@@ -22,8 +22,10 @@ enum class FilterMode
 };
 
 template <class T>
-inline T wrap(T t, AddressMode addr)
+T wrap(T t, AddressMode addr)
 {
+#pragma HLS inline
+
     switch (addr)
     {
     case AddressMode::Clamp:
@@ -51,6 +53,8 @@ inline T wrap(T t, AddressMode addr)
 template <class T, class Tex>
 T nearest(Tex &tex, T y, T x, unsigned int lvl)
 {
+#pragma HLS inline
+
     const auto xi = static_cast<unsigned int>(lround(x));
     const auto yi = static_cast<unsigned int>(lround(y));
     return T(tex.texel_(yi, xi, lvl));
@@ -59,6 +63,8 @@ T nearest(Tex &tex, T y, T x, unsigned int lvl)
 template <class T, class Tex>
 T bilinear(Tex &tex, T y, T x, unsigned int lvl)
 {
+#pragma HLS inline
+
     const auto w = tex.width(lvl);
     const auto h = tex.height(lvl);
 
@@ -114,6 +120,8 @@ T sample(Tex &tex,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
+#pragma HLS inline
+
     const T w = static_cast<T>(tex.width(lvl));
     const T h = static_cast<T>(tex.height(lvl));
 
