@@ -49,6 +49,21 @@ template <typename MathType, class Derived>
 class RendererBase
 {
 public:
+    // Vertex shading & clip → NDC → screen
+    struct VSOut
+    {
+        linalg::Vec2<MathType> screen; // x,y in pixel space (float)
+        MathType depth;                // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+        MathType invW;                 // 1 / clip.w
+        // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
+        typename Derived::Varyings var; // original varyings (for convenience)
+    };
+
+    struct Triangle
+    {
+        VSOut vout[3];
+    };
+
     RendererBase()
     {
         opencv2opengl_ = linalg::Mat4<MathType>::Identity();
@@ -63,23 +78,55 @@ public:
                 const Mesh &mesh,
                 Textures &textures)
     {
-    // ---- Map mesh buffers (no copies) ----
-    // auto pos = mesh.MapReadPositions(); // 3 floats/vertex
-    // auto tex = mesh.MapReadTevout[2].screen(0)oords(); // 2 floats/vertex
-    // auto wei = mesh.MapReadWeights();   // 1 float /vertex
-    // auto idx = mesh.MapReadIndices();   // uint32_t indices
+        const int max_width = 640;
+        const int max_height = 480;
 
-    // const auto pos = mesh.Positions(); // 3 floats/vertex
-    // const auto tex = mesh.Tevout[2].screen(0)oords(); // 2 floats/vertex
-    // const auto wei = mesh.Weights();   // 1 float /vertex
-    // const auto idx = mesh.Indices();   // uint32_t indices
+        const int max_tri = 2048;
+
+        const int num_tiles_x = 4;
+        const int num_tiles_y = 4;
+        const int num_tiles = num_tiles_x * num_tiles_y;
+
+        const int max_tile_width = max_width / num_tiles_x;
+        const int max_tile_height = max_height / num_tiles_y;
+
+        const int max_tri_per_tile = max_tri / num_tiles;
+        const int max_frag_per_tri = max_width * max_height / max_tri;
+
+        const int vp_w = viewport.max_x_ - viewport.min_x_;
+        const int vp_h = viewport.max_y_ - viewport.min_y_;
+
+        BoundingBox<int> viewport_tiles[num_tiles];
+
+    rendererbase_render_tile_viewport_y_loop:
+        for (int y = 0; y < num_tiles_y; y++)
+        {
+        rendererbase_render_tile_viewport_x_loop:
+            for (int x = 0; x < num_tiles_x; x++)
+            {
+                viewport_tiles[y * num_tiles_x + x].min_x_ = int(MathType(vp_w * x) / MathType(num_tiles_x)) + viewport.min_x_;
+                viewport_tiles[y * num_tiles_x + x].max_x_ = int(MathType(vp_w * (x + 1)) / MathType(num_tiles_x)) + viewport.min_x_;
+                viewport_tiles[y * num_tiles_x + x].min_y_ = int(MathType(vp_h * y) / MathType(num_tiles_y)) + viewport.min_y_;
+                viewport_tiles[y * num_tiles_x + x].max_y_ = int(MathType(vp_h * (y + 1)) / MathType(num_tiles_y)) + viewport.min_y_;
+            }
+        }
+
+        Triangle triangles[num_tiles][max_tri_per_tile];
+        BoundingBox<int> triangle_bb[num_tiles][max_tri_per_tile];
+        int triangle_count[num_tiles];
+
+        for (int i = 0; i < num_tiles; i++)
+        {
+#pragma HLS UNROLL
+            triangle_count[i] = 0;
+        }
 
     // Loop over triangles
-    renderbase_triangle_loop:
+    renderbase_render_triangles_loop:
         for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
             // the amount of in a 32x32 mesh (31x31*2)
-#pragma HLS loop_tripcount min = 1922 max = 1922 avg = 1922
+#pragma HLS loop_tripcount min = max_tri max = max_tri avg = max_tri
             // #pragma HLS PIPELINE II = 1
 
             unsigned int vertexids[3];
@@ -94,103 +141,130 @@ public:
             vertexdata[1] = derived_().get_vertex_data(mesh, vertexids[1]);
             vertexdata[2] = derived_().get_vertex_data(mesh, vertexids[2]);
 
-            /*
-        renderbase_gather_loop:
-            for (int k = 0; k < 3; ++k)
+            Triangle triangle;
+
+        renderbase_render_vertex_loop:
+            for (int j = 0; j < 3; ++j)
             {
 #pragma HLS UNROLL
-                unsigned int vi = (k == 0 ? i0 : k == 1 ? i1
-                                                        : i2);
-                v[k](0) = mesh.pos_buffer_[vi * 3 + 0];
-                v[k](1) = mesh.pos_buffer_[vi * 3 + 1];
-                v[k](2) = mesh.pos_buffer_[vi * 3 + 2];
-                uv[k](0) = mesh.tex_buffer_[vi * 2 + 0];
-                uv[k](1) = mesh.tex_buffer_[vi * 2 + 1];
-                wght[k] = mesh.wei_buffer_[vi];
-            }
-            */
 
-            this->draw_triangle_(vertexdata, vertexids, viewport, textures);
+                linalg::Vec4<MathType> gl_Position;
+                typename Derived::Varyings varyings;
+                derived_().vertex_shader(vertexdata[j], vertexids[j], gl_Position, varyings);
+
+                const MathType invW = MathType(1) / gl_Position(3);
+                const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
+                const MathType ndc_y = gl_Position(1) * invW;
+                const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
+
+                // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
+                triangle.vout[j].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * (viewport.max_x_ - viewport.min_x_) + viewport.min_x_;
+                triangle.vout[j].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * (viewport.max_y_ - viewport.min_y_) + viewport.min_y_;
+                // triangle.vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1));
+                // triangle.vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1));
+                triangle.vout[j].depth = MathType(0.5) * (ndc_z + MathType(1));
+                triangle.vout[j].invW = invW;
+                triangle.vout[j].var = varyings;
+                // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
+            }
+
+            // Triangle bounding box (float → int, clamp to viewport)
+            BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+        renderbase_render_vertex_tile_loop:
+            for (int tile = 0; tile < num_tiles; tile++)
+            {
+                BoundingBox<int> bb; // = viewport_tiles[i].Intersection(tri_bb);
+
+                bb.min_x_ = max(viewport_tiles[tile].min_x_, static_cast<int>(floor(tri_bb.min_x_)));
+                bb.max_x_ = min(viewport_tiles[tile].max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
+                bb.min_y_ = max(viewport_tiles[tile].min_y_, static_cast<int>(floor(tri_bb.min_y_)));
+                bb.max_y_ = min(viewport_tiles[tile].max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
+
+                if (bb.min_x_ >= bb.max_x_ || bb.min_y_ >= bb.max_y_)
+                    continue;
+
+                triangles[tile][triangle_count[tile]] = triangle;
+
+                // bb.min_x_ = bb.min_x_ * (viewport.max_x - viewport.min_x) + viewport.min_x;
+                // bb.max_x_ = bb.max_x_ * (viewport.max_x - viewport.min_x) + viewport.min_x;
+                // bb.min_y_ = bb.min_y_ * (viewport.max_y - viewport.min_y) + viewport.min_y;
+                // bb.max_y_ = bb.max_y_ * (viewport.max_y - viewport.min_y) + viewport.min_y;
+
+                triangle_bb[tile][triangle_count[tile]] = bb;
+                triangle_count[tile]++;
+            }
+        }
+
+        typename Derived::Fragment frags[max_tile_width * max_tile_height];
+
+    renderbase_render_tile_loop:
+        for (int tile = 0; tile < num_tiles; tile++)
+        {
+            // #pragma HLS loop_tripcount min = num_tiles max = num_tiles avg = num_tiles
+
+            //typename Derived::Fragment *frags_read = frags[tile % 2];
+            //typename Derived::Fragment *frags_write = frags[(tile + 1) % 2];
+
+        renderbase_render_draw_triangle_loop:
+            for (int tri = 0; tri < max_tri_per_tile; tri++)
+            {
+                // #pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
+
+                if (tri >= triangle_count[tile])
+                    break;
+
+                this->draw_triangle_(triangles[tile][tri], triangle_bb[tile][tri], viewport_tiles[tile], textures, frags);
+            }
+
+        renderbase_render_write_y_loop:
+            for (int iy = 0; iy < max_tile_height; iy++)
+            {
+                if (iy >= viewport_tiles[tile].max_y_ - viewport_tiles[tile].min_y_)
+                    break;
+
+            renderbase_render_write_x_loop:
+                for (int ix = 0; ix < max_tile_width; ix++)
+                {
+                    if (ix >= viewport_tiles[tile].max_x_ - viewport_tiles[tile].min_x_)
+                        break;
+
+                    int y = iy + viewport_tiles[tile].min_y_;
+                    int x = ix + viewport_tiles[tile].min_x_;
+
+                    derived_().write_fragment(frags[iy * (viewport_tiles[tile].max_x_ - viewport_tiles[tile].min_x_) + ix],
+                                              y * (viewport.max_x_ - viewport.min_x_) + x,
+                                              textures);
+                }
+            }
         }
     }
 
 protected:
     // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename VertexData, typename Textures>
-    void draw_triangle_(const VertexData *vertexdata,
-                        const unsigned int *vertexid,
-                        const BoundingBox<int> &viewport,
-                        Textures &textures)
+    template <typename Textures, typename Fragment>
+    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &triangle_bb, const BoundingBox<int> &tile_bb, Textures &textures, Fragment *frags)
     {
-        // Vertex shading & clip → NDC → screen
-        struct VSOut
-        {
-            linalg::Vec2<MathType> screen; // x,y in pixel space (float)
-            MathType depth;                // z in [0,1] if your projection is like GL_ZERO_TO_ONE
-            MathType invW;                 // 1 / clip.w
-            // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
-            typename Derived::Varyings var; // original varyings (for convenience)
-        } vout[3];
-
-        const MathType vp_w = static_cast<MathType>(viewport.max_x_ - viewport.min_x_);
-        const MathType vp_h = static_cast<MathType>(viewport.max_y_ - viewport.min_y_);
-
-    draw_triangle_vertex_loop:
-        for (int i = 0; i < 3; ++i)
-        {
-#pragma HLS UNROLL
-
-            linalg::Vec4<MathType> gl_Position;
-            typename Derived::Varyings varyings;
-            derived_().vertex_shader(vertexdata[i], vertexid[i], gl_Position, varyings);
-
-            const MathType invW = MathType(1) / gl_Position(3);
-            const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
-            const MathType ndc_y = gl_Position(1) * invW;
-            const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
-
-            // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * vp_w + viewport.min_x_;
-            vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * vp_h + viewport.min_y_;
-            vout[i].depth = ndc_z;
-            vout[i].invW = invW;
-            vout[i].var = varyings;
-            // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
-        }
-
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        MathType area2 = edge_func(vout[0].screen, vout[1].screen, vout[2].screen); // 2*area with sign
+        MathType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
 
         if (area2 < MathType(0))
             return; // enable to cull backfaces
 
-        // Triangle bounding box (float → int, clamp to viewport)
-        MathType minx = min(min(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
-        MathType maxx = max(max(vout[0].screen(0), vout[1].screen(0)), vout[2].screen(0));
-        MathType miny = min(min(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
-        MathType maxy = max(max(vout[0].screen(1), vout[1].screen(1)), vout[2].screen(1));
-
-        int x0 = max(viewport.min_x_, static_cast<int>(floor(minx)));
-        int x1 = min(viewport.max_x_, static_cast<int>(ceil(maxx)));
-        int y0 = max(viewport.min_y_, static_cast<int>(floor(miny)));
-        int y1 = min(viewport.max_y_, static_cast<int>(ceil(maxy)));
-        if (x0 >= x1 || y0 >= y1)
-            return;
-
         const MathType inv_area2 = MathType(1) / area2;
 
-        const bool tlAB = is_top_left(vout[0].screen, vout[1].screen);
-        const bool tlBC = is_top_left(vout[1].screen, vout[2].screen);
-        const bool tlCA = is_top_left(vout[2].screen, vout[0].screen);
+        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
+        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
+        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
         linalg::Vec2<MathType> p;
-        p(0) = static_cast<MathType>(x0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-        p(1) = static_cast<MathType>(y0) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p(0) = static_cast<MathType>(triangle_bb.min_x_) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p(1) = static_cast<MathType>(triangle_bb.min_y_) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
 
-        MathType eAB_row = edge_func(vout[0].screen, vout[1].screen, p);
-        MathType eBC_row = edge_func(vout[1].screen, vout[2].screen, p);
-        MathType eCA_row = edge_func(vout[2].screen, vout[0].screen, p);
+        MathType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+        MathType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+        MathType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
 
         // Step increments when moving +1 in X or +1 in Y
         // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
@@ -200,40 +274,45 @@ protected:
         // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
         // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
         // for y down, the - is needed
-        const MathType eAB_dx = (vout[1].screen(1) - vout[0].screen(1));
-        const MathType eAB_dy = (vout[0].screen(0) - vout[1].screen(0));
-        const MathType eBC_dx = (vout[2].screen(1) - vout[1].screen(1));
-        const MathType eBC_dy = (vout[1].screen(0) - vout[2].screen(0));
-        const MathType eCA_dx = (vout[0].screen(1) - vout[2].screen(1));
-        const MathType eCA_dy = (vout[2].screen(0) - vout[0].screen(0));
+        const MathType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        const MathType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        const MathType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        const MathType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        const MathType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        const MathType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
-        derived_().read_cache(y0, y1, x0, x1, textures);
+        // derived_().read_cache(y0, y1, x0, x1, textures);
 
-        typename Derived::Fragment frags[500];
-        int addresses[500];
-        int count = 0;
+        int triangle_width = triangle_bb.max_x_ - triangle_bb.min_x_;
+        int triangle_height = triangle_bb.max_y_ - triangle_bb.min_y_;
+
+        int tile_width = tile_bb.max_x_ - tile_bb.min_x_;
+        int tile_height = tile_bb.max_y_ - tile_bb.min_y_;
+
     // Rasterize
     draw_triangle_raster_loop_y:
-        for (int y = y0, iy = 0; y < y1; ++y, ++iy)
+        // for (int y = bb.min_y_, iy = 0; y < bb.max_y_; ++y, ++iy)
+        for (int iy = 0; iy < triangle_height; ++iy)
         {
             // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = 15 max = 15 avg = 15
 
-            int add_offset = y * vp_w;
+            int y = iy + triangle_bb.min_y_;
 
             const MathType eAB_row_local = MathType(iy) * eAB_dy + eAB_row;
             const MathType eBC_row_local = MathType(iy) * eBC_dy + eBC_row;
             const MathType eCA_row_local = MathType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_raster_loop_x:
-            for (int x = x0, ix = 0; x < x1; ++x, ++ix)
+            // for (int x = bb.min_x_, ix = 0; x < bb.max_x_; ++x, ++ix)
+            for (int ix = 0; ix < triangle_width; ++ix)
             {
                 // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = 20 max = 20 avg = 20
 #pragma HLS loop_flatten
                 //   #pragma HLS PIPELINE II = 1
 
-                int address = add_offset + x;
+                int x = ix + triangle_bb.min_x_;
 
                 const MathType eAB = MathType(ix) * eAB_dx + eAB_row_local;
                 const MathType eBC = MathType(ix) * eBC_dx + eBC_row_local;
@@ -253,9 +332,9 @@ protected:
                 // const MathType w1 = eCA * inv_area2;
                 // const MathType w2 = eAB * inv_area2;
                 // Baricentric weights normalized (perpective)
-                MathType w0 = eBC * inv_area2 * vout[0].invW;
-                MathType w1 = eCA * inv_area2 * vout[1].invW;
-                MathType w2 = eAB * inv_area2 * vout[2].invW;
+                MathType w0 = eBC * inv_area2 * triangle.vout[0].invW;
+                MathType w1 = eCA * inv_area2 * triangle.vout[1].invW;
+                MathType w2 = eAB * inv_area2 * triangle.vout[2].invW;
 
                 // Perspective: 1/w at pixel
                 const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
@@ -265,12 +344,14 @@ protected:
                 w2 *= inv_invW_px;
 
                 typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
-                                                                                        vout[0].var, vout[1].var, vout[2].var);
+                                                                                        triangle.vout[0].var,
+                                                                                        triangle.vout[1].var,
+                                                                                        triangle.vout[2].var);
 
                 // Depth (if needed; same trick)
-                MathType depth_px = w0 * vout[0].depth +
-                                    w1 * vout[1].depth +
-                                    w2 * vout[2].depth;
+                MathType depth_px = w0 * triangle.vout[0].depth +
+                                    w1 * triangle.vout[1].depth +
+                                    w2 * triangle.vout[2].depth;
 
                 // Depth test could go here
 
@@ -280,26 +361,13 @@ protected:
                 gl_FragCoord(2) = depth_px;
                 gl_FragCoord(3) = inv_invW_px;
 
-                // frags[count] = derived_().fragment_shader(inside, address, gl_FragCoord, varying_px, textures);
-                // addresses[count] = address;
-                // count++;
-
-                typename Derived::Fragment frag = derived_().fragment_shader(inside, address, gl_FragCoord, varying_px, textures);
-                derived_().write_fragment(frag, address, textures);
+                Fragment frag = derived_().fragment_shader(gl_FragCoord, varying_px, textures);
+                frags[(y - tile_bb.min_y_) * tile_width + x - tile_bb.min_x_] = frag;
             }
         }
 
-        // renderbase_write_fragment_loop:
-        //     for (int i = 0; i < count; i += 1)
-        //     {
-        // #pragma HLS loop_tripcount min = 300 max = 300 avg = 300
-        //           derived_().write_fragment(frags[i], addresses[i], textures);
-        //      }
-
-        derived_().write_cache(y0, y1, x0, x1, textures);
+        // derived_().write_cache(y0, y1, x0, x1, textures);
     }
-
-    // Derived derived_() { return static_cast<Derived &>(*this); }
 
     Derived &derived_() { return *static_cast<Derived *>(this); }
     const Derived &derived_() const { return *static_cast<const Derived *>(this); }
@@ -452,9 +520,7 @@ public:
         gl_Position = uProjection_ * uView_ * linalg::Vec4<MathType>(fragPos, MathType(1));
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -711,9 +777,7 @@ public:
         outVarying.depth = gl_Position(2);
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -933,9 +997,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -1147,9 +1209,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -1302,9 +1362,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -1447,9 +1505,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -1651,9 +1707,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -1879,9 +1933,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {
@@ -2126,9 +2178,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    Fragment fragment_shader(bool inside,
-                             int address,
-                             const linalg::Vec4<MathType> &gl_FragCoord,
+    Fragment fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                              const Varyings &in_varying,
                              Textures &textures)
     {

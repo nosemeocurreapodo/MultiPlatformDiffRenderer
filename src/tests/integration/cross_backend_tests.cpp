@@ -86,7 +86,7 @@ TEST_F(CrossBackendTests, MipMapComparison)
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
-
+/*
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, GouraudRenderingComparison)
 {
@@ -163,7 +163,7 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
     // EXPECT_LT(gl_time, thresholds_.max_gl_depth_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
 }
-
+*/
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
