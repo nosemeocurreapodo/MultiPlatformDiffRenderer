@@ -16,6 +16,8 @@ public:
         min_y_ = miny;
         max_x_ = maxx;
         max_y_ = maxy;
+        width_ = maxx - minx;
+        height_ = maxy - miny;
     }
 
     template <typename Vec2Type>
@@ -25,6 +27,8 @@ public:
         max_x_ = T(max(max(t1(0), t2(0)), t3(0)));
         min_y_ = T(min(min(t1(1), t2(1)), t3(1)));
         max_y_ = T(max(max(t1(1), t2(1)), t3(1)));
+        width_ = max_x_ - min_x_;
+        height_ = max_y_ - min_y_;
     }
 
     bool IsPixInBoundingBox(T x, T y)
@@ -68,4 +72,6 @@ public:
     T max_x_;
     T min_y_;
     T max_y_;
+    T width_;
+    T height_;
 };

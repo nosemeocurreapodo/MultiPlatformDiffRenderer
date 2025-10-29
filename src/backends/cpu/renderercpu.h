@@ -144,7 +144,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<float, float, MeshCPU, TextureCPU, TextureCPU, TextureCPU>
+    : public ImageRendererBase<float, float, MeshCPU, TextureCPU, TextureCPU>
 {
 public:
     ImageRendererCPU() = default;
@@ -160,9 +160,7 @@ public:
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        TextureCPU<float> depth_texture(out_texture.width(0), out_texture.height(0), -1.0f);
-
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, out_texture);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, out_texture);
     }
 
 private:
@@ -199,30 +197,7 @@ public:
 private:
 };
 
-class L2RendererCPU
-    : public L2RendererBase<float, float, float, MeshCPU, TextureCPU>
-{
-public:
-    L2RendererCPU() = default;
-    ~L2RendererCPU() = default;
 
-    void Render(MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
-                int in_lvl,
-                int out_lvl,
-                TextureCPU<float> &f_texture,
-                TextureCPU<float> &r_texture)
-    {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, r_texture);
-    }
-
-private:
-};
 
 class DIDxyRendererCPU
     : public DIDxyRendererBase<float, float, float, MeshCPU, TextureCPU>

@@ -47,7 +47,6 @@ extern "C"
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
                         float *diffuse_texture_data,
-                        float *depth_texture_data,
                         float *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
@@ -66,8 +65,7 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0
 #pragma HLS INTERFACE m_axi port = diffuse_texture_data bundle = gmem1
-#pragma HLS INTERFACE m_axi port = depth_texture_data bundle = gmem2
-#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem3
+#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem2
 
         linalg::SE3<MathType> pose(linalg::SO3<MathType>(
                                        linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)),
@@ -78,11 +76,10 @@ extern "C"
                                                       ebo_buffer_data, ebo_buffer_size,
                                                       diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
 
-        TextureRAM<float> depth_texture(out_texture_width, out_texture_height, out_nodata_value, depth_texture_data);
         TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererRAM renderer;
-        renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, depth_texture, out_texture);
+        renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, out_texture);
     }
     /*
             void DiffRenderHLS(const float *pos_buffer_data,

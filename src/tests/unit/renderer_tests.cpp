@@ -21,7 +21,6 @@ struct CPUBackendTraits
     using DepthRendererT = DepthRendererCPU;
     using ImageRendererT = ImageRendererCPU;
     using ResidualRendererT = ResidualRendererCPU;
-    using L2RendererT = L2RendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseRendererT = JPoseRendererCPU;
     using JMapRendererT = JMapRendererCPU;
@@ -37,7 +36,6 @@ struct GLBackendTraits
     using DepthRendererT = DepthRendererGL;
     using ImageRendererT = ImageRendererGL;
     using ResidualRendererT = ResidualRendererGL;
-    using L2RendererT = L2RendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
     using JPoseRendererT = JPoseRendererGL;
     using JMapRendererT = JMapRendererGL;
@@ -164,29 +162,7 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
     EXPECT_LE(mean_val[0], 255.0) << "Mean intensity should be reasonable";
 }
 
-TYPED_TEST_P(RendererTypedTests, L2RendererBasicFunctionality)
-{
-    using Traits = TypeParam;
-    const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
-    typename Traits::template TextureT<float> input2(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-
-    UploadMatToTexture(input2, 0, this->image_dst_cv_);
-
-    typename Traits::L2RendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
-
-    ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input2, output));
-
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC1);
-    cv::Scalar mean_val, std_val;
-    cv::Mat mask = (result != 0.0f);
-    cv::meanStdDev(result, mean_val, std_val);
-    EXPECT_GE(mean_val[0], 0.0) << "Mean intensity should be non-negative";
-    EXPECT_LE(mean_val[0], 65025.0) << "Mean intensity should be reasonable";
-}
 
 // DIDxy renderer
 TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
@@ -401,7 +377,6 @@ REGISTER_TYPED_TEST_SUITE_P(
     DepthRendererBasicFunctionality,
     ImageRendererBasicFunctionality,
     ResidualRendererBasicFunctionality,
-    L2RendererBasicFunctionality,
     DIDxyRendererBasicFunctionality,
     JPoseRendererBasicFunctionality,
     JMapRendererBasicFunctionality,

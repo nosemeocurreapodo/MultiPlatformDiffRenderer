@@ -54,15 +54,15 @@ public:
 
     static constexpr int max_tri = 2048;
 
-    static constexpr int num_tiles_x = 1;
-    static constexpr int num_tiles_y = 1;
+    static constexpr int num_tiles_x = 4;
+    static constexpr int num_tiles_y = 4;
     static constexpr int num_tiles = num_tiles_x * num_tiles_y;
 
     static constexpr int max_tile_width = max_width / num_tiles_x;
     static constexpr int max_tile_height = max_height / num_tiles_y;
 
-    static constexpr int max_tri_per_tile = max_tri / num_tiles;
-    static constexpr int max_frag_per_tri = max_width * max_height / max_tri;
+    static constexpr int max_tri_per_tile = int(2.5 * max_tri / num_tiles);
+    static constexpr int max_frag_per_tri = 300;
 
     // Vertex shading & clip → NDC → screen
     struct VSOut
@@ -88,32 +88,25 @@ public:
     // virtual ~RendererBase() = default;
     ~RendererBase() = default;
 
-    template <typename Mesh, typename Textures>
+    template <typename Mesh, typename InTextures, typename OutTextures>
     void Render(const BoundingBox<int> &viewport,
                 const Mesh &mesh,
-                Textures &textures)
+                const InTextures &intextures,
+                OutTextures &outtextures)
     {
-        const int vp_w = viewport.max_x_ - viewport.min_x_;
-        const int vp_h = viewport.max_y_ - viewport.min_y_;
 
         BoundingBox<int> viewport_tiles[num_tiles];
-
-    rendererbase_render_tile_viewport_y_loop:
-        for (int y = 0; y < num_tiles_y; y++)
-        {
-        rendererbase_render_tile_viewport_x_loop:
-            for (int x = 0; x < num_tiles_x; x++)
-            {
-                viewport_tiles[y * num_tiles_x + x].min_x_ = int(MathType(vp_w * x) / MathType(num_tiles_x)) + viewport.min_x_;
-                viewport_tiles[y * num_tiles_x + x].max_x_ = int(MathType(vp_w * (x + 1)) / MathType(num_tiles_x)) + viewport.min_x_;
-                viewport_tiles[y * num_tiles_x + x].min_y_ = int(MathType(vp_h * y) / MathType(num_tiles_y)) + viewport.min_y_;
-                viewport_tiles[y * num_tiles_x + x].max_y_ = int(MathType(vp_h * (y + 1)) / MathType(num_tiles_y)) + viewport.min_y_;
-            }
-        }
-
         Triangle triangles[num_tiles][max_tri_per_tile];
-        BoundingBox<int> triangle_bb[num_tiles][max_tri_per_tile];
         int triangle_count[num_tiles];
+
+#pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+
+        // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
+        // #pragma HLS ARRAY_PARTITION variable = triangles complete dim = 1
+#pragma HLS ARRAY_PARTITION variable = triangle_count complete dim = 1
+
+        create_tile_viewports_(viewport_tiles, viewport, num_tiles_x, num_tiles_y);
 
         for (int i = 0; i < num_tiles; i++)
         {
@@ -146,7 +139,7 @@ public:
         renderbase_render_vertex_loop:
             for (int j = 0; j < 3; ++j)
             {
-#pragma HLS UNROLL
+                // #pragma HLS UNROLL
 
                 linalg::Vec4<MathType> gl_Position;
                 typename Derived::Varyings varyings;
@@ -158,8 +151,8 @@ public:
                 const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
                 // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-                triangle.vout[j].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * (viewport.max_x_ - viewport.min_x_) + viewport.min_x_;
-                triangle.vout[j].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * (viewport.max_y_ - viewport.min_y_) + viewport.min_y_;
+                triangle.vout[j].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * viewport.width_ + viewport.min_x_;
+                triangle.vout[j].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * viewport.height_ + viewport.min_y_;
                 // triangle.vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1));
                 // triangle.vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1));
                 triangle.vout[j].depth = MathType(0.5) * (ndc_z + MathType(1));
@@ -174,98 +167,198 @@ public:
         renderbase_render_vertex_tile_loop:
             for (int tile = 0; tile < num_tiles; tile++)
             {
-                BoundingBox<int> bb; // = viewport_tiles[i].Intersection(tri_bb);
+                int min_x = max(viewport_tiles[tile].min_x_, static_cast<int>(floor(tri_bb.min_x_)));
+                int max_x = min(viewport_tiles[tile].max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
+                int min_y = max(viewport_tiles[tile].min_y_, static_cast<int>(floor(tri_bb.min_y_)));
+                int max_y = min(viewport_tiles[tile].max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
 
-                bb.min_x_ = max(viewport_tiles[tile].min_x_, static_cast<int>(floor(tri_bb.min_x_)));
-                bb.max_x_ = min(viewport_tiles[tile].max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
-                bb.min_y_ = max(viewport_tiles[tile].min_y_, static_cast<int>(floor(tri_bb.min_y_)));
-                bb.max_y_ = min(viewport_tiles[tile].max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
-
-                if (bb.min_x_ >= bb.max_x_ || bb.min_y_ >= bb.max_y_)
+                if (min_x >= max_x || min_y >= max_y)
                     continue;
 
+                // = viewport_tiles[i].Intersection(tri_bb);
+
                 triangles[tile][triangle_count[tile]] = triangle;
-
-                // bb.min_x_ = bb.min_x_ * (viewport.max_x - viewport.min_x) + viewport.min_x;
-                // bb.max_x_ = bb.max_x_ * (viewport.max_x - viewport.min_x) + viewport.min_x;
-                // bb.min_y_ = bb.min_y_ * (viewport.max_y - viewport.min_y) + viewport.min_y;
-                // bb.max_y_ = bb.max_y_ * (viewport.max_y - viewport.min_y) + viewport.min_y;
-
-                triangle_bb[tile][triangle_count[tile]] = bb;
                 triangle_count[tile]++;
             }
         }
 
-        typename Derived::Fragment frags[max_tile_width * max_tile_height];
+        // typename Derived::Fragment frags[max_tile_width * max_tile_height];
+        // #pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
+        // #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
+
+        const int buffers = 3;
+
+        typename Derived::Fragment frags[buffers][max_tile_width * max_tile_height];
+// #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
+#pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
 
     renderbase_render_tile_loop:
-        for (int tile = 0; tile < num_tiles; tile++)
+        for (int tile = 0; tile < num_tiles + buffers - 1; tile++)
         {
-            clear_tile_(frags);
-            render_tile_(frags, triangles[tile], triangle_count[tile], triangle_bb[tile], viewport_tiles[tile], textures);
-            write_tile_(frags, viewport_tiles[tile], viewport, textures);
-        }
-    }
+            // #pragma HLS DATAFLOW
+            // #pragma HLS PIPELINE II = 1
+            // #pragma HLS PIPELINE off
 
-protected:
-    template <typename Fragment>
-    void clear_tile_(Fragment *frags)
-    {
-    renderbase_clear_tile_y_loop:
-        for (int y = 0; y < max_tile_height; y++)
-        {
-        renderbase_clear_tile_x_loop:
-            for (int x = 0; x < max_tile_width; x++)
+#pragma HLS dependence variable = frags type = inter false
+#pragma HLS dependence variable = frags type = intra false
+
+#pragma HLS dependence variable = viewport_tiles type = inter false
+#pragma HLS dependence variable = viewport_tiles type = intra false
+
+#pragma HLS dependence variable = triangles type = inter false
+#pragma HLS dependence variable = triangles type = intra false
+
+#pragma HLS dependence variable = triangle_count type = inter false
+#pragma HLS dependence variable = triangle_count type = intra false
+
+#pragma HLS dependence variable = intextures type = inter false
+#pragma HLS dependence variable = intextures type = intra false
+
+#pragma HLS dependence variable = outtextures type = inter false
+#pragma HLS dependence variable = outtextures type = intra false
+
+            int r_tile = tile;
+            int p_tile = tile - 1;
+            int w_tile = tile - 2;
+
+            // if (r_tile >= 0 && r_tile < num_tiles)
+            //{
+            //    clear_tile_(frags[r_tile % buffers], viewport_tiles[r_tile]);
+            //}
+            if (p_tile >= 0 && p_tile < num_tiles)
             {
-                frags[y * max_tile_width + x] = derived_().nodata_;
+                render_tile_(frags[p_tile % buffers], triangles[p_tile], triangle_count[p_tile], viewport_tiles[p_tile], intextures);
+            }
+            // if (w_tile >= 0 && w_tile < num_tiles)
+            //{
+            //    write_tile_(frags[w_tile % buffers], viewport_tiles[w_tile], viewport, outtextures);
+            //}
+
+        renderbase_render_read_write_y_loop:
+            for (int iy = 0; iy < max_tile_height; iy++)
+            {
+            renderbase_render_read_write_x_loop:
+                for (int ix = 0; ix < max_tile_width; ix++)
+                {
+                    if (r_tile >= 0 && r_tile < num_tiles)
+                    {
+                        if (ix < viewport_tiles[r_tile].width_ && iy < viewport_tiles[r_tile].height_)
+                        {
+                            frags[r_tile % buffers][iy * viewport_tiles[r_tile].width_ + ix] = derived_().nodata_;
+                        }
+                    }
+                    if (w_tile >= 0 && w_tile < num_tiles)
+                    {
+                        if (ix < viewport_tiles[w_tile].width_ && iy < viewport_tiles[w_tile].height_)
+                        {
+                            int y = iy + viewport_tiles[w_tile].min_y_;
+                            int x = ix + viewport_tiles[w_tile].min_x_;
+
+                            derived_().write_fragment(frags[w_tile % buffers][iy * viewport_tiles[w_tile].width_ + ix],
+                                                      y * viewport.width_ + x,
+                                                      outtextures);
+                        }
+                    }
+                }
             }
         }
     }
 
-    template <typename Fragment, typename Textures>
-    void render_tile_(Fragment *frags, const Triangle *triangles, int triangle_count, const BoundingBox<int> *triangle_bb, const BoundingBox<int> &viewport_tile, Textures &textures)
+protected:
+    void
+    create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
     {
-    renderbase_render_draw_triangle_loop:
-        for (int tri = 0; tri < max_tri_per_tile; tri++)
+    rendererbase_render_tile_viewport_y_loop:
+        for (int y = 0; y < num_tiles_y; y++)
         {
-            // #pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
+        rendererbase_render_tile_viewport_x_loop:
+            for (int x = 0; x < num_tiles_x; x++)
+            {
+                int min_x_ = int(MathType(viewport.width_ * x) / MathType(num_tiles_x)) + viewport.min_x_;
+                int max_x_ = int(MathType(viewport.width_ * (x + 1)) / MathType(num_tiles_x)) + viewport.min_x_;
+                int min_y_ = int(MathType(viewport.height_ * y) / MathType(num_tiles_y)) + viewport.min_y_;
+                int max_y_ = int(MathType(viewport.height_ * (y + 1)) / MathType(num_tiles_y)) + viewport.min_y_;
 
-            if (tri >= triangle_count)
-                break;
-
-            this->draw_triangle_(triangles[tri], triangle_bb[tri], viewport_tile, textures, frags);
+                viewport_tiles[y * num_tiles_x + x] = BoundingBox<int>(min_x_, max_x_, min_y_, max_y_);
+            }
         }
     }
 
-    template <typename Fragment, typename Textures>
-    void write_tile_(Fragment *frags, const BoundingBox<int> &viewport_tile, const BoundingBox<int> &viewport, Textures &textures)
+    template <typename Fragment>
+    void clear_tile_(Fragment *frags, const BoundingBox<int> &viewport_tile)
     {
-    renderbase_render_write_y_loop:
-        for (int iy = 0; iy < max_tile_height; iy++)
+        // #pragma HLS INLINE off
+
+    renderbase_clear_tile_y_loop:
+        for (int y = 0; y < viewport_tile.height_; y++)
         {
-            if (iy >= viewport_tile.max_y_ - viewport_tile.min_y_)
-                break;
+#pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
+
+        renderbase_clear_tile_x_loop:
+            for (int x = 0; x < viewport_tile.width_; x++)
+            {
+#pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
+
+                frags[y * viewport_tile.width_ + x] = derived_().nodata_;
+            }
+        }
+    }
+
+    template <typename Fragment, typename InTextures>
+    void render_tile_(Fragment *frags, const Triangle *triangles, int triangle_count, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
+    {
+        // #pragma HLS INLINE off
+
+    renderbase_render_draw_triangle_loop:
+        for (int tri = 0; tri < triangle_count; tri++)
+        {
+#pragma HLS pipeline off
+#pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
+
+            draw_triangle_(triangles[tri], viewport_tile, intextures, frags);
+        }
+    }
+
+    template <typename Fragment, typename OutTextures>
+    void write_tile_(const Fragment *frags, const BoundingBox<int> &viewport_tile, const BoundingBox<int> &viewport, OutTextures &outtextures)
+    {
+        // #pragma HLS INLINE off
+
+    renderbase_render_write_y_loop:
+        for (int iy = 0; iy < viewport_tile.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
 
         renderbase_render_write_x_loop:
-            for (int ix = 0; ix < max_tile_width; ix++)
+            for (int ix = 0; ix < viewport_tile.width_; ix++)
             {
-                if (ix >= viewport_tile.max_x_ - viewport_tile.min_x_)
-                    break;
+#pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
 
                 int y = iy + viewport_tile.min_y_;
                 int x = ix + viewport_tile.min_x_;
 
-                derived_().write_fragment(frags[iy * (viewport_tile.max_x_ - viewport_tile.min_x_) + ix],
-                                          y * (viewport.max_x_ - viewport.min_x_) + x,
-                                          textures);
+                derived_().write_fragment(frags[iy * viewport_tile.width_ + ix],
+                                          y * viewport.width_ + x,
+                                          outtextures);
             }
         }
     }
 
     // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename Textures, typename Fragment>
-    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &triangle_bb, const BoundingBox<int> &tile_bb, Textures &textures, Fragment *frags)
+    template <typename InTextures, typename Fragment>
+    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, const InTextures &intextures, Fragment *frags)
     {
+#pragma HLS INLINE
+
+        BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+        int min_x = max(tile_bb.min_x_, static_cast<int>(floor(tri_bb.min_x_)));
+        int max_x = min(tile_bb.max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
+        int min_y = max(tile_bb.min_y_, static_cast<int>(floor(tri_bb.min_y_)));
+        int max_y = min(tile_bb.max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
+
+        BoundingBox<int> triangle_bb(min_x, max_x, min_y, max_y);
+
         // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
         MathType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
 
@@ -302,18 +395,10 @@ protected:
         const MathType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
         const MathType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
-        // derived_().read_cache(y0, y1, x0, x1, textures);
-
-        int triangle_width = triangle_bb.max_x_ - triangle_bb.min_x_;
-        int triangle_height = triangle_bb.max_y_ - triangle_bb.min_y_;
-
-        int tile_width = tile_bb.max_x_ - tile_bb.min_x_;
-        int tile_height = tile_bb.max_y_ - tile_bb.min_y_;
-
     // Rasterize
     draw_triangle_raster_loop_y:
         // for (int y = bb.min_y_, iy = 0; y < bb.max_y_; ++y, ++iy)
-        for (int iy = 0; iy < triangle_height; ++iy)
+        for (int iy = 0; iy < triangle_bb.height_; ++iy)
         {
             // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = 15 max = 15 avg = 15
@@ -326,7 +411,7 @@ protected:
 
         draw_triangle_raster_loop_x:
             // for (int x = bb.min_x_, ix = 0; x < bb.max_x_; ++x, ++ix)
-            for (int ix = 0; ix < triangle_width; ++ix)
+            for (int ix = 0; ix < triangle_bb.width_; ++ix)
             {
                 // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = 20 max = 20 avg = 20
@@ -384,12 +469,10 @@ protected:
 
                 derived_().fragment_shader(gl_FragCoord,
                                            varying_px,
-                                           textures,
-                                           frags[(y - tile_bb.min_y_) * tile_width + x - tile_bb.min_x_]);
+                                           intextures,
+                                           frags[(y - tile_bb.min_y_) * tile_bb.width_ + x - tile_bb.min_x_]);
             }
         }
-
-        // derived_().write_cache(y0, y1, x0, x1, textures);
     }
 
     Derived &derived_() { return *static_cast<Derived *>(this); }
@@ -403,13 +486,12 @@ class GouraudRendererBase
     : public RendererBase<MathType, GouraudRendererBase<MathType, OutType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &pos_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
+    struct InTextures
+    {
+        const MathType notused;
+    };
 
-    struct Textures
+    struct OutTextures
     {
         Texture<linalg::Vec3<OutType>> &out_texture;
     };
@@ -446,8 +528,6 @@ public:
                 unsigned int out_lvl,
                 Texture<linalg::Vec3<OutType>> &out_texture)
     {
-        // out_texture.fill(out_lvl, out_texture.nodata());
-
         nodata_.vColor = out_texture.nodata();
 
         linalg::SE3<MathType> cam2world = pose.inverse();
@@ -470,16 +550,14 @@ public:
 
         out_lvl_ = out_lvl;
 
-        // out_texture_ = &out_texture;
-
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.pos_buffer_, mesh.ebo_buffer_};
-        Textures textures{out_texture};
+        InTextures intextures{0};
+        OutTextures outtextures{out_texture};
 
-        RendererBase<MathType, GouraudRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, GouraudRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -545,9 +623,9 @@ public:
         gl_Position = uProjection_ * uView_ * linalg::Vec4<MathType>(fragPos, MathType(1));
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
         // std::cout << "calling fragment shader " << std::endl;
@@ -556,20 +634,11 @@ public:
 
         // textures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.vColor = in_varying.vColor;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.out_texture.set_texel_(frag.vColor, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
     }
 
     linalg::Mat4<MathType> uModel_;        // model to world space
@@ -715,7 +784,12 @@ class DepthRendererBase
     : public RendererBase<MathType, DepthRendererBase<MathType, DepthType, Mesh, Texture>>
 {
 public:
-    struct Textures
+    struct InTextures
+    {
+        const MathType unused;
+    };
+
+    struct OutTextures
     {
         // Texture<DepthType> &out_texture;
         DepthType *out_data;
@@ -745,22 +819,19 @@ public:
                 unsigned int out_lvl,
                 Texture<DepthType> &out_texture)
     {
-        // out_texture.fill(out_lvl, out_texture.nodata());
         nodata_.depth = out_texture.nodata();
 
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
         out_lvl_ = out_lvl;
 
-        // out_texture_ = &out_texture;
-
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.pos_buffer_, mesh.ebo_buffer_};
-        Textures textures{out_texture.data(out_lvl_)};
+        InTextures intextures{0};
+        OutTextures outtextures{out_texture.data(out_lvl_)};
 
-        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -799,87 +870,34 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-#pragma HLS INLINE
-        //  std::cout << "calling vertex shader " << std::endl;
+        // #pragma HLS INLINE
+        //   std::cout << "calling vertex shader " << std::endl;
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
         outVarying.depth = gl_Position(2);
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
 #pragma HLS INLINE
 
         MathType depth = in_varying.depth;
 
-        if (frag.depth != nodata_.depth && depth > frag.depth)
-            return false;
+        // if (frag.depth != nodata_.depth && depth > frag.depth)
+        //     return;
 
         frag.depth = depth;
-        return true;
     }
 
-    void write_fragment(Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
-#pragma HLS inline
+#pragma HLS INLINE
         textures.out_data[address] = frag.depth;
     }
 
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-        /*
-        cache_y0_ = y0;
-        cache_y1_ = y1;
-        cache_x0_ = x0;
-        cache_x1_ = x1;
-
-    depthrenderer_read_cache_y_loop:
-        for (int y = 0; y < y1 - y0; ++y)
-        {
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
-
-        depthrenderer_read_cache_x_loop:
-            for (int x = 0; x < x1 - x0; ++x)
-            {
-#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
-
-                DepthType data = textures.out_texture.texel_(y + y0, x + x0, out_lvl_);
-                // cache_[y * 32 + x] = data;
-                cache_[(y << 5) + x] = data;
-            }
-        }
-            */
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-        /*
-    depthrenderer_write_cache_y_loop:
-        for (int y = 0; y < y1 - y0; ++y)
-        {
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
-
-        depthrenderer_write_cache_x_loop:
-            for (int x = 0; x < x1 - x0; ++x)
-            {
-#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
-
-                // DepthType data = cache_[y * 32 + x];
-                DepthType data = cache_[(y << 5) + x];
-                textures.out_texture.set_texel_(data, y + y0, x + x0, out_lvl_);
-            }
-        }
-            */
-    }
-
     linalg::Mat4<MathType> t_matrix_;
-    DepthType cache_[32 * 32];
-    int cache_y0_;
-    int cache_y1_;
-    int cache_x0_;
-    int cache_x1_;
     unsigned int out_lvl_;
     Fragment nodata_;
 };
@@ -889,9 +907,9 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <typename MathType, typename ImageType, class Mesh, template <class> class DiffuseTexture, template <class> class DepthTexture, template <class> class OutTexture>
+template <typename MathType, typename ImageType, class Mesh, template <class> class DiffuseTexture, template <class> class OutTexture>
 class ImageRendererBase
-    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, DiffuseTexture, DepthTexture, OutTexture>>
+    : public RendererBase<MathType, ImageRendererBase<MathType, ImageType, Mesh, DiffuseTexture, OutTexture>>
 {
 public:
     // struct Buffers
@@ -901,10 +919,13 @@ public:
     //     const Buffer<unsigned int> &ebo_buffer;
     // };
 
-    struct Textures
+    struct InTextures
     {
-        DepthTexture<MathType> &depth_texture;
-        DiffuseTexture<ImageType> &in_texture;
+        const DiffuseTexture<ImageType> &in_texture;
+    };
+
+    struct OutTextures
+    {
         // OutTexture<ImageType> &out_texture;
         ImageType *out_data;
     };
@@ -934,13 +955,9 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                DepthTexture<MathType> &depth_texture,
                 OutTexture<ImageType> &out_texture)
     {
         // #pragma HLS inline
-
-        // depth_texture.fill(out_lvl, depth_texture.nodata());
-        // out_texture.fill(out_lvl, out_texture.nodata());
 
         nodata_.color = out_texture.nodata();
         nodata_.depth = MathType(-1);
@@ -948,24 +965,23 @@ public:
         t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
                     this->opencv2opengl_ *
                     pose.matrix();
+
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        // in_texture_ = &in_texture;
-        // out_texture_ = &out_texture;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Textures textures{depth_texture, mesh.diffuse_, out_texture};
-        Textures textures{depth_texture, mesh.diffuse_, out_texture.data(out_lvl_)};
+        InTextures intextures{mesh.diffuse_};
+        OutTextures outtextures{out_texture.data(out_lvl_)};
 
-        RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         VertexData vertexdata;
 
@@ -984,7 +1000,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -1002,15 +1018,15 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
+        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1.0f));
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &intextures,
                          Fragment &frag)
     {
 #pragma HLS inline
@@ -1018,88 +1034,24 @@ public:
         MathType depth = gl_FragCoord(2);
 
         if (frag.depth != nodata_.depth && depth > frag.depth)
-            return false;
+            return;
 
-        MathType pix = sample<MathType, DiffuseTexture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
         // MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         frag.color = pix;
         frag.depth = depth;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.out_data[address] = frag.color;
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-        /*
-#pragma HLS inline
-
-        cache_y0_ = y0;
-        cache_y1_ = y1;
-        cache_x0_ = x0;
-        cache_x1_ = x1;
-
-        unsigned int w = textures.depth_texture.width(out_lvl_);
-        unsigned int h = textures.depth_texture.height(out_lvl_);
-        MathType *depth_data = textures.depth_texture.data(out_lvl_);
-
-    imagerenderer_read_cache_y_loop:
-        for (int y = 0; y < y1 - y0; ++y)
-        {
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
-
-        imagerenderer_read_cache_x_loop:
-            for (int x = 0; x < x1 - x0; ++x)
-            {
-#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
-#pragma HLS PIPELINE II = 1
-
-                //MathType data = textures.depth_texture.texel_(y + y0, x + x0, out_lvl_);
-                MathType data = depth_data[(y + y0)*w + x + x0];
-                // depth_cache_[y * 32 + x] = data;
-                depth_cache_[(y << 5) + x] = data;
-            }
-        }
-            */
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-        /*
-#pragma HLS inline
-
-    imagerenderer_write_cache_y_loop:
-        for (int y = 0; y < y1 - y0; ++y)
-        {
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
-
-        imagerenderer_write_cache_x_loop:
-            for (int x = 0; x < x1 - x0; ++x)
-            {
-#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
-#pragma HLS PIPELINE II = 1
-
-                // DepthType data = cache_[y * 32 + x];
-                MathType data = depth_cache_[(y << 5) + x];
-                textures.depth_texture.set_texel_(data, y + y0, x + x0, out_lvl_);
-            }
-        }
-            */
     }
 
     linalg::Mat4<MathType> t_matrix_;
     unsigned int in_lvl_;
     unsigned int out_lvl_;
-    MathType depth_cache_[32 * 32];
-    unsigned int cache_y0_;
-    unsigned int cache_y1_;
-    unsigned int cache_x0_;
-    unsigned int cache_x1_;
     Fragment nodata_;
 };
 
@@ -1108,17 +1060,14 @@ class ResidualRendererBase
     : public RendererBase<MathType, ResidualRendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &pos_buffer;
-    //     const Buffer<MathType> &tex_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
-
-    struct Textures
+    struct InTextures
     {
-        Texture<ImageType> &kf_texture;
-        Texture<ImageType> &f_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+    };
+
+    struct OutTextures
+    {
         Texture<ErrorType> &r_texture;
     };
 
@@ -1146,8 +1095,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &kf_texture,
-                Texture<ImageType> &f_texture,
+                const Texture<ImageType> &kf_texture,
+                const Texture<ImageType> &f_texture,
                 Texture<ErrorType> &r_texture)
     {
         // r_texture.fill(out_lvl, r_texture.nodata());
@@ -1157,18 +1106,15 @@ public:
                     this->opencv2opengl_ * pose.matrix();
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        // kf_texture_ = &kf_texture;
-        // f_texture_ = &f_texture;
-        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{kf_texture, f_texture, r_texture};
+        InTextures intextures{kf_texture, f_texture};
+        OutTextures outtextures{r_texture};
 
-        RendererBase<MathType, ResidualRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, ResidualRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1209,9 +1155,9 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
         int width = textures.kf_texture.width(out_lvl_);
@@ -1229,191 +1175,19 @@ public:
         ErrorType e = ErrorType(f) - ErrorType(kf);
         // textures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.r = e;
-        return true;
     }
 
-    void set_nodata(Fragment &frag, const Textures &textures)
-    {
-        frag.r = textures.r_texture.nodata();
-    }
-
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.r_texture.set_texel_(frag.r, address, out_lvl_);
     }
 
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
     Fragment nodata_;
 
 private:
     linalg::Mat4<MathType> t_matrix_;
     int in_lvl_;
     int out_lvl_;
-    // const TextureCPU<float> *kf_texture_;
-    // const TextureCPU<float> *f_texture_;
-    // TextureCPU<float> *r_texture_;
-};
-
-template <typename MathType, typename ImageType, typename ErrorType, class Mesh, template <class> class Texture>
-class L2RendererBase
-    : public RendererBase<MathType, L2RendererBase<MathType, ImageType, ErrorType, Mesh, Texture>>
-{
-public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &pos_buffer;
-    //     const Buffer<MathType> &tex_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
-
-    struct Textures
-    {
-        Texture<ImageType> &kf_texture;
-        Texture<ImageType> &f_texture;
-        Texture<ErrorType> &r_texture;
-    };
-
-    struct VertexData
-    {
-        linalg::Vec3<MathType> vertex;
-        linalg::Vec2<MathType> texcoord;
-    };
-
-    struct Varyings
-    {
-        linalg::Vec2<MathType> texcoord;
-    };
-
-    struct Fragment
-    {
-        ErrorType r;
-    };
-
-    L2RendererBase() = default;
-    ~L2RendererBase() = default;
-
-    void Render(Mesh &mesh,
-                const linalg::SE3<MathType> &pose,
-                const Camera<MathType> &cam,
-                int in_lvl,
-                int out_lvl,
-                Texture<ImageType> &f_texture,
-                Texture<ErrorType> &r_texture)
-    {
-        // r_texture.fill(out_lvl, r_texture.nodata());
-
-        nodata_.r = r_texture.nodata();
-
-        t_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                    this->opencv2opengl_ *
-                    pose.matrix();
-        in_lvl_ = in_lvl;
-        out_lvl_ = out_lvl;
-        // kf_texture_ = &kf_texture;
-        // f_texture_ = &f_texture;
-        // r_texture_ = &r_texture;
-
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
-
-        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{mesh.diffuse_, f_texture, r_texture};
-
-        RendererBase<MathType, L2RendererBase>::Render(viewport, mesh, textures);
-    }
-
-    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
-    {
-        VertexData vertexdata;
-
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
-
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
-
-        return vertexdata;
-    }
-
-    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const Varyings &varying_px0,
-                                  const Varyings &varying_px1,
-                                  const Varyings &varying_px2)
-    {
-        Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
-        return var_over_w_px;
-    }
-    // -------------------------------------------------------------------------
-    // Shaders
-    // -------------------------------------------------------------------------
-    void vertex_shader(const VertexData &vertexdata,
-                       const unsigned int &vertexid,
-                       linalg::Vec4<MathType> &gl_Position,
-                       Varyings &outVarying)
-    {
-        gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1));
-        outVarying.texcoord = vertexdata.texcoord;
-    }
-
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
-                         const Varyings &in_varying,
-                         Textures &textures,
-                         Fragment &frag)
-    {
-        unsigned int width = textures.kf_texture.width(out_lvl_);
-        unsigned int height = textures.kf_texture.height(out_lvl_);
-
-        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
-
-        ImageType kf = sample<ImageType, Texture<ImageType>>(textures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        ImageType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        // MathType f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
-
-        // if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
-        //     return;
-
-        ErrorType e = ErrorType(f) - ErrorType(kf);
-        // textures.r_texture.set_texel_(e * e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-
-        frag.r = e;
-        return true;
-    }
-
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
-    {
-        textures.r_texture.set_texel_(frag.r * frag.r, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    Fragment nodata_;
-
-private:
-    linalg::Mat4<MathType> t_matrix_;
-    int in_lvl_;
-    int out_lvl_;
-    // const TextureCPU<float> *kf_texture_;
-    // const TextureCPU<float> *f_texture_;
-    // TextureCPU<float> *r_texture_;
 };
 
 template <typename MathType, typename ImageType, typename DType, class Mesh, template <class> class Texture>
@@ -1421,15 +1195,12 @@ class DIDxyRendererBase
     : public RendererBase<MathType, DIDxyRendererBase<MathType, ImageType, DType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &tex_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
-
-    struct Textures
+    struct InTextures
     {
-        Texture<ImageType> &in_texture;
+        const Texture<ImageType> &in_texture;
+    };
+    struct OutTextures
+    {
         Texture<linalg::Vec3<DType>> &out_texture;
     };
 
@@ -1454,26 +1225,22 @@ public:
     void Render(const Mesh &mesh,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &in_texture,
+                const Texture<ImageType> &in_texture,
                 Texture<linalg::Vec3<DType>> &out_texture)
     {
-        // out_texture.fill(out_lvl, out_texture.nodata());
-
         nodata_.color = out_texture.nodata();
 
         in_lvl_ = in_lvl;
         out_lvl_ = out_lvl;
-        // in_texture_ = &in_texture;
-        // out_texture_ = &out_texture;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{in_texture, out_texture};
+        InTextures intextures{in_texture};
+        OutTextures outtextures{out_texture};
 
-        RendererBase<MathType, DIDxyRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, DIDxyRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1512,9 +1279,9 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
         unsigned int height = textures.in_texture.height(out_lvl_);
@@ -1534,7 +1301,7 @@ public:
             //  outFragment(0) = 0.0f;
             //  outFragment(1) = 0.0f;
             //  outFragment(2) = 0.0f;
-            return false;
+            return;
         }
 
         ImageType f = textures.in_texture.texel_(y, x, out_lvl_);
@@ -1550,7 +1317,7 @@ public:
             //  outFragment(0) = 0.0f;
             //  outFragment(1) = 0.0f;
             //  outFragment(2) = 0.0f;
-            return false;
+            return;
         }
 
         linalg::Vec3<MathType> out_fragment;
@@ -1560,20 +1327,11 @@ public:
 
         // textures.out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.color = out_fragment;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.out_texture.set_texel_(frag.color, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
     }
 
     Fragment nodata_;
@@ -1581,8 +1339,6 @@ public:
 private:
     int in_lvl_;
     int out_lvl_;
-    // const TextureCPU<float> *in_texture_;
-    // TextureCPU<Vec3> *out_texture_;
 };
 
 template <typename MathType, typename ImageType, typename DType, typename ErrorType, class Mesh, template <class> class Texture>
@@ -1590,18 +1346,15 @@ class JPoseRendererBase
     : public RendererBase<MathType, JPoseRendererBase<MathType, ImageType, DType, ErrorType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &pos_buffer;
-    //     const Buffer<MathType> &tex_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
-
-    struct Textures
+    struct InTextures
     {
-        Texture<ImageType> &kf_texture;
-        Texture<ImageType> &f_texture;
-        Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+    };
+
+    struct OutTextures
+    {
         Texture<linalg::Vec3<DType>> &jtra_texture;
         Texture<linalg::Vec3<DType>> &jrot_texture;
         Texture<ErrorType> &r_texture;
@@ -1634,16 +1387,12 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &f_texture,
-                Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                const Texture<ImageType> &f_texture,
+                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,
                 Texture<linalg::Vec3<DType>> &jrot_texture,
                 Texture<ErrorType> &r_texture)
     {
-        jtra_texture.fill(out_lvl, jtra_texture.nodata());
-        jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
-
         nodata_.jtra = jtra_texture.nodata();
         nodata_.jrot = jrot_texture.nodata();
         nodata_.r = r_texture.nodata();
@@ -1666,9 +1415,10 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{mesh.diffuse_, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture};
+        InTextures intextures{mesh.diffuse_, f_texture, dfdxy_texture};
+        OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
 
-        RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1716,9 +1466,9 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
         unsigned int width = textures.kf_texture.width(out_lvl_);
@@ -1753,22 +1503,13 @@ public:
         frag.jtra = d_f_i_d_tra;
         frag.jrot = d_f_i_d_rot;
         frag.r = r;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.jtra_texture.set_texel_(frag.jtra, address, out_lvl_);
         textures.jrot_texture.set_texel_(frag.jrot, address, out_lvl_);
         textures.r_texture.set_texel_(frag.r, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
     }
 
     Fragment nodata_;
@@ -1780,12 +1521,6 @@ private:
     MathType fy_;
     linalg::Mat4<MathType> view_matrix_;
     linalg::Mat4<MathType> pose_matrix_;
-    // const TextureCPU<float> *kf_texture_;
-    // const TextureCPU<float> *f_texture_;
-    // const TextureCPU<Vec3> *dfdxy_texture_;
-    // TextureCPU<Vec3> *jtra_texture_;
-    // TextureCPU<Vec3> *jrot_texture_;
-    // TextureCPU<float> *r_texture_;
 };
 
 template <typename MathType, typename ImageType, typename DType, typename IdType, typename ErrorType, class Mesh, template <class> class Texture>
@@ -1793,18 +1528,15 @@ class JMapRendererBase
     : public RendererBase<MathType, JMapRendererBase<MathType, ImageType, DType, IdType, ErrorType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    //{
-    //     const Buffer<MathType> &pos_buffer;
-    //     const Buffer<MathType> &tex_buffer;
-    //     const Buffer<unsigned int> &ebo_buffer;
-    // };
-
-    struct Textures
+    struct InTextures
     {
-        Texture<ImageType> &kf_texture;
-        Texture<ImageType> &f_texture;
-        Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+    };
+
+    struct OutTextures
+    {
         Texture<linalg::Vec3<DType>> &jmap_texture;
         Texture<linalg::Vec3<IdType>> &pids_texture;
         Texture<ErrorType> &r_texture;
@@ -1842,15 +1574,12 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                Texture<ImageType> &f_texture,
-                Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                const Texture<ImageType> &f_texture,
+                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jmap_texture,
                 Texture<linalg::Vec3<IdType>> &pids_texture,
                 Texture<ErrorType> &r_texture)
     {
-        // jmap_texture.fill(out_lvl, jmap_texture.nodata());
-        // pids_texture.fill(out_lvl, pids_texture.nodata());
-        // r_texture.fill(out_lvl, r_texture.nodata());
 
         nodata_.jmap = jmap_texture.nodata();
         nodata_.pids = pids_texture.nodata();
@@ -1862,21 +1591,15 @@ public:
         fy_ = cam.GetParams()(1);
         view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
         pose_matrix_ = pose.matrix();
-        // kf_texture_ = &kf_texture;
-        // f_texture_ = &f_texture;
-        // dfdxy_texture_ = &dfdxy_texture;
-        // jmap_texture_ = &jmap_texture;
-        // pids_texture_ = &pids_texture;
-        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(r_texture.width(out_lvl));
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{mesh.diffuse_, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture};
+        InTextures intextures{mesh.diffuse_, f_texture, dfdxy_texture};
+        OutTextures outtextures{jmap_texture, pids_texture, r_texture};
 
-        RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1945,15 +1668,15 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
-        unsigned int width = textures.jmap_texture.width(out_lvl_);
-        unsigned int height = textures.jmap_texture.height(out_lvl_);
+        unsigned int width = textures.kf_texture.width(out_lvl_);
+        unsigned int height = textures.kf_texture.height(out_lvl_);
 
-        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
+        // linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
@@ -1996,22 +1719,13 @@ public:
         frag.jmap = jac;
         frag.pids = ids;
         frag.r = r;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.jmap_texture.set_texel_(frag.jmap, address, out_lvl_);
         textures.pids_texture.set_texel_(frag.pids, address, out_lvl_);
         textures.r_texture.set_texel_(frag.r, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
     }
 
     Fragment nodata_;
@@ -2023,12 +1737,6 @@ private:
     MathType fy_;
     linalg::Mat4<MathType> view_matrix_;
     linalg::Mat4<MathType> pose_matrix_;
-    // const TextureCPU<float> *kf_texture_;
-    // const TextureCPU<float> *f_texture_;
-    // const TextureCPU<Vec3> *dfdxy_texture_;
-    // TextureCPU<Vec3> *jmap_texture_;
-    // TextureCPU<Vec3> *pids_texture_;
-    // TextureCPU<float> *r_texture_;
 };
 
 template <typename MathType, typename ImageType, typename DepthType, typename DType, typename IdType, class Mesh, template <class> class Texture>
@@ -2036,16 +1744,13 @@ class DiffRendererBase
     : public RendererBase<MathType, DiffRendererBase<MathType, ImageType, DepthType, DType, IdType, Mesh, Texture>>
 {
 public:
-    // struct Buffers
-    // {
-    //    const Buffer<MathType> &pos_buffer;
-    //   const Buffer<MathType> &tex_buffer;
-    //   const Buffer<unsigned int> &ebo_buffer;
-    //};
-
-    struct Textures
+    struct InTextures
     {
-        Texture<ImageType> &diffuse_texture;
+        const Texture<ImageType> &diffuse_texture;
+    };
+
+    struct OutTextures
+    {
         Texture<ImageType> &image_texture;
         Texture<DepthType> &depth_texture;
         Texture<linalg::Vec3<DType>> &jtra_texture;
@@ -2096,12 +1801,6 @@ public:
                 Texture<linalg::Vec3<DType>> &jmap_texture,
                 Texture<linalg::Vec3<IdType>> &pids_texture)
     {
-        // image_texture.fill(out_lvl, image_texture.nodata());
-        // depth_texture.fill(out_lvl, depth_texture.nodata());
-        // jtra_texture.fill(out_lvl, jtra_texture.nodata());
-        // jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        // jmap_texture.fill(out_lvl, jmap_texture.nodata());
-        // pids_texture.fill(out_lvl, pids_texture.nodata());
 
         nodata_.image = image_texture.nodata();
         nodata_.depth = depth_texture.nodata();
@@ -2116,21 +1815,15 @@ public:
         fy_ = cam.GetParams()(1);
         view_matrix_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
         pose_matrix_ = pose.matrix();
-        // kf_texture_ = &kf_texture;
-        // f_texture_ = &f_texture;
-        // dfdxy_texture_ = &dfdxy_texture;
-        // jmap_texture_ = &jmap_texture;
-        // pids_texture_ = &pids_texture;
-        // r_texture_ = &r_texture;
 
         const int W = static_cast<int>(jtra_texture.width(out_lvl));
         const int H = static_cast<int>(jtra_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        // Buffers buffers{mesh.pos_buffer_, mesh.tex_buffer_, mesh.ebo_buffer_};
-        Textures textures{mesh.diffuse_, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
+        InTextures intextures{mesh.diffuse_};
+        OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
-        RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, textures);
+        RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -2196,13 +1889,13 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         Textures &textures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
-        unsigned int width = textures.jmap_texture.width(out_lvl_);
-        unsigned int height = textures.jmap_texture.height(out_lvl_);
+        unsigned int width = textures.diffuse_texture.width(out_lvl_);
+        unsigned int height = textures.diffuse_texture.height(out_lvl_);
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
@@ -2250,10 +1943,9 @@ public:
         frag.jrot = d_f_i_d_rot;
         frag.jmap = jac;
         frag.pids = ids;
-        return true;
     }
 
-    void write_fragment(const Fragment &frag, int address, Textures &textures)
+    void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
         textures.image_texture.set_texel_(frag.image, address, out_lvl_);
         textures.depth_texture.set_texel_(frag.depth, address, out_lvl_);
@@ -2261,14 +1953,6 @@ public:
         textures.jrot_texture.set_texel_(frag.jrot, address, out_lvl_);
         textures.jmap_texture.set_texel_(frag.jmap, address, out_lvl_);
         textures.pids_texture.set_texel_(frag.pids, address, out_lvl_);
-    }
-
-    void read_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
-    }
-
-    void write_cache(int y0, int y1, int x0, int x1, Textures &textures)
-    {
     }
 
     Fragment nodata_;

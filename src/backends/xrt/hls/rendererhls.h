@@ -122,7 +122,7 @@ private:
 };
 */
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureRAM, TextureRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureRAM>
 {
 public:
     ImageRendererRAM() = default;
@@ -133,10 +133,9 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAM<MathType> &depth_texture,
                 TextureRAM<ImageType> &out_texture)
     {
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, depth_texture, out_texture);
+        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, out_texture);
     }
 
 private:

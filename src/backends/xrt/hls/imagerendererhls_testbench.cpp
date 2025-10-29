@@ -13,7 +13,6 @@ extern "C"
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
                         float *diffuse_texture_data,
-                        float *depth_texture_data,
                         float *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
@@ -69,9 +68,6 @@ int main()
     UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
     auto diffuse_map = diffuse_cpu.MapWrite(0);
 
-    TextureCPU<float> depth_out_cpu(w, h, -1.0f);
-    auto depth_out_map = depth_out_cpu.MapWrite(0);
-
     TextureCPU<float> image_out_cpu(w, h, -1.0f);
     auto image_out_map = image_out_cpu.MapWrite(0);
 
@@ -79,7 +75,6 @@ int main()
         vertex.data(),
         indices.data(),
         diffuse_map.data(),
-        depth_out_map.data(),
         image_out_map.data(),
         vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
