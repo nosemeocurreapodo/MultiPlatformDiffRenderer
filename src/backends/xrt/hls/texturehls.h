@@ -2,6 +2,7 @@
 
 #include "backends/xrt/hls/bufferhls.h"
 #include "core/math_common.h"
+#include "core/boundingbox.h"
 
 template <class T>
 class TextureRAM
@@ -481,8 +482,8 @@ template <class T>
 class TextureRAMCached2
 {
 public:
-    static constexpr int cache_w = 32;
-    static constexpr int cache_h = 32;
+    static constexpr int cache_w = 64;
+    static constexpr int cache_h = 64;
 
     TextureRAMCached2() = default;
 
@@ -536,70 +537,75 @@ public:
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl)
     {
+        int lx = int(x) - cache_bb_.min_x_;
+        int ly = int(y) - cache_bb_.min_y_;
+
         // #ifndef __SYNTHESIS__
-        //         assert(x < width(lvl) && y < height(lvl));
+        //         assert(lx < cache_bb_.width_ && ly < cache_bb_.height_ && lvl == cache_lvl_);
         // #endif
 
-        // int lx = int(x) - cache_x_;
-        // int ly = int(y) - cache_y_;
-        // return cache_[lx + ly * cache_w];
+        int bram_address = ly * cache_bb_.width_ + lx;
 
-        return ram_[levels_[lvl].offset + y * levels_[lvl].w + x];
+        return cache_[bram_address];
+        // return ram_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
     void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
     {
+        int lx = int(x) - cache_bb_.min_x_;
+        int ly = int(y) - cache_bb_.min_y_;
+
         // #ifndef __SYNTHESIS__
-        //         assert(x < width(lvl) && y < height(lvl));
+        //         assert(lx < cache_bb_.width_ && ly < cache_bb_.height_ && lvl == cache_lvl_);
         // #endif
 
-        // int lx = int(x) - cache_x_;
-        // int ly = int(y) - cache_y_;
-        // cache_[lx + ly * cache_w] = v;
+        int bram_address = ly * cache_bb_.width_ + lx;
 
-        ram_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
+        cache_[bram_address] = v;
+        // ram_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
-    void set_cache_addr_(unsigned int base_y, unsigned int base_x, unsigned int lvl)
+    void cache_read_(const BoundingBox<int> &bb, int lvl)
     {
-        cache_y_ = base_y;
-        cache_x_ = base_x;
+#pragma HLS INLINE off
+        // #ifndef __SYNTHESIS__
+        //         assert(cache_w >= bb.width_ && cache_h >= bb.height_);
+        // #endif
+        cache_bb_ = bb;
         cache_lvl_ = lvl;
-    }
 
-    void cache_read_()
-    {
         int w = width(cache_lvl_);
         int h = height(cache_lvl_);
         int offset = levels_[cache_lvl_].offset;
 
+        // Create restricted local aliases so HLS knows they don’t alias.
+        // const T *__restrict src = ram_; // m_axi
+        // T *__restrict dst = &cache_[0]; // BRAM
+
+        // Assert away false loop-carried deps on the BRAM buffer.
+        // #pragma HLS DEPENDENCE variable = cache_ inter false
+        // #pragma HLS DEPENDENCE variable = ram_ inter false
+
+        // #pragma HLS BIND_STORAGE variable = cache_ type = ram_1p impl = bram
+
     texturehls_cache_read_y_loop:
-        for (int j = 0; j < cache_h; j++)
+        for (int j = 0; j < cache_bb_.height_; j++)
         {
 #pragma HLS loop_tripcount min = cache_h max = cache_h avg = cache_h
             // #pragma HLS PIPELINE II = 1
 
-            int addr_y = cache_y_ + j;
-            int ram_base = offset + addr_y * w + cache_x_;
-            int bram_base = j * cache_w;
-
-            if (addr_y >= h || addr_y < 0)
-            {
-                continue;
-            }
+            int addr_y = cache_bb_.min_y_ + j;
+            int ram_base = offset + addr_y * w + cache_bb_.min_x_;
+            int bram_base = j * cache_bb_.width_;
 
         texturehls_cache_read_x_loop:
-            for (int i = 0; i < cache_w; i++)
+            for (int i = 0; i < cache_bb_.width_; i++)
             {
 #pragma HLS loop_tripcount min = cache_w max = cache_w avg = cache_w
 #pragma HLS LOOP_FLATTEN off
 #pragma HLS PIPELINE II = 1
 
-                // if (addr_x >= w || addr_x < 0)
-                // {
-                //    continue;
-                //}
-
+                // dst[bram_base + i] = src[ram_base + i];
                 cache_[bram_base + i] = ram_[ram_base + i];
             }
         }
@@ -607,36 +613,28 @@ public:
 
     void cache_write_()
     {
+#pragma HLS INLINE off
+
         int w = width(cache_lvl_);
         int h = height(cache_lvl_);
         int offset = levels_[cache_lvl_].offset;
 
     texturehls_cache_write_y_loop:
-        for (int j = 0; j < cache_h; j++)
+        for (int j = 0; j < cache_bb_.height_; j++)
         {
 #pragma HLS loop_tripcount min = cache_h max = cache_h avg = cache_h
             // #pragma HLS PIPELINE II = 1
 
-            int addr_y = cache_y_ + j;
-            int ram_base = offset + addr_y * w + cache_x_;
-            int bram_base = j * cache_w;
-
-            if (addr_y >= h || addr_y < 0)
-            {
-                continue;
-            }
+            int addr_y = cache_bb_.min_y_ + j;
+            int ram_base = offset + addr_y * w + cache_bb_.min_x_;
+            int bram_base = j * cache_bb_.width_;
 
         texturehls_cache_write_x_loop:
-            for (int i = 0; i < cache_w; i++)
+            for (int i = 0; i < cache_bb_.width_; i++)
             {
 #pragma HLS loop_tripcount min = cache_w max = cache_w avg = cache_w
 #pragma HLS LOOP_FLATTEN off
 #pragma HLS PIPELINE II = 1
-
-                // if (addr_x >= w || addr_x < 0)
-                //{
-                //     continue;
-                // }
 
                 ram_[ram_base + i] = cache_[bram_base + i];
             }
@@ -690,7 +688,6 @@ private:
 
     T *ram_;
     T cache_[cache_w * cache_h];
-    int cache_y_;
-    int cache_x_;
+    BoundingBox<int> cache_bb_;
     int cache_lvl_;
 };

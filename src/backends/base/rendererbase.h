@@ -49,21 +49,21 @@ template <typename MathType, class Derived>
 class RendererBase
 {
 public:
-    static constexpr int max_width = 640;
-    static constexpr int max_height = 480;
+    static constexpr int tile_width = 64;
+    static constexpr int tile_height = 60;
 
-    static constexpr int max_tri = 2048;
+    // static constexpr int max_width = 640;
+    // static constexpr int max_height = 480;
 
-    static constexpr int num_tiles_x = 4;
-    static constexpr int num_tiles_y = 4;
-    static constexpr int num_tiles = num_tiles_x * num_tiles_y;
+    static constexpr int max_num_tri = 2048;
 
-    static constexpr int max_tile_width = max_width / num_tiles_x;
-    static constexpr int max_tile_height = max_height / num_tiles_y;
+    static constexpr int max_num_tiles_x = 10;
+    static constexpr int max_num_tiles_y = 8;
+    static constexpr int max_num_tiles = max_num_tiles_x * max_num_tiles_y;
 
-    static constexpr int max_tri_per_tile = int(2.5 * max_tri / num_tiles);
-    static constexpr int max_tri_width = 20;
-    static constexpr int max_tri_height = 15;
+    static constexpr int max_tri_per_tile = 4;
+    static constexpr int max_tri_width = 32;
+    static constexpr int max_tri_height = 32;
     static constexpr int max_frag_per_tri = max_tri_width * max_tri_height;
 
     // Vertex shading & clip → NDC → screen
@@ -92,28 +92,33 @@ public:
 
     template <typename Mesh, typename InTextures, typename OutTextures>
     void Render(const BoundingBox<int> &viewport,
-                const Mesh &mesh,
-                const InTextures &intextures,
+                Mesh &mesh,
+                InTextures &intextures,
                 OutTextures &outtextures)
     {
-
-        BoundingBox<int> viewport_tiles[num_tiles];
-        BoundingBox<int> texcoord_bound[num_tiles];
-        Triangle triangles[num_tiles][max_tri_per_tile];
-        int triangle_count[num_tiles];
+        BoundingBox<int> viewport_tiles[max_num_tiles];
+        BoundingBox<int> texcoord_bound[max_num_tiles];
+        Triangle triangles[max_num_tiles][max_tri_per_tile];
+        int triangle_count[max_num_tiles];
 
 #pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = texcoord_bound type = ram_t2p impl = uram
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
         // #pragma HLS ARRAY_PARTITION variable = triangles complete dim = 1
 #pragma HLS ARRAY_PARTITION variable = triangle_count complete dim = 1
 
+        int num_tiles_x = int(ceil(MathType(viewport.width_) / tile_width));
+        int num_tiles_y = int(ceil(MathType(viewport.height_) / tile_height));
+        int num_tiles = num_tiles_x * num_tiles_y;
+
         create_tile_viewports_(viewport_tiles, viewport, num_tiles_x, num_tiles_y);
 
         for (int i = 0; i < num_tiles; i++)
         {
-#pragma HLS UNROLL
+#pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
+
             triangle_count[i] = 0;
             texcoord_bound[i] = BoundingBox<int>(0, 0, 0, 0);
         }
@@ -123,7 +128,7 @@ public:
         for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
             // the amount of in a 32x32 mesh (31x31*2)
-#pragma HLS loop_tripcount min = max_tri max = max_tri avg = max_tri
+#pragma HLS loop_tripcount min = max_num_tri max = max_num_tri avg = max_num_tri
             // #pragma HLS PIPELINE II = 1
 
             unsigned int vertexids[3];
@@ -158,6 +163,8 @@ public:
         renderbase_render_vertex_tile_loop:
             for (int tile = 0; tile < num_tiles; tile++)
             {
+#pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
+
                 int min_x = max(viewport_tiles[tile].min_x_, static_cast<int>(floor(tri_bb.min_x_)));
                 int max_x = min(viewport_tiles[tile].max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
                 int min_y = max(viewport_tiles[tile].min_y_, static_cast<int>(floor(tri_bb.min_y_)));
@@ -169,89 +176,50 @@ public:
                 // = viewport_tiles[i].Intersection(tri_bb);
 
                 triangles[tile][triangle_count[tile]] = triangle;
-                triangle_count[tile]++;
 
                 BoundingBox<int> tex_bb = derived_().texcoord_bound(triangle.vout[0].var,
                                                                     triangle.vout[1].var,
                                                                     triangle.vout[2].var);
-                texcoord_bound[tile] = texcoord_bound[tile].Union(tex_bb);
+                if (triangle_count[tile] == 0)
+                    texcoord_bound[tile] = tex_bb;
+                else
+                    texcoord_bound[tile] = texcoord_bound[tile].Union(tex_bb);
+
+                triangle_count[tile]++;
             }
         }
 
-        typename Derived::Fragment frags[max_tile_width * max_tile_height];
+        typename Derived::Fragment frags[tile_width * tile_height];
 #pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
         // #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
 
     renderbase_render_tiles_loop:
         for (int tile = 0; tile < num_tiles; tile++)
         {
+#pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
+
             clear_tile_(frags, viewport_tiles[tile]);
-            derived_().cache_input(tex_bb);
+            derived_().cache_textures(intextures, texcoord_bound[tile]);
             render_tile_(frags, triangles[tile], triangle_count[tile], viewport_tiles[tile], intextures);
             write_tile_(frags, viewport_tiles[tile], viewport, outtextures);
         }
-
-        /*
-        const int buffers = 3;
-
-        typename Derived::Fragment frags[buffers][max_tile_width * max_tile_height];
-// #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
-#pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
-
-    renderbase_render_tile_loop:
-        for (int tile = 0; tile < num_tiles + buffers - 1; tile++)
-        {
-#pragma HLS DATAFLOW
-            // #pragma HLS PIPELINE II = 1
-            // #pragma HLS PIPELINE off
-
-#pragma HLS dependence variable = frags type = inter false
-#pragma HLS dependence variable = frags type = intra false
-
-#pragma HLS dependence variable = viewport_tiles type = inter false
-#pragma HLS dependence variable = viewport_tiles type = intra false
-
-#pragma HLS dependence variable = triangles type = inter false
-#pragma HLS dependence variable = triangles type = intra false
-
-#pragma HLS dependence variable = triangle_count type = inter false
-#pragma HLS dependence variable = triangle_count type = intra false
-
-#pragma HLS dependence variable = intextures type = inter false
-#pragma HLS dependence variable = intextures type = intra false
-
-#pragma HLS dependence variable = outtextures type = inter false
-#pragma HLS dependence variable = outtextures type = intra false
-
-            int r_tile = tile;
-            int p_tile = tile - 1;
-            int w_tile = tile - 2;
-
-            if (r_tile >= 0 && r_tile < num_tiles)
-            {
-                clear_tile_(frags[r_tile % buffers], viewport_tiles[r_tile]);
-            }
-            if (p_tile >= 0 && p_tile < num_tiles)
-            {
-                render_tile_(frags[p_tile % buffers], triangles[p_tile], triangle_count[p_tile], viewport_tiles[p_tile], intextures);
-            }
-            if (w_tile >= 0 && w_tile < num_tiles)
-            {
-                write_tile_(frags[w_tile % buffers], viewport_tiles[w_tile], viewport, outtextures);
-            }
-        }
-        */
     }
 
 protected:
     void create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
     {
+#pragma HLS INLINE off
+
     create_tile_viewport_y_loop:
         for (int y = 0; y < num_tiles_y; y++)
         {
+#pragma HLS loop_tripcount min = max_num_tiles_y max = max_num_tiles_y avg = max_num_tiles_y
+
         create_tile_viewport_x_loop:
             for (int x = 0; x < num_tiles_x; x++)
             {
+#pragma HLS loop_tripcount min = max_num_tiles_x max = max_num_tiles_x avg = max_num_tiles_x
+
                 int min_x_ = int(MathType(viewport.width_ * x) / MathType(num_tiles_x)) + viewport.min_x_;
                 int max_x_ = int(MathType(viewport.width_ * (x + 1)) / MathType(num_tiles_x)) + viewport.min_x_;
                 int min_y_ = int(MathType(viewport.height_ * y) / MathType(num_tiles_y)) + viewport.min_y_;
@@ -265,6 +233,8 @@ protected:
     template <typename VertexData>
     void create_triangle_(const VertexData *vertexdata, const unsigned int *vertexids, const BoundingBox<int> &viewport, Triangle &triangle)
     {
+#pragma HLS INLINE off
+
     create_triangle_loop:
         for (int j = 0; j < 3; ++j)
         {
@@ -299,12 +269,12 @@ protected:
     clear_tile_y_loop:
         for (int y = 0; y < viewport_tile.height_; y++)
         {
-#pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
         clear_tile_x_loop:
             for (int x = 0; x < viewport_tile.width_; x++)
             {
-#pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
 
                 frags[y * viewport_tile.width_ + x] = derived_().nodata_;
             }
@@ -334,7 +304,7 @@ protected:
     write_tile_y_loop:
         for (int iy = 0; iy < viewport_tile.height_; iy++)
         {
-#pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
             int y = iy + viewport_tile.min_y_;
 
@@ -344,7 +314,7 @@ protected:
         write_tile_x_loop:
             for (int ix = 0; ix < viewport_tile.width_; ix++)
             {
-#pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
 #pragma HLS loop_flatten off
                 // #pragma HLS PIPELINE II = 1
 
@@ -415,7 +385,7 @@ protected:
         for (int iy = 0; iy < triangle_bb.height_; ++iy)
         {
             // for 32x32 meshes and 640x480 images
-#pragma HLS loop_tripcount min = 15 max = 15 avg = 15
+#pragma HLS loop_tripcount min = max_tri_height max = max_tri_height avg = max_tri_height
 
             int y = iy + triangle_bb.min_y_;
 
@@ -428,7 +398,7 @@ protected:
             for (int ix = 0; ix < triangle_bb.width_; ++ix)
             {
                 // for 32x32 meshes and 640x480 images
-#pragma HLS loop_tripcount min = 20 max = 20 avg = 20
+#pragma HLS loop_tripcount min = max_tri_width max = max_tri_width avg = max_tri_width
 #pragma HLS loop_flatten
                 //   #pragma HLS PIPELINE II = 1
 
@@ -591,6 +561,11 @@ public:
     {
         BoundingBox<int> bb(0, 0, 0, 0);
         return bb;
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -874,6 +849,10 @@ public:
         return bb;
     }
 
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+    }
+
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
 #pragma HLS INLINE
@@ -964,7 +943,7 @@ public:
 
     struct InTextures
     {
-        const DiffuseTexture<ImageType> &in_texture;
+        DiffuseTexture<ImageType> &in_texture;
         // const ImageType *in_data;
     };
 
@@ -1038,7 +1017,7 @@ public:
 
     void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        textures.in_texture.read_cache(tex_bb);
+        textures.in_texture.cache_read_(tex_bb, in_lvl_);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1098,13 +1077,13 @@ public:
         if (frag.depth != nodata_.depth && depth > frag.depth)
             return false;
 
-        // MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        MathType pix = sample<MathType, DiffuseTexture<ImageType>>(textures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * in_textues_size_(0), in_varying.texcoord(1) * in_textues_size_(1));
         // int address = screen_texcoord(1) * in_textues_size_(0) + screen_texcoord(0);
         // MathType pix = textures.in_data[address];
 
-        linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
-        MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
+        // MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         frag.color = pix;
         frag.depth = depth;
@@ -1131,8 +1110,8 @@ class ResidualRendererBase
 public:
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
     };
 
     struct OutTextures
@@ -1159,13 +1138,13 @@ public:
     ResidualRendererBase() = default;
     ~ResidualRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &kf_texture,
-                const Texture<ImageType> &f_texture,
+                Texture<ImageType> &kf_texture,
+                Texture<ImageType> &f_texture,
                 Texture<ErrorType> &r_texture)
     {
         // r_texture.fill(out_lvl, r_texture.nodata());
@@ -1188,12 +1167,20 @@ public:
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
     {
+        /*
         linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
 
         BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
         return bb;
+        */
+        return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1277,7 +1264,7 @@ class DIDxyRendererBase
 public:
     struct InTextures
     {
-        const Texture<ImageType> &in_texture;
+        Texture<ImageType> &in_texture;
     };
     struct OutTextures
     {
@@ -1302,10 +1289,10 @@ public:
     DIDxyRendererBase() = default;
     ~DIDxyRendererBase() = default;
 
-    void Render(const Mesh &mesh,
+    void Render(Mesh &mesh,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &in_texture,
+                Texture<ImageType> &in_texture,
                 Texture<linalg::Vec3<DType>> &out_texture)
     {
         nodata_.color = out_texture.nodata();
@@ -1325,12 +1312,20 @@ public:
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
     {
+        /*
         linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
 
         BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
         return bb;
+        */
+        return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1439,9 +1434,9 @@ class JPoseRendererBase
 public:
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
+        Texture<linalg::Vec3<DType>> &dfdxy_texture;
     };
 
     struct OutTextures
@@ -1478,8 +1473,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &f_texture,
-                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<ImageType> &f_texture,
+                Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jtra_texture,
                 Texture<linalg::Vec3<DType>> &jrot_texture,
                 Texture<ErrorType> &r_texture)
@@ -1514,12 +1509,20 @@ public:
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
     {
+        /*
         linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
 
         BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
         return bb;
+        */
+        return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1632,9 +1635,9 @@ class JMapRendererBase
 public:
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<linalg::Vec3<DType>> &dfdxy_texture;
+        Texture<ImageType> &kf_texture;
+        Texture<ImageType> &f_texture;
+        Texture<linalg::Vec3<DType>> &dfdxy_texture;
     };
 
     struct OutTextures
@@ -1676,8 +1679,8 @@ public:
                 const Camera<MathType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const Texture<ImageType> &f_texture,
-                const Texture<linalg::Vec3<DType>> &dfdxy_texture,
+                Texture<ImageType> &f_texture,
+                Texture<linalg::Vec3<DType>> &dfdxy_texture,
                 Texture<linalg::Vec3<DType>> &jmap_texture,
                 Texture<linalg::Vec3<IdType>> &pids_texture,
                 Texture<ErrorType> &r_texture)
@@ -1706,12 +1709,20 @@ public:
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
     {
+        /*
         linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
         linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
 
         BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
         return bb;
+        */
+        return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1859,7 +1870,7 @@ class DiffRendererBase
 public:
     struct InTextures
     {
-        const Texture<ImageType> &diffuse_texture;
+        Texture<ImageType> &diffuse_texture;
     };
 
     struct OutTextures
@@ -1950,6 +1961,11 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        // textures.in_texture.read_cache(tex_bb);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)

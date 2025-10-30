@@ -122,7 +122,7 @@ public:
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int out_lvl,
@@ -178,7 +178,7 @@ public:
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
@@ -206,7 +206,7 @@ public:
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<float> &in_texture,
