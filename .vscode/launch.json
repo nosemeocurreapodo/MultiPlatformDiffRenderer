@@ -157,7 +157,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/src/demo/demo",
             "args": [
-                "${workspaceFolder}/src/tests/data/planet/planet.obj /lib/firmware/xilinx/imagerenderer/imagerendererhls.bin 0",
+                "${workspaceFolder}/src/tests/data/planet/planet.obj",
+                "/lib/firmware/xilinx/imagerendererhls_opt2/imagerendererhls.bin",
+                "0"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

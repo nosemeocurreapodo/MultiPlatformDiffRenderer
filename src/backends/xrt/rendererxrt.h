@@ -75,7 +75,6 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureXRT<float> &depth_texture,
                 TextureXRT<float> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
@@ -87,9 +86,9 @@ public:
         mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_,
+                               mesh.ebo_buffer_.bo_,
                                mesh.diffuse_.storage_.bo_,
-                               depth_texture.storage_.bo_, 
                                out_texture.storage_.bo_,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                mesh.diffuse_.width(0), mesh.diffuse_.height(0), mesh.diffuse_.nodata(), in_lvl,
@@ -98,7 +97,6 @@ public:
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
                                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
         run.wait();
-        depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
         out_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
     }
 

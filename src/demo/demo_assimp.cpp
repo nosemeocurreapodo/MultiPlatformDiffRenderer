@@ -42,13 +42,13 @@ int main(int argc, char **argv)
 {
 // Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
 #ifndef COMPILE_XRT
-    if (argc < 2 || argc > 3)
+    if (argc != 2)
     {
         std::cout << "please provide: model_path" << std::endl;
         return 1;
     }
 #else
-    if (argc < 2 || argc > 5)
+    if (argc != 4)
     {
         std::cout << "please provide: model_path xclbin device_id" << std::endl;
         return 1;
@@ -58,8 +58,8 @@ int main(int argc, char **argv)
     std::string model_path = argv[1];
 
     // Choose render size & camera
-    const unsigned int width = 1280;
-    const unsigned int height = 720;
+    const unsigned int width = 640;
+    const unsigned int height = 480;
 
     // Load mesh via Assimp
     std::vector<float> vertex;
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 0;
+    const int in_lvl = 2;
     const int out_lvl = 0;
 
 #ifdef COMPILE_CPU
@@ -192,8 +192,7 @@ int main(int argc, char **argv)
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1), rendererxrt.kernel_.group_id(2));
 
-    TextureXRT<float> depthxrt(width, height, -1.0f, rendererxrt.kernel_.group_id(3));
-    TextureXRT<float> imagexrt(width, height, -1.0f, rendererxrt.kernel_.group_id(4));
+    TextureXRT<float> imagexrt(width, height, -1.0f, rendererxrt.kernel_.group_id(3));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -292,7 +291,7 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_XRT
         if (backend_names[backend] == "xrt")
-            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, depthxrt, imagexrt);
+            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, imagexrt);
 
 #endif
 
@@ -336,10 +335,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(depthgles2, out_lvl, CV_32FC1);
 #endif
-#ifdef COMPILE_XRT
-            if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(depthxrt, out_lvl, CV_32FC1);
-#endif
+            // #ifdef COMPILE_XRT
+            //             if (backend_names[backend] == "xrt")
+            //                out_f = DownloadTextureToMat(depthxrt, out_lvl, CV_32FC1);
+            // #endif
         }
 
         if (output_names[toshow] == "jtra")
