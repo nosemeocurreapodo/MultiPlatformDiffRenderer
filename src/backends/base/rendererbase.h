@@ -62,7 +62,9 @@ public:
     static constexpr int max_tile_height = max_height / num_tiles_y;
 
     static constexpr int max_tri_per_tile = int(2.5 * max_tri / num_tiles);
-    static constexpr int max_frag_per_tri = 300;
+    static constexpr int max_tri_width = 20;
+    static constexpr int max_tri_height = 15;
+    static constexpr int max_frag_per_tri = max_tri_width * max_tri_height;
 
     // Vertex shading & clip → NDC → screen
     struct VSOut
@@ -136,30 +138,17 @@ public:
 
             Triangle triangle;
 
-        renderbase_render_vertex_loop:
-            for (int j = 0; j < 3; ++j)
-            {
-                // #pragma HLS UNROLL
+            create_triangle_(vertexdata, vertexids, viewport, triangle);
 
-                linalg::Vec4<MathType> gl_Position;
-                typename Derived::Varyings varyings;
-                derived_().vertex_shader(vertexdata[j], vertexids[j], gl_Position, varyings);
+            // directly write to dram
+            // draw_triangle_(triangle, viewport, intextures, outtextures);
 
-                const MathType invW = MathType(1) / gl_Position(3);
-                const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
-                const MathType ndc_y = gl_Position(1) * invW;
-                const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
+            // use tile binning
+            // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+            MathType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
 
-                // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-                triangle.vout[j].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * viewport.width_ + viewport.min_x_;
-                triangle.vout[j].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * viewport.height_ + viewport.min_y_;
-                // triangle.vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1));
-                // triangle.vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1));
-                triangle.vout[j].depth = MathType(0.5) * (ndc_z + MathType(1));
-                triangle.vout[j].invW = invW;
-                triangle.vout[j].var = varyings;
-                // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
-            }
+            if (area2 < MathType(0))
+                continue; // enable to cull backfaces
 
             // Triangle bounding box (float → int, clamp to viewport)
             BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
@@ -182,10 +171,19 @@ public:
             }
         }
 
-        // typename Derived::Fragment frags[max_tile_width * max_tile_height];
-        // #pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
+        typename Derived::Fragment frags[max_tile_width * max_tile_height];
+#pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
         // #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
 
+    renderbase_render_tiles_loop:
+        for (int tile = 0; tile < num_tiles; tile++)
+        {
+            clear_tile_(frags, viewport_tiles[tile]);
+            render_tile_(frags, triangles[tile], triangle_count[tile], viewport_tiles[tile], intextures);
+            write_tile_(frags, viewport_tiles[tile], viewport, outtextures);
+        }
+
+        /*
         const int buffers = 3;
 
         typename Derived::Fragment frags[buffers][max_tile_width * max_tile_height];
@@ -195,7 +193,7 @@ public:
     renderbase_render_tile_loop:
         for (int tile = 0; tile < num_tiles + buffers - 1; tile++)
         {
-            // #pragma HLS DATAFLOW
+#pragma HLS DATAFLOW
             // #pragma HLS PIPELINE II = 1
             // #pragma HLS PIPELINE off
 
@@ -221,57 +219,29 @@ public:
             int p_tile = tile - 1;
             int w_tile = tile - 2;
 
-            // if (r_tile >= 0 && r_tile < num_tiles)
-            //{
-            //    clear_tile_(frags[r_tile % buffers], viewport_tiles[r_tile]);
-            //}
+            if (r_tile >= 0 && r_tile < num_tiles)
+            {
+                clear_tile_(frags[r_tile % buffers], viewport_tiles[r_tile]);
+            }
             if (p_tile >= 0 && p_tile < num_tiles)
             {
                 render_tile_(frags[p_tile % buffers], triangles[p_tile], triangle_count[p_tile], viewport_tiles[p_tile], intextures);
             }
-            // if (w_tile >= 0 && w_tile < num_tiles)
-            //{
-            //    write_tile_(frags[w_tile % buffers], viewport_tiles[w_tile], viewport, outtextures);
-            //}
-
-        renderbase_render_read_write_y_loop:
-            for (int iy = 0; iy < max_tile_height; iy++)
+            if (w_tile >= 0 && w_tile < num_tiles)
             {
-            renderbase_render_read_write_x_loop:
-                for (int ix = 0; ix < max_tile_width; ix++)
-                {
-                    if (r_tile >= 0 && r_tile < num_tiles)
-                    {
-                        if (ix < viewport_tiles[r_tile].width_ && iy < viewport_tiles[r_tile].height_)
-                        {
-                            frags[r_tile % buffers][iy * viewport_tiles[r_tile].width_ + ix] = derived_().nodata_;
-                        }
-                    }
-                    if (w_tile >= 0 && w_tile < num_tiles)
-                    {
-                        if (ix < viewport_tiles[w_tile].width_ && iy < viewport_tiles[w_tile].height_)
-                        {
-                            int y = iy + viewport_tiles[w_tile].min_y_;
-                            int x = ix + viewport_tiles[w_tile].min_x_;
-
-                            derived_().write_fragment(frags[w_tile % buffers][iy * viewport_tiles[w_tile].width_ + ix],
-                                                      y * viewport.width_ + x,
-                                                      outtextures);
-                        }
-                    }
-                }
+                write_tile_(frags[w_tile % buffers], viewport_tiles[w_tile], viewport, outtextures);
             }
         }
+        */
     }
 
 protected:
-    void
-    create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
+    void create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
     {
-    rendererbase_render_tile_viewport_y_loop:
+    create_tile_viewport_y_loop:
         for (int y = 0; y < num_tiles_y; y++)
         {
-        rendererbase_render_tile_viewport_x_loop:
+        create_tile_viewport_x_loop:
             for (int x = 0; x < num_tiles_x; x++)
             {
                 int min_x_ = int(MathType(viewport.width_ * x) / MathType(num_tiles_x)) + viewport.min_x_;
@@ -284,17 +254,46 @@ protected:
         }
     }
 
+    template <typename VertexData>
+    void create_triangle_(const VertexData *vertexdata, const unsigned int *vertexids, const BoundingBox<int> &viewport, Triangle &triangle)
+    {
+    create_triangle_loop:
+        for (int j = 0; j < 3; ++j)
+        {
+            // #pragma HLS UNROLL
+
+            linalg::Vec4<MathType> gl_Position;
+            typename Derived::Varyings varyings;
+            derived_().vertex_shader(vertexdata[j], vertexids[j], gl_Position, varyings);
+
+            const MathType invW = MathType(1) / gl_Position(3);
+            const MathType ndc_x = gl_Position(0) * invW; // [-1,1]
+            const MathType ndc_y = gl_Position(1) * invW;
+            const MathType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
+
+            // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
+            triangle.vout[j].screen(0) = MathType(0.5) * (ndc_x + MathType(1)) * viewport.width_ + viewport.min_x_;
+            triangle.vout[j].screen(1) = MathType(0.5) * (ndc_y + MathType(1)) * viewport.height_ + viewport.min_y_;
+            // triangle.vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1));
+            // triangle.vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1));
+            triangle.vout[j].depth = MathType(0.5) * (ndc_z + MathType(1));
+            triangle.vout[j].invW = invW;
+            triangle.vout[j].var = varyings;
+            // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
+        }
+    }
+
     template <typename Fragment>
     void clear_tile_(Fragment *frags, const BoundingBox<int> &viewport_tile)
     {
-        // #pragma HLS INLINE off
+#pragma HLS INLINE off
 
-    renderbase_clear_tile_y_loop:
+    clear_tile_y_loop:
         for (int y = 0; y < viewport_tile.height_; y++)
         {
 #pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
 
-        renderbase_clear_tile_x_loop:
+        clear_tile_x_loop:
             for (int x = 0; x < viewport_tile.width_; x++)
             {
 #pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
@@ -307,9 +306,9 @@ protected:
     template <typename Fragment, typename InTextures>
     void render_tile_(Fragment *frags, const Triangle *triangles, int triangle_count, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
-        // #pragma HLS INLINE off
+#pragma HLS INLINE off
 
-    renderbase_render_draw_triangle_loop:
+    render_tile_loop:
         for (int tri = 0; tri < triangle_count; tri++)
         {
 #pragma HLS pipeline off
@@ -322,23 +321,28 @@ protected:
     template <typename Fragment, typename OutTextures>
     void write_tile_(const Fragment *frags, const BoundingBox<int> &viewport_tile, const BoundingBox<int> &viewport, OutTextures &outtextures)
     {
-        // #pragma HLS INLINE off
+#pragma HLS INLINE off
 
-    renderbase_render_write_y_loop:
+    write_tile_y_loop:
         for (int iy = 0; iy < viewport_tile.height_; iy++)
         {
 #pragma HLS loop_tripcount min = max_tile_height max = max_tile_height avg = max_tile_height
 
-        renderbase_render_write_x_loop:
+            int y = iy + viewport_tile.min_y_;
+
+            int ram_base = y * viewport.width_ + viewport_tile.min_x_;
+            int bram_base = iy * viewport_tile.width_;
+
+        write_tile_x_loop:
             for (int ix = 0; ix < viewport_tile.width_; ix++)
             {
 #pragma HLS loop_tripcount min = max_tile_width max = max_tile_width avg = max_tile_width
+#pragma HLS loop_flatten off
+                // #pragma HLS PIPELINE II = 1
 
-                int y = iy + viewport_tile.min_y_;
-                int x = ix + viewport_tile.min_x_;
-
-                derived_().write_fragment(frags[iy * viewport_tile.width_ + ix],
-                                          y * viewport.width_ + x,
+                Fragment frag = frags[bram_base + ix];
+                derived_().write_fragment(frag,
+                                          ram_base + ix,
                                           outtextures);
             }
         }
@@ -346,7 +350,9 @@ protected:
 
     // Triangle rasterizer (top-left rule, perspective correct)
     template <typename InTextures, typename Fragment>
-    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, const InTextures &intextures, Fragment *frags)
+    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, const InTextures &intextures, Fragment *tile_frags)
+    // template <typename InTextures, typename OutTextures>
+    // void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, const InTextures &intextures, OutTextures &outtextures)
     {
 #pragma HLS INLINE
 
@@ -396,7 +402,7 @@ protected:
         const MathType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
     // Rasterize
-    draw_triangle_raster_loop_y:
+    draw_triangle_y_loop:
         // for (int y = bb.min_y_, iy = 0; y < bb.max_y_; ++y, ++iy)
         for (int iy = 0; iy < triangle_bb.height_; ++iy)
         {
@@ -409,7 +415,7 @@ protected:
             const MathType eBC_row_local = MathType(iy) * eBC_dy + eBC_row;
             const MathType eCA_row_local = MathType(iy) * eCA_dy + eCA_row;
 
-        draw_triangle_raster_loop_x:
+        draw_triangle_x_loop:
             // for (int x = bb.min_x_, ix = 0; x < bb.max_x_; ++x, ++ix)
             for (int ix = 0; ix < triangle_bb.width_; ++ix)
             {
@@ -470,7 +476,20 @@ protected:
                 derived_().fragment_shader(gl_FragCoord,
                                            varying_px,
                                            intextures,
-                                           frags[(y - tile_bb.min_y_) * tile_bb.width_ + x - tile_bb.min_x_]);
+                                           tile_frags[(y - tile_bb.min_y_) * tile_bb.width_ + x - tile_bb.min_x_]);
+
+                /*
+                typename Derived::Fragment frag;
+                if (derived_().fragment_shader(gl_FragCoord,
+                                               varying_px,
+                                               intextures,
+                                               frag))
+                {
+                    derived_().write_fragment(frag,
+                                              y * tile_bb.width_ + x,
+                                              outtextures);
+                }
+                */
             }
         }
     }
@@ -623,7 +642,7 @@ public:
         gl_Position = uProjection_ * uView_ * linalg::Vec4<MathType>(fragPos, MathType(1));
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -634,6 +653,7 @@ public:
 
         // textures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.vColor = in_varying.vColor;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
@@ -876,7 +896,7 @@ public:
         outVarying.depth = gl_Position(2);
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -889,11 +909,14 @@ public:
         //     return;
 
         frag.depth = depth;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
 #pragma HLS INLINE
+        // DepthType* __restrict data = textures.out_data;
+        // data[address] = frag.depth;
         textures.out_data[address] = frag.depth;
     }
 
@@ -922,6 +945,7 @@ public:
     struct InTextures
     {
         const DiffuseTexture<ImageType> &in_texture;
+        // const ImageType *in_data;
     };
 
     struct OutTextures
@@ -974,7 +998,10 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         InTextures intextures{mesh.diffuse_};
+        // InTextures intextures{mesh.diffuse_.data(in_lvl_)};
         OutTextures outtextures{out_texture.data(out_lvl_)};
+
+        in_textues_size_ = linalg::Vec2<unsigned int>(mesh.diffuse_.width(in_lvl_), mesh.diffuse_.height(in_lvl_));
 
         RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
@@ -1024,9 +1051,9 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         const InTextures &intextures,
+                         const InTextures &textures,
                          Fragment &frag)
     {
 #pragma HLS inline
@@ -1034,21 +1061,28 @@ public:
         MathType depth = gl_FragCoord(2);
 
         if (frag.depth != nodata_.depth && depth > frag.depth)
-            return;
+            return false;
 
-        MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-        // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
-        // MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
+        // MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * in_textues_size_(0), in_varying.texcoord(1) * in_textues_size_(1));
+        // int address = screen_texcoord(1) * in_textues_size_(0) + screen_texcoord(0);
+        // MathType pix = textures.in_data[address];
+
+        linalg::Vec2<MathType> screen_texcoord(in_varying.texcoord(0) * textures.in_texture.width(in_lvl_), in_varying.texcoord(1) * textures.in_texture.height(in_lvl_));
+        MathType pix = textures.in_texture.texel_(screen_texcoord(1), screen_texcoord(0), in_lvl_);
 
         frag.color = pix;
         frag.depth = depth;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
     {
+#pragma HLS INLINE
         textures.out_data[address] = frag.color;
     }
 
+    linalg::Vec2<unsigned int> in_textues_size_;
     linalg::Mat4<MathType> t_matrix_;
     unsigned int in_lvl_;
     unsigned int out_lvl_;
@@ -1155,7 +1189,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -1175,6 +1209,7 @@ public:
         ErrorType e = ErrorType(f) - ErrorType(kf);
         // textures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.r = e;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
@@ -1279,7 +1314,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -1301,7 +1336,7 @@ public:
             //  outFragment(0) = 0.0f;
             //  outFragment(1) = 0.0f;
             //  outFragment(2) = 0.0f;
-            return;
+            return false;
         }
 
         ImageType f = textures.in_texture.texel_(y, x, out_lvl_);
@@ -1317,7 +1352,7 @@ public:
             //  outFragment(0) = 0.0f;
             //  outFragment(1) = 0.0f;
             //  outFragment(2) = 0.0f;
-            return;
+            return false;
         }
 
         linalg::Vec3<MathType> out_fragment;
@@ -1327,6 +1362,7 @@ public:
 
         // textures.out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         frag.color = out_fragment;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
@@ -1466,7 +1502,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -1503,6 +1539,7 @@ public:
         frag.jtra = d_f_i_d_tra;
         frag.jrot = d_f_i_d_rot;
         frag.r = r;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
@@ -1668,7 +1705,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -1719,6 +1756,7 @@ public:
         frag.jmap = jac;
         frag.pids = ids;
         frag.r = r;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
@@ -1889,7 +1927,7 @@ public:
         outVarying.texcoord = vertexdata.texcoord;
     }
 
-    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+    bool fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
                          const InTextures &textures,
                          Fragment &frag)
@@ -1943,6 +1981,7 @@ public:
         frag.jrot = d_f_i_d_rot;
         frag.jmap = jac;
         frag.pids = ids;
+        return true;
     }
 
     void write_fragment(const Fragment &frag, int address, OutTextures &textures)
