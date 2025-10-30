@@ -43,6 +43,14 @@ public:
         }
     }
 
+    void read_cache(const BoundingBox<int> &bb)
+    {
+    }
+
+    void write_cache()
+    {
+    }
+
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {

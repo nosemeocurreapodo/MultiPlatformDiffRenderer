@@ -49,10 +49,10 @@ public:
     template <typename T2>
     BoundingBox Union(BoundingBox<T2> win)
     {
-        T min_x = min(min_x_, T(win.min_x));
-        T max_x = max(max_x_, T(win.max_x));
-        T min_y = min(min_y_, T(win.min_y));
-        T max_y = max(max_y_, T(win.max_y));
+        T min_x = min(min_x_, T(win.min_x_));
+        T max_x = max(max_x_, T(win.max_x_));
+        T min_y = min(min_y_, T(win.min_y_));
+        T max_y = max(max_y_, T(win.max_y_));
 
         return BoundingBox(min_x, max_x, min_y, max_y);
     }

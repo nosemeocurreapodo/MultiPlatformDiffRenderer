@@ -98,6 +98,7 @@ public:
     {
 
         BoundingBox<int> viewport_tiles[num_tiles];
+        BoundingBox<int> texcoord_bound[num_tiles];
         Triangle triangles[num_tiles][max_tri_per_tile];
         int triangle_count[num_tiles];
 
@@ -114,6 +115,7 @@ public:
         {
 #pragma HLS UNROLL
             triangle_count[i] = 0;
+            texcoord_bound[i] = BoundingBox<int>(0, 0, 0, 0);
         }
 
     // Loop over triangles
@@ -168,6 +170,11 @@ public:
 
                 triangles[tile][triangle_count[tile]] = triangle;
                 triangle_count[tile]++;
+
+                BoundingBox<int> tex_bb = derived_().texcoord_bound(triangle.vout[0].var,
+                                                                    triangle.vout[1].var,
+                                                                    triangle.vout[2].var);
+                texcoord_bound[tile] = texcoord_bound[tile].Union(tex_bb);
             }
         }
 
@@ -179,6 +186,7 @@ public:
         for (int tile = 0; tile < num_tiles; tile++)
         {
             clear_tile_(frags, viewport_tiles[tile]);
+            derived_().cache_input(tex_bb);
             render_tile_(frags, triangles[tile], triangle_count[tile], viewport_tiles[tile], intextures);
             write_tile_(frags, viewport_tiles[tile], viewport, outtextures);
         }
@@ -579,6 +587,12 @@ public:
         RendererBase<MathType, GouraudRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &avar1, const Varyings &avar2)
+    {
+        BoundingBox<int> bb(0, 0, 0, 0);
+        return bb;
+    }
+
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
         VertexData vertexdata;
@@ -854,6 +868,12 @@ public:
         RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &avar1, const Varyings &avar2)
+    {
+        BoundingBox<int> bb(0, 0, 0, 0);
+        return bb;
+    }
+
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
 #pragma HLS INLINE
@@ -1006,6 +1026,21 @@ public:
         RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
+    }
+
+    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        textures.in_texture.read_cache(tex_bb);
+    }
+
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
 #pragma HLS inline
@@ -1151,6 +1186,16 @@ public:
         RendererBase<MathType, ResidualRendererBase>::Render(viewport, mesh, intextures, outtextures);
     }
 
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
+    }
+
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
         VertexData vertexdata;
@@ -1276,6 +1321,16 @@ public:
         OutTextures outtextures{out_texture};
 
         RendererBase<MathType, DIDxyRendererBase>::Render(viewport, mesh, intextures, outtextures);
+    }
+
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1455,6 +1510,16 @@ public:
         OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
 
         RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, intextures, outtextures);
+    }
+
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1637,6 +1702,16 @@ public:
         OutTextures outtextures{jmap_texture, pids_texture, r_texture};
 
         RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, intextures, outtextures);
+    }
+
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1862,6 +1937,19 @@ public:
         OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
         RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, intextures, outtextures);
+    }
+
+    BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
+    {
+        /*
+        linalg::Vec2<int> texcoord0(var0.texcoord(0) * in_textues_size_(0), var0.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord1(var1.texcoord(0) * in_textues_size_(0), var1.texcoord(1) * in_textues_size_(1));
+        linalg::Vec2<int> texcoord2(var2.texcoord(0) * in_textues_size_(0), var2.texcoord(1) * in_textues_size_(1));
+
+        BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
+        return bb;
+        */
+        return BoundingBox<int>(0, 0, 0, 0);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)

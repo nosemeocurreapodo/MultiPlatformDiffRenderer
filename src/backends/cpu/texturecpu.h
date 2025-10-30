@@ -9,6 +9,7 @@
 #include <cstring>
 #include "backends/base/texturebase.h"
 #include "backends/cpu/buffercpu.h"
+#include "core/boundingbox.h"
 
 template <class T>
 class TextureCPU
@@ -87,6 +88,10 @@ public:
         return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
+    void cache(const BoundingBox<int> &bb)
+    {
+    }
+
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
@@ -106,7 +111,7 @@ public:
 
     void set_texel_(const T &v, unsigned int address, unsigned int lvl)
     {
-        //assert(x < width(lvl) && y < height(lvl));
+        // assert(x < width(lvl) && y < height(lvl));
 
         const auto &L = levels_[lvl];
         storage_.data()[L.offset + address] = v;
