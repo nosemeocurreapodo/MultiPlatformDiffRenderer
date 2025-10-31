@@ -76,7 +76,7 @@ extern "C"
                                                       ebo_buffer_data, ebo_buffer_size,
                                                       diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
 
-        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAMCached2<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererRAM renderer;
         renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, out_texture);

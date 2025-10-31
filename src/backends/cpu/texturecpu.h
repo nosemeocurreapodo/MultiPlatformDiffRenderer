@@ -92,6 +92,10 @@ public:
     {
     }
 
+    void fill_cache(T v)
+    {
+    }
+
     void cache_read_()
     {
     }
@@ -124,9 +128,6 @@ public:
         const auto &L = levels_[lvl];
         storage_.data()[L.offset + address] = v;
     }
-
-    T *data(unsigned int lvl) noexcept { return &storage_[levels_[lvl].offset]; }
-    const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
 
 protected:
     // template <class T, class Mesh, template <class> class Texture>

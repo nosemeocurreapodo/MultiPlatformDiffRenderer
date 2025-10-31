@@ -62,7 +62,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 1;
+    unsigned int lvl = 0;
 
     TextureCPU<float> diffuse_cpu(w, h, -1.0f);
     UploadMatToTexture(diffuse_cpu, 0, image_src_cv);

@@ -44,11 +44,15 @@ public:
         }
     }
 
-    void read_cache(const BoundingBox<int> &bb)
+    void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
     {
     }
 
-    void write_cache()
+    void cache_read_()
+    {
+    }
+
+    void cache_write_()
     {
     }
 
@@ -69,8 +73,8 @@ public:
         storage_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
-    T *data(unsigned int lvl) noexcept { return &storage_[levels_[lvl].offset]; }
-    const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
+    // T *data(unsigned int lvl) noexcept { return &storage_[levels_[lvl].offset]; }
+    // const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
 
 private:
     struct Level
@@ -492,6 +496,8 @@ public:
     {
         build_pyramid_(w, h);
         ram_ = base;
+
+        #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
     }
 
     // Rule of 5
