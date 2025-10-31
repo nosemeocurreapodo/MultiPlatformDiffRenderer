@@ -88,7 +88,11 @@ public:
         return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
-    void cache_read_(const BoundingBox<int> &bb, int lvl)
+    void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
+    {
+    }
+
+    void cache_read_()
     {
     }
 

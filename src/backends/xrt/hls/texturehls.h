@@ -565,14 +565,18 @@ public:
         // ram_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
-    void cache_read_(const BoundingBox<int> &bb, int lvl)
+    void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
+    {
+        cache_bb_ = bb;
+        cache_lvl_ = lvl;
+    }
+
+    void cache_read_()
     {
 #pragma HLS INLINE off
         // #ifndef __SYNTHESIS__
         //         assert(cache_w >= bb.width_ && cache_h >= bb.height_);
         // #endif
-        cache_bb_ = bb;
-        cache_lvl_ = lvl;
 
         int w = width(cache_lvl_);
         int h = height(cache_lvl_);

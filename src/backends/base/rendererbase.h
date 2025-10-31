@@ -105,10 +105,10 @@ public:
         int sum_triangles_tile;
         int id_triangles_tile[max_num_tiles][max_tri_per_tile];
 
-        // #pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
-        // #pragma HLS BIND_STORAGE variable = texcoord_bound type = ram_t2p impl = uram
-        #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
-        #pragma HLS BIND_STORAGE variable = id_triangles_tile type = ram_t2p impl = uram
+// #pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
+// #pragma HLS BIND_STORAGE variable = texcoord_bound type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = id_triangles_tile type = ram_t2p impl = uram
 
         // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
         // #pragma HLS ARRAY_PARTITION variable = triangles complete dim = 1
@@ -218,7 +218,7 @@ public:
 #pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
 
             clear_tile_(frags, viewport_tiles[tile]);
-            derived_().cache_textures(intextures, texcoord_bound[tile]);
+            derived_().cache_intextures(intextures, texcoord_bound[tile]);
             render_tile_(frags, triangles, id_triangles_tile[tile], num_triangles_tile[tile], viewport_tiles[tile], intextures);
             write_tile_(frags, viewport_tiles[tile], viewport, outtextures);
         }
@@ -586,9 +586,19 @@ public:
         return bb;
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -872,8 +882,19 @@ public:
         return bb;
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1038,9 +1059,20 @@ public:
         return bb;
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        textures.in_texture.cache_read_(tex_bb, in_lvl_);
+        textures.in_texture.set_cache_bb_(tex_bb, in_lvl_);
+        textures.in_texture.cache_read_();
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+        textures.out_texture.set_cache_bb_(tex_bb, out_lvl_);
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+        textures.out_texture.cache_write_();
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1201,9 +1233,19 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1346,9 +1388,19 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1543,9 +1595,19 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1743,9 +1805,19 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1986,9 +2058,19 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_textures(InTextures &textures, const BoundingBox<int> &tex_bb)
+    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-        // textures.in_texture.read_cache(tex_bb);
+
+    }
+
+    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
+    {
+
+    }
+
+    void sync_outtextures(OutTextures &textures)
+    {
+
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
