@@ -497,7 +497,7 @@ public:
         build_pyramid_(w, h);
         ram_ = base;
 
-        #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
     }
 
     // Rule of 5
@@ -523,11 +523,14 @@ public:
     void fill(unsigned int lvl, const T &v)
     {
     texturehls_fill_loop:
-        for (int i = 0; i < width(lvl) * height(lvl); i++)
+        int base_address = levels_[lvl].offset;
+        int size = width(lvl) * height(lvl);
+    fill_loop:
+        for (int i = 0; i < size; i++)
         {
 #pragma HLS loop_tripcount min = 307200 max = 307200 avg = 307200
 
-            ram_[levels_[lvl].offset + i] = v;
+            ram_[base_address + i] = v;
         }
     }
 
