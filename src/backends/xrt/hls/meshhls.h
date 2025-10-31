@@ -2,6 +2,7 @@
 
 // #include "core/types.h"
 #include "backends/xrt/hls/bufferhls.h"
+#include "ap_int.h"
 
 template <typename T, template <class> class Buffer, template <class> class Texture>
 class MeshHLS
@@ -12,6 +13,24 @@ public:
             unsigned int *indices,
             unsigned int indices_size,
             T *diffuse_data,
+            unsigned int diffuse_width,
+            unsigned int diffuse_height,
+            T diffuse_nodata_value)
+        : vertex_buffer_(vertex_size, vertexs),
+          ebo_buffer_(indices_size, indices),
+          diffuse_(diffuse_width, diffuse_height, diffuse_nodata_value, diffuse_data)
+    {
+        stride_ = 8;
+        pos_offset_ = 0;
+        tex_offset_ = 3;
+        nor_offset_ = 5;
+    }
+
+    MeshHLS(T *vertexs,
+            unsigned int vertex_size,
+            unsigned int *indices,
+            unsigned int indices_size,
+            ap_uint<128> *diffuse_data,
             unsigned int diffuse_width,
             unsigned int diffuse_height,
             T diffuse_nodata_value)

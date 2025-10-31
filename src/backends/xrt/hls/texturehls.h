@@ -496,6 +496,17 @@ public:
     {
         build_pyramid_(w, h);
         ram_ = base;
+        ram_lanes_ = 1;
+
+#pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
+    }
+
+    TextureRAMCached2(unsigned int w, unsigned int h, T nodata, ap_uint<128> *base)
+        : nodata_(nodata)
+    {
+        build_pyramid_(w, h);
+        ram_ = (T *)base;
+        ram_lanes_ = 4;
 
 #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
     }
@@ -700,6 +711,7 @@ private:
     T nodata_;
 
     T *ram_;
+    int ram_lanes_;
     T cache_[cache_w * cache_h];
     BoundingBox<int> cache_bb_;
     int cache_lvl_;

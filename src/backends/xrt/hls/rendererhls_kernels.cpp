@@ -46,8 +46,8 @@ extern "C"
 
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        float *diffuse_texture_data,
-                        float *out_texture_data,
+                        ap_uint<128> *diffuse_texture_data,
+                        ap_uint<128> *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
