@@ -49,7 +49,7 @@ template <typename MathType, class Derived>
 class RendererBase
 {
 public:
-    static constexpr int tile_width = 64;
+    static constexpr int tile_width = 80;
     static constexpr int tile_height = 60;
 
     // static constexpr int max_width = 640;
@@ -57,14 +57,15 @@ public:
 
     static constexpr int max_num_tri = 2048;
 
-    static constexpr int max_num_tiles_x = 10;
+    static constexpr int max_num_tiles_x = 8;
     static constexpr int max_num_tiles_y = 8;
     static constexpr int max_num_tiles = max_num_tiles_x * max_num_tiles_y;
 
-    static constexpr int max_tri_per_tile = 4;
-    static constexpr int max_tri_width = 32;
-    static constexpr int max_tri_height = 32;
-    static constexpr int max_frag_per_tri = max_tri_width * max_tri_height;
+    static constexpr int max_tri_per_tile = max_num_tri;
+
+    // only for performance metrics
+    static constexpr int max_tri_width = 20;
+    static constexpr int max_tri_height = 15;
 
     // Vertex shading & clip → NDC → screen
     struct VSOut
@@ -98,16 +99,20 @@ public:
     {
         BoundingBox<int> viewport_tiles[max_num_tiles];
         BoundingBox<int> texcoord_bound[max_num_tiles];
-        Triangle triangles[max_num_tiles][max_tri_per_tile];
-        int triangle_count[max_num_tiles];
+        Triangle triangles[max_num_tri];
+        int num_triangles;
+        int num_triangles_tile[max_num_tiles];
+        int sum_triangles_tile;
+        int id_triangles_tile[max_num_tiles][max_tri_per_tile];
 
-#pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
-#pragma HLS BIND_STORAGE variable = texcoord_bound type = ram_t2p impl = uram
-#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+        // #pragma HLS BIND_STORAGE variable = viewport_tiles type = ram_t2p impl = uram
+        // #pragma HLS BIND_STORAGE variable = texcoord_bound type = ram_t2p impl = uram
+        #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+        #pragma HLS BIND_STORAGE variable = id_triangles_tile type = ram_t2p impl = uram
 
         // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
         // #pragma HLS ARRAY_PARTITION variable = triangles complete dim = 1
-#pragma HLS ARRAY_PARTITION variable = triangle_count complete dim = 1
+        // #pragma HLS ARRAY_PARTITION variable = triangle_count complete dim = 1
 
         int num_tiles_x = int(ceil(MathType(viewport.width_) / tile_width));
         int num_tiles_y = int(ceil(MathType(viewport.height_) / tile_height));
@@ -115,12 +120,15 @@ public:
 
         create_tile_viewports_(viewport_tiles, viewport, num_tiles_x, num_tiles_y);
 
+        num_triangles = 0;
+        sum_triangles_tile = 0;
+
+    renderbase_init_loop:
         for (int i = 0; i < num_tiles; i++)
         {
 #pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
 
-            triangle_count[i] = 0;
-            texcoord_bound[i] = BoundingBox<int>(0, 0, 0, 0);
+            num_triangles_tile[i] = 0;
         }
 
     // Loop over triangles
@@ -160,6 +168,17 @@ public:
             // Triangle bounding box (float → int, clamp to viewport)
             BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
+            int viewport_min_x = max(viewport.min_x_, static_cast<int>(floor(tri_bb.min_x_)));
+            int viewport_max_x = min(viewport.max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
+            int viewport_min_y = max(viewport.min_y_, static_cast<int>(floor(tri_bb.min_y_)));
+            int viewport_max_y = min(viewport.max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
+
+            if (viewport_min_x >= viewport_max_x || viewport_min_y >= viewport_max_y)
+                continue;
+
+            triangles[num_triangles] = triangle;
+            num_triangles++;
+
         renderbase_render_vertex_tile_loop:
             for (int tile = 0; tile < num_tiles; tile++)
             {
@@ -175,23 +194,23 @@ public:
 
                 // = viewport_tiles[i].Intersection(tri_bb);
 
-                triangles[tile][triangle_count[tile]] = triangle;
+                id_triangles_tile[tile][num_triangles_tile[tile]] = num_triangles - 1;
+                num_triangles_tile[tile]++;
+                sum_triangles_tile++;
 
                 BoundingBox<int> tex_bb = derived_().texcoord_bound(triangle.vout[0].var,
                                                                     triangle.vout[1].var,
                                                                     triangle.vout[2].var);
-                if (triangle_count[tile] == 0)
+                if (num_triangles_tile[tile] == 1)
                     texcoord_bound[tile] = tex_bb;
                 else
                     texcoord_bound[tile] = texcoord_bound[tile].Union(tex_bb);
-
-                triangle_count[tile]++;
             }
         }
 
         typename Derived::Fragment frags[tile_width * tile_height];
-#pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
-        // #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
+        // #pragma HLS BIND_STORAGE variable = frags type = ram_t2p impl = uram
+        //  #pragma HLS ARRAY_PARTITION variable = frags complete dim = 1
 
     renderbase_render_tiles_loop:
         for (int tile = 0; tile < num_tiles; tile++)
@@ -200,7 +219,7 @@ public:
 
             clear_tile_(frags, viewport_tiles[tile]);
             derived_().cache_textures(intextures, texcoord_bound[tile]);
-            render_tile_(frags, triangles[tile], triangle_count[tile], viewport_tiles[tile], intextures);
+            render_tile_(frags, triangles, id_triangles_tile[tile], num_triangles_tile[tile], viewport_tiles[tile], intextures);
             write_tile_(frags, viewport_tiles[tile], viewport, outtextures);
         }
     }
@@ -282,17 +301,19 @@ protected:
     }
 
     template <typename Fragment, typename InTextures>
-    void render_tile_(Fragment *frags, const Triangle *triangles, int triangle_count, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
+    void render_tile_(Fragment *frags, const Triangle *triangles, const int *id_triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
 #pragma HLS INLINE off
 
     render_tile_loop:
-        for (int tri = 0; tri < triangle_count; tri++)
+        for (int tri = 0; tri < num_triangles; tri++)
         {
 #pragma HLS pipeline off
 #pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
 
-            draw_triangle_(triangles[tri], viewport_tile, intextures, frags);
+            int tri_id = id_triangles[tri];
+            Triangle triangle = triangles[tri_id];
+            draw_triangle_(triangle, viewport_tile, intextures, frags);
         }
     }
 
@@ -451,10 +472,12 @@ protected:
                 gl_FragCoord(2) = depth_px;
                 gl_FragCoord(3) = inv_invW_px;
 
+                int frag_address = (y - tile_bb.min_y_) * tile_bb.width_ + x - tile_bb.min_x_;
+
                 derived_().fragment_shader(gl_FragCoord,
                                            varying_px,
                                            intextures,
-                                           tile_frags[(y - tile_bb.min_y_) * tile_bb.width_ + x - tile_bb.min_x_]);
+                                           tile_frags[frag_address]);
 
                 /*
                 typename Derived::Fragment frag;

@@ -482,8 +482,8 @@ template <class T>
 class TextureRAMCached2
 {
 public:
-    static constexpr int cache_w = 64;
-    static constexpr int cache_h = 64;
+    static constexpr int cache_w = 128;
+    static constexpr int cache_h = 128;
 
     TextureRAMCached2() = default;
 

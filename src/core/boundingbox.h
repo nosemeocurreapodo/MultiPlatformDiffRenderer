@@ -8,6 +8,12 @@ class BoundingBox
 public:
     BoundingBox()
     {
+        min_x_ = 0;
+        min_y_ = 0;
+        max_x_ = 0;
+        max_y_ = 0;
+        width_ = 0;
+        height_ = 0;
     }
 
     BoundingBox(T minx, T maxx, T miny, T maxy)
