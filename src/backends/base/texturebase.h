@@ -24,7 +24,7 @@ enum class FilterMode
 template <class T>
 T wrap(T t, AddressMode addr)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
     switch (addr)
     {
@@ -53,7 +53,7 @@ T wrap(T t, AddressMode addr)
 template <class T, class Tex>
 T nearest(Tex &tex, T y, T x, unsigned int lvl)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
     const auto xi = static_cast<unsigned int>(lround(x));
     const auto yi = static_cast<unsigned int>(lround(y));
@@ -63,53 +63,32 @@ T nearest(Tex &tex, T y, T x, unsigned int lvl)
 template <class T, class Tex>
 T bilinear(Tex &tex, T y, T x, unsigned int lvl)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
     const auto w = tex.width(lvl);
     const auto h = tex.height(lvl);
 
     const T xf = floor(x);
     const T yf = floor(y);
-    const auto x0 = static_cast<unsigned int>(xf < T(0) ? T(0) : xf);
-    const auto y0 = static_cast<unsigned int>(yf < T(0) ? T(0) : yf);
+    const auto x0 = static_cast<unsigned int>(xf); // < T(0) ? T(0) : xf);
+    const auto y0 = static_cast<unsigned int>(yf); // < T(0) ? T(0) : yf);
     const auto x1 = min(x0 + 1, w - 1);
     const auto y1 = min(y0 + 1, h - 1);
 
     const T dx = x - static_cast<T>(x0);
     const T dy = y - static_cast<T>(y0);
 
-    /*
-    // auto m = MapRead(lvl); // one mapping, four reads
-    const auto idx = [&](UInt yy, UInt xx)
-    {
-        // return m[xx + yy * w];
-        //  return lvls_[lvl].buf[xx + yy * w];
-        return derived_().texel_(yy, xx, lvl);
-    };
-
-    const T tl = idx(y0, x0);
-    const T tr = idx(y0, x1);
-    const T bl = idx(y1, x0);
-    const T br = idx(y1, x1);
-    */
-
     const auto tl = tex.texel_(y0, x0, lvl);
     const auto tr = tex.texel_(y0, x1, lvl);
     const auto bl = tex.texel_(y1, x0, lvl);
     const auto br = tex.texel_(y1, x1, lvl);
 
-    if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
-        return T(tex.nodata());
-
-    // const Scalar w_tl = (1.0f - dx) * (1.0f - dy);
-    // const Scalar w_tr = (dx) * (1.0f - dy);
-    // const Scalar w_bl = (1.0f - dx) * (dy);
-    // const Scalar w_br = (dx) * (dy);
-    // return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
+    // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
+    //     return T(tex.nodata());
 
     const T Cx0 = T(tl) * (T(1) - dx) + T(tr) * dx;
     const T Cx1 = T(bl) * (T(1) - dx) + T(br) * dx;
-    return static_cast<T>(Cx0 * (T(1) - dy) + Cx1 * dy);
+    return Cx0 * (T(1) - dy) + Cx1 * dy;
 }
 
 // Normalized sampling in [0,1] (allows outside depending on address mode)
@@ -120,7 +99,7 @@ T sample(Tex &tex,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
-//#pragma HLS inline
+#pragma HLS inline
 
     const T w = static_cast<T>(tex.width(lvl));
     const T h = static_cast<T>(tex.height(lvl));

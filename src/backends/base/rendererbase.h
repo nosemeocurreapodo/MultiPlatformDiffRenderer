@@ -18,7 +18,7 @@
 template <typename T>
 T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
-    // #pragma HLS INLINE
+#pragma HLS INLINE
     //  return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
     //   return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
     linalg::Vec2<T> v10 = v1 - v0;
@@ -34,7 +34,7 @@ T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::
 template <typename T>
 bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
-    // #pragma HLS INLINE
+#pragma HLS INLINE
     //  return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
     //  for y up
     //  return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
@@ -1002,7 +1002,7 @@ public:
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         MathType depth = gl_FragCoord(2);
 

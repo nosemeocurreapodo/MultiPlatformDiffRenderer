@@ -558,6 +558,8 @@ public:
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl)
     {
+#pragma HLS inline
+
         int lx = int(x) - cache_bb_.min_x_;
         int ly = int(y) - cache_bb_.min_y_;
 
@@ -573,6 +575,8 @@ public:
 
     void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
     {
+#pragma HLS inline
+
         int lx = int(x) - cache_bb_.min_x_;
         int ly = int(y) - cache_bb_.min_y_;
 
