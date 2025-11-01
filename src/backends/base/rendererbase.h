@@ -18,9 +18,9 @@
 template <typename T>
 T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
-#pragma HLS INLINE
-    // return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
-    //  return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
+    // #pragma HLS INLINE
+    //  return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
+    //   return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
     linalg::Vec2<T> v10 = v1 - v0;
     linalg::Vec2<T> v20 = v2 - v0;
     // for y up
@@ -34,11 +34,11 @@ T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::
 template <typename T>
 bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
-#pragma HLS INLINE
-    // return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
-    // for y up
-    // return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
-    // for y down
+    // #pragma HLS INLINE
+    //  return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
+    //  for y up
+    //  return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
+    //  for y down
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
@@ -213,7 +213,7 @@ public:
 protected:
     void create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
     create_tile_viewport_y_loop:
         for (int y = 0; y < num_tiles_y; y++)
@@ -238,7 +238,7 @@ protected:
     template <typename VertexData>
     void create_triangle_(const VertexData *vertexdata, const unsigned int *vertexids, const BoundingBox<int> &viewport, Triangle &triangle)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
     create_triangle_loop:
         for (int j = 0; j < 3; ++j)
@@ -269,7 +269,7 @@ protected:
     template <typename OutTextures, typename InTextures>
     void render_tile_(OutTextures &outtextues, MathType *depth_buffer, const Triangle *triangles, const bool *is_triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
@@ -289,7 +289,7 @@ protected:
     template <typename InTextures, typename OutTextures>
     void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, OutTextures &outtextures)
     {
-#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -796,7 +796,7 @@ public:
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         VertexData vertexdata;
         unsigned int base = vertexid * mesh.stride_ + mesh.pos_offset_;
@@ -812,7 +812,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         Varyings var_over_w_px;
         var_over_w_px.depth =
@@ -842,7 +842,7 @@ public:
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
-#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         MathType depth = in_varying.depth;
 
@@ -930,7 +930,7 @@ public:
 
     void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
         textures.in_texture.set_cache_bb_(tex_bb, in_lvl_);
         textures.in_texture.cache_read_();
@@ -938,7 +938,7 @@ public:
 
     void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
         textures.out_texture.set_cache_bb_(tex_bb, out_lvl_);
         textures.out_texture.fill_cache(textures.out_texture.nodata());
@@ -946,14 +946,14 @@ public:
 
     void sync_outtextures(OutTextures &textures)
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
         textures.out_texture.cache_write_();
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-#pragma HLS inline
+        // #pragma HLS inline
 
         VertexData vertexdata;
 
@@ -972,7 +972,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-#pragma HLS inline
+        // #pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -990,7 +990,7 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-#pragma HLS inline
+        // #pragma HLS inline
 
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1.0f));
         outVarying.texcoord = vertexdata.texcoord;
@@ -1002,7 +1002,7 @@ public:
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
-#pragma HLS inline
+        // #pragma HLS inline
 
         MathType depth = gl_FragCoord(2);
 

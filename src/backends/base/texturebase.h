@@ -24,7 +24,7 @@ enum class FilterMode
 template <class T>
 T wrap(T t, AddressMode addr)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
     switch (addr)
     {
@@ -53,7 +53,7 @@ T wrap(T t, AddressMode addr)
 template <class T, class Tex>
 T nearest(Tex &tex, T y, T x, unsigned int lvl)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
     const auto xi = static_cast<unsigned int>(lround(x));
     const auto yi = static_cast<unsigned int>(lround(y));
@@ -63,7 +63,7 @@ T nearest(Tex &tex, T y, T x, unsigned int lvl)
 template <class T, class Tex>
 T bilinear(Tex &tex, T y, T x, unsigned int lvl)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
     const auto w = tex.width(lvl);
     const auto h = tex.height(lvl);
@@ -120,7 +120,7 @@ T sample(Tex &tex,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
-#pragma HLS inline
+//#pragma HLS inline
 
     const T w = static_cast<T>(tex.width(lvl));
     const T h = static_cast<T>(tex.height(lvl));
@@ -128,8 +128,8 @@ T sample(Tex &tex,
     const T uu = wrap(u, addr);
     const T vv = wrap(v, addr);
 
-    const float x = uu * w - 0.5f;
-    const float y = vv * h - 0.5f;
+    const T x = uu * w - 0.5f;
+    const T y = vv * h - 0.5f;
 
     return (filt == FilterMode::Nearest)
                ? nearest<T, Tex>(tex, y, x, lvl)

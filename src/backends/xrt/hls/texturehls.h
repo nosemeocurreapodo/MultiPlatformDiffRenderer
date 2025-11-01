@@ -3,6 +3,7 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "core/math_common.h"
 #include "core/boundingbox.h"
+#include <ap_fixed.h>
 
 template <class T>
 class TextureRAM
@@ -486,27 +487,20 @@ template <class T>
 class TextureRAMCached2
 {
 public:
+    using ram_type = ap_uint<128>;
+
     static constexpr int cache_w = 128;
     static constexpr int cache_h = 128;
+    static constexpr int type_bits = sizeof(T) * 8;
+    static constexpr int ram_lanes = sizeof(ram_type) / sizeof(T);
 
     TextureRAMCached2() = default;
 
-    TextureRAMCached2(unsigned int w, unsigned int h, T nodata, T *base)
+    TextureRAMCached2(unsigned int w, unsigned int h, T nodata, ram_type *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
         ram_ = base;
-        ram_lanes_ = 1;
-
-#pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
-    }
-
-    TextureRAMCached2(unsigned int w, unsigned int h, T nodata, ap_uint<128> *base)
-        : nodata_(nodata)
-    {
-        build_pyramid_(w, h);
-        ram_ = (T *)base;
-        ram_lanes_ = 4;
 
 #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
     }
@@ -534,14 +528,21 @@ public:
     void fill(unsigned int lvl, const T &v)
     {
     texturehls_fill_loop:
-        int base_address = levels_[lvl].offset;
-        int size = width(lvl) * height(lvl);
+        int base_address = levels_[lvl].offset / ram_lanes;
+        int size = width(lvl) * height(lvl) / ram_lanes;
     fill_loop:
         for (int i = 0; i < size; i++)
         {
-#pragma HLS loop_tripcount min = 307200 max = 307200 avg = 307200
+#pragma HLS loop_tripcount min = 307200 / ram_lanes max = 307200 / ram_lanes avg = 307200 / ram_lanes
 
-            ram_[base_address + i] = v;
+            ram_type bits;
+            for (int lane = 0; lane < ram_lanes; lane++)
+            {
+#pragma HLS UNROLL
+                bits.range(type_bits * (lane + 1) - 1, type_bits * lane) = v;
+            }
+
+            ram_[base_address + i] = bits;
         }
     }
 
@@ -593,10 +594,10 @@ public:
 
     void cache_read_()
     {
-#pragma HLS INLINE off
-        // #ifndef __SYNTHESIS__
-        //         assert(cache_w >= bb.width_ && cache_h >= bb.height_);
-        // #endif
+        // #pragma HLS INLINE off
+        //  #ifndef __SYNTHESIS__
+        //          assert(cache_w >= bb.width_ && cache_h >= bb.height_);
+        //  #endif
 
         int w = width(cache_lvl_);
         int h = height(cache_lvl_);
@@ -619,9 +620,10 @@ public:
             // #pragma HLS PIPELINE II = 1
 
             int addr_y = cache_bb_.min_y_ + j;
-            int ram_base = offset + addr_y * w + cache_bb_.min_x_;
+            int ram_base = (offset + addr_y * w + cache_bb_.min_x_) / ram_lanes;
             int bram_base = j * cache_bb_.width_;
 
+            /*
         texturehls_cache_read_x_loop:
             for (int i = 0; i < cache_bb_.width_; i++)
             {
@@ -632,12 +634,31 @@ public:
                 // dst[bram_base + i] = src[ram_base + i];
                 cache_[bram_base + i] = ram_[ram_base + i];
             }
+            */
+
+        texturehls_cache_read_x_loop:
+            for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
+            {
+#pragma HLS loop_tripcount min = cache_w / ram_lanes max = cache_w / ram_lanes avg = cache_w / ram_lanes
+#pragma HLS LOOP_FLATTEN off
+#pragma HLS PIPELINE II = 1
+
+                ram_type data = ram_[ram_base + i];
+
+                for (int lane = 0; lane < ram_lanes; lane++)
+                {
+#pragma HLS UNROLL
+                    ap_uint<type_bits> bits = data.range(type_bits * (lane + 1) - 1, type_bits * lane);
+                    T f = *reinterpret_cast<T *>(&bits);
+                    cache_[bram_base + i * ram_lanes + lane] = f;
+                }
+            }
         }
     }
 
     void cache_write_()
     {
-#pragma HLS INLINE off
+        // #pragma HLS INLINE off
 
         int w = width(cache_lvl_);
         int h = height(cache_lvl_);
@@ -650,17 +671,27 @@ public:
             // #pragma HLS PIPELINE II = 1
 
             int addr_y = cache_bb_.min_y_ + j;
-            int ram_base = offset + addr_y * w + cache_bb_.min_x_;
+            int ram_base = (offset + addr_y * w + cache_bb_.min_x_) / ram_lanes;
             int bram_base = j * cache_bb_.width_;
 
         texturehls_cache_write_x_loop:
-            for (int i = 0; i < cache_bb_.width_; i++)
+            for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
             {
-#pragma HLS loop_tripcount min = cache_w max = cache_w avg = cache_w
+#pragma HLS loop_tripcount min = cache_w / ram_lanes max = cache_w / ram_lanes avg = cache_w / ram_lanes
 #pragma HLS LOOP_FLATTEN off
 #pragma HLS PIPELINE II = 1
 
-                ram_[ram_base + i] = cache_[bram_base + i];
+                ram_type ram_data;
+
+                for (int lane = 0; lane < ram_lanes; lane++)
+                {
+#pragma HLS UNROLL
+                    T bram_data = cache_[bram_base + i * ram_lanes + lane];
+                    ap_uint<type_bits> bram_bits = *reinterpret_cast<ap_uint<type_bits> *>(&bram_data);
+                    ram_data.range(type_bits * (lane + 1) - 1, type_bits * lane) = bram_bits;
+                }
+
+                ram_[ram_base + i] = ram_data;
             }
         }
     }
@@ -710,8 +741,7 @@ private:
     unsigned int n_levels_;
     T nodata_;
 
-    T *ram_;
-    int ram_lanes_;
+    ram_type *ram_;
     T cache_[cache_w * cache_h];
     BoundingBox<int> cache_bb_;
     int cache_lvl_;
