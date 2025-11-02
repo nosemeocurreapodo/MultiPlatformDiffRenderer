@@ -70,8 +70,8 @@ T bilinear(Tex &tex, T y, T x, unsigned int lvl)
 
     const T xf = floor(x);
     const T yf = floor(y);
-    const auto x0 = static_cast<unsigned int>(xf); // < T(0) ? T(0) : xf);
-    const auto y0 = static_cast<unsigned int>(yf); // < T(0) ? T(0) : yf);
+    const auto x0 = static_cast<unsigned int>(xf < T(0) ? T(0) : xf);
+    const auto y0 = static_cast<unsigned int>(yf < T(0) ? T(0) : yf);
     const auto x1 = min(x0 + 1, w - 1);
     const auto y1 = min(y0 + 1, h - 1);
 
@@ -107,8 +107,8 @@ T sample(Tex &tex,
     const T uu = wrap(u, addr);
     const T vv = wrap(v, addr);
 
-    const T x = uu * w - 0.5f;
-    const T y = vv * h - 0.5f;
+    const T x = uu * w - T(0.5f);
+    const T y = vv * h - T(0.5f);
 
     return (filt == FilterMode::Nearest)
                ? nearest<T, Tex>(tex, y, x, lvl)

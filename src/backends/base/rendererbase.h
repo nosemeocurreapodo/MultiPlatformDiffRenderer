@@ -196,12 +196,16 @@ public:
             }
         }
 
+        MathType depth_buffer[tile_width * tile_height];
+
     renderbase_render_tiles_loop:
         for (int tile = 0; tile < num_tiles; tile++)
         {
 #pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
 
-            MathType depth_buffer[tile_width * tile_height] = {MathType(-1)};
+        renderbase_reset_depth_buffer_loop:
+            for (int i = 0; i < tile_width * tile_height; i++)
+                depth_buffer[i] = MathType(-1);
 
             derived_().cache_intextures(intextures, texcoord_bound[tile]);
             derived_().cache_outtextures(outtextures, viewport_tiles[tile]);
@@ -338,28 +342,27 @@ protected:
 
     // Rasterize
     draw_triangle_y_loop:
-        // for (int y = bb.min_y_, iy = 0; y < bb.max_y_; ++y, ++iy)
         for (int iy = 0; iy < triangle_bb.height_; ++iy)
         {
-            // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = max_tri_height max = max_tri_height avg = max_tri_height
 
-            int y = iy + triangle_bb.min_y_;
+            int texture_y = iy + triangle_bb.min_y_;
+            int tile_y = texture_y - tile_bb.min_y_;
 
             const MathType eAB_row_local = MathType(iy) * eAB_dy + eAB_row;
             const MathType eBC_row_local = MathType(iy) * eBC_dy + eBC_row;
             const MathType eCA_row_local = MathType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
-            // for (int x = bb.min_x_, ix = 0; x < bb.max_x_; ++x, ++ix)
             for (int ix = 0; ix < triangle_bb.width_; ++ix)
             {
-                // for 32x32 meshes and 640x480 images
 #pragma HLS loop_tripcount min = max_tri_width max = max_tri_width avg = max_tri_width
 #pragma HLS loop_flatten
                 //   #pragma HLS PIPELINE II = 1
 
-                int x = ix + triangle_bb.min_x_;
+                int texture_x = ix + triangle_bb.min_x_;
+                int tile_x = texture_x - tile_bb.min_x_;
+                int tile_address = tile_y * tile_bb.width_ + tile_x;
 
                 const MathType eAB = MathType(ix) * eAB_dx + eAB_row_local;
                 const MathType eBC = MathType(ix) * eBC_dx + eBC_row_local;
@@ -400,19 +403,21 @@ protected:
                                     w1 * triangle.vout[1].depth +
                                     w2 * triangle.vout[2].depth;
 
-                // Depth test could go here
+                // Depth test
+                MathType prev_depth = depth_buffer[tile_address];
+                if (prev_depth > MathType(0) && prev_depth < depth_px)
+                    continue;
+
+                depth_buffer[tile_address] = depth_px;
 
                 linalg::Vec4<MathType> gl_FragCoord;
-                gl_FragCoord(0) = static_cast<MathType>(x) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                gl_FragCoord(1) = static_cast<MathType>(y) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(0) = static_cast<MathType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(1) = static_cast<MathType>(texture_y); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                 gl_FragCoord(2) = depth_px;
                 gl_FragCoord(3) = inv_invW_px;
 
-                int address = iy * tile_bb.width_ + ix;
-
                 derived_().fragment_shader(gl_FragCoord,
                                            varying_px,
-                                           depth_buffer[address],
                                            intextures,
                                            outtextures);
             }
@@ -580,7 +585,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -838,7 +842,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -998,19 +1001,12 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
 #pragma HLS inline
 
-        MathType depth = gl_FragCoord(2);
-
-        if (pdepth > 0 && depth > pdepth)
-            return;
-
         MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
-
         outtextures.out_texture.set_texel_(pix, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);
     }
 
@@ -1141,7 +1137,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -1278,7 +1273,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -1470,7 +1464,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -1678,7 +1671,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
@@ -1901,7 +1893,6 @@ public:
 
     void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
                          const Varyings &in_varying,
-                         MathType &pdepth,
                          const InTextures &intextures,
                          OutTextures &outtextures)
     {
