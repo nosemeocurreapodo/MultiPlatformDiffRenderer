@@ -122,7 +122,7 @@ private:
 };
 */
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached2>, TextureRAMCached2, TextureRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached2>, TextureRAMCached2, TextureRAMCached2>
 {
 public:
     ImageRendererRAM() = default;
@@ -133,7 +133,7 @@ public:
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAM<ImageType> &out_texture)
+                TextureRAMCached2<ImageType> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, out_texture);
     }

@@ -88,11 +88,15 @@ public:
         return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
-    void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
+    void set_cache_bb_read_(const BoundingBox<int> &bb, int lvl, int bank)
     {
     }
 
-    void fill_cache(T v)
+    void set_cache_bb_write_(const BoundingBox<int> &bb, int lvl, int bank)
+    {
+    }
+
+    void fill_cache(T v, int bank)
     {
     }
 
@@ -121,13 +125,13 @@ public:
         storage_.data()[L.offset + y * L.w + x] = v;
     }
 
-    void set_texel_(const T &v, unsigned int address, unsigned int lvl)
-    {
-        // assert(x < width(lvl) && y < height(lvl));
+    // void set_texel_(const T &v, unsigned int address, unsigned int lvl)
+    // {
+    // assert(x < width(lvl) && y < height(lvl));
 
-        const auto &L = levels_[lvl];
-        storage_.data()[L.offset + address] = v;
-    }
+    //   const auto &L = levels_[lvl];
+    //  storage_.data()[L.offset + address] = v;
+    // }
 
 protected:
     // template <class T, class Mesh, template <class> class Texture>
