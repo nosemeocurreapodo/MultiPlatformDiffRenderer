@@ -3,7 +3,7 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "core/math_common.h"
 #include "core/boundingbox.h"
-#include <ap_fixed.h>
+#include <ap_int.h>
 
 template <class T>
 class TextureRAM
@@ -11,11 +11,12 @@ class TextureRAM
 public:
     TextureRAM() = default;
 
-    TextureRAM(unsigned int w, unsigned int h, T nodata, T *base)
+    template <typename PointerType>
+    TextureRAM(unsigned int w, unsigned int h, T nodata, PointerType *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = base;
+        storage_ = (T *)base;
     }
 
     // Rule of 5
@@ -36,13 +37,19 @@ public:
     // Fill a level with a constant
     void fill(unsigned int lvl, const T &v)
     {
+        int base_address = levels_[lvl].offset;
+
     texturehls_fill_loop:
         for (int i = 0; i < width(lvl) * height(lvl); i++)
         {
 #pragma HLS loop_tripcount min = 307200 max = 307200 avg = 307200
 
-            storage_[levels_[lvl].offset + i] = v;
+            storage_[base_address + i] = v;
         }
+    }
+
+    void fill_cache(const T &v)
+    {
     }
 
     void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
@@ -60,6 +67,7 @@ public:
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
+#pragma HLS inline
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
@@ -68,6 +76,7 @@ public:
 
     void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
     {
+#pragma HLS inline
         // #ifndef __SYNTHESIS__
         //         assert(x < width(lvl) && y < height(lvl));
         // #endif
@@ -487,9 +496,9 @@ template <class T>
 class TextureRAMCached2
 {
 public:
-    using ram_type = ap_uint<128>;
+    using ram_type = ap_uint<512>;
 
-    static constexpr int cache_w = 128;
+    static constexpr int cache_w = 256;
     static constexpr int cache_h = 128;
     static constexpr int type_bits = sizeof(T) * 8;
     static constexpr int ram_lanes = sizeof(ram_type) / sizeof(T);
@@ -503,6 +512,8 @@ public:
         ram_ = base;
 
 #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
+#pragma HLS array_partition variable = cache_ cyclic factor = 8 dim = 1
+        // #pragma HLS array_partition variable = cache_ complete dim = 1
     }
 
     // Rule of 5
@@ -549,8 +560,10 @@ public:
     void fill_cache(const T &v)
     {
     texturehls_fill_cache_loop:
-        for (int i = 0; i < cache_w * cache_h; i++)
+        for (int i = 0; i < cache_bb_.width_ * cache_bb_.height_; i++)
         {
+#pragma HLS loop_tripcount min = cache_h *cache_w / 4 max = cache_h *cache_w / 4 avg = cache_h * cache_w / 4
+
             cache_[i] = v;
         }
     }
@@ -620,7 +633,7 @@ public:
     texturehls_cache_read_y_loop:
         for (int j = 0; j < cache_bb_.height_; j++)
         {
-#pragma HLS loop_tripcount min = cache_h max = cache_h avg = cache_h
+#pragma HLS loop_tripcount min = cache_h / 2 max = cache_h / 2 avg = cache_h / 2
             // #pragma HLS PIPELINE II = 1
 
             int addr_y = cache_bb_.min_y_ + j;
@@ -643,7 +656,7 @@ public:
         texturehls_cache_read_x_loop:
             for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
             {
-#pragma HLS loop_tripcount min = cache_w / ram_lanes max = cache_w / ram_lanes avg = cache_w / ram_lanes
+#pragma HLS loop_tripcount min = cache_w / (2 * ram_lanes) max = cache_w / (2 * ram_lanes) avg = cache_w / (2 * ram_lanes)
 #pragma HLS LOOP_FLATTEN off
 #pragma HLS PIPELINE II = 1
 
@@ -671,7 +684,7 @@ public:
     texturehls_cache_write_y_loop:
         for (int j = 0; j < cache_bb_.height_; j++)
         {
-#pragma HLS loop_tripcount min = cache_h max = cache_h avg = cache_h
+#pragma HLS loop_tripcount min = cache_h / 2 max = cache_h / 2 avg = cache_h / 2
             // #pragma HLS PIPELINE II = 1
 
             int addr_y = cache_bb_.min_y_ + j;
@@ -681,7 +694,7 @@ public:
         texturehls_cache_write_x_loop:
             for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
             {
-#pragma HLS loop_tripcount min = cache_w / ram_lanes max = cache_w / ram_lanes avg = cache_w / ram_lanes
+#pragma HLS loop_tripcount min = cache_w / (2 * ram_lanes) max = cache_w / (2 * ram_lanes) avg = cache_w / (2 * ram_lanes)
 #pragma HLS LOOP_FLATTEN off
 #pragma HLS PIPELINE II = 1
 
@@ -700,7 +713,7 @@ public:
         }
     }
 
-private:
+    // private:
     struct Level
     {
         unsigned int offset; // element offset in storage_

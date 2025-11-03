@@ -49,23 +49,26 @@ template <typename MathType, class Derived>
 class RendererBase
 {
 public:
-    static constexpr int tile_width = 64;
-    static constexpr int tile_height = 64;
+    static constexpr int tile_width = 320;
+    static constexpr int tile_height = 240;
 
     // static constexpr int max_width = 640;
     // static constexpr int max_height = 480;
 
-    static constexpr int max_num_tri = 2048;
+    // taken from the planet dataset
+    static constexpr int max_num_tri = 768;
 
-    static constexpr int max_num_tiles_x = 24;
-    static constexpr int max_num_tiles_y = 24;
+    static constexpr int max_num_tiles_x = 2;
+    static constexpr int max_num_tiles_y = 2;
     static constexpr int max_num_tiles = max_num_tiles_x * max_num_tiles_y;
 
-    static constexpr int max_tri_per_tile = 64;
-
     // only for performance metrics
-    static constexpr int max_tri_width = 20;
-    static constexpr int max_tri_height = 15;
+    // taken from the planet dataset
+    static constexpr int max_tri_width = 70;
+    static constexpr int max_tri_height = 70;
+    // only half of the triangles are visible
+    // then try to estimate how many triangles there are per tile
+    static constexpr int max_tri_per_tile = (max_num_tri / 2) * tile_width * tile_height / (640 * 480);
 
     // Vertex shading & clip → NDC → screen
     struct VSOut
@@ -197,6 +200,8 @@ public:
         }
 
         MathType depth_buffer[tile_width * tile_height];
+#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+#pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 1
 
     renderbase_render_tiles_loop:
         for (int tile = 0; tile < num_tiles; tile++)
@@ -204,8 +209,11 @@ public:
 #pragma HLS loop_tripcount min = max_num_tiles max = max_num_tiles avg = max_num_tiles
 
         renderbase_reset_depth_buffer_loop:
-            for (int i = 0; i < tile_width * tile_height; i++)
+            for (int i = 0; i < tile_width * tile_height; i += 2)
+            {
                 depth_buffer[i] = MathType(-1);
+                depth_buffer[i + 1] = MathType(-1);
+            }
 
             derived_().cache_intextures(intextures, texcoord_bound[tile]);
             derived_().cache_outtextures(outtextures, viewport_tiles[tile]);
@@ -278,7 +286,7 @@ protected:
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
         {
-#pragma HLS pipeline off
+//#pragma HLS pipeline off
 #pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
 
             if (!is_triangles[tri])
@@ -293,7 +301,7 @@ protected:
     template <typename InTextures, typename OutTextures>
     void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, OutTextures &outtextures)
     {
-        // #pragma HLS INLINE
+#pragma HLS inline
 
         BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -358,11 +366,16 @@ protected:
             {
 #pragma HLS loop_tripcount min = max_tri_width max = max_tri_width avg = max_tri_width
 #pragma HLS loop_flatten
-                //   #pragma HLS PIPELINE II = 1
+                //    #pragma HLS PIPELINE II = 1
+
+#pragma HLS dependence variable = depth_buffer type = inter false
+                // #pragma HLS dependence variable = depth_buffer type = intra false
 
                 int texture_x = ix + triangle_bb.min_x_;
                 int tile_x = texture_x - tile_bb.min_x_;
                 int tile_address = tile_y * tile_bb.width_ + tile_x;
+
+                MathType prev_depth = depth_buffer[tile_address];
 
                 const MathType eAB = MathType(ix) * eAB_dx + eAB_row_local;
                 const MathType eBC = MathType(ix) * eBC_dx + eBC_row_local;
@@ -404,11 +417,8 @@ protected:
                                     w2 * triangle.vout[2].depth;
 
                 // Depth test
-                MathType prev_depth = depth_buffer[tile_address];
                 if (prev_depth > MathType(0) && prev_depth < depth_px)
                     continue;
-
-                depth_buffer[tile_address] = depth_px;
 
                 linalg::Vec4<MathType> gl_FragCoord;
                 gl_FragCoord(0) = static_cast<MathType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
@@ -420,6 +430,8 @@ protected:
                                            varying_px,
                                            intextures,
                                            outtextures);
+
+                depth_buffer[tile_address] = depth_px;
             }
         }
     }
@@ -1005,6 +1017,9 @@ public:
                          OutTextures &outtextures)
     {
 #pragma HLS inline
+
+        // #pragma HLS dependence variable = intextures.in_texture.cache_ type = inter false
+        //  #pragma HLS dependence variable = acc_hj_line type = intra false
 
         MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         outtextures.out_texture.set_texel_(pix, int(gl_FragCoord(1)), int(gl_FragCoord(0)), out_lvl_);

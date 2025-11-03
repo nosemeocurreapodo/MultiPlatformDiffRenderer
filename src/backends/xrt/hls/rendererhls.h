@@ -122,18 +122,18 @@ private:
 };
 */
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAMCached2>, TextureRAMCached2, TextureRAMCached2>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureRAM>
 {
 public:
     ImageRendererRAM() = default;
     ~ImageRendererRAM() = default;
 
-    void Render(MeshHLS<MeshType, BufferRAM, TextureRAMCached2> &mesh,
+    void Render(MeshHLS<MeshType, BufferRAM, TextureRAM> &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,
                 unsigned int out_lvl,
-                TextureRAMCached2<ImageType> &out_texture)
+                TextureRAM<ImageType> &out_texture)
     {
         ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, out_texture);
     }

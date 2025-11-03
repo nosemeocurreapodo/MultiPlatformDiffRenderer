@@ -7,13 +7,14 @@
 // #include "core/types.h"
 #include "core/camera.h"
 #include "core/mesh_helpers.h"
+#include <ap_int.h>
 
 extern "C"
 {
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        float *diffuse_texture_data,
-                        float *out_texture_data,
+                        ap_uint<32> *diffuse_texture_data,
+                        ap_uint<32> *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
@@ -74,8 +75,8 @@ int main()
     ImageRenderHLS(
         vertex.data(),
         indices.data(),
-        diffuse_map.data(),
-        image_out_map.data(),
+        (ap_uint<512> *)diffuse_map.data(),
+        (ap_uint<512> *)image_out_map.data(),
         vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
         w, h, -1.0f, lvl,
