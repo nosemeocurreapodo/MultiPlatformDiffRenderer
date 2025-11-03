@@ -75,8 +75,8 @@ int main()
     ImageRenderHLS(
         vertex.data(),
         indices.data(),
-        (ap_uint<512> *)diffuse_map.data(),
-        (ap_uint<512> *)image_out_map.data(),
+        (ap_uint<32> *)diffuse_map.data(),
+        (ap_uint<32> *)image_out_map.data(),
         vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
         w, h, -1.0f, lvl,

@@ -496,10 +496,11 @@ template <class T>
 class TextureRAMCached2
 {
 public:
-    using ram_type = ap_uint<512>;
+    using ram_type = ap_uint<32>;
 
-    static constexpr int cache_w = 256;
+    static constexpr int cache_w = 128;
     static constexpr int cache_h = 128;
+    static constexpr int cache_banks = 2;
     static constexpr int type_bits = sizeof(T) * 8;
     static constexpr int ram_lanes = sizeof(ram_type) / sizeof(T);
 
@@ -512,8 +513,8 @@ public:
         ram_ = base;
 
 #pragma HLS BIND_STORAGE variable = cache_ type = ram_t2p impl = uram
-#pragma HLS array_partition variable = cache_ cyclic factor = 8 dim = 1
-        // #pragma HLS array_partition variable = cache_ complete dim = 1
+#pragma HLS array_partition variable = cache_ complete dim = 1
+#pragma HLS array_partition variable = cache_ cyclic factor = 2 dim = 2
     }
 
     // Rule of 5
@@ -557,14 +558,14 @@ public:
         }
     }
 
-    void fill_cache(const T &v)
+    void fill_cache(const T &v, int bank = 0)
     {
     texturehls_fill_cache_loop:
-        for (int i = 0; i < cache_bb_.width_ * cache_bb_.height_; i++)
+        for (int i = 0; i < cache_bb_[bank].width_ * cache_bb_[bank].height_; i++)
         {
 #pragma HLS loop_tripcount min = cache_h *cache_w / 4 max = cache_h *cache_w / 4 avg = cache_h * cache_w / 4
 
-            cache_[i] = v;
+            cache_[bank][i] = v;
         }
     }
 
@@ -573,16 +574,16 @@ public:
     {
 #pragma HLS inline
 
-        int lx = int(x) - cache_bb_.min_x_;
-        int ly = int(y) - cache_bb_.min_y_;
+        int lx = int(x) - cache_bb_[0].min_x_;
+        int ly = int(y) - cache_bb_[0].min_y_;
 
         // #ifndef __SYNTHESIS__
         //         assert(lx < cache_bb_.width_ && ly < cache_bb_.height_ && lvl == cache_lvl_);
         // #endif
 
-        int bram_address = ly * cache_bb_.width_ + lx;
+        int bram_address = ly * cache_bb_[0].width_ + lx;
 
-        return cache_[bram_address];
+        return cache_[0][bram_address];
         // return ram_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
@@ -590,35 +591,35 @@ public:
     {
 #pragma HLS inline
 
-        int lx = int(x) - cache_bb_.min_x_;
-        int ly = int(y) - cache_bb_.min_y_;
+        int lx = int(x) - cache_bb_[0].min_x_;
+        int ly = int(y) - cache_bb_[0].min_y_;
 
         // #ifndef __SYNTHESIS__
         //         assert(lx < cache_bb_.width_ && ly < cache_bb_.height_ && lvl == cache_lvl_);
         // #endif
 
-        int bram_address = ly * cache_bb_.width_ + lx;
+        int bram_address = ly * cache_bb_[0].width_ + lx;
 
-        cache_[bram_address] = v;
+        cache_[0][bram_address] = v;
         // ram_[levels_[lvl].offset + y * levels_[lvl].w + x] = v;
     }
 
-    void set_cache_bb_(const BoundingBox<int> &bb, int lvl)
+    void set_cache_bb_(const BoundingBox<int> &bb, int lvl, int bank = 0)
     {
-        cache_bb_ = bb;
-        cache_lvl_ = lvl;
+        cache_bb_[bank] = bb;
+        cache_lvl_[bank] = lvl;
     }
 
-    void cache_read_()
+    void cache_read_(int bank = 0)
     {
         // #pragma HLS INLINE off
         //  #ifndef __SYNTHESIS__
         //          assert(cache_w >= bb.width_ && cache_h >= bb.height_);
         //  #endif
 
-        int w = width(cache_lvl_);
-        int h = height(cache_lvl_);
-        int offset = levels_[cache_lvl_].offset;
+        int w = width(cache_lvl_[bank]);
+        int h = height(cache_lvl_[bank]);
+        int offset = levels_[cache_lvl_[bank]].offset;
 
         // Create restricted local aliases so HLS knows they don’t alias.
         // const T *__restrict src = ram_; // m_axi
@@ -631,14 +632,14 @@ public:
         // #pragma HLS BIND_STORAGE variable = cache_ type = ram_1p impl = bram
 
     texturehls_cache_read_y_loop:
-        for (int j = 0; j < cache_bb_.height_; j++)
+        for (int j = 0; j < cache_bb_[bank].height_; j++)
         {
 #pragma HLS loop_tripcount min = cache_h / 2 max = cache_h / 2 avg = cache_h / 2
             // #pragma HLS PIPELINE II = 1
 
-            int addr_y = cache_bb_.min_y_ + j;
-            int ram_base = (offset + addr_y * w + cache_bb_.min_x_) / ram_lanes;
-            int bram_base = j * cache_bb_.width_;
+            int addr_y = cache_bb_[bank].min_y_ + j;
+            int ram_base = (offset + addr_y * w + cache_bb_[bank].min_x_) / ram_lanes;
+            int bram_base = j * cache_bb_[bank].width_;
 
             /*
         texturehls_cache_read_x_loop:
@@ -654,7 +655,7 @@ public:
             */
 
         texturehls_cache_read_x_loop:
-            for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
+            for (int i = 0; i < cache_bb_[bank].width_ / ram_lanes; i++)
             {
 #pragma HLS loop_tripcount min = cache_w / (2 * ram_lanes) max = cache_w / (2 * ram_lanes) avg = cache_w / (2 * ram_lanes)
 #pragma HLS LOOP_FLATTEN off
@@ -667,32 +668,32 @@ public:
 #pragma HLS UNROLL
                     ap_uint<type_bits> bits = data.range(type_bits * (lane + 1) - 1, type_bits * lane);
                     T f = *reinterpret_cast<T *>(&bits);
-                    cache_[bram_base + i * ram_lanes + lane] = f;
+                    cache_[bank][bram_base + i * ram_lanes + lane] = f;
                 }
             }
         }
     }
 
-    void cache_write_()
+    void cache_write_(int bank = 0)
     {
         // #pragma HLS INLINE off
 
-        int w = width(cache_lvl_);
-        int h = height(cache_lvl_);
-        int offset = levels_[cache_lvl_].offset;
+        int w = width(cache_lvl_[bank]);
+        int h = height(cache_lvl_[bank]);
+        int offset = levels_[cache_lvl_[bank]].offset;
 
     texturehls_cache_write_y_loop:
-        for (int j = 0; j < cache_bb_.height_; j++)
+        for (int j = 0; j < cache_bb_[bank].height_; j++)
         {
 #pragma HLS loop_tripcount min = cache_h / 2 max = cache_h / 2 avg = cache_h / 2
             // #pragma HLS PIPELINE II = 1
 
-            int addr_y = cache_bb_.min_y_ + j;
-            int ram_base = (offset + addr_y * w + cache_bb_.min_x_) / ram_lanes;
-            int bram_base = j * cache_bb_.width_;
+            int addr_y = cache_bb_[bank].min_y_ + j;
+            int ram_base = (offset + addr_y * w + cache_bb_[bank].min_x_) / ram_lanes;
+            int bram_base = j * cache_bb_[bank].width_;
 
         texturehls_cache_write_x_loop:
-            for (int i = 0; i < cache_bb_.width_ / ram_lanes; i++)
+            for (int i = 0; i < cache_bb_[bank].width_ / ram_lanes; i++)
             {
 #pragma HLS loop_tripcount min = cache_w / (2 * ram_lanes) max = cache_w / (2 * ram_lanes) avg = cache_w / (2 * ram_lanes)
 #pragma HLS LOOP_FLATTEN off
@@ -703,7 +704,7 @@ public:
                 for (int lane = 0; lane < ram_lanes; lane++)
                 {
 #pragma HLS UNROLL
-                    T bram_data = cache_[bram_base + i * ram_lanes + lane];
+                    T bram_data = cache_[bank][bram_base + i * ram_lanes + lane];
                     ap_uint<type_bits> bram_bits = *reinterpret_cast<ap_uint<type_bits> *>(&bram_data);
                     ram_data.range(type_bits * (lane + 1) - 1, type_bits * lane) = bram_bits;
                 }
@@ -759,7 +760,7 @@ public:
     T nodata_;
 
     ram_type *ram_;
-    T cache_[cache_w * cache_h];
-    BoundingBox<int> cache_bb_;
-    int cache_lvl_;
+    T cache_[cache_banks][cache_w * cache_h];
+    BoundingBox<int> cache_bb_[cache_banks];
+    int cache_lvl_[cache_banks];
 };

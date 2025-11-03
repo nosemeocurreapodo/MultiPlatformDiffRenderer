@@ -49,17 +49,17 @@ template <typename MathType, class Derived>
 class RendererBase
 {
 public:
-    static constexpr int tile_width = 320;
-    static constexpr int tile_height = 240;
+    static constexpr int tile_width = 80;
+    static constexpr int tile_height = 60;
 
     // static constexpr int max_width = 640;
     // static constexpr int max_height = 480;
 
     // taken from the planet dataset
-    static constexpr int max_num_tri = 768;
+    static constexpr int max_num_tri = 2048; // 768;
 
-    static constexpr int max_num_tiles_x = 2;
-    static constexpr int max_num_tiles_y = 2;
+    static constexpr int max_num_tiles_x = 8;
+    static constexpr int max_num_tiles_y = 8;
     static constexpr int max_num_tiles = max_num_tiles_x * max_num_tiles_y;
 
     // only for performance metrics
@@ -286,7 +286,7 @@ protected:
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
         {
-//#pragma HLS pipeline off
+// #pragma HLS pipeline off
 #pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
 
             if (!is_triangles[tri])
