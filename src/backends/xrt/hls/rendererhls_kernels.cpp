@@ -74,11 +74,11 @@ extern "C"
                                    linalg::Vec3<MathType>(t_x, t_y, t_z));
         Camera<MathType> cam(fx, fy, cx, cy);
 
-        MeshHLS<MeshType, BufferRAM, TextureRAMCached2> mesh(vertex_buffer_data, vertex_buffer_size,
-                                                             ebo_buffer_data, ebo_buffer_size,
-                                                             diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
+        MeshHLS<float, BufferRAM, TextureRAM> mesh(vertex_buffer_data, vertex_buffer_size,
+                                                      ebo_buffer_data, ebo_buffer_size,
+                                                      diffuse_texture_data, diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value);
 
-        TextureRAMCached2<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererRAM renderer;
         renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, out_texture);

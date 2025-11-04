@@ -88,26 +88,6 @@ public:
         return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
     }
 
-    void set_cache_bb_read_(const BoundingBox<int> &bb, int lvl, int bank)
-    {
-    }
-
-    void set_cache_bb_write_(const BoundingBox<int> &bb, int lvl, int bank)
-    {
-    }
-
-    void fill_cache(T v, int bank)
-    {
-    }
-
-    void cache_read_(int bank)
-    {
-    }
-
-    void cache_write_(int bank)
-    {
-    }
-
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
@@ -134,18 +114,6 @@ public:
     // }
 
 protected:
-    // template <class T, class Mesh, template <class> class Texture>
-    // friend class DepthRendererBase;
-    // template <class T, class Mesh, template <class> class Texture>
-    // friend class ImageRendererBase;
-    //  friend class DepthRendererCPU;
-    //  friend class ImageRendererCPU;
-    // friend class ResidualRendererCPU;
-    // friend class L2RendererCPU;
-    // friend class DIDxyRendererCPU;
-    // friend class JPoseRendererCPU;
-    // friend class JMapRendererCPU;
-
     struct Level
     {
         unsigned int offset; // element offset in storage_

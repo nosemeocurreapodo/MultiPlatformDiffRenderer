@@ -48,26 +48,6 @@ public:
         }
     }
 
-    void fill_cache(const T &v, int bank)
-    {
-    }
-
-    void set_cache_bb_read_(const BoundingBox<int> &bb, int lvl, int bank)
-    {
-    }
-
-    void set_cache_bb_write_(const BoundingBox<int> &bb, int lvl, int bank)
-    {
-    }
-
-    void cache_read_()
-    {
-    }
-
-    void cache_write_()
-    {
-    }
-
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {

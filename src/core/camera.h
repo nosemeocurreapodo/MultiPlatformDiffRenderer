@@ -22,23 +22,25 @@ public:
         cx_ = 0;
         cy_ = 0;
     }
-    PinholeCamera(T fx, T fy, T cx, T cy, unsigned int width, unsigned int height)
+    template <typename T2>
+    PinholeCamera(T2 fx, T2 fy, T2 cx, T2 cy, unsigned int width, unsigned int height)
     {
-        fx_ = fx / width;
-        fy_ = fy / height;
-        cx_ = cx / width;
-        cy_ = cy / height;
+        fx_ = T(fx) / width;
+        fy_ = T(fy) / height;
+        cx_ = T(cx) / width;
+        cy_ = T(cy) / height;
 
         // float alpha = std::exp(-imageExp(0));
         // float beta = imageExp(1);
         // imageType f_i_cor = alpha * (f_i - beta);
     }
-    PinholeCamera(T fx, T fy, T cx, T cy)
+    template <typename T2>
+    PinholeCamera(T2 fx, T2 fy, T2 cx, T2 cy)
     {
-        fx_ = fx;
-        fy_ = fy;
-        cx_ = cx;
-        cy_ = cy;
+        fx_ = T(fx);
+        fy_ = T(fy);
+        cx_ = T(cx);
+        cy_ = T(cy);
     }
     PinholeCamera(T *data)
     {

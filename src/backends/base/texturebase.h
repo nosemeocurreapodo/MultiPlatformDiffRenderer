@@ -29,13 +29,13 @@ T wrap(T t, AddressMode addr)
     switch (addr)
     {
     case AddressMode::Clamp:
-        return clamp(t, 0.0f, 1.0f);
+        return clamp(t, T(0), T(1));
     case AddressMode::Repeat:
     {
         // wrap to [0,1)
-        T r = fmod(t, 1.0f);
-        if (r < 0.0f)
-            r += 1.0f;
+        T r = fmod(t, T(1));
+        if (r < T(0))
+            r += T(1);
         return r;
     }
     case AddressMode::Mirror:
@@ -44,7 +44,7 @@ T wrap(T t, AddressMode addr)
         T ip = floor(t);
         T f = t - ip;
         bool odd = static_cast<long>(ip) & 1L;
-        return odd ? (T(1) - f) : f;
+        return odd ? (T(T(1) - f)) : f;
     }
     }
     return t; // unreachable
