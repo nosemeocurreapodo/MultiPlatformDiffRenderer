@@ -200,7 +200,7 @@ public:
         }
 
         MathType depth_buffer[2][tile_width * tile_height];
-#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = bram // uram
 #pragma HLS array_partition variable = depth_buffer complete dim = 1
 #pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 2
 
@@ -209,25 +209,57 @@ public:
         {
 #pragma HLS loop_tripcount min = max_num_tiles / 2 max = max_num_tiles / 2 avg = max_num_tiles / 2
 
+        renderbase_cache_intextures_loop:
             for (int i = 0; i < 2; i++)
             {
-// #pragma HLS unroll
-#pragma HLS loop_flatten
+#pragma HLS pipeline II = 1
+                derived_().set_cache_bb_read(intextures, viewport_tiles[tile + i], i);
+                derived_().cache_intextures(intextures, i);
+                derived_().set_cache_bb_write(outtextures, viewport_tiles[tile + i], i);
+                derived_().cache_outtextures(outtextures, i);
+            }
+
+        renderbase_reset_depth_buffer_loop:
+            for (int j = 0; j < tile_width * tile_height; j++)
+            {
+#pragma HLS pipeline II = 1
+                depth_buffer[0][j] = MathType(-1);
+                depth_buffer[1][j] = MathType(-1);
+            }
+
+        renderbase_render_tile_loop:
+            for (int i = 0; i < 2; i++)
+            {
+#pragma HLS unroll
+
+#pragma HLS dependence variable = intextures type = inter false
+#pragma HLS dependence variable = intextures type = intra false
+
+#pragma HLS dependence variable = outtextures type = inter false
+#pragma HLS dependence variable = outtextures type = intra false
+
+#pragma HLS dependence variable = viewport_tiles type = inter false
+#pragma HLS dependence variable = viewport_tiles type = intra false
 
 #pragma HLS dependence variable = depth_buffer type = inter false
 #pragma HLS dependence variable = depth_buffer type = intra false
 
-            renderbase_reset_depth_buffer_loop:
-                for (int j = 0; j < tile_width * tile_height; j += 2)
-                {
-                    depth_buffer[i][j] = MathType(-1);
-                    depth_buffer[i][j + 1] = MathType(-1);
-                }
+#pragma HLS dependence variable = triangles type = inter false
+#pragma HLS dependence variable = triangles type = intra false
 
-                derived_().cache_intextures(intextures, texcoord_bound[tile + i], i);
-                derived_().cache_outtextures(outtextures, viewport_tiles[tile + i], i);
+#pragma HLS dependence variable = is_triangles_tile type = inter false
+#pragma HLS dependence variable = is_triangles_tile type = intra false
+
+                derived_().set_cache_bb_read(intextures, viewport_tiles[tile + i], i);
+                derived_().set_cache_bb_write(outtextures, viewport_tiles[tile + i], i);
                 render_tile_(outtextures, depth_buffer[i], triangles, is_triangles_tile[tile + i], num_triangles, viewport_tiles[tile + i], intextures);
-                derived_().sync_outtextures(outtextures);
+            }
+
+        renderbase_sync_outtextures_loop:
+            for (int i = 0; i < 2; i++)
+            {
+#pragma HLS pipeline II = 1
+                derived_().sync_outtextures(outtextures, i);
             }
         }
     }
@@ -381,6 +413,12 @@ protected:
 #pragma HLS dependence variable = depth_buffer type = inter false
                 // #pragma HLS dependence variable = depth_buffer type = intra false
 
+                // #pragma HLS dependence variable = intextures.in_texture.cache_ type = inter false
+                //  #pragma HLS dependence variable = intextures.in_texture.cache_ type = intra false
+
+                // #pragma HLS dependence variable = outtextures.out_texture.cache_ type = inter false
+                //   #pragma HLS dependence variable = outtextures.out_texture.cache_ type = intra false
+
                 int texture_x = ix + triangle_bb.min_x_;
                 int tile_x = texture_x - tile_bb.min_x_;
                 int tile_address = tile_y * tile_bb.width_ + tile_x;
@@ -530,15 +568,23 @@ public:
         return bb;
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -808,15 +854,23 @@ public:
         return bb;
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -953,27 +1007,39 @@ public:
         return bb;
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
 #pragma HLS INLINE
 
-        textures.in_texture.set_cache_bb_read_(tex_bb, in_lvl_, bank);
-        textures.in_texture.cache_read_();
+        textures.in_texture.set_cache_bb_read_(tex_bb, out_lvl_, bank);
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
 #pragma HLS INLINE
 
         textures.out_texture.set_cache_bb_write_(tex_bb, out_lvl_, bank);
-        textures.out_texture.fill_cache(textures.out_texture.nodata(), bank);
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
     {
 #pragma HLS INLINE
 
-        textures.out_texture.cache_write_();
+        textures.in_texture.cache_read_(bank);
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+#pragma HLS INLINE
+
+        textures.out_texture.fill_cache(textures.out_texture.nodata(), bank);
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
+    {
+#pragma HLS INLINE
+
+        textures.out_texture.cache_write_(bank);
     }
 
     VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
@@ -1113,15 +1179,23 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -1251,15 +1325,23 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -1433,15 +1515,23 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -1619,15 +1709,23 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 
@@ -1844,15 +1942,23 @@ public:
         return BoundingBox<int>(0, 0, 0, 0);
     }
 
-    void cache_intextures(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_read(InTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void cache_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
+    void set_cache_bb_write(OutTextures &textures, const BoundingBox<int> &tex_bb, int bank)
     {
     }
 
-    void sync_outtextures(OutTextures &textures)
+    void cache_intextures(InTextures &textures, int bank)
+    {
+    }
+
+    void cache_outtextures(OutTextures &textures, int bank)
+    {
+    }
+
+    void sync_outtextures(OutTextures &textures, int bank)
     {
     }
 

@@ -100,11 +100,11 @@ public:
     {
     }
 
-    void cache_read_()
+    void cache_read_(int bank)
     {
     }
 
-    void cache_write_()
+    void cache_write_(int bank)
     {
     }
 
