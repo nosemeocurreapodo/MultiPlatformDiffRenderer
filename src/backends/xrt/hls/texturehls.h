@@ -1,7 +1,6 @@
 #pragma once
 
 #include "backends/xrt/hls/bufferhls.h"
-#include "core/math_common.h"
 #include "core/boundingbox.h"
 #include <ap_int.h>
 

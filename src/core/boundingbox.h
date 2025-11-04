@@ -1,6 +1,10 @@
 #pragma once
 
-#include "core/math_common.h"
+#ifdef USE_VITIS
+#include "backends/xrt/hls/math_common.h"
+#else
+#include "backends/cpu/math_common.h"
+#endif
 
 template <typename T>
 class BoundingBox

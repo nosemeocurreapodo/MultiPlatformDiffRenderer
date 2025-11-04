@@ -8,10 +8,16 @@
 #include "core/render_constants.h"
 // #include "core/error_handling.h"
 
-#define num_buffers 1
+#ifdef USE_VITIS
+#include "backends/xrt/hls/math_common.h"
+#else
+#include "backends/cpu/math_common.h"
+#endif
 
-#define tile_width 40
-#define tile_height 30
+#define num_buffers 2
+
+#define tile_width 160
+#define tile_height 120
 
 // static constexpr int max_width = 640;
 // static constexpr int max_height = 480;
@@ -19,8 +25,8 @@
 // taken from the planet dataset
 #define max_num_tri 2048 // 768;
 
-#define max_num_tiles_x 16
-#define max_num_tiles_y 16
+#define max_num_tiles_x 4
+#define max_num_tiles_y 4
 #define max_num_tiles max_num_tiles_x *max_num_tiles_y
 
 // only for performance metrics
@@ -41,7 +47,7 @@
 template <typename T>
 T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
-#pragma HLS INLINE
+//#pragma HLS INLINE
     //  return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
     //   return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
     linalg::Vec2<T> v10 = v1 - v0;
@@ -57,7 +63,7 @@ T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::
 template <typename T>
 bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
-#pragma HLS INLINE
+//#pragma HLS INLINE
     //  return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
     //  for y up
     //  return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
@@ -111,7 +117,7 @@ public:
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
         // #pragma HLS BIND_STORAGE variable = is_triangles_tile type = ram_t2p impl = uram
 
-        // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
+#pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
         //  #pragma HLS ARRAY_PARTITION variable = texcoord_bound complete dim = 1
         //  #pragma HLS ARRAY_PARTITION variable = is_triangles_tile complete dim = 1
 
@@ -178,14 +184,14 @@ public:
         MathType depth_buffer[num_buffers][tile_width * tile_height];
 
 #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = uram
-        // #pragma HLS array_partition variable = triangle_buffer complete dim = 1
+#pragma HLS array_partition variable = triangle_buffer complete dim = 1
 
 #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
-        // #pragma HLS array_partition variable = depth_buffer complete dim = 1
+#pragma HLS array_partition variable = depth_buffer complete dim = 1
         //   #pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 2
 
 #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
-        // #pragma HLS array_partition variable = fragment_buffer complete dim = 1
+#pragma HLS array_partition variable = fragment_buffer complete dim = 1
         //   #pragma HLS array_partition variable = fragment_buffer cyclic factor = 2 dim = 2
 
     renderbase_render_tiles_loop:
@@ -278,11 +284,13 @@ protected:
         for (int y = 0; y < num_tiles_y; y++)
         {
 #pragma HLS loop_tripcount min = max_num_tiles_y max = max_num_tiles_y avg = max_num_tiles_y
+#pragma HLS pipeline off
 
         create_tile_viewport_x_loop:
             for (int x = 0; x < num_tiles_x; x++)
             {
 #pragma HLS loop_tripcount min = max_num_tiles_x max = max_num_tiles_x avg = max_num_tiles_x
+#pragma HLS loop_flatten off
 
                 int min_x_ = int(MathType(viewport.width_ * x) / MathType(num_tiles_x)) + viewport.min_x_;
                 int max_x_ = int(MathType(viewport.width_ * (x + 1)) / MathType(num_tiles_x)) + viewport.min_x_;
@@ -328,7 +336,7 @@ protected:
     template <typename Fragment, typename InTextures>
     void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
@@ -345,7 +353,7 @@ protected:
     template <typename InTextures, typename Fragment>
     void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, Fragment *fragment_buffer)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -597,7 +605,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.vColor =
@@ -647,7 +655,7 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
         // std::cout << "calling fragment shader " << std::endl;
         // if (!inside)
         //    return;
@@ -855,7 +863,7 @@ public:
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
     depthrendererbase_sync_outtexture_y_loop:
         for (int iy = 0; iy < tex_bb.height_; iy++)
@@ -895,7 +903,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
         Varyings var_over_w_px;
         var_over_w_px.depth =
@@ -924,7 +932,7 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
         MathType depth = in_varying.depth;
 
@@ -975,6 +983,11 @@ public:
         ImageType color;
     };
 
+    struct Sample
+    {
+        ImageType color;
+    };
+
     ImageRendererBase() = default;
     ~ImageRendererBase() = default;
 
@@ -1016,9 +1029,33 @@ public:
         return bb;
     }
 
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, Sample *sample_buffer)
+    {
+//#pragma HLS INLINE
+
+    imagerendererbase_sync_outtexture_y_loop:
+        for (int iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+
+        imagerendererbase_sync_outtexture_x_loop:
+            for (int ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                int x = ix + tex_bb.min_x_;
+                int y = iy + tex_bb.min_y_;
+                int address = iy * tex_bb.width_ + ix;
+
+                ImageType color = textures.out_texture.texel_(y, x, out_lvl_);
+                sample_buffer[address].color = color;
+            }
+        }
+    }
+
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
     imagerendererbase_sync_outtexture_y_loop:
         for (int iy = 0; iy < tex_bb.height_; iy++)
@@ -1061,7 +1098,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -1079,7 +1116,7 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1.0f));
         outVarying.texcoord = vertexdata.texcoord;
@@ -1090,7 +1127,7 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         // #pragma HLS dependence variable = intextures.in_texture.cache_ type = inter false
         //  #pragma HLS dependence variable = intextures.in_texture.cache_ type = intra false

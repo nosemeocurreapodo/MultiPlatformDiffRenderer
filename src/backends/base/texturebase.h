@@ -1,13 +1,10 @@
 #pragma once
-// #include <algorithm>
-// #include <cassert>
-// #include <cstddef>
-// #include <type_traits>
-// #include <utility>
-// #include <vector>
-// #include <cmath> // std::floor, std::fmod
 
-#include "core/math_common.h"
+#ifdef USE_VITIS
+#include "backends/xrt/hls/math_common.h"
+#else
+#include "backends/cpu/math_common.h"
+#endif
 
 enum class AddressMode
 {

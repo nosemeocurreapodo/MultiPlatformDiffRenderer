@@ -13,17 +13,7 @@
 #include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/meshhls.h"
 
-#include "hls_math.h"
-#include "ap_int.h"
-#include "ap_fixed.h"
 
-using MathType = half;
-using MeshType = float;
-using DepthType = float;
-using ImageType = float;
-using ErrorType = float;
-using DType = float;
-using IdType = float;
 
 class DepthRendererRAM
     : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM>
