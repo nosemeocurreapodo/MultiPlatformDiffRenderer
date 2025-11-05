@@ -1272,7 +1272,7 @@ public:
 
         linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
-        ImageType kf = sample<ImageType, Texture<ImageType>>(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
@@ -1599,7 +1599,7 @@ public:
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec2<MathType> texcoord = in_varying.texcoord;
 
-        ImageType kf = sample<ImageType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         linalg::Vec3<DType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
@@ -1808,7 +1808,7 @@ public:
         linalg::Vec3<MathType> baricentric = in_varying.baricentric;
         linalg::Vec3<int> vertexid = in_varying.pids;
 
-        ImageType kf = sample<ImageType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         linalg::Vec3<DType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
@@ -2031,11 +2031,11 @@ public:
         linalg::Vec3<int> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        ImageType f = sample<ImageType, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        MathType f = sample<MathType, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<DType> f_der = compute_didxy<DType, linalg::Vec3, Texture>(intextures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
+        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;

@@ -675,7 +675,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureGL<float> &out_texture)
+                TextureGL<unsigned char> &out_texture)
     {
         save_state();
 
@@ -700,7 +700,7 @@ public:
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+        float clear[4] = {float(out_texture.nodata()), 0.f, 0.f, 1.f};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, clear);
@@ -809,8 +809,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &kf_texture,
+                const TextureGL<unsigned char> &f_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -961,7 +961,7 @@ public:
     void Render(const MeshGL &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &in_texture,
+                const TextureGL<unsigned char> &in_texture,
                 TextureGL<linalg::Vec3<float>> &out_texture)
     {
         save_state();
@@ -1125,7 +1125,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
                 TextureGL<linalg::Vec3<float>> &jrot_texture,
@@ -1419,7 +1419,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
                 TextureGL<linalg::Vec3<float>> &pids_texture,
@@ -1735,7 +1735,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureGL<float> &image_texture,
+                TextureGL<unsigned char> &image_texture,
                 TextureGL<float> &depth_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
                 TextureGL<linalg::Vec3<float>> &jrot_texture,

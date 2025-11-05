@@ -81,7 +81,7 @@ public:
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
 
-        diffuse_ = TextureGL<float>(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr());
+        diffuse_ = TextureGL<unsigned char>(diffuse.cols, diffuse.rows, 0, (unsigned char *)diffuse.ptr());
         diffuse_.generate_mipmaps(0);
 
         glBindVertexArray(0);
@@ -142,7 +142,7 @@ public:
 
     BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vbo_vertex_;
     BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
-    TextureGL<float> diffuse_;
+    TextureGL<unsigned char> diffuse_;
 
     int stride_;
     long int pos_offset_;

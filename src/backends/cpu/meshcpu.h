@@ -51,7 +51,7 @@ public:
         vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
         ebo_buffer_ = BufferCPU<unsigned int>(indices.size(), indices.data());
 
-        diffuse_ = TextureCPU<float>(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr());
+        diffuse_ = TextureCPU<unsigned char>(diffuse.cols, diffuse.rows, 0, (unsigned char *)diffuse.ptr());
         diffuse_.generate_mipmaps(0);
     }
 
@@ -98,5 +98,5 @@ public:
     int pos_offset_;
     int tex_offset_;
     int nor_offset_;
-    TextureCPU<float> diffuse_;
+    TextureCPU<unsigned char> diffuse_;
 };

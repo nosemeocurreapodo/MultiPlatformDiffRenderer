@@ -118,8 +118,8 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
-    typename Traits::template TextureT<float> input(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
+    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
 
     // UploadMatToTexture(input, 0, this->image_src_cv_);
 
@@ -142,8 +142,8 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
-    typename Traits::template TextureT<float> input1(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> input2(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> input1(this->w_, this->h_, 0);
+    typename Traits::template TextureT<unsigned char> input2(this->w_, this->h_, 0);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
 
     UploadMatToTexture(input1, 0, this->image_src_cv_);
@@ -171,7 +171,7 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, this->image_src_cv_, true, true, false);
-    typename Traits::template TextureT<float> input(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<linalg::Vec3<float>> output(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
     UploadMatToTexture(input, 0, this->image_src_cv_);
@@ -203,7 +203,7 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, this->image_src_cv_, true, true, false);
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
-    typename Traits::template TextureT<float> f_tex(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> f_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jtra_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jrot_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -247,7 +247,7 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, this->image_src_cv_, true, true, false);
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
-    typename Traits::template TextureT<float> f_tex(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> f_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jmap_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> pids_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));

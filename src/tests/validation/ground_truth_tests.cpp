@@ -188,8 +188,8 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     // typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<unsigned char> ground_truth(this->w_, this->h_, 0);
 
     UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
     // UploadMatToTexture(input, 0, this->image_src_cv_);
@@ -246,10 +246,10 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> input_image(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> input_image(this->w_, this->h_, 0);
 
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> reference(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<unsigned char> reference(this->w_, this->h_, 0);
 
     UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
     UploadMatToTexture(input_image, 0, this->image_src_cv_);

@@ -12,13 +12,13 @@ extern "C"
 {
     void DepthRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        float *diffuse_texture_data,
+                        unsigned char *diffuse_texture_data,
                         float *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
                         unsigned int diffuse_texture_height,
-                        float diffuse_nodata_value,
+                        unsigned char diffuse_nodata_value,
                         unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
@@ -44,12 +44,12 @@ int main()
 
     float scale = 1.0f / depth_factor;
 
-    cv::Mat image_src_cv = ReadMat(image_files[0]);
-    cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
+    cv::Mat image_src_cv = ReadMat(image_files[0], false);
+    cv::Mat depth_src_cv = ReadMat(depth_files[0], true) * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    cv::Mat image_dst_cv = ReadMat(image_files[50]);
-    cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
+    cv::Mat image_dst_cv = ReadMat(image_files[50], false);
+    cv::Mat depth_dst_cv = ReadMat(depth_files[50], true) * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
     // std::vector<Eigen::Vector3f> vertices, normals;
@@ -71,7 +71,7 @@ int main()
 
     unsigned int lvl = 1;
 
-    TextureCPU<float> diffuse_cpu(w, h, -1.0f);
+    TextureCPU<unsigned char> diffuse_cpu(w, h, -1.0f);
     UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
     auto diffuse_map = diffuse_cpu.MapWrite(0);
 
@@ -84,7 +84,7 @@ int main()
         diffuse_map.data(),
         depth_map.data(),
         vertex.size(), indices.size(),
-        w, h, -1.0f, lvl,
+        w, h, 0, lvl,
         w, h, -1.0f, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),

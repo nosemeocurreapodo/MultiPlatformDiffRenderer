@@ -16,13 +16,13 @@
 
 
 class DepthRendererRAM
-    : public DepthRendererBase<MathType, DepthType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM>
+    : public DepthRendererBase<MathType, DepthType, MeshHLS, TextureRAM>
 {
 public:
     DepthRendererRAM() = default;
     ~DepthRendererRAM() = default;
 
-    void Render(const MeshHLS<MeshType, BufferRAM, TextureRAM> &mesh,
+    void Render(const MeshHLS &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 int out_lvl,
@@ -112,13 +112,13 @@ private:
 };
 */
 class ImageRendererRAM
-    : public ImageRendererBase<MathType, ImageType, MeshHLS<MeshType, BufferRAM, TextureRAM>, TextureRAM, TextureRAM>
+    : public ImageRendererBase<MathType, ImageType, MeshHLS, TextureRAM, TextureRAM>
 {
 public:
     ImageRendererRAM() = default;
     ~ImageRendererRAM() = default;
 
-    void Render(MeshHLS<MeshType, BufferRAM, TextureRAM> &mesh,
+    void Render(MeshHLS &mesh,
                 const linalg::SE3<MathType> &pose,
                 const Camera<MathType> &cam,
                 unsigned int in_lvl,

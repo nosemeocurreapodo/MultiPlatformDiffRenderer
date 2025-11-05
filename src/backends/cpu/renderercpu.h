@@ -48,11 +48,11 @@ void DepthRendererRef(const TextureCPU<float> &depth_texture,
 }
 
 void ImageRendererRef(const TextureCPU<float> &depth_texture,
-                      const TextureCPU<float> &image_texture,
+                      const TextureCPU<unsigned char> &image_texture,
                       const linalg::SE3<float> &pose,
                       const Camera<float> &cam,
                       int out_lvl,
-                      TextureCPU<float> &out_texture)
+                      TextureCPU<unsigned char> &out_texture)
 {
     out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -144,7 +144,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<float, float, MeshCPU, TextureCPU, TextureCPU>
+    : public ImageRendererBase<float, unsigned char, MeshCPU, TextureCPU, TextureCPU>
 {
 public:
     ImageRendererCPU() = default;
@@ -155,7 +155,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &out_texture)
+                TextureCPU<unsigned char> &out_texture)
     {
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
@@ -172,7 +172,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public ResidualRendererBase<float, float, float, MeshCPU, TextureCPU>
+    : public ResidualRendererBase<float, unsigned char, float, MeshCPU, TextureCPU>
 {
 public:
     ResidualRendererCPU() = default;
@@ -183,8 +183,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
-                TextureCPU<float> &f_texture,
+                TextureCPU<unsigned char> &kf_texture,
+                TextureCPU<unsigned char> &f_texture,
                 TextureCPU<float> &r_texture)
     {
 
@@ -200,7 +200,7 @@ private:
 
 
 class DIDxyRendererCPU
-    : public DIDxyRendererBase<float, float, float, MeshCPU, TextureCPU>
+    : public DIDxyRendererBase<float, unsigned char, float, MeshCPU, TextureCPU>
 {
 public:
     DIDxyRendererCPU() = default;
@@ -209,7 +209,7 @@ public:
     void Render(MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &in_texture,
+                TextureCPU<unsigned char> &in_texture,
                 TextureCPU<linalg::Vec3<float>> &out_texture)
     {
 
@@ -223,7 +223,7 @@ private:
 };
 
 class JPoseRendererCPU
-    : public JPoseRendererBase<float, float, float, float, MeshCPU, TextureCPU>
+    : public JPoseRendererBase<float, unsigned char, float, float, MeshCPU, TextureCPU>
 {
 public:
     JPoseRendererCPU() = default;
@@ -234,7 +234,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &f_texture,
+                TextureCPU<unsigned char> &f_texture,
                 TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
@@ -251,7 +251,7 @@ private:
 };
 
 class JMapRendererCPU
-    : public JMapRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
+    : public JMapRendererBase<float, unsigned char, float, float, float, MeshCPU, TextureCPU>
 {
 public:
     JMapRendererCPU() = default;
@@ -262,7 +262,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &f_texture,
+                TextureCPU<unsigned char> &f_texture,
                 TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
                 TextureCPU<linalg::Vec3<float>> &pids_texture,
@@ -279,7 +279,7 @@ private:
 };
 
 class DiffRendererCPU
-    : public DiffRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
+    : public DiffRendererBase<float, unsigned char, float, float, float, MeshCPU, TextureCPU>
 {
 public:
     DiffRendererCPU() = default;
@@ -290,7 +290,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &image_texture,
+                TextureCPU<unsigned char> &image_texture,
                 TextureCPU<float> &depth_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,

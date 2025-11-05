@@ -241,10 +241,10 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     MeshGL mesh_gl(vertex_, indices_, image_src_cv_, true, true, true);
 
     // TextureCPU<float> input_cpu(w_, h_, -1.0f);
-    TextureCPU<float> output_cpu(w_, h_, -1.0f);
+    TextureCPU<unsigned char> output_cpu(w_, h_, 0);
 
     // TextureGL<float> input_gl(w_, h_, -1.0f);
-    TextureGL<float> output_gl(w_, h_, -1.0f);
+    TextureGL<unsigned char> output_gl(w_, h_, 0);
 
     // UploadMatToTexture(input_cpu, 0, image_src_cv_);
     // UploadMatToTexture(input_gl, 0, image_src_cv_);
@@ -316,12 +316,12 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     MeshCPU mesh_cpu(vertex_, indices_, image_src_cv_, true, true, true);
     MeshGL mesh_gl(vertex_, indices_, image_src_cv_, true, true, true);
 
-    TextureCPU<float> input1_cpu(w_, h_, -1.0f);
-    TextureCPU<float> input2_cpu(w_, h_, -1.0f);
+    TextureCPU<unsigned char> input1_cpu(w_, h_, 0);
+    TextureCPU<unsigned char> input2_cpu(w_, h_, 0);
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
 
-    TextureGL<float> input1_gl(w_, h_, -1.0f);
-    TextureGL<float> input2_gl(w_, h_, -1.0f);
+    TextureGL<unsigned char> input1_gl(w_, h_, 0);
+    TextureGL<unsigned char> input2_gl(w_, h_, 0);
     TextureGL<float> output_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(input1_cpu, 0, image_src_cv_);
@@ -395,9 +395,9 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     MeshCPU mesh_cpu(screen_vertex_, screen_indices_, image_src_cv_, true, true, false);
     MeshGL mesh_gl(screen_vertex_, screen_indices_, image_src_cv_, true, true, false);
 
-    TextureCPU<float> input_cpu(w_, h_, -1.0f);
+    TextureCPU<unsigned char> input_cpu(w_, h_, 0);
     TextureCPU<linalg::Vec3<float>> output_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<float> input_gl(w_, h_, -1.0f);
+    TextureGL<unsigned char> input_gl(w_, h_, 0);
     TextureGL<linalg::Vec3<float>> output_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
 
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
@@ -473,13 +473,13 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     MeshGL mesh_img_gl(screen_vertex_, screen_indices_, image_src_cv_, true, true, false);
     MeshGL mesh_gl(vertex_, indices_, image_src_cv_, true, true, true);
 
-    TextureCPU<float> f_cpu(w_, h_, -1.0f);
+    TextureCPU<unsigned char> f_cpu(w_, h_, 0);
     TextureCPU<linalg::Vec3<float>> dfdxy_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jtra_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jrot_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
-    TextureGL<float> f_gl(w_, h_, -1.0f);
+    TextureGL<unsigned char> f_gl(w_, h_, 0);
     TextureGL<linalg::Vec3<float>> dfdxy_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> jtra_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> jrot_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -583,13 +583,13 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     MeshGL mesh_img_gl(screen_vertex_, screen_indices_, image_src_cv_, true, true, false);
     MeshGL mesh_gl(vertex_, indices_, image_src_cv_, true, true, true);
 
-    TextureCPU<float> f_cpu(w_, h_, -1.0f);
+    TextureCPU<unsigned char> f_cpu(w_, h_, 0);
     TextureCPU<linalg::Vec3<float>> dfdxy_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jmap_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> pids_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
-    TextureGL<float> f_gl(w_, h_, -1.0f);
+    TextureGL<unsigned char> f_gl(w_, h_, 0);
     TextureGL<linalg::Vec3<float>> dfdxy_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> jmap_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> pids_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));

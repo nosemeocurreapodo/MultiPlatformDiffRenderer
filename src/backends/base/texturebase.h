@@ -112,8 +112,8 @@ T sample(Tex &tex,
                : bilinear<T, Tex>(tex, y, x, lvl);
 }
 
-template <class T, template <class> class V, template <class> class Tex>
-V<T> compute_didxy(const Tex<T> &tex, int y, int x, unsigned int lvl)
+template <class T, template <class> class V, class Tex>
+V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
 {
     // const UInt w = tex.width(lvl);
     // const UInt h = tex.height(lvl);
@@ -128,11 +128,11 @@ V<T> compute_didxy(const Tex<T> &tex, int y, int x, unsigned int lvl)
         return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
-    T f = T(tex.texel_(y, x, lvl));
-    T f_y_p = T(tex.texel_(y_p, x, lvl));
-    T f_y_m = T(tex.texel_(y_m, x, lvl));
-    T f_x_p = T(tex.texel_(y, x_p, lvl));
-    T f_x_m = T(tex.texel_(y, x_m, lvl));
+    auto f = tex.texel_(y, x, lvl);
+    auto f_y_p = tex.texel_(y_p, x, lvl);
+    auto f_y_m = tex.texel_(y_m, x, lvl);
+    auto f_x_p = tex.texel_(y, x_p, lvl);
+    auto f_x_m = tex.texel_(y, x_m, lvl);
 
     if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
         f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
@@ -143,7 +143,7 @@ V<T> compute_didxy(const Tex<T> &tex, int y, int x, unsigned int lvl)
     V<T> out_fragment;
     out_fragment(0) = (f_x_p - f_x_m) / T(2);
     out_fragment(1) = (f_y_p - f_y_m) / T(2);
-    out_fragment(2) = 0.0; // f; // save the projected frame for later processing
+    out_fragment(2) = T(0); // f; // save the projected frame for later processing
 
     return out_fragment;
 }

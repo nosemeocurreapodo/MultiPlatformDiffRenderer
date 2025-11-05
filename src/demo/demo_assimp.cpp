@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 
     MeshCPU meshcpu(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
 
-    TextureCPU<float> imagecpu(width, height, -1.0f);
+    TextureCPU<unsigned char> imagecpu(width, height, 0);
     TextureCPU<float> depthcpu(width, height, -1.0f);
     TextureCPU<linalg::Vec3<float>> jtracpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jrotcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 
     MeshGL meshgl(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
 
-    TextureGL<float> imagegl(width, height, -1.0f);
+    TextureGL<unsigned char> imagegl(width, height, 0);
     TextureGL<float> depthgl(width, height, -1.0f);
     TextureGL<linalg::Vec3<float>> jtragl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> jrotgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 
     MeshGLES2 meshgles2(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
 
-    TextureGLES2<float> imagegles2(width, height, -1.0f);
+    TextureGLES2<unsigned char> imagegles2(width, height, 0);
     TextureGLES2<float> depthgles2(width, height, -1.0f);
     TextureGLES2<linalg::Vec3<float>> jtragles2(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGLES2<linalg::Vec3<float>> jrotgles2(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1), rendererxrt.kernel_.group_id(2));
 
-    TextureXRT<float> imagexrt(width, height, -1.0f, rendererxrt.kernel_.group_id(3));
+    TextureXRT<unsigned char> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(3));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));

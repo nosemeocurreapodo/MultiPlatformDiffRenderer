@@ -7,7 +7,7 @@
 using MathType = half;
 using MeshType = float;
 using DepthType = float;
-using ImageType = float;
+using ImageType = unsigned char;
 using ErrorType = float;
 using DType = float;
 using IdType = float;

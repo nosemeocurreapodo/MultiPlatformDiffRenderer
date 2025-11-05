@@ -125,12 +125,12 @@ protected:
 
         float scale = 1.0f / depth_factor_;
 
-        image_src_cv_ = ReadMat(image_files_[0]);
-        depth_src_cv_ = ReadMat(depth_files_[0]) * scale;
+        image_src_cv_ = ReadMat(image_files_[0], false);
+        depth_src_cv_ = ReadMat(depth_files_[0], true) * scale;
         pose_src_ = poses_[0];
 
-        image_dst_cv_ = ReadMat(image_files_[50]);
-        depth_dst_cv_ = ReadMat(depth_files_[50]) * scale;
+        image_dst_cv_ = ReadMat(image_files_[50], false);
+        depth_dst_cv_ = ReadMat(depth_files_[50], true) * scale;
         pose_dst_ = poses_[50];
 
         CreateMesh(depth_src_cv_, cam_, 32, vertex_, indices_);

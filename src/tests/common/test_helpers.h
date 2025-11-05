@@ -2,10 +2,11 @@
 
 #include <opencv2/opencv.hpp>
 
-inline cv::Mat ReadMat(const std::string &filename)
+inline cv::Mat ReadMat(const std::string &filename, bool to_float)
 {
     cv::Mat image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
-    image.convertTo(image, CV_32FC1);
+    if (to_float)
+        image.convertTo(image, CV_32FC1);
     return image;
 }
 
@@ -135,7 +136,7 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nod
             if (val1 != nodata_value && val2 != nodata_value)
             {
                 double diff = static_cast<double>(val1 - val2);
-                
+
                 total_error += diff * diff;
                 valid_pixels++;
             }
