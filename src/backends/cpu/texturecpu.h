@@ -44,6 +44,32 @@ public:
         }
     }
 
+    // bounding box is between 0-1
+    TextureCPU(const TextureCPU &tex, const BoundingBox<float> &bb)
+        : TextureCPU(int(bb.width_ * width(0)),
+                     int(bb.height_ * height(0)),
+                     tex.nodata())
+    {
+        for (int lvl = 0; lvl < levels(); ++lvl)
+        {
+            auto r = tex.MapRead(lvl);
+            auto m = MapWrite(lvl);
+
+            BoundingBox<int> level_bb(int(bb.min_x_ * width(lvl)), int(bb.max_x_ * width(lvl)), int(bb.min_y_ * height(lvl)), int(bb.max_y_ * height(lvl)));
+            for (int y = 0; y < level_bb.height_; y++)
+            {
+                for (int x = 0; x < level_bb.width_; x++)
+                {
+                    int src_y = y + level_bb.min_y_;
+                    int src_x = x + level_bb.min_x_;
+
+                    T val = r[src_y * tex.width(lvl) + src_x];
+                    m[y * level_bb.width_ + x] = val;
+                }
+            }
+        }
+    }
+
     // Rule of 5
     TextureCPU(const TextureCPU &) = default;
     TextureCPU &operator=(const TextureCPU &) = default;

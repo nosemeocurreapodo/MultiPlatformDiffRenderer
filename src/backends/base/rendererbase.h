@@ -47,9 +47,9 @@
 template <typename T>
 T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
 {
-//#pragma HLS INLINE
-    //  return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
-    //   return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
+    // #pragma HLS INLINE
+    //   return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
+    //    return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
     linalg::Vec2<T> v10 = v1 - v0;
     linalg::Vec2<T> v20 = v2 - v0;
     // for y up
@@ -63,11 +63,11 @@ T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::
 template <typename T>
 bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 {
-//#pragma HLS INLINE
-    //  return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
-    //  for y up
-    //  return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
-    //  for y down
+    // #pragma HLS INLINE
+    //   return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
+    //   for y up
+    //   return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
+    //   for y down
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
@@ -178,6 +178,7 @@ public:
             num_triangles++;
         }
 
+        typename Derived::InTextures intextures_cached[num_buffers];
         Triangle triangle_buffer[num_buffers][max_num_tri];
         BoundingBox<int> texcoord_bound[num_buffers];
         typename Derived::Fragment fragment_buffer[num_buffers][tile_width * tile_height];
@@ -211,8 +212,8 @@ public:
 #pragma HLS dependence variable = viewport_tiles type = inter false
 #pragma HLS dependence variable = viewport_tiles type = intra false
 
-#pragma HLS dependence variable = intextures type = inter false
-#pragma HLS dependence variable = intextures type = intra false
+#pragma HLS dependence variable = intextures_cached type = inter false
+#pragma HLS dependence variable = intextures_cached type = intra false
 
             int triangle_count[num_buffers] = {0};
 
@@ -259,11 +260,18 @@ public:
                 }
             }
 
+        renderbase_cache_intextures_loop:
+            for (int i = 0; i < num_buffers; i++)
+            {
+                // #pragma HLS pipeline II = 1
+                derived_().cache_intextures(intextures, viewport_tiles[tile + i], intextures_cached[i]);
+            }
+
         renderbase_render_tile_loop:
             for (int i = 0; i < num_buffers; i++)
             {
 #pragma HLS unroll
-                render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_tiles[tile + i], intextures);
+                render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_tiles[tile + i], intextures_cached[i]);
             }
 
         renderbase_sync_outtextures_loop:
@@ -336,7 +344,7 @@ protected:
     template <typename Fragment, typename InTextures>
     void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
@@ -353,7 +361,7 @@ protected:
     template <typename InTextures, typename Fragment>
     void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, Fragment *fragment_buffer)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -581,6 +589,10 @@ public:
         return bb;
     }
 
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
+    }
+
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
     {
     }
@@ -605,7 +617,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.vColor =
@@ -655,10 +667,10 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-//#pragma HLS INLINE
-        // std::cout << "calling fragment shader " << std::endl;
-        // if (!inside)
-        //    return;
+        // #pragma HLS INLINE
+        //  std::cout << "calling fragment shader " << std::endl;
+        //  if (!inside)
+        //     return;
 
         fragment.color = in_varying.vColor;
     }
@@ -861,9 +873,13 @@ public:
         return bb;
     }
 
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
+    }
+
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
     depthrendererbase_sync_outtexture_y_loop:
         for (int iy = 0; iy < tex_bb.height_; iy++)
@@ -903,7 +919,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         Varyings var_over_w_px;
         var_over_w_px.depth =
@@ -932,7 +948,7 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
         MathType depth = in_varying.depth;
 
@@ -983,11 +999,6 @@ public:
         ImageType color;
     };
 
-    struct Sample
-    {
-        ImageType color;
-    };
-
     ImageRendererBase() = default;
     ~ImageRendererBase() = default;
 
@@ -1029,33 +1040,15 @@ public:
         return bb;
     }
 
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, Sample *sample_buffer)
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
     {
-//#pragma HLS INLINE
-
-    imagerendererbase_sync_outtexture_y_loop:
-        for (int iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
-
-        imagerendererbase_sync_outtexture_x_loop:
-            for (int ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
-
-                int x = ix + tex_bb.min_x_;
-                int y = iy + tex_bb.min_y_;
-                int address = iy * tex_bb.width_ + ix;
-
-                ImageType color = textures.out_texture.texel_(y, x, out_lvl_);
-                sample_buffer[address].color = color;
-            }
-        }
+        // #pragma HLS INLINE
+        texture_cached.in_texture = DiffuseTexture<ImageType>(textures.in_texture, tex_bb);
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
     imagerendererbase_sync_outtexture_y_loop:
         for (int iy = 0; iy < tex_bb.height_; iy++)
@@ -1098,7 +1091,7 @@ public:
                                   const Varyings &varying_px1,
                                   const Varyings &varying_px2)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -1116,7 +1109,7 @@ public:
                        linalg::Vec4<MathType> &gl_Position,
                        Varyings &outVarying)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         gl_Position = t_matrix_ * linalg::Vec4<MathType>(vertexdata.vertex, MathType(1.0f));
         outVarying.texcoord = vertexdata.texcoord;
@@ -1127,7 +1120,7 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         // #pragma HLS dependence variable = intextures.in_texture.cache_ type = inter false
         //  #pragma HLS dependence variable = intextures.in_texture.cache_ type = intra false
@@ -1218,6 +1211,10 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1354,6 +1351,10 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1535,6 +1536,10 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1720,6 +1725,10 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1947,6 +1956,10 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
+    }
+
+    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
+    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
