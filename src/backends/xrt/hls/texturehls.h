@@ -18,6 +18,15 @@ public:
         storage_ = (T *)base;
     }
 
+    template <typename BoundingBoxType>
+    TextureRAM(const TextureRAM &tex, const BoundingBoxType &bb)
+        : TextureRAM(tex.width(0),
+                     tex.height(0),
+                     tex.nodata(),
+                     tex.storage_)
+    {
+    }
+
     // Rule of 5
     // TextureRAM(const TextureRAM &) = default;
     // TextureRAM &operator=(const TextureRAM &) = default;

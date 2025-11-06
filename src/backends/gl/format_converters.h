@@ -9,7 +9,15 @@
 template <typename T>
 inline int getChannels()
 {
-    if constexpr (std::is_same_v<T, float>)
+    if constexpr (std::is_same_v<T, unsigned char>)
+    {
+        return 1;
+    }
+    else if constexpr (std::is_same_v<T, int>)
+    {
+        return 1;
+    }
+    else if constexpr (std::is_same_v<T, float>)
     {
         return 1;
     }
@@ -27,8 +35,7 @@ inline int getChannels()
     }
     else
     {
-        // static_assert(false, "Unsupported type for getChannels");
-        // assert(false);
+        assert(false);
         return 0; // Unreachable
     }
 }

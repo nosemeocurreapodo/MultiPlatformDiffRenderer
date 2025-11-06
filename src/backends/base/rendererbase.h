@@ -71,6 +71,11 @@ bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
+class TextureCache
+{
+
+}
+
 // -----------------------------------------------------------------------------
 // RendererBase
 // -----------------------------------------------------------------------------
@@ -1128,7 +1133,7 @@ public:
         // #pragma HLS dependence variable = outtextures.out_texture.cache_ type = inter false
         //  #pragma HLS dependence variable = outtextures.out_texture.cache_ type = intra false
 
-        MathType pix = sample<MathType, DiffuseTexture<ImageType>>(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        MathType pix = sample(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         fragment.color = pix;
     }
 
@@ -1604,7 +1609,7 @@ public:
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec2<MathType> texcoord = in_varying.texcoord;
 
-        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        MathType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         linalg::Vec3<DType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);

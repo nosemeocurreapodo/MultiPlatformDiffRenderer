@@ -118,7 +118,8 @@ inline int CountValid(const Texture &tex, int lvl)
 }
 
 // Error computation
-inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nodata_value)
+template <typename T>
+inline double ComputeL2ErrorScalar(const cv::Mat &mat1, const cv::Mat &mat2, T nodata_value)
 {
     assert(mat1.size() == mat2.size());
     assert(mat1.type() == mat2.type());
@@ -130,12 +131,12 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nod
     {
         for (int x = 0; x < mat1.cols; ++x)
         {
-            const float val1 = mat1.at<float>(y, x);
-            const float val2 = mat2.at<float>(y, x);
+            const T val1 = mat1.at<T>(y, x);
+            const T val2 = mat2.at<T>(y, x);
 
             if (val1 != nodata_value && val2 != nodata_value)
             {
-                double diff = static_cast<double>(val1 - val2);
+                double diff = static_cast<double>(val1) - static_cast<double>(val2);
 
                 total_error += diff * diff;
                 valid_pixels++;
@@ -146,7 +147,7 @@ inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, float nod
     return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
 }
 
-inline double ComputeL2Error(const cv::Mat &mat1, const cv::Mat &mat2, cv::Vec3f nodata_value)
+inline double ComputeL2ErrorVector(const cv::Mat &mat1, const cv::Mat &mat2, cv::Vec3f nodata_value)
 {
     assert(mat1.size() == mat2.size());
     assert(mat1.type() == mat2.type());
