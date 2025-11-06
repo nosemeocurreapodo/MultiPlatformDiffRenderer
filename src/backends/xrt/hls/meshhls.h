@@ -13,13 +13,16 @@ public:
             unsigned int vertex_size,
             unsigned int *indices,
             unsigned int indices_size,
-            DiffPointerType *diffuse_data,
+            DiffPointerType *diffuse_data_ch1,
+            DiffPointerType *diffuse_data_ch2,
             unsigned int diffuse_width,
             unsigned int diffuse_height,
             unsigned char diffuse_nodata_value)
         : vertex_buffer_(vertex_size, vertexs),
           ebo_buffer_(indices_size, indices),
-          diffuse_(diffuse_width, diffuse_height, diffuse_nodata_value, diffuse_data)
+          diffuse_ch1_(diffuse_width, diffuse_height, diffuse_nodata_value, diffuse_data_ch1),
+          diffuse_ch2_(diffuse_width, diffuse_height, diffuse_nodata_value, diffuse_data_ch2)
+
     {
         stride_ = 8;
         pos_offset_ = 0;
@@ -56,5 +59,6 @@ public:
     int tex_offset_;
     int nor_offset_;
 
-    TextureRAM<unsigned char> diffuse_;
+    TextureRAM<unsigned char> diffuse_ch1_;
+    TextureRAM<unsigned char> diffuse_ch2_;
 };

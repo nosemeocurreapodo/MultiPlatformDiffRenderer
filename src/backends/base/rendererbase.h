@@ -16,17 +16,17 @@
 
 #define num_buffers 2
 
-#define tile_width 160
-#define tile_height 120
+#define tile_width 80
+#define tile_height 60
 
 // static constexpr int max_width = 640;
 // static constexpr int max_height = 480;
 
 // taken from the planet dataset
-#define max_num_tri 2048 // 768;
+#define max_num_tri 768 // 768;
 
-#define max_num_tiles_x 4
-#define max_num_tiles_y 4
+#define max_num_tiles_x 8
+#define max_num_tiles_y 8
 #define max_num_tiles max_num_tiles_x *max_num_tiles_y
 
 // only for performance metrics
@@ -71,11 +71,6 @@ bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
-class TextureCache
-{
-
-}
-
 // -----------------------------------------------------------------------------
 // RendererBase
 // -----------------------------------------------------------------------------
@@ -108,9 +103,49 @@ public:
     ~RendererBase() = default;
 
     template <typename Mesh, typename InTextures, typename OutTextures>
+    void RenderSingle(const BoundingBox<int> &viewport,
+                      Mesh &mesh,
+                      InTextures &intextures,
+                      OutTextures &outtextures)
+    {
+        MathType depth_buffer[640 * 480];
+#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+        // #pragma HLS ARRAY_PARTITION variable = viewport_tiles complete dim = 1
+
+    // Loop over triangles
+    renderbase_render_triangles_loop:
+        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        {
+
+#pragma HLS loop_tripcount min = max_num_tri max = max_num_tri avg = max_num_tri
+            // #pragma HLS PIPELINE II = 1
+
+            unsigned int vertexids[3];
+
+            vertexids[0] = mesh.ebo_buffer_[i + 0];
+            vertexids[1] = mesh.ebo_buffer_[i + 1];
+            vertexids[2] = mesh.ebo_buffer_[i + 2];
+
+            typename Derived::VertexData vertexdata[3];
+
+            vertexdata[0] = derived_().get_vertex_data(mesh, vertexids[0]);
+            vertexdata[1] = derived_().get_vertex_data(mesh, vertexids[1]);
+            vertexdata[2] = derived_().get_vertex_data(mesh, vertexids[2]);
+
+            Triangle triangle;
+
+            create_triangle_(vertexdata, vertexids, viewport, triangle);
+
+            // directly write to dram
+            draw_triangle_(triangle, viewport, depth_buffer, intextures, outtextures);
+        }
+    }
+
+    template <typename Mesh, typename InTextures, typename OutTextures>
     void Render(const BoundingBox<int> &viewport,
                 Mesh &mesh,
-                InTextures &intextures,
+                InTextures &intextures_ch1,
+                InTextures &intextures_ch2,
                 OutTextures &outtextures)
     {
         BoundingBox<int> viewport_tiles[max_num_tiles];
@@ -138,7 +173,7 @@ public:
     renderbase_render_triangles_loop:
         for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
-            // the amount of in a 32x32 mesh (31x31*2)
+
 #pragma HLS loop_tripcount min = max_num_tri max = max_num_tri avg = max_num_tri
             // #pragma HLS PIPELINE II = 1
 
@@ -183,7 +218,6 @@ public:
             num_triangles++;
         }
 
-        typename Derived::InTextures intextures_cached[num_buffers];
         Triangle triangle_buffer[num_buffers][max_num_tri];
         BoundingBox<int> texcoord_bound[num_buffers];
         typename Derived::Fragment fragment_buffer[num_buffers][tile_width * tile_height];
@@ -211,14 +245,17 @@ public:
 #pragma HLS dependence variable = fragment_buffer type = inter false
 #pragma HLS dependence variable = fragment_buffer type = intra false
 
-#pragma HLS dependence variable = triangles type = inter false
-#pragma HLS dependence variable = triangles type = intra false
+#pragma HLS dependence variable = triangle_buffer type = inter false
+#pragma HLS dependence variable = triangle_buffer type = intra false
 
 #pragma HLS dependence variable = viewport_tiles type = inter false
 #pragma HLS dependence variable = viewport_tiles type = intra false
 
-#pragma HLS dependence variable = intextures_cached type = inter false
-#pragma HLS dependence variable = intextures_cached type = intra false
+#pragma HLS dependence variable = intextures_ch1 type = inter false
+#pragma HLS dependence variable = intextures_ch1 type = intra false
+
+#pragma HLS dependence variable = intextures_ch2 type = inter false
+#pragma HLS dependence variable = intextures_ch2 type = intra false
 
             int triangle_count[num_buffers] = {0};
 
@@ -265,18 +302,14 @@ public:
                 }
             }
 
-        renderbase_cache_intextures_loop:
-            for (int i = 0; i < num_buffers; i++)
-            {
-                // #pragma HLS pipeline II = 1
-                derived_().cache_intextures(intextures, viewport_tiles[tile + i], intextures_cached[i]);
-            }
-
         renderbase_render_tile_loop:
             for (int i = 0; i < num_buffers; i++)
             {
 #pragma HLS unroll
-                render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_tiles[tile + i], intextures_cached[i]);
+                if (i == 0)
+                    render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_tiles[tile + i], intextures_ch1);
+                else
+                    render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_tiles[tile + i], intextures_ch2);
             }
 
         renderbase_sync_outtextures_loop:
@@ -349,7 +382,7 @@ protected:
     template <typename Fragment, typename InTextures>
     void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const InTextures &intextures)
     {
-        // #pragma HLS INLINE
+#pragma HLS INLINE
 
     render_tile_loop:
         for (int tri = 0; tri < num_triangles; tri++)
@@ -366,7 +399,7 @@ protected:
     template <typename InTextures, typename Fragment>
     void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, Fragment *fragment_buffer)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -505,6 +538,145 @@ protected:
         }
     }
 
+    // Triangle rasterizer (top-left rule, perspective correct)
+    template <typename InTextures, typename OutTextures>
+    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const InTextures &intextures, OutTextures &outtextures)
+    {
+        // #pragma HLS inline
+
+        BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+        int min_x = max(tile_bb.min_x_, static_cast<int>(floor(tri_bb.min_x_)));
+        int max_x = min(tile_bb.max_x_, static_cast<int>(ceil(tri_bb.max_x_)));
+        int min_y = max(tile_bb.min_y_, static_cast<int>(floor(tri_bb.min_y_)));
+        int max_y = min(tile_bb.max_y_, static_cast<int>(ceil(tri_bb.max_y_)));
+
+        BoundingBox<int> triangle_bb(min_x, max_x, min_y, max_y);
+
+        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+        MathType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
+
+        if (area2 < MathType(0))
+            return; // enable to cull backfaces
+
+        const MathType inv_area2 = MathType(1) / area2;
+
+        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
+        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
+        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
+
+        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
+        linalg::Vec2<MathType> p;
+        p(0) = static_cast<MathType>(triangle_bb.min_x_) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p(1) = static_cast<MathType>(triangle_bb.min_y_) + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+
+        MathType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+        MathType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+        MathType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+
+        // Step increments when moving +1 in X or +1 in Y
+        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
+        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
+        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
+        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
+        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
+        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
+        // for y down, the - is needed
+        const MathType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        const MathType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        const MathType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        const MathType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        const MathType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        const MathType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+
+    // Rasterize
+    draw_triangle_y_loop:
+        for (int iy = 0; iy < triangle_bb.height_; ++iy)
+        {
+#pragma HLS loop_tripcount min = max_tri_height max = max_tri_height avg = max_tri_height
+
+            int texture_y = iy + triangle_bb.min_y_;
+            int tile_y = texture_y - tile_bb.min_y_;
+
+            const MathType eAB_row_local = MathType(iy) * eAB_dy + eAB_row;
+            const MathType eBC_row_local = MathType(iy) * eBC_dy + eBC_row;
+            const MathType eCA_row_local = MathType(iy) * eCA_dy + eCA_row;
+
+        draw_triangle_x_loop:
+            for (int ix = 0; ix < triangle_bb.width_; ++ix)
+            {
+#pragma HLS loop_tripcount min = max_tri_width max = max_tri_width avg = max_tri_width
+#pragma HLS loop_flatten
+                //    #pragma HLS PIPELINE II = 1
+
+#pragma HLS dependence variable = depth_buffer type = inter false
+                // #pragma HLS dependence variable = depth_buffer type = intra false
+
+                int texture_x = ix + triangle_bb.min_x_;
+                int tile_x = texture_x - tile_bb.min_x_;
+                int tile_address = tile_y * tile_bb.width_ + tile_x;
+
+                MathType prev_depth = depth_buffer[tile_address];
+
+                const MathType eAB = MathType(ix) * eAB_dx + eAB_row_local;
+                const MathType eBC = MathType(ix) * eBC_dx + eBC_row_local;
+                const MathType eCA = MathType(ix) * eCA_dx + eCA_row_local;
+
+                // Top-left rule adjustments (include pixels on top/left edges)
+                const bool inside =
+                    (eAB > 0 || (eAB == 0 && tlAB)) &&
+                    (eBC > 0 || (eBC == 0 && tlBC)) &&
+                    (eCA > 0 || (eCA == 0 && tlCA));
+
+                if (!inside)
+                    continue;
+
+                // Baricentric weights normalized
+                // const MathType w0 = eBC * inv_area2;
+                // const MathType w1 = eCA * inv_area2;
+                // const MathType w2 = eAB * inv_area2;
+                // Baricentric weights normalized (perpective)
+                MathType w0 = eBC * inv_area2 * triangle.vout[0].invW;
+                MathType w1 = eCA * inv_area2 * triangle.vout[1].invW;
+                MathType w2 = eAB * inv_area2 * triangle.vout[2].invW;
+
+                // Perspective: 1/w at pixel
+                const MathType inv_invW_px = MathType(1) / (w0 + w1 + w2);
+
+                w0 *= inv_invW_px;
+                w1 *= inv_invW_px;
+                w2 *= inv_invW_px;
+
+                typename Derived::Varyings varying_px = derived_().interpolate_varyings(w0, w1, w2,
+                                                                                        triangle.vout[0].var,
+                                                                                        triangle.vout[1].var,
+                                                                                        triangle.vout[2].var);
+
+                // Depth (if needed; same trick)
+                MathType depth_px = w0 * triangle.vout[0].depth +
+                                    w1 * triangle.vout[1].depth +
+                                    w2 * triangle.vout[2].depth;
+
+                // Depth test
+                if (prev_depth > MathType(0) && prev_depth < depth_px)
+                    continue;
+
+                linalg::Vec4<MathType> gl_FragCoord;
+                gl_FragCoord(0) = static_cast<MathType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(1) = static_cast<MathType>(texture_y); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(2) = depth_px;
+                gl_FragCoord(3) = inv_invW_px;
+
+                derived_().fragment_shader(gl_FragCoord,
+                                           varying_px,
+                                           intextures,
+                                           outtextures);
+
+                depth_buffer[tile_address] = depth_px;
+            }
+        }
+    }
+
     Derived &derived_() { return *static_cast<Derived *>(this); }
     const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
@@ -585,17 +757,13 @@ public:
         InTextures intextures{0};
         OutTextures outtextures{out_texture};
 
-        RendererBase<MathType, GouraudRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, GouraudRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &avar1, const Varyings &avar2)
     {
         BoundingBox<int> bb(0, 0, 0, 0);
         return bb;
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -678,6 +846,16 @@ public:
         //     return;
 
         fragment.color = in_varying.vColor;
+    }
+
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        // #pragma HLS INLINE
+
+        outtextures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     linalg::Mat4<MathType> uModel_;        // model to world space
@@ -866,20 +1044,18 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        InTextures intextures{0};
+        InTextures intextures_ch1{0};
+        InTextures intextures_ch2{0};
+
         OutTextures outtextures{out_texture};
 
-        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, DepthRendererBase>::Render(viewport, mesh, intextures_ch1, intextures_ch2, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &avar1, const Varyings &avar2)
     {
         BoundingBox<int> bb(0, 0, 0, 0);
         return bb;
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -963,6 +1139,14 @@ public:
         fragment.depth = depth;
     }
 
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        outtextures.out_texture.set_texel_(in_varying.depth, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
     linalg::Mat4<MathType> t_matrix_;
     unsigned int out_lvl_;
     Fragment nodata_;
@@ -1027,12 +1211,13 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        InTextures intextures{mesh.diffuse_};
+        InTextures intextures_ch1{mesh.diffuse_ch1_};
+        InTextures intextures_ch2{mesh.diffuse_ch2_};
         OutTextures outtextures{out_texture};
 
-        in_texture_size_ = linalg::Vec2<int>(mesh.diffuse_.width(in_lvl), mesh.diffuse_.height(in_lvl));
+        in_texture_size_ = linalg::Vec2<int>(mesh.diffuse_ch1_.width(in_lvl), mesh.diffuse_ch1_.height(in_lvl));
 
-        RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, ImageRendererBase>::Render(viewport, mesh, intextures_ch1, intextures_ch2, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1043,12 +1228,6 @@ public:
 
         BoundingBox<int> bb(texcoord0, texcoord1, texcoord2);
         return bb;
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
-        // #pragma HLS INLINE
-        texture_cached.in_texture = DiffuseTexture<ImageType>(textures.in_texture, tex_bb);
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1125,16 +1304,21 @@ public:
                          const InTextures &intextures,
                          Fragment &fragment)
     {
-        // #pragma HLS inline
-
-        // #pragma HLS dependence variable = intextures.in_texture.cache_ type = inter false
-        //  #pragma HLS dependence variable = intextures.in_texture.cache_ type = intra false
-
-        // #pragma HLS dependence variable = outtextures.out_texture.cache_ type = inter false
-        //  #pragma HLS dependence variable = outtextures.out_texture.cache_ type = intra false
+#pragma HLS inline
 
         MathType pix = sample(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
         fragment.color = pix;
+    }
+
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+#pragma HLS inline
+
+        MathType pix = sample(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        outtextures.out_texture.set_texel_(pix, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     linalg::Vec2<int> in_texture_size_;
@@ -1202,7 +1386,7 @@ public:
         InTextures intextures{kf_texture, f_texture};
         OutTextures outtextures{r_texture};
 
-        RendererBase<MathType, ResidualRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, ResidualRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1216,10 +1400,6 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1286,6 +1466,30 @@ public:
         fragment.error = e;
     }
 
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        // #pragma HLS inline
+
+        int width = intextures.kf_texture.width(out_lvl_);
+        int height = intextures.kf_texture.height(out_lvl_);
+
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
+
+        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+
+        // if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
+        //     return;
+
+        ErrorType e = ErrorType(f) - ErrorType(kf);
+
+        outtextures.r_texture.set_texel_(e, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
     linalg::Mat4<MathType> t_matrix_;
     int in_lvl_;
     int out_lvl_;
@@ -1342,7 +1546,7 @@ public:
         InTextures intextures{in_texture};
         OutTextures outtextures{out_texture};
 
-        RendererBase<MathType, DIDxyRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, DIDxyRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1356,10 +1560,6 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1445,6 +1645,51 @@ public:
         fragment.didxy = out_fragment;
     }
 
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        // #pragma HLS inline
+
+        unsigned int height = intextures.in_texture.height(out_lvl_);
+        unsigned int width = intextures.in_texture.width(out_lvl_);
+        ImageType nodata = intextures.in_texture.nodata();
+
+        int x = int(in_varying.texcoord(0) * (width - 1));
+        int y = int(in_varying.texcoord(1) * (height - 1));
+        int x_p = x + 1;
+        int x_m = x - 1;
+        int y_p = y + 1;
+        int y_m = y - 1;
+
+        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0)
+        {
+            //  No need to explicitly set to nodata, it is already in the background color
+            return;
+        }
+
+        ImageType f = intextures.in_texture.texel_(y, x, out_lvl_);
+        ImageType f_y_p = intextures.in_texture.texel_(y_p, x, out_lvl_);
+        ImageType f_y_m = intextures.in_texture.texel_(y_m, x, out_lvl_);
+        ImageType f_x_p = intextures.in_texture.texel_(y, x_p, out_lvl_);
+        ImageType f_x_m = intextures.in_texture.texel_(y, x_m, out_lvl_);
+
+        if (f_x_p == nodata || f_x_m == nodata ||
+            f_y_p == nodata || f_y_m == nodata || f == nodata)
+        {
+            //  No need to explicitly set to nodata, it is already in the background color
+            return;
+        }
+
+        linalg::Vec3<MathType> out_fragment;
+        out_fragment(0) = (f_x_p - f_x_m) / 2.0f;
+        out_fragment(1) = (f_y_p - f_y_m) / 2.0f;
+        out_fragment(2) = 0.0; // f; // save the projected frame for later processing
+
+        outtextures.out_texture.set_texel_(out_fragment, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
     int in_lvl_;
     int out_lvl_;
     Fragment nodata_;
@@ -1527,7 +1772,7 @@ public:
         InTextures intextures{mesh.diffuse_, f_texture, dfdxy_texture};
         OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
 
-        RendererBase<MathType, JPoseRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, JPoseRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1541,10 +1786,6 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1632,6 +1873,42 @@ public:
         fragment.r = r;
     }
 
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        unsigned int width = intextures.kf_texture.width(out_lvl_);
+        unsigned int height = intextures.kf_texture.height(out_lvl_);
+
+        linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
+
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
+
+        MathType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        // linalg::Vec3<MathType>f_der = sample<Vec3, Texture<Vec3>>(textures.dfdxy_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+
+        // if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
+        //     return;
+
+        ErrorType r = ErrorType(f) - ErrorType(kf);
+
+        MathType v0 = MathType(f_der(0)) * fx_ * width / f_ver(2);
+        MathType v1 = MathType(f_der(1)) * fy_ * height / f_ver(2);
+        MathType v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        linalg::Vec3<MathType> d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        linalg::Vec3<MathType> d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        outtextures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.r_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
     int in_lvl_;
     int out_lvl_;
     MathType fx_;
@@ -1716,7 +1993,7 @@ public:
         InTextures intextures{mesh.diffuse_, f_texture, dfdxy_texture};
         OutTextures outtextures{jmap_texture, pids_texture, r_texture};
 
-        RendererBase<MathType, JMapRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, JMapRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1730,10 +2007,6 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -1855,6 +2128,55 @@ public:
         fragment.r = r;
     }
 
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        unsigned int width = intextures.kf_texture.width(out_lvl_);
+        unsigned int height = intextures.kf_texture.height(out_lvl_);
+
+        // linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
+
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
+        linalg::Vec3<MathType> baricentric = in_varying.baricentric;
+        linalg::Vec3<int> vertexid = in_varying.pids;
+
+        MathType kf = sample<MathType, Texture<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0), in_lvl_);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        linalg::Vec3<DType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        // linalg::Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+
+        // if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata() || f_der == textures.dfdxy_texture.nodata())
+        //     return;
+
+        ErrorType r = ErrorType(f) - ErrorType(kf);
+
+        linalg::Vec3<MathType> d_f_i_d_f_ver;
+
+        d_f_i_d_f_ver(0) = MathType(f_der(0)) * fx_ * width / f_ver(2);
+        d_f_i_d_f_ver(1) = MathType(f_der(1)) * fy_ * height / f_ver(2);
+        d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
+
+        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        // linalg::Vec3<MathType>d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        MathType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
+
+        linalg::Vec3<MathType> d_depth_d_vert_depth = baricentric;
+
+        linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
+
+        outtextures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    }
+
     int in_lvl_;
     int out_lvl_;
     MathType fx_;
@@ -1947,7 +2269,7 @@ public:
         InTextures intextures{mesh.diffuse_};
         OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
-        RendererBase<MathType, DiffRendererBase>::Render(viewport, mesh, intextures, outtextures);
+        RendererBase<MathType, DiffRendererBase>::RenderSingle(viewport, mesh, intextures, outtextures);
     }
 
     BoundingBox<int> texcoord_bound(const Varyings &var0, const Varyings &var1, const Varyings &var2)
@@ -1961,10 +2283,6 @@ public:
         return bb;
         */
         return BoundingBox<int>(0, 0, 0, 0);
-    }
-
-    void cache_intextures(const InTextures &textures, const BoundingBox<int> &tex_bb, InTextures &texture_cached)
-    {
     }
 
     void sync_outtextures(OutTextures &textures, const BoundingBox<int> &tex_bb, const Fragment *fragment_buffer)
@@ -2081,6 +2399,55 @@ public:
         fragment.jrot = d_f_i_d_rot;
         fragment.jmap = jac;
         fragment.pids = ids;
+    }
+
+    void fragment_shader(const linalg::Vec4<MathType> &gl_FragCoord,
+                         const Varyings &in_varying,
+                         const InTextures &intextures,
+                         OutTextures &outtextures)
+    {
+        unsigned int width = intextures.diffuse_texture.width(out_lvl_);
+        unsigned int height = intextures.diffuse_texture.height(out_lvl_);
+
+        linalg::Vec3<MathType> f_ver = in_varying.f_ver;
+        linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
+        linalg::Vec2<MathType> texcoord = in_varying.texcoord;
+        linalg::Vec3<MathType> baricentric = in_varying.baricentric;
+        linalg::Vec3<int> vertexid = in_varying.pids;
+
+        // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        MathType f = sample<MathType, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), in_lvl_);
+        // if (f == textures.diffuse_texture.nodata())
+        //     return;
+
+        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, in_lvl_);
+
+        // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
+        //     return;
+
+        linalg::Vec3<MathType> d_f_i_d_f_ver;
+
+        d_f_i_d_f_ver(0) = f_der(0) * fx_ * width / f_ver(2);
+        d_f_i_d_f_ver(1) = f_der(1) * fy_ * height / f_ver(2);
+        d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
+
+        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
+        linalg::Vec3<MathType> d_f_i_d_rot = linalg::Vec3<MathType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+
+        linalg::Vec3<MathType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        MathType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
+
+        linalg::Vec3<MathType> d_depth_d_vert_depth = baricentric;
+
+        linalg::Vec3<MathType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        linalg::Vec3<IdType> ids = linalg::Vec3<IdType>(vertexid(0), vertexid(1), vertexid(2));
+
+        outtextures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.jtra_texture.set_texel_(d_f_i_d_f_ver, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.jmap_texture.set_texel_(jac, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+        outtextures.pids_texture.set_texel_(ids, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
     }
 
     int in_lvl_;

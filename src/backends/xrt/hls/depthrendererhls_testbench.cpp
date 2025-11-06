@@ -71,7 +71,7 @@ int main()
 
     unsigned int lvl = 1;
 
-    TextureCPU<unsigned char> diffuse_cpu(w, h, -1.0f);
+    TextureCPU<unsigned char> diffuse_cpu(w, h, 0);
     UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
     auto diffuse_map = diffuse_cpu.MapWrite(0);
 
@@ -81,6 +81,7 @@ int main()
     DepthRenderHLS(
         vertex.data(),
         indices.data(),
+        diffuse_map.data(),
         diffuse_map.data(),
         depth_map.data(),
         vertex.size(), indices.size(),
