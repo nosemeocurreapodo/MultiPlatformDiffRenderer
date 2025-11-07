@@ -13,7 +13,6 @@ public:
 
     MeshCPU(const std::vector<float> &vertex,
             const std::vector<unsigned int> &indices,
-            const cv::Mat &diffuse,
             bool has_position,
             bool has_texcoord,
             bool has_normal)
@@ -50,9 +49,6 @@ public:
 
         vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
         ebo_buffer_ = BufferCPU<unsigned int>(indices.size(), indices.data());
-
-        diffuse_ = TextureCPU<unsigned char>(diffuse.cols, diffuse.rows, 0, (unsigned char *)diffuse.ptr());
-        diffuse_.generate_mipmaps(0);
     }
 
     // Copy/move
@@ -98,5 +94,4 @@ public:
     int pos_offset_;
     int tex_offset_;
     int nor_offset_;
-    TextureCPU<unsigned char> diffuse_;
 };

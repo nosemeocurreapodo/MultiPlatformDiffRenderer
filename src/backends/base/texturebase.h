@@ -48,7 +48,7 @@ T wrap(T t, AddressMode addr)
 };
 
 template <class T, class Tex>
-T nearest(Tex &tex, T y, T x, unsigned int lvl)
+T nearest(const Tex &tex, T y, T x, unsigned int lvl)
 {
 #pragma HLS inline
 
@@ -58,7 +58,7 @@ T nearest(Tex &tex, T y, T x, unsigned int lvl)
 }
 
 template <class T, class Tex>
-T bilinear(Tex &tex, T y, T x, unsigned int lvl)
+T bilinear(const Tex &tex, T y, T x, unsigned int lvl)
 {
 #pragma HLS inline
 
@@ -90,7 +90,7 @@ T bilinear(Tex &tex, T y, T x, unsigned int lvl)
 
 // Normalized sampling in [0,1] (allows outside depending on address mode)
 template <class T, class Tex>
-T sample(Tex &tex,
+T sample(const Tex &tex,
          T v, T u,
          unsigned int lvl = 0,
          AddressMode addr = AddressMode::Clamp,

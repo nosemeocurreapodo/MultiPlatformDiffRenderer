@@ -17,7 +17,6 @@ class MeshGL
 public:
     MeshGL(const std::vector<float> &vertex,
            const std::vector<unsigned int> &indices,
-           const cv::Mat &diffuse,
            bool has_position,
            bool has_texcoord,
            bool has_normal)
@@ -81,9 +80,6 @@ public:
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
 
-        diffuse_ = TextureGL<unsigned char>(diffuse.cols, diffuse.rows, 0, (unsigned char *)diffuse.ptr());
-        diffuse_.generate_mipmaps(0);
-
         glBindVertexArray(0);
     }
 
@@ -142,7 +138,6 @@ public:
 
     BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vbo_vertex_;
     BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
-    TextureGL<unsigned char> diffuse_;
 
     int stride_;
     long int pos_offset_;

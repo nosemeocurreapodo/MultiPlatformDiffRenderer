@@ -149,7 +149,10 @@ int main(int argc, char **argv)
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
 
-    MeshCPU meshcpu(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
+
+    TextureCPU<unsigned char> diffusecpu(diffuse_cv.cols, diffuse_cv.rows, 0);
+    UploadMatToTexture(diffusecpu, 0, diffuse_cv);
 
     TextureCPU<unsigned char> imagecpu(width, height, 0);
     TextureCPU<float> depthcpu(width, height, -1.0f);
@@ -162,7 +165,10 @@ int main(int argc, char **argv)
 #ifdef COMPILE_GL
     DiffRendererGL renderergl;
 
-    MeshGL meshgl(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
+
+    TextureGL<unsigned char> diffusegl(diffuse_cv.cols, diffuse_cv.rows, 0);
+    UploadMatToTexture(diffusegl, 0, diffuse_cv);
 
     TextureGL<unsigned char> imagegl(width, height, 0);
     TextureGL<float> depthgl(width, height, -1.0f);
@@ -175,7 +181,10 @@ int main(int argc, char **argv)
 #ifdef COMPILE_GLES2
     ImageRendererGLES2 renderergles2;
 
-    MeshGLES2 meshgles2(vertex, indices, diffuse_cv, has_positions, has_texcoords, has_normals);
+    MeshGLES2 meshgles2(vertex, indices, has_positions, has_texcoords, has_normals);
+
+    TextureGLES2<unsigned char> diffusegles(diffuse_cv.cols, diffuse_cv.rows, 0);
+    UploadMatToTexture(diffusegles, 0, diffuse_cv);
 
     TextureGLES2<unsigned char> imagegles2(width, height, 0);
     TextureGLES2<float> depthgles2(width, height, -1.0f);
@@ -188,9 +197,12 @@ int main(int argc, char **argv)
 #ifdef COMPILE_XRT
     ImageRendererXRT rendererxrt;
 
-    MeshXRT meshxrt(vertex, indices, diffuse_cv,
+    MeshXRT meshxrt(vertex, indices,
                     has_positions, has_texcoords, has_normals,
-                    rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1), rendererxrt.kernel_.group_id(2));
+                    rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
+
+    TextureXRT<unsigned char> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
+    UploadMatToTexture(diffusexrt, 0, diffuse_cv);
 
     TextureXRT<unsigned char> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(3));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -260,6 +272,7 @@ int main(int argc, char **argv)
                                camera,
                                in_lvl,
                                out_lvl,
+                               diffusecpu,
                                imagecpu,
                                depthcpu,
                                jtracpu,
@@ -275,6 +288,7 @@ int main(int argc, char **argv)
                               camera,
                               in_lvl,
                               out_lvl,
+                              diffusegl,
                               imagegl,
                               depthgl,
                               jtragl,
@@ -285,13 +299,13 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_GLES2
         if (backend_names[backend] == "gles2")
-            renderergles2.Render(meshgles2, transform, camera, in_lvl, out_lvl, imagegles2);
+            renderergles2.Render(meshgles2, transform, camera, in_lvl, out_lvl, diffusegles2, imagegles2);
 
 #endif
 
 #ifdef COMPILE_XRT
         if (backend_names[backend] == "xrt")
-            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, imagexrt);
+            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, diffusexrt, imagexrt);
 
 #endif
 

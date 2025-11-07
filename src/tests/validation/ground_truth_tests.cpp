@@ -63,7 +63,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, -1.0f);
@@ -120,7 +120,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -185,14 +185,14 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    // typename Traits::template TextureT<float> input(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
     typename Traits::template TextureT<unsigned char> ground_truth(this->w_, this->h_, 0);
 
     UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
-    // UploadMatToTexture(input, 0, this->image_src_cv_);
+    UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
     linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -204,7 +204,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, output);
+        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input, output);
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
@@ -243,7 +243,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, this->image_src_cv_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
     typename Traits::template TextureT<unsigned char> input_image(this->w_, this->h_, 0);
@@ -271,7 +271,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, output);
+        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input_image, output);
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";

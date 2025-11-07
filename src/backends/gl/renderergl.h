@@ -670,11 +670,12 @@ public:
         image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
     }
 
-    void Render(MeshGL &mesh,
+    void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
+                const TextureGL<unsigned char> &diffuse_texture,
                 TextureGL<unsigned char> &out_texture)
     {
         save_state();
@@ -718,7 +719,7 @@ public:
         // #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
+            glBindTexture(GL_TEXTURE_2D, diffuse_texture.id());
         }
 
         glUseProgram(program_);
@@ -728,9 +729,9 @@ public:
                                              pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
-        glUniform1i(image_loc_, 0);                             // texture unit
-        glUniform1f(image_nodata_loc_, mesh.diffuse_.nodata()); // **int**, not float
-        glUniform1i(image_lvl_loc_, in_lvl);                    // **int**, not float
+        glUniform1i(image_loc_, 0);                               // texture unit
+        glUniform1f(image_nodata_loc_, diffuse_texture.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl);                      // **int**, not float
 
         mesh.draw();
 
@@ -1120,11 +1121,12 @@ public:
         dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
     }
 
-    void Render(MeshGL &mesh,
+    void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
+                const TextureGL<unsigned char> &kf_texture,
                 const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
@@ -1189,7 +1191,7 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, mesh.diffuse_.id());
+            glBindTextureUnit(0, kf_texture.id());
             glBindTextureUnit(1, f_texture.id());
             glBindTextureUnit(2, dfdxy_texture.id());
         }
@@ -1197,7 +1199,7 @@ public:
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
+            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, f_texture.id());
             glActiveTexture(GL_TEXTURE2);
@@ -1213,16 +1215,16 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
-        glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata());
+        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
         glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
+        glUniform1i(f_image_lvl_loc_, in_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform1f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
+        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1419,6 +1421,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
+                const TextureGL<unsigned char> &kf_texture,
                 const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
@@ -1485,7 +1488,7 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, mesh.diffuse_.id());
+            glBindTextureUnit(0, kf_texture.id());
             glBindTextureUnit(1, f_texture.id());
             glBindTextureUnit(2, dfdxy_texture.id());
         }
@@ -1493,7 +1496,7 @@ public:
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
+            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, f_texture.id());
             glActiveTexture(GL_TEXTURE2);
@@ -1509,7 +1512,7 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
-        glUniform1f(kf_image_nodata_loc_, mesh.diffuse_.nodata());
+        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
         glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
@@ -1735,6 +1738,7 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
+                const TextureGL<unsigned char> &diffuse_texture,
                 TextureGL<unsigned char> &image_texture,
                 TextureGL<float> &depth_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
@@ -1829,13 +1833,13 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, mesh.diffuse_.id());
+            glBindTextureUnit(0, diffuse_texture.id());
         }
         else
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, mesh.diffuse_.id());
+            glBindTexture(GL_TEXTURE_2D, diffuse_texture.id());
         }
 
         glUseProgram(program_);
@@ -1847,7 +1851,7 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(f_image_loc_, 0);
-        glUniform1f(f_image_nodata_loc_, mesh.diffuse_.nodata());
+        glUniform1f(f_image_nodata_loc_, diffuse_texture.nodata());
         glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
