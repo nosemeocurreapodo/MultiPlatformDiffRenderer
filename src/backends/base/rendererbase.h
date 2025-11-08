@@ -76,45 +76,9 @@ public:
         opencv2opengl_(1, 1) = -1.0;
         opencv2opengl_(2, 2) = -1.0;
     };
+
     // virtual ~RendererBase() = default;
-    ~RendererBase() = default;
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     InTextures &intextures,
-                     OutTextures &outtextures)
-    {
-        // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
-        MathType depth_buffer[640 * 480] = {MathType(-1)};
-
-    // Loop over triangles
-    renderbase_render_triangles_loop:
-        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
-        {
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-
-            unsigned int vertexids[3];
-
-            vertexids[0] = mesh.ebo_buffer_[i + 0];
-            vertexids[1] = mesh.ebo_buffer_[i + 1];
-            vertexids[2] = mesh.ebo_buffer_[i + 2];
-
-            typename Derived::VertexData vertexdata[3];
-
-            vertexdata[0] = Derived::get_vertex_data(mesh, vertexids[0]);
-            vertexdata[1] = Derived::get_vertex_data(mesh, vertexids[1]);
-            vertexdata[2] = Derived::get_vertex_data(mesh, vertexids[2]);
-
-            Triangle triangle;
-
-            create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
-
-            // directly write to dram
-            draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, outtextures);
-        }
-    }
+    //~RendererBase() = default;
 
 protected:
     template <class Mesh, typename Uniforms>
@@ -745,6 +709,11 @@ public:
         MathType depth;
     };
 
+    static Fragment fragment_nodata(InTextures &textures)
+    {
+        return Fragment{-1.0};
+    }
+
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
@@ -856,6 +825,11 @@ public:
     {
         ImageType color;
     };
+
+    static Fragment fragment_nodata(InTextures &textures)
+    {
+        return Fragment{textures.in_texture.nodata()};
+    }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)

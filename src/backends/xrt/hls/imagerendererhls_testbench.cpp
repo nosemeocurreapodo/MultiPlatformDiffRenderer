@@ -13,7 +13,8 @@ extern "C"
 {
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        ap_uint<8> *diffuse_texture_data,
+                        ap_uint<8> *diffuse_texture_data_ch1,
+                        ap_uint<8> *diffuse_texture_data_ch2,
                         ap_uint<8> *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
@@ -75,6 +76,7 @@ int main()
     ImageRenderHLS(
         vertex.data(),
         indices.data(),
+        (ap_uint<8> *)diffuse_map.data(),
         (ap_uint<8> *)diffuse_map.data(),
         (ap_uint<8> *)image_out_map.data(),
         vertex.size(), indices.size(),

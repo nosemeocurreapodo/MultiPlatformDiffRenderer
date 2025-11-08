@@ -37,13 +37,14 @@ extern "C"
         TextureRAM<float> out_texture_ch1(out_texture_width, out_texture_height, out_nodata_value, out_texture_data_ch1);
         TextureRAM<float> out_texture_ch2(out_texture_width, out_texture_height, out_nodata_value, out_texture_data_ch2);
 
-        DepthRendererHLSTiled renderer;
-        renderer.Render(mesh, pose, cam, out_lvl, out_texture_ch1);
+        DepthRendererHLS renderer;
+        renderer.RenderTiled(mesh, pose, cam, out_lvl, out_texture_ch1);
     }
 
     void ImageRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        ap_uint<8> *diffuse_texture_data,
+                        ap_uint<8> *diffuse_texture_data_ch1,
+                        ap_uint<8> *diffuse_texture_data_ch2,
                         ap_uint<8> *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
@@ -61,7 +62,8 @@ extern "C"
     {
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
-#pragma HLS INTERFACE m_axi port = diffuse_texture_data bundle = gmem1 depth = 412800
+#pragma HLS INTERFACE m_axi port = diffuse_texture_data_ch1 bundle = gmem1 depth = 412800
+#pragma HLS INTERFACE m_axi port = diffuse_texture_data_ch2 bundle = gmem2 depth = 412800
 #pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem3 depth = 412800
         // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem2 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
@@ -76,11 +78,13 @@ extern "C"
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> diffuse_texture(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data);
+        TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch1);
+        TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch2);
         TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
-        ImageRendererHLSNaive renderer;
-        renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture, out_texture);
+        ImageRendererHLS renderer;
+        // renderer.RenderNaive(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture, out_texture);
+        renderer.RenderTiledInChannels(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, diffuse_texture_ch2, out_texture);
     }
     /*
             void DiffRenderHLS(const float *pos_buffer_data,

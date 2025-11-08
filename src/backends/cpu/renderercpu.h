@@ -79,6 +79,53 @@ void ImageRendererRef(const TextureCPU<float> &depth_texture,
         }
     }
 }
+
+template <class Base>
+class RendererBaseCPU
+    : public RendererBase<float, Base>
+{
+public:
+    // RendererBaseHLS() = default;
+    //~RendererBaseHLS() = default;
+
+    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
+    void RenderNaive(const BoundingBox<int> &viewport,
+                     const Mesh &mesh,
+                     const Uniforms &uniforms,
+                     InTextures &intextures,
+                     OutTextures &outtextures)
+    {
+        // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
+        float depth_buffer[640 * 480] = {-1.0f};
+
+    // Loop over triangles
+    renderbase_render_triangles_loop:
+        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        {
+#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+
+            unsigned int vertexids[3];
+
+            vertexids[0] = mesh.ebo_buffer_[i + 0];
+            vertexids[1] = mesh.ebo_buffer_[i + 1];
+            vertexids[2] = mesh.ebo_buffer_[i + 2];
+
+            typename Base::VertexData vertexdata[3];
+
+            vertexdata[0] = Base::get_vertex_data(mesh, vertexids[0]);
+            vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
+            vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
+
+            typename RendererBase<float, Base>::Triangle triangle;
+
+            this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+
+            // directly write to dram
+            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, outtextures);
+        }
+    }
+};
+
 /*
 class GouraudRendererCPU
     : public GouraudRendererBase<float, float, MeshCPU, TextureCPU>
@@ -158,7 +205,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public RendererBase<float, DepthRendererBase<float, float, TextureCPU>>
+    : public RendererBaseCPU<DepthRendererBase<float, float, TextureCPU>>
 {
 public:
     using Base = DepthRendererBase<float, float, TextureCPU>;
@@ -189,7 +236,7 @@ public:
         Base::InTextures intextures{0};
         Base::OutTextures outtextures{out_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -206,7 +253,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBase<float, ImageRendererBase<float, unsigned char, TextureCPU, TextureCPU>>
+    : public RendererBaseCPU<ImageRendererBase<float, unsigned char, TextureCPU, TextureCPU>>
 {
 public:
     using Base = ImageRendererBase<float, unsigned char, TextureCPU, TextureCPU>;
@@ -240,7 +287,7 @@ public:
         Base::InTextures intextures{diffuse_texture};
         Base::OutTextures outtextures{out_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -257,7 +304,7 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public RendererBase<float, ResidualRendererBase<float, unsigned char, float, TextureCPU>>
+    : public RendererBaseCPU<ResidualRendererBase<float, unsigned char, float, TextureCPU>>
 {
 public:
     using Base = ResidualRendererBase<float, unsigned char, float, TextureCPU>;
@@ -292,7 +339,7 @@ public:
         Base::InTextures intextures{kf_texture, f_texture};
         Base::OutTextures outtextures{r_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -304,7 +351,7 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBase<float, DIDxyRendererBase<float, unsigned char, float, TextureCPU>>
+    : public RendererBaseCPU<DIDxyRendererBase<float, unsigned char, float, TextureCPU>>
 {
 public:
     using Base = DIDxyRendererBase<float, unsigned char, float, TextureCPU>;
@@ -335,7 +382,7 @@ public:
         Base::InTextures intextures{in_texture};
         Base::OutTextures outtextures{out_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -347,7 +394,7 @@ private:
 };
 
 class JPoseRendererCPU
-    : public RendererBase<float, JPoseRendererBase<float, unsigned char, float, float, TextureCPU>>
+    : public RendererBaseCPU<JPoseRendererBase<float, unsigned char, float, float, TextureCPU>>
 {
 public:
     using Base = JPoseRendererBase<float, unsigned char, float, float, TextureCPU>;
@@ -388,7 +435,7 @@ public:
         Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
         Base::OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -400,7 +447,7 @@ private:
 };
 
 class JMapRendererCPU
-    : public RendererBase<float, JMapRendererBase<float, unsigned char, float, float, float, TextureCPU>>
+    : public RendererBaseCPU<JMapRendererBase<float, unsigned char, float, float, float, TextureCPU>>
 {
 public:
     using Base = JMapRendererBase<float, unsigned char, float, float, float, TextureCPU>;
@@ -441,7 +488,7 @@ public:
         Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
         Base::OutTextures outtextures{jmap_texture, pids_texture, r_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
@@ -453,7 +500,7 @@ private:
 };
 
 class DiffRendererCPU
-    : public RendererBase<float, DiffRendererBase<float, unsigned char, float, float, float, TextureCPU>>
+    : public RendererBaseCPU<DiffRendererBase<float, unsigned char, float, float, float, TextureCPU>>
 {
 public:
     using Base = DiffRendererBase<float, unsigned char, float, float, float, TextureCPU>;
@@ -495,7 +542,7 @@ public:
         Base::InTextures intextures{diffuse_texture};
         Base::OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
-        RendererBase<float, Base>::RenderNaive(
+        RendererBaseCPU<Base>::RenderNaive(
             viewport,
             mesh,
             uniforms,
