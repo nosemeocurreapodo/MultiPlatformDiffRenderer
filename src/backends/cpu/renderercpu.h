@@ -225,8 +225,12 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
         uniforms.out_lvl = out_lvl;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
@@ -275,8 +279,12 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
@@ -327,8 +335,12 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_ * pose.matrix();
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
@@ -420,11 +432,15 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
@@ -473,11 +489,15 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
@@ -527,11 +547,15 @@ public:
 
         // nodata_.depth = out_texture.nodata();
 
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 

@@ -70,23 +70,23 @@ public:
         VSOut vout[3];
     };
 
-    RendererBase()
-    {
-        opencv2opengl_ = linalg::Mat4<MathType>::Identity();
-        opencv2opengl_(1, 1) = -1.0;
-        opencv2opengl_(2, 2) = -1.0;
-    };
+    // RendererBase()
+    //{
+    //     opencv2opengl_ = linalg::Mat4<MathType>::Identity();
+    //     opencv2opengl_(1, 1) = -1.0;
+    //     opencv2opengl_(2, 2) = -1.0;
+    // };
 
     // virtual ~RendererBase() = default;
     //~RendererBase() = default;
 
 protected:
     template <class Mesh, typename Uniforms>
-    void get_triangles(const Mesh &mesh,
-                       const BoundingBox<int> &viewport,
-                       const Uniforms &uniforms,
-                       Triangle *triangles,
-                       int &num_triangles)
+    static void get_triangles(const Mesh &mesh,
+                              const BoundingBox<int> &viewport,
+                              const Uniforms &uniforms,
+                              Triangle *triangles,
+                              int &num_triangles)
     {
         // #pragma HLS INLINE off
 
@@ -139,7 +139,7 @@ protected:
         }
     }
 
-    void create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
+    static void create_tile_viewports_(BoundingBox<int> *viewport_tiles, const BoundingBox<int> &viewport, int num_tiles_x, int num_tiles_y)
     {
         // #pragma HLS INLINE off
 
@@ -166,7 +166,7 @@ protected:
     }
 
     template <typename VertexData, typename Uniforms>
-    void create_triangle_(const VertexData *vertexdata, const unsigned int *vertexids, const BoundingBox<int> &viewport, const Uniforms &uniforms, Triangle &triangle)
+    static void create_triangle_(const VertexData *vertexdata, const unsigned int *vertexids, const BoundingBox<int> &viewport, const Uniforms &uniforms, Triangle &triangle)
     {
         // #pragma HLS INLINE off
 
@@ -197,7 +197,7 @@ protected:
     }
 
     template <typename Fragment, typename Uniforms, typename InTextures>
-    void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
+    static void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
     {
 #pragma HLS INLINE
 
@@ -213,7 +213,7 @@ protected:
     }
 
     template <typename OutTextures, typename Uniforms, typename InTextures>
-    void render_tile_(OutTextures &outtextures, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
+    static void render_tile_(OutTextures &outtextures, MathType *depth_buffer, const Triangle *triangles, int num_triangles, const BoundingBox<int> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
     {
 #pragma HLS INLINE
 
@@ -230,7 +230,7 @@ protected:
 
     // Triangle rasterizer (top-left rule, perspective correct)
     template <typename InTextures, typename Uniforms, typename Fragment>
-    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
+    static void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
     {
 #pragma HLS inline
 
@@ -374,7 +374,7 @@ protected:
 
     // Triangle rasterizer (top-left rule, perspective correct)
     template <typename InTextures, typename Uniforms, typename OutTextures>
-    void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, OutTextures &outtextures)
+    static void draw_triangle_(const Triangle &triangle, const BoundingBox<int> &tile_bb, MathType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, OutTextures &outtextures)
     {
 #pragma HLS inline
 
@@ -515,7 +515,7 @@ protected:
     // Derived &derived_() { return *static_cast<Derived *>(this); }
     // const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
-    linalg::Mat4<MathType> opencv2opengl_;
+    // linalg::Mat4<MathType> opencv2opengl_;
 };
 /*
 template <typename MathType, typename OutType, template <class> class Texture>
