@@ -75,7 +75,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureXRT<float> &out_texture)
+                TextureXRT<unsigned char> &diffuse_texture,
+                TextureXRT<unsigned char> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
         // assert(kernel_.group_id(1) == mesh.pos.bo_.get_memory_group());
@@ -85,13 +86,16 @@ public:
 
         mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        diffuse_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         xrt::run run = kernel_(mesh.vertex_buffer_.bo_,
                                mesh.ebo_buffer_.bo_,
-                               mesh.diffuse_.storage_.bo_,
+                               diffuse_texture.storage_.bo_,
+                               diffuse_texture.storage_.bo_,
+                               diffuse_texture.storage_.bo_,
+                               diffuse_texture.storage_.bo_,
                                out_texture.storage_.bo_,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
-                               mesh.diffuse_.width(0), mesh.diffuse_.height(0), mesh.diffuse_.nodata(), in_lvl,
+                               diffuse_texture.width(0), diffuse_texture.height(0), diffuse_texture.nodata(), in_lvl,
                                out_texture.width(0), out_texture.height(0), out_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),

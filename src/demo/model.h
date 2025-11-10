@@ -12,9 +12,9 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
     cv::Mat tex;
 
     if (channels == 3)
-        tex = cv::Mat(h, w, CV_32FC3);
+        tex = cv::Mat(h, w, CV_8UC3);
     else
-        tex = cv::Mat(h, w, CV_32FC1);
+        tex = cv::Mat(h, w, CV_8UC1);
 
     for (int y = 0; y < h; ++y)
     {
@@ -22,9 +22,9 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
         {
             bool c = ((x / checker) + (y / checker)) & 1;
             if (channels == 3)
-                tex.at<cv::Vec3f>(y, x) = c ? cv::Vec3f(0.5, 0.5, 0.5) : cv::Vec3f(1.0, 1.0, 1.0);
+                tex.at<cv::Vec3b>(y, x) = c ? cv::Vec3b(127, 127, 127) : cv::Vec3b(255, 255, 255);
             else
-                tex.at<float>(y, x) = c ? 0.5f : 1.0f;
+                tex.at<unsigned char>(y, x) = c ? 127 : 255;
         }
     }
     return tex;

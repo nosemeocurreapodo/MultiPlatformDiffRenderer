@@ -18,13 +18,11 @@ public:
 
     MeshXRT(const std::vector<float> &vertex,
             const std::vector<unsigned int> &indices,
-            const cv::Mat &diffuse,
             bool has_position,
             bool has_texcoord,
             bool has_normal,
             int vertex_group_id,
-            int indices_group_id,
-            int diffuse_group_id)
+            int indices_group_id)
     {
         stride_ = 0;
 
@@ -58,9 +56,6 @@ public:
 
         vertex_buffer_ = BufferXRT<float>(vertex.size(), vertex.data(), vertex_group_id);
         ebo_buffer_ = BufferXRT<unsigned int>(indices.size(), indices.data(), indices_group_id);
-
-        diffuse_ = TextureXRT<float>(diffuse.cols, diffuse.rows, -1.0f, (float *)diffuse.ptr(), diffuse_group_id);
-        diffuse_.generate_mipmaps(0);
     }
 
     // Copy/move
@@ -147,5 +142,4 @@ public:
     int pos_offset_;
     int tex_offset_;
     int nor_offset_;
-    TextureXRT<float> diffuse_;
 };

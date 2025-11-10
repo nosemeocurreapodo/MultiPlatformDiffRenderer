@@ -706,12 +706,12 @@ public:
 
     struct Fragment
     {
-        MathType depth;
+        DepthType depth;
     };
 
-    static Fragment fragment_nodata(InTextures &textures)
+    static Fragment fragment_nodata(OutTextures &textures)
     {
-        return Fragment{-1.0};
+        return Fragment{textures.out_texture.nodata()};
     }
 
     template <class Mesh>
@@ -826,9 +826,9 @@ public:
         ImageType color;
     };
 
-    static Fragment fragment_nodata(InTextures &textures)
+    static Fragment fragment_nodata(OutTextures &textures)
     {
-        return Fragment{textures.in_texture.nodata()};
+        return Fragment{textures.out_texture.nodata()};
     }
 
     template <class Mesh>
@@ -1655,6 +1655,16 @@ public:
         linalg::Vec3<IdType> pids;
     };
 
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+        return Fragment{textures.image_texture.nodata(),
+                        textures.depth_texture.nodata(),
+                        textures.jtra_texture.nodata(),
+                        textures.jrot_texture.nodata(),
+                        textures.jmap_texture.nodata(),
+                        textures.pids_texture.nodata()};
+    }
+
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
@@ -1726,8 +1736,11 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        unsigned int width = intextures.diffuse_texture.width(uniforms.out_lvl);
-        unsigned int height = intextures.diffuse_texture.height(uniforms.out_lvl);
+        unsigned int in_width = intextures.diffuse_texture.width(uniforms.out_lvl);
+        unsigned int in_height = intextures.diffuse_texture.height(uniforms.out_lvl);
+
+        unsigned int out_width = in_width;
+        unsigned int out_height = in_height;
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
@@ -1740,15 +1753,15 @@ public:
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, uniforms.in_lvl);
+        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * in_height, in_varying.texcoord(0) * in_width, uniforms.in_lvl);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;
 
         linalg::Vec3<MathType> d_f_i_d_f_ver;
 
-        d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * width / f_ver(2);
-        d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * height / f_ver(2);
+        d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * out_width / f_ver(2);
+        d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * out_height / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
         // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
@@ -1776,8 +1789,11 @@ public:
                                 const InTextures &intextures,
                                 OutTextures &outtextures)
     {
-        unsigned int width = intextures.diffuse_texture.width(uniforms.out_lvl);
-        unsigned int height = intextures.diffuse_texture.height(uniforms.out_lvl);
+        unsigned int in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
+        unsigned int in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
+
+        unsigned int out_width = outtextures.image_texture.width(uniforms.out_lvl);
+        unsigned int out_height = outtextures.image_texture.height(uniforms.out_lvl);
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
@@ -1790,15 +1806,15 @@ public:
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * height, in_varying.texcoord(0) * width, uniforms.in_lvl);
+        linalg::Vec3<MathType> f_der = compute_didxy<MathType, linalg::Vec3, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1) * in_height, in_varying.texcoord(0) * in_width, uniforms.in_lvl);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;
 
         linalg::Vec3<MathType> d_f_i_d_f_ver;
 
-        d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * width / f_ver(2);
-        d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * height / f_ver(2);
+        d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * out_width / f_ver(2);
+        d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * out_height / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
         // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);

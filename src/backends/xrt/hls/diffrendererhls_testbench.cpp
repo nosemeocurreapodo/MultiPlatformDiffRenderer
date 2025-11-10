@@ -1,36 +1,37 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/src/tests/data"
 
-#include "loaddataset.h"
-#include "common/test_helpers.h"
+#include "tests/common/loaddataset.h"
+#include "tests/common/test_helpers.h"
+// #include "core/types.h"
 #include "core/camera.h"
-#include "core/common.h"
+#include "core/mesh_helpers.h"
+#include <ap_int.h>
 
 extern "C"
 {
-    void DiffRenderHLS(const float *pos_buffer_data,
-                       const float *tex_buffer_data,
-                       const float *wei_buffer_data,
-                       const unsigned int *ebo_buffer_data,
-                       float *f_texture_data,
-                       float *image_texture_data,
+    void DiffRenderHLS(float *vertex_buffer_data,
+                       unsigned int *ebo_buffer_data,
+                       ap_uint<8> *f_texture_data_ch1,
+                       ap_uint<8> *f_texture_data_ch2,
+                       ap_uint<8> *f_texture_data_ch3,
+                       ap_uint<8> *f_texture_data_ch4,
+                       ap_uint<8> *image_texture_data,
                        float *depth_texture_data,
                        linalg::Vec3<float> *jtra_texture_data,
                        linalg::Vec3<float> *jrot_texture_data,
                        linalg::Vec3<float> *jmap_texture_data,
                        linalg::Vec3<float> *pids_texture_data,
-                       unsigned int pos_buffer_size,
-                       unsigned int tex_buffer_size,
-                       unsigned int wei_buffer_size,
+                       unsigned int vertex_buffer_size,
                        unsigned int ebo_buffer_size,
                        unsigned int f_texture_width,
                        unsigned int f_texture_height,
-                       float f_nodata_value,
+                       unsigned char f_nodata_value,
                        unsigned int in_lvl,
                        unsigned int out_texture_width,
                        unsigned int out_texture_height,
-                       float image_nodata_value,
+                       unsigned char image_nodata_value,
                        float depth_nodata_value,
                        linalg::Vec3<float> jtra_nodata_value,
                        linalg::Vec3<float> jrot_nodata_value,
@@ -57,42 +58,38 @@ int main()
 
     float scale = 1.0f / depth_factor;
 
-    cv::Mat image_src_cv = ReadMat(image_files[0]);
-    cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
+    cv::Mat image_src_cv = ReadMat(image_files[0], false);
+    cv::Mat depth_src_cv = ReadMat(depth_files[0], true) * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    TextureCPU<float> image_src_cpu(w, h, -1.0f);
-    TextureCPU<float> depth_src_cpu(w, h, -1.0f);
-
-    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
-    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
-
-    cv::Mat image_dst_cv = ReadMat(image_files[50]);
-    cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
+    cv::Mat image_dst_cv = ReadMat(image_files[50], false);
+    cv::Mat depth_dst_cv = ReadMat(depth_files[50], true) * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
-    std::vector<float> vertices, texcoords, weights;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
+    CreateMesh(depth_src_cv, cam, 32, vertex, indices);
 
-    std::vector<float> screen_vertices, screen_texcoords, screen_weights;
+    std::vector<float> screen_vertex;
     std::vector<unsigned int> screen_indices;
-    CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
+    CreateScreenQuad(screen_vertex, screen_indices);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    int lvl = 1;
+    int in_lvl = 0;
+    int out_lvl = 0;
 
-    // auto image_in_map = image_src_cpu.MapRead(0);
-    auto image_in_map = image_src_cpu.MapWrite(0);
+    TextureCPU<unsigned char> image_src_cpu(w, h, 0);
+    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
 
-    TextureCPU<float> image_out_cpu(w, h, -1.0f);
+    TextureCPU<unsigned char> image_out_cpu(w, h, 0);
     TextureCPU<float> depth_out_cpu(w, h, -1.0f);
     TextureCPU<linalg::Vec3<float>> jtra_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jrot_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jmap_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> pids_out_cpu(w, h, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
 
+    auto image_in_map = image_src_cpu.MapWrite(0);
     auto image_out_map = image_out_cpu.MapWrite(0);
     auto depth_out_map = depth_out_cpu.MapWrite(0);
     auto jtra_out_map = jtra_out_cpu.MapWrite(0);
@@ -101,32 +98,33 @@ int main()
     auto pids_out_map = pids_out_cpu.MapWrite(0);
 
     DiffRenderHLS(
-        vertices.data(),
-        texcoords.data(),
-        weights.data(),
+        vertex.data(),
         indices.data(),
-        image_in_map.data(),
-        image_out_map.data(),
+        (ap_uint<8> *)image_in_map.data(),
+        (ap_uint<8> *)image_in_map.data(),
+        (ap_uint<8> *)image_in_map.data(),
+        (ap_uint<8> *)image_in_map.data(),
+        (ap_uint<8> *)image_out_map.data(),
         depth_out_map.data(),
         jtra_out_map.data(),
         jrot_out_map.data(),
         jmap_out_map.data(),
         pids_out_map.data(),
-        vertices.size(), texcoords.size(), weights.size(), indices.size(),
-        w, h, -1.0f, lvl,
+        vertex.size(), indices.size(),
+        w, h, 0, in_lvl,
         w, h,
         image_out_cpu.nodata(), depth_out_cpu.nodata(), jtra_out_cpu.nodata(), jrot_out_cpu.nodata(), jmap_out_cpu.nodata(), pids_out_cpu.nodata(),
-        lvl,
+        out_lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
-    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
-    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl, CV_32FC1);
-    cv::Mat jtra_out_cv = DownloadTextureToMat(jtra_out_cpu, lvl, CV_32FC3);
-    cv::Mat jrot_out_cv = DownloadTextureToMat(jrot_out_cpu, lvl, CV_32FC3);
-    cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, lvl, CV_32FC3);
-    cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, lvl, CV_32FC3);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, out_lvl, CV_8UC1);
+    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, out_lvl, CV_32FC1);
+    cv::Mat jtra_out_cv = DownloadTextureToMat(jtra_out_cpu, out_lvl, CV_32FC3);
+    cv::Mat jrot_out_cv = DownloadTextureToMat(jrot_out_cpu, out_lvl, CV_32FC3);
+    cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, out_lvl, CV_32FC3);
+    cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, out_lvl, CV_32FC3);
 
     // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
     SaveDebugImage(image_out_cv, "imagerenderhls_image.png");

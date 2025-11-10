@@ -131,7 +131,7 @@ int main(int argc, char **argv)
     if (!textures.empty())
     {
         diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
-        diffuse_cv.convertTo(diffuse_cv, CV_32F, 1.0 / 255.0);
+        // diffuse_cv.convertTo(diffuse_cv, CV_32F, 1.0 / 255.0);
     }
     // if (diffuse.empty())
     // {
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
     TextureXRT<unsigned char> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
     UploadMatToTexture(diffusexrt, 0, diffuse_cv);
 
-    TextureXRT<unsigned char> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(3));
+    TextureXRT<unsigned char> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -319,19 +319,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(imagecpu, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(imagecpu, out_lvl, CV_8UC1);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(imagegl, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(imagegl, out_lvl, CV_8UC1);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(imagegles2, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(imagegles2, out_lvl, CV_8UC1);
 #endif
 #ifdef COMPILE_XRT
             if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(imagexrt, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(imagexrt, out_lvl, CV_8UC1);
 #endif
         }
 
@@ -436,8 +436,10 @@ int main(int argc, char **argv)
         }
 
         // Pretty up the single-channel output
-        cv::Mat out_u8, out_color;
-        out_f.convertTo(out_u8, CV_8U, 255.0);
+        cv::Mat out_norm, out_u8, out_color;
+        cv::normalize(out_f, out_norm, 0, 255, cv::NORM_MINMAX);
+        // normalized.convertTo(normalized, CV_8UC1);
+        out_norm.convertTo(out_u8, CV_8U);
         out_color = out_u8;
         // cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
 

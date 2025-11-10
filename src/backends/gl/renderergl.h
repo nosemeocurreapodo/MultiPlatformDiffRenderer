@@ -1649,6 +1649,9 @@ public:
             uniform float fx;
             uniform float fy;
 
+            uniform int out_width;
+            uniform int out_height;
+
             vec2 get_dfdxy(sampler2D image, ivec2 tc, ivec2 tex_size, float nodata, int lvl)
             {
                 int x_p = tc.x + 1;
@@ -1694,8 +1697,8 @@ public:
                     discard;
                 }
 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
@@ -1731,6 +1734,9 @@ public:
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
         f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1852,10 +1858,13 @@ public:
 
         glUniform1i(f_image_loc_, 0);
         glUniform1f(f_image_nodata_loc_, diffuse_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
+        glUniform1i(f_image_lvl_loc_, in_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         mesh.draw();
 
@@ -1872,4 +1881,7 @@ private:
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
     GLint f_image_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };

@@ -51,8 +51,8 @@ inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl, int cv_type)
         {
             for (int x = 0; x < tex.width(lvl); x++)
             {
-                float data = mapped[y * tex.width(lvl) + x];
-                result.at<float>(y, x) = data;
+                    unsigned char data = mapped[y * tex.width(lvl) + x];
+                    result.at<unsigned char>(y, x) = data;
             }
         }
         */
