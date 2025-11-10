@@ -126,6 +126,24 @@ int main()
     cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, out_lvl, CV_32FC3);
     cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, out_lvl, CV_32FC3);
 
+    cv::normalize(image_out_cv, image_out_cv, 0, 255, cv::NORM_MINMAX);
+    image_out_cv.convertTo(image_out_cv, CV_8U);
+
+    cv::normalize(depth_out_cv, depth_out_cv, 0, 255, cv::NORM_MINMAX);
+    depth_out_cv.convertTo(depth_out_cv, CV_8U);
+
+    cv::normalize(jtra_out_cv, jtra_out_cv, 0, 255, cv::NORM_MINMAX);
+    jtra_out_cv.convertTo(jtra_out_cv, CV_8U);
+
+    cv::normalize(jrot_out_cv, jrot_out_cv, 0, 255, cv::NORM_MINMAX);
+    jrot_out_cv.convertTo(jrot_out_cv, CV_8U);
+
+    cv::normalize(jmap_out_cv, jmap_out_cv, 0, 255, cv::NORM_MINMAX);
+    jmap_out_cv.convertTo(jmap_out_cv, CV_8U);
+
+    cv::normalize(pids_out_cv, pids_out_cv, 0, 255, cv::NORM_MINMAX);
+    pids_out_cv.convertTo(pids_out_cv, CV_8U);
+
     // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
     SaveDebugImage(image_out_cv, "imagerenderhls_image.png");
     SaveDebugImage(depth_out_cv, "imagerenderhls_depth.png");
