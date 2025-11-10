@@ -1690,6 +1690,8 @@ public:
         linalg::Mat4<MathType> pose_matrix;
         int in_lvl;
         int out_lvl;
+        int out_width;
+        int out_height;
     };
 
     struct Varyings
@@ -1697,10 +1699,10 @@ public:
         linalg::Vec2<MathType> texcoord;
         linalg::Vec3<MathType> f_ver;
         linalg::Vec3<MathType> kf_ray;
-        MathType depth;
+        // MathType depth;
         linalg::Vec3<MathType> baricentric;
-        unsigned int vertexId;
-        linalg::Vec3<int> pids;
+        IdType vertexId;
+        linalg::Vec3<IdType> pids;
     };
 
     struct Fragment
@@ -1760,7 +1762,7 @@ public:
                                                            w1,
                                                            w2);
 
-        var_over_w_px.pids = linalg::Vec3<int>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
+        var_over_w_px.pids = linalg::Vec3<IdType>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
 
         return var_over_w_px;
     }
@@ -1783,7 +1785,7 @@ public:
 
         outVarying.f_ver = linalg::Vec3<MathType>(f_ver);
         outVarying.kf_ray = d_f_ver_d_kf_depth;
-        outVarying.depth = vertexdata.vertex(2);
+        // outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
         outVarying.texcoord = vertexdata.texcoord;
     }
@@ -1794,17 +1796,17 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        unsigned int in_width = intextures.diffuse_texture.width(uniforms.out_lvl);
-        unsigned int in_height = intextures.diffuse_texture.height(uniforms.out_lvl);
+        unsigned int in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
+        unsigned int in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
 
-        unsigned int out_width = in_width;
-        unsigned int out_height = in_height;
+        unsigned int out_width = uniforms.out_width;
+        unsigned int out_height = uniforms.out_height;
 
         linalg::Vec3<MathType> f_ver = in_varying.f_ver;
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
         linalg::Vec2<MathType> texcoord = in_varying.texcoord;
         linalg::Vec3<MathType> baricentric = in_varying.baricentric;
-        linalg::Vec3<int> vertexid = in_varying.pids;
+        linalg::Vec3<IdType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         MathType f = sample<MathType, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
@@ -1857,7 +1859,7 @@ public:
         linalg::Vec3<MathType> kf_ray = in_varying.kf_ray;
         linalg::Vec2<MathType> texcoord = in_varying.texcoord;
         linalg::Vec3<MathType> baricentric = in_varying.baricentric;
-        linalg::Vec3<int> vertexid = in_varying.pids;
+        linalg::Vec3<IdType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         MathType f = sample<MathType, Texture<ImageType>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);

@@ -29,6 +29,10 @@ inline int getChannels()
     {
         return 3;
     }
+    else if constexpr (std::is_same_v<T, linalg::Vec3<int>>)
+    {
+        return 3;
+    }
     else if constexpr (std::is_same_v<T, linalg::Vec4<float>>)
     {
         return 4;

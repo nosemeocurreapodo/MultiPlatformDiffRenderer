@@ -34,7 +34,7 @@
 #define max_tri_height 70
 // only half of the triangles are visible
 // then try to estimate how many triangles there are per tile
-#define max_tri_per_tile 16
+#define max_tri_per_tile 64
 //(max_num_tri / 2) * tile_width *tile_height / (640 * 480)
 
 template <class Derived, class Base>
@@ -339,20 +339,20 @@ public:
                                InTextures &intextures_ch4,
                                OutTextures &outtextures)
     {
-        typename Base::VertexData vertex_data[max_num_tri * 3]; 
-#pragma HLS BIND_STORAGE variable = vertex_data type = ram_t2p impl = uram
+        // typename Base::VertexData vertex_data[max_num_tri * 3];
+        // #pragma HLS BIND_STORAGE variable = vertex_data type = ram_t2p impl = uram
 
-        this->get_vertex_data(mesh, vertex_data);
+        // this->get_vertex_data(mesh, vertex_data);
 
-        //typename RendererBase<MathType, Base>::Triangle triangles[max_num_tri];
+        typename RendererBase<MathType, Base>::Triangle triangles[max_num_tri];
         // Pack the aggregate (newer pragma)
-//#pragma HLS aggregate variable = triangles compact = bit
+#pragma HLS aggregate variable = triangles compact = bit
         // or, in some versions:
         // #pragma HLS data_pack variable=triangles
-//#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
-        //int num_triangles;
-        //this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
+        int num_triangles;
+        this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
 
         int num_tiles_x = int(ceil(MathType(viewport.width_) / tile_width));
         int num_tiles_y = int(ceil(MathType(viewport.height_) / tile_height));
@@ -391,7 +391,7 @@ public:
 #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = uram
 #pragma HLS array_partition variable = triangle_buffer complete dim = 1
 
-#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = bram // uram
 #pragma HLS array_partition variable = depth_buffer complete dim = 1
         //   #pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 2
 
@@ -460,10 +460,9 @@ public:
                 {
 #pragma HLS loop_tripcount min = max_num_tri max = max_num_tri avg = max_num_tri
 
-                    typename RendererBase<MathType, Base>::Triangle triangle;
-                    create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
-
-                    this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
+                    // typename RendererBase<MathType, Base>::Triangle triangle;
+                    // create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+                    // this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
 
                     typename RendererBase<MathType, Base>::Triangle triangle = triangles[j];
                     BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
@@ -1095,16 +1094,16 @@ public:
                                const Camera<MathType> &cam,
                                int in_lvl,
                                int out_lvl,
-                               const TextureRAM<ImageType> &diffuse_texture_ch1,
-                               const TextureRAM<ImageType> &diffuse_texture_ch2,
-                               const TextureRAM<ImageType> &diffuse_texture_ch3,
-                               const TextureRAM<ImageType> &diffuse_texture_ch4,
-                               TextureRAM<ImageType> &image_texture,
-                               TextureRAM<DepthType> &depth_texture,
-                               TextureRAM<linalg::Vec3<DType>> &jtra_texture,
-                               TextureRAM<linalg::Vec3<DType>> &jrot_texture,
-                               TextureRAM<linalg::Vec3<DType>> &jmap_texture,
-                               TextureRAM<linalg::Vec3<IdType>> &pids_texture)
+                               const TextureRAM<unsigned char> &diffuse_texture_ch1,
+                               const TextureRAM<unsigned char> &diffuse_texture_ch2,
+                               const TextureRAM<unsigned char> &diffuse_texture_ch3,
+                               const TextureRAM<unsigned char> &diffuse_texture_ch4,
+                               TextureRAM<unsigned char> &image_texture,
+                               TextureRAM<float> &depth_texture,
+                               TextureRAM<linalg::Vec3<float>> &jtra_texture,
+                               TextureRAM<linalg::Vec3<float>> &jrot_texture,
+                               TextureRAM<linalg::Vec3<float>> &jmap_texture,
+                               TextureRAM<linalg::Vec3<unsigned int>> &pids_texture)
     {
         linalg::Mat4<MathType> opencv2opengl = linalg::Mat4<MathType>::Identity();
         opencv2opengl(1, 1) = -1.0;

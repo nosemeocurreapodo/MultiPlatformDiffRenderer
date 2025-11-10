@@ -1750,7 +1750,7 @@ public:
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
                 TextureGL<linalg::Vec3<float>> &jrot_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<float>> &pids_texture)
+                TextureGL<linalg::Vec3<int>> &pids_texture)
     {
         save_state();
 
@@ -1784,14 +1784,14 @@ public:
         linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
         linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
         linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
-        linalg::Vec3<float> pids_nodata = pids_texture.nodata();
+        linalg::Vec3<int> pids_nodata = pids_texture.nodata();
 
         float image_clear[4] = {image_nodata, 0, 0, 1.f};
         float depth_clear[4] = {depth_nodata, 0, 0, 1.f};
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
-        float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
+        int pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, jmap_clear);

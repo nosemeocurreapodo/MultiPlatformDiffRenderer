@@ -104,7 +104,7 @@ extern "C"
                        linalg::Vec3<float> *jtra_texture_data,
                        linalg::Vec3<float> *jrot_texture_data,
                        linalg::Vec3<float> *jmap_texture_data,
-                       linalg::Vec3<float> *pids_texture_data,
+                       linalg::Vec3<unsigned int> *pids_texture_data,
                        unsigned int vertex_buffer_size,
                        unsigned int ebo_buffer_size,
                        unsigned int f_texture_width,
@@ -118,7 +118,7 @@ extern "C"
                        linalg::Vec3<float> jtra_nodata_value,
                        linalg::Vec3<float> jrot_nodata_value,
                        linalg::Vec3<float> jmap_nodata_value,
-                       linalg::Vec3<float> pids_nodata_value,
+                       linalg::Vec3<unsigned int> pids_nodata_value,
                        unsigned int out_lvl,
                        float q_x, float q_y, float q_z, float q_w,
                        float t_x, float t_y, float t_z,
@@ -153,7 +153,7 @@ extern "C"
         TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, jtra_nodata_value, jtra_texture_data);
         TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, jrot_nodata_value, jrot_texture_data);
         TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, jmap_nodata_value, jmap_texture_data);
-        TextureRAM<linalg::Vec3<float>> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
+        TextureRAM<linalg::Vec3<unsigned int>> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
 
         DiffRendererHLS renderer;
         renderer.RenderTiledInChannels(mesh, pose, cam, in_lvl, out_lvl,

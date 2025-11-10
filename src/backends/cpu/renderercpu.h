@@ -520,10 +520,10 @@ private:
 };
 
 class DiffRendererCPU
-    : public RendererBaseCPU<DiffRendererBase<float, unsigned char, float, float, float, TextureCPU>>
+    : public RendererBaseCPU<DiffRendererBase<float, unsigned char, float, float, int, TextureCPU>>
 {
 public:
-    using Base = DiffRendererBase<float, unsigned char, float, float, float, TextureCPU>;
+    using Base = DiffRendererBase<float, unsigned char, float, float, int, TextureCPU>;
 
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
@@ -539,7 +539,7 @@ public:
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<float>> &pids_texture)
+                TextureCPU<linalg::Vec3<int>> &pids_texture)
     {
         // Validate inputs
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);

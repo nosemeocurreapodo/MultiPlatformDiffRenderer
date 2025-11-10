@@ -6,11 +6,11 @@
 
 using MathType = half;
 using MeshType = float;
-using DepthType = float;
+using DepthType = half;
 using ImageType = unsigned char;
-using ErrorType = float;
-using DType = float;
-using IdType = float;
+using ErrorType = half;
+using DType = half;
+using IdType = ap_uint<16>;
 
 template <typename T>
 inline T min(T a, T b)
