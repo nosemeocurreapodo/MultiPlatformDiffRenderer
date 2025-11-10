@@ -216,6 +216,7 @@ public:
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         int num_triangles;
+
         this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
 
         BoundingBox<int> viewport_tiles[max_num_tiles];
@@ -338,31 +339,20 @@ public:
                                InTextures &intextures_ch4,
                                OutTextures &outtextures)
     {
-        /*
-        InTextures intextures[num_buffers];
+        typename Base::VertexData vertex_data[max_num_tri * 3]; 
+#pragma HLS BIND_STORAGE variable = vertex_data type = ram_t2p impl = uram
 
-        for (int i = 0; i < num_buffers; i++)
-        {
-            if (i == 0)
-                intextures[i] = intextures_ch1;
-            if (i == 1)
-                intextures[i] = intextures_ch2;
-            if (i == 2)
-                intextures[i] = intextures_ch3;
-            if (i == 3)
-                intextures[i] = intextures_ch1;
-        }
-        */
+        this->get_vertex_data(mesh, vertex_data);
 
-        typename RendererBase<MathType, Base>::Triangle triangles[max_num_tri];
+        //typename RendererBase<MathType, Base>::Triangle triangles[max_num_tri];
         // Pack the aggregate (newer pragma)
-#pragma HLS aggregate variable = triangles compact = bit
+//#pragma HLS aggregate variable = triangles compact = bit
         // or, in some versions:
         // #pragma HLS data_pack variable=triangles
-#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
+//#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
-        int num_triangles;
-        this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
+        //int num_triangles;
+        //this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
 
         int num_tiles_x = int(ceil(MathType(viewport.width_) / tile_width));
         int num_tiles_y = int(ceil(MathType(viewport.height_) / tile_height));
@@ -469,6 +459,11 @@ public:
                 for (int j = 0; j < num_triangles; j++)
                 {
 #pragma HLS loop_tripcount min = max_num_tri max = max_num_tri avg = max_num_tri
+
+                    typename RendererBase<MathType, Base>::Triangle triangle;
+                    create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+
+                    this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
 
                     typename RendererBase<MathType, Base>::Triangle triangle = triangles[j];
                     BoundingBox<MathType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);

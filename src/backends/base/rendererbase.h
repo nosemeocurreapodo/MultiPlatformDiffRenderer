@@ -81,6 +81,37 @@ public:
     //~RendererBase() = default;
 
 protected:
+    template <class Mesh, typename VertexData, typename Uniforms>
+    static void get_vertex_data(const Mesh &mesh,
+                                VertexData *vertex_data,
+                                unsigned int *vertex_ids)
+    {
+        // #pragma HLS INLINE off
+
+        // Loop over triangles
+    renderbase_render_triangles_loop:
+        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        {
+
+#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+            // #pragma HLS PIPELINE II = 1
+
+            unsigned int vertexids[3];
+
+            unsigned int vertexids_0 = mesh.ebo_buffer_[i + 0];
+            unsigned int vertexids_1 = mesh.ebo_buffer_[i + 1];
+            unsigned int vertexids_2 = mesh.ebo_buffer_[i + 2];
+
+            vertex_data[i * 3 + 0] = Derived::get_vertex_data(mesh, vertexids_0);
+            vertex_data[i * 3 + 1] = Derived::get_vertex_data(mesh, vertexids_1);
+            vertex_data[i * 3 + 2] = Derived::get_vertex_data(mesh, vertexids_2);
+
+            vertex_ids[i * 3 + 0] = vertexids_0;
+            vertex_ids[i * 3 + 1] = vertexids_1;
+            vertex_ids[i * 3 + 2] = vertexids_2;
+        }
+    }
+
     template <class Mesh, typename Uniforms>
     static void get_triangles(const Mesh &mesh,
                               const BoundingBox<int> &viewport,
@@ -193,6 +224,33 @@ protected:
             triangle.vout[j].invW = invW;
             triangle.vout[j].var = outvaryings;
             // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
+        }
+    }
+
+    template <typename Fragment, typename VertexData, typename Uniforms, typename InTextures>
+    static void render_tile_(Fragment *fragment_buffer, MathType *depth_buffer, const VertexData *vertexdata, const unsigned int *vertexids, int num_vertex, const BoundingBox<int> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
+    {
+#pragma HLS INLINE
+
+    render_tile_loop:
+        for (int vert = 0; vert < num_vertex; vert += 3)
+        {
+// #pragma HLS pipeline off
+#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+
+            VertexData vertexs[3];
+            vertexs[0] = vertexdata[vert + 0];
+            vertexs[1] = vertexdata[vert + 1];
+            vertexs[2] = vertexdata[vert + 2];
+
+            unsigned int vertexids[3];
+            vertexids[0] = vertexids[vert + 0];
+            vertexids[1] = vertexids[vert + 1];
+            vertexids[2] = vertexids[vert + 2];
+
+            Triangle triangle;
+            create_triangle_(vertexs, vertexids, viewport_tile, uniforms, triangle);
+            draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, fragment_buffer);
         }
     }
 
