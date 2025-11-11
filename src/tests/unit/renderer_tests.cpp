@@ -251,7 +251,7 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::template TextureT<unsigned char> f_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jmap_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<linalg::Vec3<float>> pids_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<linalg::Vec3<int>> pids_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);

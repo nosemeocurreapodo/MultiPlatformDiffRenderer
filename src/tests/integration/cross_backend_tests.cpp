@@ -591,14 +591,14 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     TextureCPU<unsigned char> f_cpu(w_, h_, 0);
     TextureCPU<linalg::Vec3<float>> dfdxy_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jmap_cpu(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<linalg::Vec3<float>> pids_cpu(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+    TextureCPU<linalg::Vec3<int>> pids_cpu(w_, h_, linalg::Vec3<int>(-1, -1, -1));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
     TextureGL<unsigned char> kf_gl(w_, h_, 0);
     TextureGL<unsigned char> f_gl(w_, h_, 0);
     TextureGL<linalg::Vec3<float>> dfdxy_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<linalg::Vec3<float>> jmap_gl(w_, h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<linalg::Vec3<float>> pids_gl(w_, h_, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+    TextureGL<linalg::Vec3<int>> pids_gl(w_, h_, linalg::Vec3<float>(-1, -1, -1));
     TextureGL<float> r_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(kf_cpu, 0, image_src_cv_);

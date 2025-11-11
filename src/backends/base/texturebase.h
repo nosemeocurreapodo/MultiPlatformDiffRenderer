@@ -118,6 +118,8 @@ V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
     // const UInt w = tex.width(lvl);
     // const UInt h = tex.height(lvl);
 
+#pragma HLS inline
+
     int x_p = x + 1;
     int x_m = x - 1;
     int y_p = y + 1;

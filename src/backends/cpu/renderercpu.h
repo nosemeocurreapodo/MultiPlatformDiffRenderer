@@ -82,7 +82,7 @@ void ImageRendererRef(const TextureCPU<float> &depth_texture,
 
 template <class Base>
 class RendererBaseCPU
-    : public RendererBase<float, Base>
+    : public RendererBase<float, int, Base>
 {
 public:
     // RendererBaseHLS() = default;
@@ -116,7 +116,7 @@ public:
             vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
             vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
 
-            typename RendererBase<float, Base>::Triangle triangle;
+            typename RendererBase<float, int, Base>::Triangle triangle;
 
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
 
@@ -257,10 +257,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBaseCPU<ImageRendererBase<float, unsigned char, TextureCPU, TextureCPU>>
+    : public RendererBaseCPU<ImageRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = ImageRendererBase<float, unsigned char, TextureCPU, TextureCPU>;
+    using Base = ImageRendererBase<float, int, TextureCPU>;
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
@@ -312,10 +312,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public RendererBaseCPU<ResidualRendererBase<float, unsigned char, float, TextureCPU>>
+    : public RendererBaseCPU<ResidualRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = ResidualRendererBase<float, unsigned char, float, TextureCPU>;
+    using Base = ResidualRendererBase<float, int, TextureCPU>;
 
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
@@ -363,10 +363,10 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBaseCPU<DIDxyRendererBase<float, unsigned char, float, TextureCPU>>
+    : public RendererBaseCPU<DIDxyRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = DIDxyRendererBase<float, unsigned char, float, TextureCPU>;
+    using Base = DIDxyRendererBase<float, int, TextureCPU>;
 
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
@@ -406,10 +406,10 @@ private:
 };
 
 class JPoseRendererCPU
-    : public RendererBaseCPU<JPoseRendererBase<float, unsigned char, float, float, TextureCPU>>
+    : public RendererBaseCPU<JPoseRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = JPoseRendererBase<float, unsigned char, float, float, TextureCPU>;
+    using Base = JPoseRendererBase<float, int, TextureCPU>;
 
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() = default;
@@ -463,10 +463,10 @@ private:
 };
 
 class JMapRendererCPU
-    : public RendererBaseCPU<JMapRendererBase<float, unsigned char, float, float, float, TextureCPU>>
+    : public RendererBaseCPU<JMapRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = JMapRendererBase<float, unsigned char, float, float, float, TextureCPU>;
+    using Base = JMapRendererBase<float, int, TextureCPU>;
 
     JMapRendererCPU() = default;
     ~JMapRendererCPU() = default;
@@ -480,7 +480,7 @@ public:
                 const TextureCPU<unsigned char> &f_texture,
                 const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<float>> &pids_texture,
+                TextureCPU<linalg::Vec3<int>> &pids_texture,
                 TextureCPU<float> &r_texture)
     {
         // Validate inputs
@@ -520,10 +520,10 @@ private:
 };
 
 class DiffRendererCPU
-    : public RendererBaseCPU<DiffRendererBase<float, unsigned char, float, float, int, TextureCPU>>
+    : public RendererBaseCPU<DiffRendererBase<float, int, TextureCPU>>
 {
 public:
-    using Base = DiffRendererBase<float, unsigned char, float, float, int, TextureCPU>;
+    using Base = DiffRendererBase<float, int, TextureCPU>;
 
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;

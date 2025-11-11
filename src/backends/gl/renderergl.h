@@ -1425,7 +1425,7 @@ public:
                 const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<float>> &pids_texture,
+                TextureGL<linalg::Vec3<int>> &pids_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();

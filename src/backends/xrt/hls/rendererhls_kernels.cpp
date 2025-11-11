@@ -26,8 +26,8 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = out_texture_data_ch2 bundle = gmem1 depth = 412800
         // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem1 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
-        linalg::SE3<MathType> pose(linalg::SO3<MathType>(linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)), linalg::Vec3<MathType>(t_x, t_y, t_z));
-        Camera<MathType> cam(fx, fy, cx, cy);
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)), linalg::Vec3<RealType>(t_x, t_y, t_z));
+        Camera<RealType> cam(fx, fy, cx, cy);
 
         // copy data to bram
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
@@ -74,19 +74,19 @@ extern "C"
         // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
         // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64
 
-        linalg::SE3<MathType> pose(linalg::SO3<MathType>(
-                                       linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)),
-                                   linalg::Vec3<MathType>(t_x, t_y, t_z));
-        Camera<MathType> cam(fx, fy, cx, cy);
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(
+                                       linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)),
+                                   linalg::Vec3<RealType>(t_x, t_y, t_z));
+        Camera<RealType> cam(fx, fy, cx, cy);
 
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch1);
-        TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch2);
-        TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch3);
-        TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch4);
-        TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAM<unsigned char> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch1);
+        TextureRAM<unsigned char> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch2);
+        TextureRAM<unsigned char> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch3);
+        TextureRAM<unsigned char> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch4);
+        TextureRAM<unsigned char> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererHLS renderer;
         // renderer.RenderTiled(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, out_texture);
@@ -118,7 +118,7 @@ extern "C"
                        linalg::Vec3<float> jtra_nodata_value,
                        linalg::Vec3<float> jrot_nodata_value,
                        linalg::Vec3<float> jmap_nodata_value,
-                       linalg::Vec3<unsigned int> pids_nodata_value,
+                       linalg::Vec3<int> pids_nodata_value,
                        unsigned int out_lvl,
                        float q_x, float q_y, float q_z, float q_w,
                        float t_x, float t_y, float t_z,
@@ -137,8 +137,9 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem9
 #pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem10
 
-        linalg::SE3<MathType> pose(linalg::SO3<MathType>(linalg::Quaternion<MathType>(q_w, q_x, q_y, q_z)), linalg::Vec3<MathType>(t_x, t_y, t_z));
-        Camera<MathType> cam(fx, fy, cx, cy);
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)),
+         linalg::Vec3<RealType>(t_x, t_y, t_z));
+        Camera<RealType> cam(fx, fy, cx, cy);
 
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
@@ -153,7 +154,7 @@ extern "C"
         TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, jtra_nodata_value, jtra_texture_data);
         TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, jrot_nodata_value, jrot_texture_data);
         TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, jmap_nodata_value, jmap_texture_data);
-        TextureRAM<linalg::Vec3<unsigned int>> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
+        TextureRAM<linalg::Vec3<int>> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
 
         DiffRendererHLS renderer;
         renderer.RenderTiledInChannels(mesh, pose, cam, in_lvl, out_lvl,

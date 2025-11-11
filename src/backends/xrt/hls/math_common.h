@@ -4,13 +4,8 @@
 #include "ap_int.h"
 #include "ap_fixed.h"
 
-using MathType = half;
-using MeshType = float;
-using DepthType = half;
-using ImageType = unsigned char;
-using ErrorType = half;
-using DType = half;
-using IdType = ap_uint<16>;
+using RealType = half;
+using IntType = ap_int<16>;
 
 template <typename T>
 inline T min(T a, T b)
