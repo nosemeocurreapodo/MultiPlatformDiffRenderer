@@ -89,6 +89,7 @@ extern "C"
         TextureRAM<unsigned char> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererHLS renderer;
+        // renderer.RenderNaive(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, out_texture);
         // renderer.RenderTiled(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, out_texture);
         renderer.RenderTiledInChannels(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, diffuse_texture_ch2, diffuse_texture_ch3, diffuse_texture_ch4, out_texture);
     }
@@ -138,7 +139,7 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem10
 
         linalg::SE3<RealType> pose(linalg::SO3<RealType>(linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)),
-         linalg::Vec3<RealType>(t_x, t_y, t_z));
+                                   linalg::Vec3<RealType>(t_x, t_y, t_z));
         Camera<RealType> cam(fx, fy, cx, cy);
 
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
