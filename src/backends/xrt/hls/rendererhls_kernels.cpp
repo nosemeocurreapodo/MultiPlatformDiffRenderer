@@ -8,8 +8,7 @@ extern "C"
 {
     void DepthRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        float *out_texture_data_ch1,
-                        float *out_texture_data_ch2,
+                        float *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
@@ -22,8 +21,7 @@ extern "C"
     {
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
-#pragma HLS INTERFACE m_axi port = out_texture_data_ch1 bundle = gmem1 depth = 412800
-#pragma HLS INTERFACE m_axi port = out_texture_data_ch2 bundle = gmem1 depth = 412800
+#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem1 depth = 412800
         // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem1 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
         linalg::SE3<RealType> pose(linalg::SO3<RealType>(linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)), linalg::Vec3<RealType>(t_x, t_y, t_z));
@@ -34,11 +32,10 @@ extern "C"
                      ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureRAM<float> out_texture_ch1(out_texture_width, out_texture_height, out_nodata_value, out_texture_data_ch1);
-        TextureRAM<float> out_texture_ch2(out_texture_width, out_texture_height, out_nodata_value, out_texture_data_ch2);
+        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererHLS renderer;
-        renderer.RenderTiled(mesh, pose, cam, out_lvl, out_texture_ch1);
+        renderer.Render(mesh, pose, cam, out_lvl, out_texture);
     }
 
     void ImageRenderHLS(float *vertex_buffer_data,
@@ -89,9 +86,9 @@ extern "C"
         TextureRAM<unsigned char> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         ImageRendererHLS renderer;
-        // renderer.RenderNaive(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, out_texture);
-        // renderer.RenderTiled(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, out_texture);
-        renderer.RenderTiledInChannels(mesh, pose, cam, diffuse_lvl, out_lvl, diffuse_texture_ch1, diffuse_texture_ch2, diffuse_texture_ch3, diffuse_texture_ch4, out_texture);
+        renderer.Render(mesh, pose, cam, diffuse_lvl, out_lvl,
+                        diffuse_texture_ch1, diffuse_texture_ch2, diffuse_texture_ch3, diffuse_texture_ch4,
+                        out_texture);
     }
 
     void DiffRenderHLS(float *vertex_buffer_data,
@@ -158,8 +155,8 @@ extern "C"
         TextureRAM<linalg::Vec3<int>> pids_texture(out_texture_width, out_texture_height, pids_nodata_value, pids_texture_data);
 
         DiffRendererHLS renderer;
-        renderer.RenderTiledInChannels(mesh, pose, cam, in_lvl, out_lvl,
-                                       f_texture_ch1, f_texture_ch2, f_texture_ch3, f_texture_ch4,
-                                       image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        renderer.Render(mesh, pose, cam, in_lvl, out_lvl,
+                        f_texture_ch1, f_texture_ch2, f_texture_ch3, f_texture_ch4,
+                        image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
     }
 };

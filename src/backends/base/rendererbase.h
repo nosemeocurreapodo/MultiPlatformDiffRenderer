@@ -117,6 +117,7 @@ protected:
                               const BoundingBox<IntType> &viewport,
                               const Uniforms &uniforms,
                               Triangle *triangles,
+                              int max_num_triangles,
                               int &num_triangles)
     {
         // #pragma HLS INLINE off
@@ -167,6 +168,8 @@ protected:
 
             triangles[num_triangles] = triangle;
             num_triangles++;
+            if (num_triangles >= max_num_triangles)
+                break;
         }
     }
 
@@ -886,13 +889,15 @@ public:
 
     static Fragment fragment_nodata(OutTextures &textures)
     {
+#pragma HLS inline
+
         return Fragment{RealType(textures.out_texture.nodata())};
     }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         VertexData vertexdata;
 
@@ -911,7 +916,7 @@ public:
                                          const Varyings &varying_px1,
                                          const Varyings &varying_px2)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -930,7 +935,7 @@ public:
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-        // #pragma HLS inline
+#pragma HLS inline
 
         gl_Position = uniforms.t_matrix * linalg::Vec4<RealType>(vertexdata.vertex, RealType(1));
         outVarying.texcoord = vertexdata.texcoord;

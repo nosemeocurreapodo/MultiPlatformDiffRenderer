@@ -12,8 +12,7 @@ extern "C"
 {
     void DepthRenderHLS(float *vertex_buffer_data,
                         unsigned int *ebo_buffer_data,
-                        float *out_texture_data_ch1,
-                        float *out_texture_data_ch2,
+                        float *out_texture_data,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
@@ -77,7 +76,6 @@ int main()
     DepthRenderHLS(
         vertex.data(),
         indices.data(),
-        depth_map.data(),
         depth_map.data(),
         vertex.size(), indices.size(),
         w, h, -1.0f, lvl,
