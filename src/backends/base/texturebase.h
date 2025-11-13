@@ -75,16 +75,16 @@ T bilinear(const Tex &tex, T y, T x, unsigned int lvl)
     const T dx = x - static_cast<T>(x0);
     const T dy = y - static_cast<T>(y0);
 
-    const auto tl = tex.texel_(y0, x0, lvl);
-    const auto tr = tex.texel_(y0, x1, lvl);
-    const auto bl = tex.texel_(y1, x0, lvl);
-    const auto br = tex.texel_(y1, x1, lvl);
+    const auto tl = T(tex.texel_(y0, x0, lvl));
+    const auto tr = T(tex.texel_(y0, x1, lvl));
+    const auto bl = T(tex.texel_(y1, x0, lvl));
+    const auto br = T(tex.texel_(y1, x1, lvl));
 
     // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
     //     return T(tex.nodata());
 
-    const T Cx0 = T(tl) * (T(1) - dx) + T(tr) * dx;
-    const T Cx1 = T(bl) * (T(1) - dx) + T(br) * dx;
+    const T Cx0 = tl * (T(1) - dx) + tr * dx;
+    const T Cx1 = bl * (T(1) - dx) + br * dx;
     return Cx0 * (T(1) - dy) + Cx1 * dy;
 }
 
@@ -136,11 +136,11 @@ V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
     auto f_x_p = tex.texel_(y, x_p, lvl);
     auto f_x_m = tex.texel_(y, x_m, lvl);
 
-    if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
-        f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
-    {
-        return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
-    }
+    // if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
+    //     f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
+    //{
+    //     return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
+    // }
 
     V<T> out_fragment;
     out_fragment(0) = (f_x_p - f_x_m) / T(2);
@@ -185,13 +185,13 @@ void generate_mipmap(Tex<T> &tex, unsigned int lvl)
             const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
             const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
 
-            if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
+            // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
+            //{
+            //     map_write[y * dw + x] = tex.nodata();
+            // }
+            // else
             {
-                map_write[y * dw + x] = tex.nodata();
-            }
-            else
-            {
-                T val = static_cast<T>((tl + tr + bl + br) * 0.25f);
+                T val = static_cast<T>(round(tl * 0.25f + tr * 0.25f + bl * 0.25f + br * 0.25f));
                 map_write[y * dw + x] = val;
             }
         }

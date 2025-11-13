@@ -128,7 +128,7 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input, output));
 
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_8UC1);
     cv::Scalar mean_val, std_val;
     cv::Mat mask = (result != -1.0f);
     cv::meanStdDev(result, mean_val, std_val, mask);

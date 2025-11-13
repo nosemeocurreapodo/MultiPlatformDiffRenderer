@@ -104,7 +104,7 @@ public:
         {
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
 
-            unsigned int vertexids[3];
+            int vertexids[3];
 
             vertexids[0] = mesh.ebo_buffer_[i + 0];
             vertexids[1] = mesh.ebo_buffer_[i + 1];
@@ -223,7 +223,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        out_texture.fill(out_lvl, out_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -277,7 +277,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        out_texture.fill(out_lvl, out_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -325,15 +325,15 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<unsigned char> &kf_texture,
-                TextureCPU<unsigned char> &f_texture,
+                const TextureCPU<unsigned char> &kf_texture,
+                const TextureCPU<unsigned char> &f_texture,
                 TextureCPU<float> &r_texture)
     {
         // Validate inputs
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        r_texture.fill(out_lvl, r_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -381,7 +381,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        out_texture.fill(out_lvl, out_texture.nodata());
 
         Base::Uniforms uniforms;
         uniforms.in_lvl = in_lvl;
@@ -430,7 +430,9 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        r_texture.fill(out_lvl, r_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -487,7 +489,9 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        // nodata_.depth = out_texture.nodata();
+        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        pids_texture.fill(out_lvl, pids_texture.nodata());
+        r_texture.fill(out_lvl, r_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -546,6 +550,12 @@ public:
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         // nodata_.depth = out_texture.nodata();
+        image_texture.fill(out_lvl, image_texture.nodata());
+        depth_texture.fill(out_lvl, depth_texture.nodata());
+        jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        pids_texture.fill(out_lvl, pids_texture.nodata());
 
         linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;

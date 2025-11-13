@@ -655,8 +655,8 @@ public:
                 float val = textureLod(image, texcoord, float(image_lvl)).r;
                 //float val = texture(image, texcoord).r;
 
-                if (val == image_nodata)
-                    discard;
+                //if (val == image_nodata)
+                //    discard;
                 a_output = val;
             }
             )Shader";
@@ -783,8 +783,8 @@ public:
                 float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
 
-                if (kf == kf_image_nodata || f == f_image_nodata)
-                    discard;
+                //if (kf == kf_image_nodata || f == f_image_nodata)
+                //    discard;
 
                 float r = f - kf;
 
@@ -938,13 +938,13 @@ public:
                 float f_y_p = texelFetch(image, ivec2(x, y_p), image_lvl).r;
                 float f_y_m = texelFetch(image, ivec2(x, y_m), image_lvl).r;
 
-                if (f_x_p == image_nodata || f_x_m == image_nodata ||
-                    f_y_p == image_nodata || f_y_m == image_nodata)
-                {
-                    //no need to explicitly set to nodata, it is already in the background color
-                    //a_output = nodata;
-                    discard;
-                }
+                //if (f_x_p == image_nodata || f_x_m == image_nodata ||
+                //    f_y_p == image_nodata || f_y_m == image_nodata)
+                //{
+                //    //no need to explicitly set to nodata, it is already in the background color
+                //    //a_output = nodata;
+                //    discard;
+                //}
 
                 a_output.x = (f_x_p - f_x_m) / 2.0f;
                 a_output.y = (f_y_p - f_y_m) / 2.0f;
@@ -1080,10 +1080,10 @@ public:
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
                 vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
 
-                if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
-                {
-                    discard;
-                }
+                //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
+                //{
+                //    discard;
+                //}
 
                 float r = f - kf;
                 
@@ -1365,10 +1365,10 @@ public:
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
                 vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
 
-                if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
-                {
-                    discard;
-                }
+                //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
+                //{
+                //    discard;
+                //}
 
                 float r = f - kf;
 
@@ -1670,10 +1670,10 @@ public:
                 float f_x_p = texelFetch(image, ivec2(x_p, tc.y), lvl).r;
                 float f_x_m = texelFetch(image, ivec2(x_m, tc.y), lvl).r;
 
-                if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
-                {
-                    return vec2(nodata, nodata);
-                }
+                //if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
+                //{
+                //    return vec2(nodata, nodata);
+                //}
 
                 return vec2((f_x_p - f_x_m) / 2.0f, (f_y_p - f_y_m) / 2.0f);
             }
@@ -1685,17 +1685,17 @@ public:
                 //float f = texelFetch(f_image, ivec2(gl_FragCoord.xy), f_image_lvl).r;
                 float f = textureLod(f_image, texcoord, float(f_image_lvl)).r;
 
-                if (f == f_image_nodata)
-                {
-                    discard;
-                }
+                //if (f == f_image_nodata)
+                //{
+                //    discard;
+                //}
 
                 vec2 dfdxy = get_dfdxy(f_image, ivec2(texcoord.x*tex_size.x, texcoord.y*tex_size.y), tex_size, f_image_nodata, f_image_lvl);
 
-                if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
-                {
-                    discard;
-                }
+                //if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
+                //{
+                //    discard;
+                //}
 
                 float v0 = dfdxy.x * fx * out_width / f_ver.z;
                 float v1 = dfdxy.y * fy * out_height / f_ver.z;

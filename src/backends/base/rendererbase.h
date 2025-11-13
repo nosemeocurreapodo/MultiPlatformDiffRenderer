@@ -1426,7 +1426,7 @@ public:
 
         outtextures.jtra_texture.set_texel_(d_f_i_d_tra, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         outtextures.jrot_texture.set_texel_(d_f_i_d_rot, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.r_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        outtextures.r_texture.set_texel_(r, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
     }
 };
 

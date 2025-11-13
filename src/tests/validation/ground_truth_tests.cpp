@@ -215,7 +215,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
         EXPECT_LT(rmse, this->thresholds_.gt_max_image_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0, CV_8UC1);
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - this->image_dst_cv_;
     // cv::Mat masked_diff;

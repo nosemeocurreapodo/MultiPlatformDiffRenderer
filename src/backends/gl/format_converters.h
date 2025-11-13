@@ -57,7 +57,7 @@ inline GLint GetGLInternalFormat(std::type_index tindex)
 
     internal_format_map[GetTypeIndex<int>()] = GL_R32I;
     internal_format_map[GetTypeIndex<linalg::Vec2<int>>()] = GL_RG32I;
-    internal_format_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_RGB32I;
+    internal_format_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_RGB32F; // GL_RGB32I;
     internal_format_map[GetTypeIndex<linalg::Vec4<int>>()] = GL_RGBA32I;
 
     internal_format_map[GetTypeIndex<unsigned char>()] = GL_R8;
@@ -91,7 +91,7 @@ inline GLenum GetGLType(std::type_index tindex)
     type_map[GetTypeIndex<linalg::Vec4<float>>()] = GL_FLOAT;
     type_map[GetTypeIndex<int>()] = GL_INT;
     type_map[GetTypeIndex<linalg::Vec2<int>>()] = GL_INT;
-    type_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_INT;
+    type_map[GetTypeIndex<linalg::Vec3<int>>()] = GL_FLOAT; // GL_INT;
     type_map[GetTypeIndex<linalg::Vec4<int>>()] = GL_INT;
     type_map[GetTypeIndex<unsigned char>()] = GL_UNSIGNED_BYTE;
 
