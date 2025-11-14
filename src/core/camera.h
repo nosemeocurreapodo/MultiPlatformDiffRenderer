@@ -72,16 +72,27 @@ public:
 
     linalg::Mat4<T> GetProjectiveMatrix(T znear, T zfar) const
     {
-        linalg::Mat4<T> projmat = linalg::Mat4<T>::Zero();
+        linalg::Mat4<T> projmat; // = linalg::Mat4<T>::Zero();
 
         projmat(0, 0) = T(2) * fx_;
-        //- here to flip the y axis (to render like opencv)
-        projmat(1, 1) = -T(2) * fy_;
+        projmat(0, 1) = T(0);
         projmat(0, 2) = T(1) - T(2) * cx_;
+        projmat(0, 3) = T(0);
+        //- here to flip the y axis (to render like opencv)
+        projmat(1, 0) = T(0);
+        projmat(1, 1) = -T(2) * fy_;
         projmat(1, 2) = -T(1) + T(2) * cy_;
+        projmat(1, 3) = T(0);
+
+        projmat(2, 0) = T(0);
+        projmat(2, 1) = T(0);
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
-        projmat(3, 2) = -T(1);
         projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+
+        projmat(3, 0) = T(0);
+        projmat(3, 1) = T(0);
+        projmat(3, 2) = -T(1);
+        projmat(3, 3) = T(0);
 
         /*
         projmat(0, 0) = T(2) * fx_;

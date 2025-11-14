@@ -4,8 +4,8 @@
 #include "ap_int.h"
 #include "ap_fixed.h"
 
-using RealType = half;
-using IntType = ap_int<16>;
+using RealType = float; // ap_fixed<32, 16>; // half;
+using IntType = int;    // ap_int<16>;
 
 template <typename T>
 inline T min(T a, T b)

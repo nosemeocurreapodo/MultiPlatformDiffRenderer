@@ -84,23 +84,23 @@ protected:
     template <class Mesh, typename VertexData, typename Uniforms>
     static void get_vertex_data(const Mesh &mesh,
                                 VertexData *vertex_data,
-                                unsigned int *vertex_ids)
+                                IntType *vertex_ids)
     {
         // #pragma HLS INLINE off
 
         // Loop over triangles
     renderbase_render_triangles_loop:
-        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (IntType i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
 
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
             // #pragma HLS PIPELINE II = 1
 
-            unsigned int vertexids[3];
+            IntType vertexids[3];
 
-            unsigned int vertexids_0 = mesh.ebo_buffer_[i + 0];
-            unsigned int vertexids_1 = mesh.ebo_buffer_[i + 1];
-            unsigned int vertexids_2 = mesh.ebo_buffer_[i + 2];
+            IntType vertexids_0 = mesh.ebo_buffer_[i + 0];
+            IntType vertexids_1 = mesh.ebo_buffer_[i + 1];
+            IntType vertexids_2 = mesh.ebo_buffer_[i + 2];
 
             vertex_data[i * 3 + 0] = Derived::get_vertex_data(mesh, vertexids_0);
             vertex_data[i * 3 + 1] = Derived::get_vertex_data(mesh, vertexids_1);
@@ -117,8 +117,8 @@ protected:
                               const BoundingBox<IntType> &viewport,
                               const Uniforms &uniforms,
                               Triangle *triangles,
-                              int max_num_triangles,
-                              int &num_triangles)
+                              IntType max_num_triangles,
+                              IntType &num_triangles)
     {
         // #pragma HLS INLINE off
 
@@ -126,7 +126,7 @@ protected:
 
         // Loop over triangles
     renderbase_render_triangles_loop:
-        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (IntType i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
         {
 
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
@@ -173,7 +173,7 @@ protected:
         }
     }
 
-    static void create_tile_viewports_(BoundingBox<IntType> *viewport_tiles, const BoundingBox<IntType> &viewport, int num_tiles_x, int num_tiles_y)
+    static void create_tile_viewports_(BoundingBox<IntType> *viewport_tiles, const BoundingBox<IntType> &viewport, IntType num_tiles_x, IntType num_tiles_y)
     {
         // #pragma HLS INLINE off
 
@@ -189,10 +189,10 @@ protected:
 #pragma HLS loop_tripcount min = 8 max = 8 avg = 8
 #pragma HLS loop_flatten off
 
-                int min_x_ = int(RealType(viewport.width_ * x) / RealType(num_tiles_x)) + viewport.min_x_;
-                int max_x_ = int(RealType(viewport.width_ * (x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                int min_y_ = int(RealType(viewport.height_ * y) / RealType(num_tiles_y)) + viewport.min_y_;
-                int max_y_ = int(RealType(viewport.height_ * (y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+                IntType min_x_ = IntType(RealType(viewport.width_ * x) / RealType(num_tiles_x)) + viewport.min_x_;
+                IntType max_x_ = IntType(RealType(viewport.width_ * (x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
+                IntType min_y_ = IntType(RealType(viewport.height_ * y) / RealType(num_tiles_y)) + viewport.min_y_;
+                IntType max_y_ = IntType(RealType(viewport.height_ * (y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
 
                 viewport_tiles[y * num_tiles_x + x] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
             }
@@ -263,7 +263,7 @@ protected:
 #pragma HLS INLINE
 
     render_tile_loop:
-        for (int tri = 0; tri < num_triangles; tri++)
+        for (IntType tri = 0; tri < num_triangles; tri++)
         {
 // #pragma HLS pipeline off
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
@@ -279,10 +279,10 @@ protected:
 #pragma HLS INLINE
 
     render_tile_loop:
-        for (int tri = 0; tri < num_triangles; tri++)
+        for (IntType tri = 0; tri < num_triangles; tri++)
         {
 // #pragma HLS pipeline off
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+#pragma HLS loop_tripcount min = 4 max = 4 avg = 4
 
             Triangle triangle = triangles[tri];
             draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, outtextures);
@@ -342,32 +342,32 @@ protected:
 
     // Rasterize
     draw_triangle_y_loop:
-        for (int iy = 0; iy < triangle_bb.height_; ++iy)
+        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
         {
 #pragma HLS loop_tripcount min = 70 max = 70 avg = 70
 
-            int texture_y = iy + triangle_bb.min_y_;
-            int tile_y = texture_y - tile_bb.min_y_;
+            IntType texture_y = iy + triangle_bb.min_y_;
+            IntType tile_y = texture_y - tile_bb.min_y_;
 
             const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
             const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
             const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
-            for (int ix = 0; ix < triangle_bb.width_; ++ix)
+            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
             {
 #pragma HLS loop_tripcount min = 70 max = 70 avg = 70
 #pragma HLS loop_flatten
                 //    #pragma HLS PIPELINE II = 1
 
-#pragma HLS dependence variable = depth_buffer type = inter false
-                // #pragma HLS dependence variable = depth_buffer type = intra false
+                // #pragma HLS dependence variable = depth_buffer type = inter false
+                //  #pragma HLS dependence variable = depth_buffer type = intra false
 
-#pragma HLS dependence variable = fragment_buffer type = inter false
+                // #pragma HLS dependence variable = fragment_buffer type = inter false
 
-                int texture_x = ix + triangle_bb.min_x_;
-                int tile_x = texture_x - tile_bb.min_x_;
-                int tile_address = tile_y * tile_bb.width_ + tile_x;
+                IntType texture_x = ix + triangle_bb.min_x_;
+                IntType tile_x = texture_x - tile_bb.min_x_;
+                IntType tile_address = tile_y * tile_bb.width_ + tile_x;
 
                 RealType prev_depth = depth_buffer[tile_address];
 
@@ -486,19 +486,19 @@ protected:
 
     // Rasterize
     draw_triangle_y_loop:
-        for (int iy = 0; iy < triangle_bb.height_; ++iy)
+        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
         {
 #pragma HLS loop_tripcount min = 70 max = 70 avg = 70
 
-            int texture_y = iy + triangle_bb.min_y_;
-            int tile_y = texture_y - tile_bb.min_y_;
+            IntType texture_y = iy + triangle_bb.min_y_;
+            IntType tile_y = texture_y - tile_bb.min_y_;
 
             const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
             const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
             const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
-            for (int ix = 0; ix < triangle_bb.width_; ++ix)
+            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
             {
 #pragma HLS loop_tripcount min = 70 max = 70 avg = 70
 #pragma HLS loop_flatten
@@ -507,9 +507,9 @@ protected:
 #pragma HLS dependence variable = depth_buffer type = inter false
                 // #pragma HLS dependence variable = depth_buffer type = intra false
 
-                int texture_x = ix + triangle_bb.min_x_;
-                int tile_x = texture_x - tile_bb.min_x_;
-                int tile_address = tile_y * tile_bb.width_ + tile_x;
+                IntType texture_x = ix + triangle_bb.min_x_;
+                IntType tile_x = texture_x - tile_bb.min_x_;
+                IntType tile_address = tile_y * tile_bb.width_ + tile_x;
 
                 RealType prev_depth = depth_buffer[tile_address];
 
@@ -776,12 +776,12 @@ public:
     }
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
 #pragma HLS INLINE
 
         VertexData vertexdata;
-        unsigned int base = vertexid * mesh.stride_ + mesh.pos_offset_;
+        IntType base = vertexid * mesh.stride_ + mesh.pos_offset_;
         vertexdata.vertex(0) = mesh.vertex_buffer_[base + 0];
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + 2];
@@ -808,7 +808,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -901,12 +901,14 @@ public:
 
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        IntType base = vertexid * mesh.stride_;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -930,7 +932,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -993,8 +995,8 @@ public:
     struct Uniforms
     {
         linalg::Mat4<RealType> t_matrix;
-        int in_lvl;
-        int out_lvl;
+        IntType in_lvl;
+        IntType out_lvl;
     };
 
     struct Varyings
@@ -1008,16 +1010,18 @@ public:
     };
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        IntType base = vertexid * mesh.stride_;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1038,7 +1042,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -1053,12 +1057,12 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        int width = intextures.kf_texture.width(uniforms.in_lvl);
-        int height = intextures.kf_texture.height(uniforms.in_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.in_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.in_lvl);
 
         linalg::Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
-        RealType kf = sample<RealType, Texture<unsigned char>>(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         unsigned char f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.in_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
@@ -1078,12 +1082,12 @@ public:
     {
         // #pragma HLS inline
 
-        int width = intextures.kf_texture.width(uniforms.out_lvl);
-        int height = intextures.kf_texture.height(uniforms.out_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.out_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.out_lvl);
 
         linalg::Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
-        RealType kf = sample<RealType, Texture<unsigned char>>(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         unsigned char f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
@@ -1135,12 +1139,14 @@ public:
     };
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        IntType base = vertexid * mesh.stride_;
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1162,7 +1168,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -1178,16 +1184,16 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        unsigned int height = intextures.in_texture.height(uniforms.in_lvl);
-        unsigned int width = intextures.in_texture.width(uniforms.in_lvl);
+        IntType height = intextures.in_texture.height(uniforms.in_lvl);
+        IntType width = intextures.in_texture.width(uniforms.in_lvl);
         unsigned char nodata = intextures.in_texture.nodata();
 
-        int x = int(in_varying.texcoord(0) * (width - 1));
-        int y = int(in_varying.texcoord(1) * (height - 1));
-        int x_p = x + 1;
-        int x_m = x - 1;
-        int y_p = y + 1;
-        int y_m = y - 1;
+        IntType x = IntType(in_varying.texcoord(0) * (width - 1));
+        IntType y = IntType(in_varying.texcoord(1) * (height - 1));
+        IntType x_p = x + 1;
+        IntType x_m = x - 1;
+        IntType y_p = y + 1;
+        IntType y_m = y - 1;
 
         if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0)
         {
@@ -1201,12 +1207,12 @@ public:
         unsigned char f_x_p = intextures.in_texture.texel_(y, x_p, uniforms.in_lvl);
         unsigned char f_x_m = intextures.in_texture.texel_(y, x_m, uniforms.in_lvl);
 
-        if (f_x_p == nodata || f_x_m == nodata ||
-            f_y_p == nodata || f_y_m == nodata || f == nodata)
-        {
-            //  No need to explicitly set to nodata, it is already in the background color
-            return;
-        }
+        // if (f_x_p == nodata || f_x_m == nodata ||
+        //     f_y_p == nodata || f_y_m == nodata || f == nodata)
+        //{
+        //   No need to explicitly set to nodata, it is already in the background color
+        //    return;
+        //}
 
         linalg::Vec3<RealType> out_fragment;
         out_fragment(0) = (f_x_p - f_x_m) / RealType(2);
@@ -1224,16 +1230,16 @@ public:
     {
         // #pragma HLS inline
 
-        unsigned int height = intextures.in_texture.height(uniforms.in_lvl);
-        unsigned int width = intextures.in_texture.width(uniforms.in_lvl);
-        unsigned char nodata = intextures.in_texture.nodata();
+        IntType height = intextures.in_texture.height(uniforms.in_lvl);
+        IntType width = intextures.in_texture.width(uniforms.in_lvl);
+        // unsigned char nodata = intextures.in_texture.nodata();
 
-        int x = int(in_varying.texcoord(0) * (width - 1));
-        int y = int(in_varying.texcoord(1) * (height - 1));
-        int x_p = x + 1;
-        int x_m = x - 1;
-        int y_p = y + 1;
-        int y_m = y - 1;
+        IntType x = IntType(in_varying.texcoord(0) * (width - 1));
+        IntType y = IntType(in_varying.texcoord(1) * (height - 1));
+        IntType x_p = x + 1;
+        IntType x_m = x - 1;
+        IntType y_p = y + 1;
+        IntType y_m = y - 1;
 
         if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0)
         {
@@ -1247,12 +1253,12 @@ public:
         unsigned char f_x_p = intextures.in_texture.texel_(y, x_p, uniforms.in_lvl);
         unsigned char f_x_m = intextures.in_texture.texel_(y, x_m, uniforms.in_lvl);
 
-        if (f_x_p == nodata || f_x_m == nodata ||
-            f_y_p == nodata || f_y_m == nodata || f == nodata)
-        {
-            //  No need to explicitly set to nodata, it is already in the background color
-            return;
-        }
+        // if (f_x_p == nodata || f_x_m == nodata ||
+        //     f_y_p == nodata || f_y_m == nodata || f == nodata)
+        //{
+        //   No need to explicitly set to nodata, it is already in the background color
+        //    return;
+        //}
 
         linalg::Vec3<RealType> out_fragment;
         out_fragment(0) = (f_x_p - f_x_m) / RealType(2);
@@ -1296,8 +1302,8 @@ public:
         RealType fy;
         linalg::Mat4<RealType> view_matrix;
         linalg::Mat4<RealType> pose_matrix;
-        int in_lvl;
-        int out_lvl;
+        IntType in_lvl;
+        IntType out_lvl;
     };
 
     struct Varyings
@@ -1314,16 +1320,18 @@ public:
     };
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        IntType base = vertexid * mesh.stride_;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1348,7 +1356,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -1366,8 +1374,8 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        unsigned int width = intextures.kf_texture.width(uniforms.in_lvl);
-        unsigned int height = intextures.kf_texture.height(uniforms.in_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.in_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.in_lvl);
 
         linalg::Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
@@ -1403,8 +1411,8 @@ public:
                                 const InTextures &intextures,
                                 OutTextures &outtextures)
     {
-        unsigned int width = intextures.kf_texture.width(uniforms.in_lvl);
-        unsigned int height = intextures.kf_texture.height(uniforms.in_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.in_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.in_lvl);
 
         linalg::Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
@@ -1491,16 +1499,18 @@ public:
     };
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        IntType base = vertexid * mesh.stride_;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1564,8 +1574,8 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        unsigned int width = intextures.kf_texture.width(uniforms.out_lvl);
-        unsigned int height = intextures.kf_texture.height(uniforms.out_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.out_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.out_lvl);
 
         // linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
@@ -1614,8 +1624,8 @@ public:
                                 const InTextures &intextures,
                                 OutTextures &outtextures)
     {
-        unsigned int width = intextures.kf_texture.width(uniforms.out_lvl);
-        unsigned int height = intextures.kf_texture.height(uniforms.out_lvl);
+        IntType width = intextures.kf_texture.width(uniforms.out_lvl);
+        IntType height = intextures.kf_texture.height(uniforms.out_lvl);
 
         // linalg::Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
@@ -1625,7 +1635,7 @@ public:
         linalg::Vec3<RealType> baricentric = in_varying.baricentric;
         linalg::Vec3<IntType> vertexid = in_varying.pids;
 
-        RealType kf = sample<RealType, Texture<unsigned char>>(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.out_lvl);
         unsigned char f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         linalg::Vec3<RealType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
@@ -1733,18 +1743,20 @@ public:
     }
 
     template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
 #pragma HLS inline
 
         VertexData vertexdata;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
+        IntType base = vertexid * mesh.stride_;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.tex_offset_ + 1];
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1782,7 +1794,7 @@ public:
     // Shaders
     // -------------------------------------------------------------------------
     static void vertex_shader(const VertexData &vertexdata,
-                              const unsigned int &vertexid,
+                              const IntType &vertexid,
                               const Uniforms &uniforms,
                               linalg::Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
@@ -1811,11 +1823,11 @@ public:
     {
 #pragma HLS inline
 
-        unsigned int in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
-        unsigned int in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
+        IntType in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
+        IntType in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
 
-        unsigned int out_width = uniforms.out_width;
-        unsigned int out_height = uniforms.out_height;
+        IntType out_width = uniforms.out_width;
+        IntType out_height = uniforms.out_height;
 
         linalg::Vec3<RealType> f_ver = in_varying.f_ver;
         linalg::Vec3<RealType> kf_ray = in_varying.kf_ray;
@@ -1824,11 +1836,11 @@ public:
         linalg::Vec3<IntType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        RealType f = sample<RealType, Texture<unsigned char>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        RealType f = sample(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<RealType> f_der = compute_didxy<RealType, linalg::Vec3, Texture<unsigned char>>(intextures.diffuse_texture, in_varying.texcoord(1) * in_height, in_varying.texcoord(0) * in_width, uniforms.in_lvl);
+        linalg::Vec3<RealType> f_der = compute_didxy(intextures.diffuse_texture, in_varying.texcoord(1) * in_height, in_varying.texcoord(0) * in_width, uniforms.in_lvl);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;
@@ -1866,11 +1878,11 @@ public:
     {
 #pragma HLS inline
 
-        unsigned int in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
-        unsigned int in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
+        IntType in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
+        IntType in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
 
-        unsigned int out_width = outtextures.image_texture.width(uniforms.out_lvl);
-        unsigned int out_height = outtextures.image_texture.height(uniforms.out_lvl);
+        IntType out_width = outtextures.image_texture.width(uniforms.out_lvl);
+        IntType out_height = outtextures.image_texture.height(uniforms.out_lvl);
 
         linalg::Vec3<RealType> f_ver = in_varying.f_ver;
         linalg::Vec3<RealType> kf_ray = in_varying.kf_ray;
@@ -1879,7 +1891,7 @@ public:
         linalg::Vec3<IntType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        RealType f = sample<RealType, Texture<unsigned char>>(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        RealType f = sample(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
