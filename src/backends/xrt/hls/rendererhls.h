@@ -697,28 +697,27 @@ public:
                     uniforms_buffer[j] = uniforms;
                 }
 
+                hls::stream<Triangle> triangles_streams[num_buffers];
+
             renderbase_triangle_buffer_loop:
                 for (int j = 0; j < num_triangles; j++)
                 {
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-
-                    Triangle triangle_buffer[num_buffers];
-                    for (int k = 0; k < num_buffers; k++)
-                        triangle_buffer[k] = triangles[j];
-
-                renderbase_triangle_tile_loop:
                     for (int i = 0; i < num_buffers; i++)
-                    {
+                        triangles_streams[i].write(triangles[j]);
+                }
+
+            renderbase_triangle_tile_loop:
+                for (int i = 0; i < num_buffers; i++)
+                {
 #pragma HLS unroll
-                        if (i == 0)
-                            this->draw_triangle_(triangle_buffer[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch1, fragment_buffer[i]);
-                        if (i == 1)
-                            this->draw_triangle_(triangle_buffer[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch2, fragment_buffer[i]);
-                        if (i == 2)
-                            this->draw_triangle_(triangle_buffer[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch3, fragment_buffer[i]);
-                        if (i == 3)
-                            this->draw_triangle_(triangle_buffer[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch4, fragment_buffer[i]);
-                    }
+                    if (i == 0)
+                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch1, fragment_buffer[i]);
+                    if (i == 1)
+                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch2, fragment_buffer[i]);
+                    if (i == 2)
+                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch3, fragment_buffer[i]);
+                    if (i == 3)
+                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch4, fragment_buffer[i]);
                 }
 
             depthrendererhls_loop:
@@ -731,6 +730,12 @@ public:
     }
 
 private:
+    template <typename Triangle, typename Uniforms, typename InTextures, typename Fragment>
+    void draw_triangle_stream_(hls::stream<Triangle> &triangles_stream, const BoundingBox<IntType> &viewport, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
+    {
+        Triangle triangle = triangles_stream.read();
+        this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
+    }
 };
 
 class DepthRendererHLS

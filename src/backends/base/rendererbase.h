@@ -266,7 +266,7 @@ protected:
         for (IntType tri = 0; tri < num_triangles; tri++)
         {
 // #pragma HLS pipeline off
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+#pragma HLS loop_tripcount min = 4 max = 4 avg = 4
 
             Triangle triangle = triangles[tri];
             draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, fragment_buffer);
