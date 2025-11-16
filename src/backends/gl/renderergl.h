@@ -788,7 +788,7 @@ public:
 
                 float r = f - kf;
 
-                a_output = r;
+                a_output = 255.0f * r;
             }
             )Shader";
 
@@ -901,8 +901,8 @@ public:
             out vec2 texcoord;
 
             void main() {
-                // gl_Position = view_matrix * pose_matrix * vec4(a_position, 1.0);
-                gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+                // gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+                gl_Position = vec4(2.0f * a_texcoord.x - 1.0f, 2.0f * a_texcoord.y - 1.0f, 0.0f, 1.0f);
                 texcoord = a_texcoord;
             }
             )Shader";
@@ -933,10 +933,10 @@ public:
                     discard;
                 }
 
-                float f_x_p = texelFetch(image, ivec2(x_p, y), image_lvl).r;
-                float f_x_m = texelFetch(image, ivec2(x_m, y), image_lvl).r;
-                float f_y_p = texelFetch(image, ivec2(x, y_p), image_lvl).r;
-                float f_y_m = texelFetch(image, ivec2(x, y_m), image_lvl).r;
+                float f_x_p = 255.0f * texelFetch(image, ivec2(x_p, y), image_lvl).r;
+                float f_x_m = 255.0f * texelFetch(image, ivec2(x_m, y), image_lvl).r;
+                float f_y_p = 255.0f * texelFetch(image, ivec2(x, y_p), image_lvl).r;
+                float f_y_m = 255.0f * texelFetch(image, ivec2(x, y_m), image_lvl).r;
 
                 //if (f_x_p == image_nodata || f_x_m == image_nodata ||
                 //    f_y_p == image_nodata || f_y_m == image_nodata)
@@ -1059,26 +1059,29 @@ public:
 
             uniform sampler2D kf_image;
             uniform float kf_image_nodata;
-            uniform int kf_image_lvl;
 
             uniform sampler2D f_image;
             uniform float f_image_nodata;
-            uniform int f_image_lvl;
 
             uniform sampler2D dfdxy_image;
             uniform vec3 dfdxy_image_nodata;
-            uniform int dfdxy_image_lvl;
+            
+            uniform int in_lvl;
+            uniform int out_lvl;
 
             uniform float fx;
             uniform float fy;
 
+            uniform int out_width;
+            uniform int out_height;
+
             void main()
             {
-                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+                // ivec2 tex_size = textureSize(f_image, in_lvl);
 
-                float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
+                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{
@@ -1087,8 +1090,8 @@ public:
 
                 float r = f - kf;
                 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_tra = vec3(v0, v1, v2);
@@ -1110,15 +1113,18 @@ public:
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
-        kf_image_lvl_loc_ = glGetUniformLocation(program_, "kf_image_lvl");
 
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
-        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
 
         dfdxy_image_loc_ = glGetUniformLocation(program_, "dfdxy_image");
         dfdxy_image_nodata_loc_ = glGetUniformLocation(program_, "dfdxy_image_nodata");
-        dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
+
+        in_lvl_loc_ = glGetUniformLocation(program_, "in_lvl");
+        out_lvl_loc_ = glGetUniformLocation(program_, "out_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1148,6 +1154,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jtra_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
@@ -1216,15 +1224,18 @@ public:
 
         glUniform1i(kf_image_loc_, 0);
         glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
-        glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, in_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform1f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, in_lvl);
+
+        glUniform1i(in_lvl_loc_, in_lvl);
+        glUniform1i(out_lvl_loc_, out_lvl);
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1243,15 +1254,18 @@ private:
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
-    GLint kf_image_lvl_loc_ = -1;
 
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
-    GLint f_image_lvl_loc_ = -1;
 
     GLint dfdxy_image_loc_ = -1;
     GLint dfdxy_image_nodata_loc_ = -1;
-    GLint dfdxy_image_lvl_loc_ = -1;
+
+    GLint in_lvl_loc_ = -1;
+    GLint out_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };
 
 class JMapRendererGL : public BaseRendererGL
@@ -1344,26 +1358,29 @@ public:
 
             uniform sampler2D kf_image;
             uniform float kf_image_nodata;
-            uniform int kf_image_lvl;
 
             uniform sampler2D f_image;
             uniform float f_image_nodata;
-            uniform int f_image_lvl;
 
             uniform sampler2D dfdxy_image;
             uniform vec3 dfdxy_image_nodata;
-            uniform int dfdxy_image_lvl;
+
+            uniform int in_lvl;
+            uniform int out_lvl;
+
+            uniform int out_width;
+            uniform int out_height;
 
             uniform float fx;
             uniform float fy;
 
             void main()
             {
-                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+                // ivec2 tex_size = textureSize(f_image, f_image_lvl);
 
-                float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
+                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{
@@ -1372,8 +1389,8 @@ public:
 
                 float r = f - kf;
 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
@@ -1405,15 +1422,18 @@ public:
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
-        kf_image_lvl_loc_ = glGetUniformLocation(program_, "kf_image_lvl");
 
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
-        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
 
         dfdxy_image_loc_ = glGetUniformLocation(program_, "dfdxy_image");
         dfdxy_image_nodata_loc_ = glGetUniformLocation(program_, "dfdxy_image_nodata");
-        dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
+
+        in_lvl_loc_ = glGetUniformLocation(program_, "in_lvl");
+        out_lvl_loc_ = glGetUniformLocation(program_, "out_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1513,15 +1533,18 @@ public:
 
         glUniform1i(kf_image_loc_, 0);
         glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
-        glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
+
+        glUniform1i(in_lvl_loc_, in_lvl);
+        glUniform1i(out_lvl_loc_, out_lvl);
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1540,15 +1563,18 @@ private:
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
-    GLint kf_image_lvl_loc_ = -1;
 
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
-    GLint f_image_lvl_loc_ = -1;
 
     GLint dfdxy_image_loc_ = -1;
     GLint dfdxy_image_nodata_loc_ = -1;
-    GLint dfdxy_image_lvl_loc_ = -1;
+
+    GLint in_lvl_loc_ = -1;
+    GLint out_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };
 
 class DiffRendererGL : public BaseRendererGL

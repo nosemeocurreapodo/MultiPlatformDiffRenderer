@@ -96,7 +96,7 @@ public:
                      OutTextures &outtextures)
     {
         // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
-        float depth_buffer[640 * 480] = {-1.0f};
+        float depth_buffer[1024 * 1024] = {-1.0f};
 
     // Loop over triangles
     renderbase_render_triangles_loop:
@@ -383,13 +383,13 @@ public:
 
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        Base::Uniforms uniforms;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
-
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
 
         Base::InTextures intextures{in_texture};
         Base::OutTextures outtextures{out_texture};
@@ -438,6 +438,10 @@ public:
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
+        const int W = static_cast<int>(r_texture.width(out_lvl));
+        const int H = static_cast<int>(r_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
@@ -445,10 +449,8 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
-
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
+        uniforms.out_width = W;
+        uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
         Base::OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
@@ -497,6 +499,10 @@ public:
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
+        const int W = static_cast<int>(r_texture.width(out_lvl));
+        const int H = static_cast<int>(r_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
@@ -504,10 +510,8 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
-
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
+        uniforms.out_width = W;
+        uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
         Base::OutTextures outtextures{jmap_texture, pids_texture, r_texture};

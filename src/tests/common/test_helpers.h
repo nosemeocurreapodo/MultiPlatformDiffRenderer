@@ -140,6 +140,11 @@ inline double ComputeL2ErrorScalar(const cv::Mat &mat1, const cv::Mat &mat2, T n
 
                 total_error += diff * diff;
                 valid_pixels++;
+
+                // if (diff != 0.0f)
+                //  {
+                //     std::cout << "error " << std::endl;
+                // }
             }
         }
     }
