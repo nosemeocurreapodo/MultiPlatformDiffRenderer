@@ -1,14 +1,12 @@
 #pragma once
-#include <string>
-#include <vector>
-#include <utility>
-#include <iostream>
-#include <type_traits>
-#include <cassert>
+// #include <string>
+// #include <vector>
+// #include <utility>
+// #include <iostream>
+// #include <type_traits>
+// #include <cassert>
 
 #include "backends/gl/devicegl_glad.h"
-#include "core/format_converters.h"
-#include "core/types.h"
 #include "core/camera.h"
 #include "core/render_constants.h"
 #include "core/error_handling.h"
@@ -31,7 +29,15 @@ public:
             glGenFramebuffers(1, &fbo_);
         }
 
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glGenRenderbuffers(1, &rbo_);
+        glBindRenderbuffer(GL_RENDERBUFFER, rbo_);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1280, 1280); // use a single renderbuffer object for both a depth AND stencil buffer.
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         opencv2opengl_ = linalg::Mat4<float>::Identity();
+        opencv2opengl_(1, 1) = -1.0;
         opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
     }
 
@@ -156,6 +162,7 @@ protected:
 
     GLuint program_ = 0;
     GLuint fbo_ = 0;
+    GLuint rbo_;
 
     GLint prevFbo_ = 0, prevProg_ = 0, prevViewport_[4];
 
@@ -204,6 +211,127 @@ private:
     }
 };
 
+class SimpleExampleRendererGL : public BaseRendererGL
+{
+public:
+    SimpleExampleRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec3 aNormal;
+            layout (location = 2) in vec2 aTexCoords;
+
+            out vec2 TexCoords;
+
+            uniform mat4 model;
+            uniform mat4 view;
+            uniform mat4 projection;
+
+            void main()
+            {
+                TexCoords = aTexCoords;    
+                gl_Position = projection * view * model * vec4(aPos, 1.0);
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            out vec3 FragColor;
+
+            in vec2 TexCoords;
+
+            uniform sampler2D image;
+            uniform float image_nodata;
+            uniform int image_lvl;
+
+            void main()
+            {    
+                FragColor = texture(image, TexCoords).xyz;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+
+        projection_loc_ = glGetUniformLocation(program_, "projection");
+        view_loc_ = glGetUniformLocation(program_, "view");
+        model_loc_ = glGetUniformLocation(program_, "model");
+
+        image_loc_ = glGetUniformLocation(program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
+    }
+
+    void Render(const MeshGL &mesh,
+                linalg::Mat4<float> &projection,
+                linalg::Mat4<float> &view,
+                linalg::Mat4<float> &model,
+                int in_lvl,
+                int out_lvl,
+                TextureGL<linalg::Vec3<float>> &in_texture,
+                TextureGL<linalg::Vec3<float>> &out_texture)
+    {
+        // Validate inputs
+        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_SCISSOR_TEST);
+
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {out_texture.nodata()(0), out_texture.nodata()(1), out_texture.nodata()(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
+        // glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        // glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // #endif
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, in_texture.id());
+
+        glUseProgram(program_);
+
+        glUniformMatrix4fv(projection_loc_, 1, GL_FALSE, projection.data());
+        glUniformMatrix4fv(view_loc_, 1, GL_FALSE, view.data());
+        glUniformMatrix4fv(model_loc_, 1, GL_FALSE, model.data());
+
+        glUniform1i(image_loc_, 0); // texture unit
+        // glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl); // **int**, not float
+
+        mesh.draw();
+
+        restore_state();
+    }
+
+private:
+    GLint projection_loc_ = -1;
+    GLint view_loc_ = -1;
+    GLint model_loc_ = -1;
+
+    GLint image_loc_ = -1;
+    GLint image_nodata_loc_ = -1;
+    GLint image_lvl_loc_ = -1;
+};
+
 class GouraudRendererGL : public BaseRendererGL
 {
 public:
@@ -213,7 +341,8 @@ public:
             #version 330 core
 
             layout (location = 0) in vec3 aPos;
-            layout (location = 1) in vec3 aNormal;
+            layout (location = 1) in vec2 a_texcoord;
+            layout (location = 2) in vec3 aNormal;
 
             uniform mat4 uModel;
             uniform mat4 uView;
@@ -241,10 +370,12 @@ public:
                 // Lighting vectors
                 vec3 L = normalize(uLightPos - fragPos);
                 vec3 V = normalize(uViewPos  - fragPos);
-                vec3 R = reflect(-L, N);
+                float n_dot_l = dot(N, L);
+                //vec3 R = reflect(L, N);
+                vec3 R = L - 2.0f * n_dot_l * N; // opengls reflect
 
                 // Phong reflectance model (computed per-vertex)
-                float NdotL = max(dot(N, L), 0.0);
+                float NdotL = max(n_dot_l, 0.0);
                 float spec = 0.0;
                 if (NdotL > 0.0) {
                     spec = pow(max(dot(V, R), 0.0), uShininess);
@@ -317,6 +448,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -337,8 +470,8 @@ public:
 
         // model already in world space
         linalg::Mat4<float> uModel = linalg::Mat4<float>::Identity();
-        linalg::Mat4<float> uView = pose.matrix();
-        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * this->opencv2opengl_;
+        linalg::Mat4<float> uView = this->opencv2opengl_ * pose.matrix();
+        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         linalg::Mat3<float> uNormalMatrix = linalg::Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
 
         linalg::Vec3<float> uViewPos = cam2world.translation(); // camera position in world space
@@ -394,16 +527,21 @@ public:
             uniform mat4 t_matrix;
 
             void main() {
-                gl_Position = t_matrix * vec4(a_position, 1.0);
-                depth = a_position.z;
+                vec4 t_position = t_matrix * vec4(a_position, 1.0);
+                gl_Position = t_position;
+                depth = t_position.z;
             }
             )Shader";
 
         const char *fragment_shader = R"Shader(
             #version 330 core
             layout(location = 0) out float a_output;
+
             in float depth;
 
+            uniform float near_plane;
+            uniform float far_plane;
+            
             //uniform sampler2D image;
             //uniform float image_nodata;
             //uniform int image_lvl;
@@ -411,12 +549,15 @@ public:
             void main()
             {
                 a_output = depth;
+                //a_output = (far_plane - near_plane) * (0.5 * gl_FragCoord.z + 0.5) + near_plane;
             }
             )Shader";
 
         CompileShaders(vertex_shader, fragment_shader);
 
         t_matrix_loc_ = glGetUniformLocation(program_, "t_matrix");
+        near_plane_loc_ = glGetUniformLocation(program_, "near_plane");
+        far_plane_loc_ = glGetUniformLocation(program_, "far_plane");
     }
 
     void Render(const MeshGL &mesh,
@@ -442,6 +583,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(depth_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(depth_texture.height(out_lvl));
@@ -453,13 +596,19 @@ public:
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                                             opencv2opengl_ *
+                                             pose.matrix();
+        // const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
+
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
+        glUniform1f(near_plane_loc_, RenderConstants::NEAR_PLANE);
+        glUniform1f(far_plane_loc_, RenderConstants::FAR_PLANE);
 
         mesh.draw();
 
@@ -468,6 +617,8 @@ public:
 
 private:
     GLint t_matrix_loc_ = -1;
+    GLint near_plane_loc_ = -1;
+    GLint far_plane_loc_ = -1;
 };
 
 class ImageRendererGL : public BaseRendererGL
@@ -502,8 +653,10 @@ public:
             void main()
             {
                 float val = textureLod(image, texcoord, float(image_lvl)).r;
-                if (val == image_nodata)
-                    discard;
+                //float val = texture(image, texcoord).r;
+
+                //if (val == image_nodata)
+                //    discard;
                 a_output = val;
             }
             )Shader";
@@ -522,13 +675,14 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &in_texture,
-                TextureGL<float> &out_texture)
+                const TextureGL<unsigned char> &diffuse_texture,
+                TextureGL<unsigned char> &out_texture)
     {
         save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_); // now actually attach it
 
         const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, bufs);
@@ -537,19 +691,23 @@ public:
 
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_SCISSOR_TEST);
+        // glDisable(GL_SCISSOR_TEST);
+        // this is because of the flip in y in the output image
+        // so that we can display using opencv
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        float clear[4] = {out_texture.nodata(), 0.f, 0.f, 1.f};
+        float clear[4] = {float(out_texture.nodata()), 0.f, 0.f, 1.f};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
         // #if defined(GL_VERSION_4_5)
@@ -561,17 +719,19 @@ public:
         // #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+            glBindTexture(GL_TEXTURE_2D, diffuse_texture.id());
         }
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                                             opencv2opengl_ *
+                                             pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
-        glUniform1i(image_loc_, 0);                          // texture unit
-        glUniform1f(image_nodata_loc_, in_texture.nodata()); // **int**, not float
-        glUniform1i(image_lvl_loc_, in_lvl);                 // **int**, not float
+        glUniform1i(image_loc_, 0);                               // texture unit
+        glUniform1f(image_nodata_loc_, diffuse_texture.nodata()); // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl);                      // **int**, not float
 
         mesh.draw();
 
@@ -623,12 +783,12 @@ public:
                 float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
 
-                if (kf == kf_image_nodata || f == f_image_nodata)
-                    discard;
+                //if (kf == kf_image_nodata || f == f_image_nodata)
+                //    discard;
 
                 float r = f - kf;
 
-                a_output = r;
+                a_output = 255.0f * r;
             }
             )Shader";
 
@@ -650,8 +810,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &kf_texture,
+                const TextureGL<unsigned char> &f_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -667,6 +827,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
@@ -726,146 +888,6 @@ private:
     GLint f_image_lvl_loc_;
 };
 
-class L2RendererGL : public BaseRendererGL
-{
-public:
-    L2RendererGL() : BaseRendererGL()
-    {
-        const char *vertex_shader = R"Shader(
-            #version 330 core
-            layout (location = 0) in vec3 a_position;
-            layout (location = 1) in vec2 a_texcoord;
-            
-            uniform mat4 t_matrix;
-
-            out vec2 texcoord;
-
-            void main() {
-                gl_Position = t_matrix * vec4(a_position, 1.0);
-                texcoord = a_texcoord;
-            }
-            )Shader";
-
-        const char *fragment_shader = R"Shader(
-            #version 330 core
-            layout(location = 0) out float a_output;
-            in vec2 texcoord;
-
-            uniform sampler2D kf_image;
-            uniform sampler2D f_image;
-            uniform float kf_image_nodata;
-            uniform float f_image_nodata;
-            uniform int kf_image_lvl;
-            uniform int f_image_lvl;
-
-            void main()
-            {
-                float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
-
-                if (kf == kf_image_nodata || f == f_image_nodata)
-                    discard;
-
-                float r = f - kf;
-
-                a_output = r * r;
-            }
-            )Shader";
-
-        CompileShaders(vertex_shader, fragment_shader);
-
-        t_matrix_loc_ = glGetUniformLocation(program_, "t_matrix");
-
-        kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
-        kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
-        kf_image_lvl_loc_ = glGetUniformLocation(program_, "kf_image_lvl");
-
-        f_image_loc_ = glGetUniformLocation(program_, "f_image");
-        f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
-        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
-    }
-
-    void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureGL<float> &kf_texture,
-                const TextureGL<float> &f_texture,
-                TextureGL<float> &r_texture)
-    {
-        save_state();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, r_texture.id(), out_lvl);
-
-        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
-        glDrawBuffers(1, bufs);
-
-        check_framebuffer();
-
-        glEnable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_SCISSOR_TEST);
-
-        const GLsizei W = static_cast<GLsizei>(r_texture.width(out_lvl));
-        const GLsizei H = static_cast<GLsizei>(r_texture.height(out_lvl));
-        glViewport(0, 0, W, H);
-
-        float clear[4] = {r_texture.nodata(), 0.f, 0.f, 1.f};
-
-        // #if defined(GL_VERSION_3_0)
-        //         glClearBufferfv(GL_COLOR, 0, clear);
-        // #else
-        glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
-        // #endif
-
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glBindTextureUnit(0, kf_texture.id());
-            glBindTextureUnit(1, f_texture.id());
-        }
-        else
-#endif
-        {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, kf_texture.id());
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, f_texture.id());
-        }
-
-        glUseProgram(program_);
-
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
-        glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
-
-        glUniform1i(kf_image_loc_, 0);                          // texture unit
-        glUniform1f(kf_image_nodata_loc_, kf_texture.nodata()); // **int**, not float
-        glUniform1i(kf_image_lvl_loc_, in_lvl);                 // **int**, not float
-
-        glUniform1i(f_image_loc_, 1);                         // texture unit
-        glUniform1f(f_image_nodata_loc_, f_texture.nodata()); // **int**, not float
-        glUniform1i(f_image_lvl_loc_, out_lvl);               // **int**, not float
-
-        mesh.draw();
-
-        restore_state();
-    }
-
-private:
-    GLint t_matrix_loc_ = -1;
-
-    GLint kf_image_loc_;
-    GLint kf_image_nodata_loc_;
-    GLint kf_image_lvl_loc_;
-
-    GLint f_image_loc_;
-    GLint f_image_nodata_loc_;
-    GLint f_image_lvl_loc_;
-};
-
 class DIDxyRendererGL : public BaseRendererGL
 {
 public:
@@ -879,8 +901,8 @@ public:
             out vec2 texcoord;
 
             void main() {
-                // gl_Position = view_matrix * pose_matrix * vec4(a_position, 1.0);
-                gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+                // gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+                gl_Position = vec4(2.0f * a_texcoord.x - 1.0f, 2.0f * a_texcoord.y - 1.0f, 0.0f, 1.0f);
                 texcoord = a_texcoord;
             }
             )Shader";
@@ -911,18 +933,18 @@ public:
                     discard;
                 }
 
-                float f_x_p = texelFetch(image, ivec2(x_p, y), image_lvl).r;
-                float f_x_m = texelFetch(image, ivec2(x_m, y), image_lvl).r;
-                float f_y_p = texelFetch(image, ivec2(x, y_p), image_lvl).r;
-                float f_y_m = texelFetch(image, ivec2(x, y_m), image_lvl).r;
+                float f_x_p = 255.0f * texelFetch(image, ivec2(x_p, y), image_lvl).r;
+                float f_x_m = 255.0f * texelFetch(image, ivec2(x_m, y), image_lvl).r;
+                float f_y_p = 255.0f * texelFetch(image, ivec2(x, y_p), image_lvl).r;
+                float f_y_m = 255.0f * texelFetch(image, ivec2(x, y_m), image_lvl).r;
 
-                if (f_x_p == image_nodata || f_x_m == image_nodata ||
-                    f_y_p == image_nodata || f_y_m == image_nodata)
-                {
-                    //no need to explicitly set to nodata, it is already in the background color
-                    //a_output = nodata;
-                    discard;
-                }
+                //if (f_x_p == image_nodata || f_x_m == image_nodata ||
+                //    f_y_p == image_nodata || f_y_m == image_nodata)
+                //{
+                //    //no need to explicitly set to nodata, it is already in the background color
+                //    //a_output = nodata;
+                //    discard;
+                //}
 
                 a_output.x = (f_x_p - f_x_m) / 2.0f;
                 a_output.y = (f_y_p - f_y_m) / 2.0f;
@@ -940,7 +962,7 @@ public:
     void Render(const MeshGL &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &in_texture,
+                const TextureGL<unsigned char> &in_texture,
                 TextureGL<linalg::Vec3<float>> &out_texture)
     {
         save_state();
@@ -956,6 +978,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
@@ -1035,36 +1059,39 @@ public:
 
             uniform sampler2D kf_image;
             uniform float kf_image_nodata;
-            uniform int kf_image_lvl;
 
             uniform sampler2D f_image;
             uniform float f_image_nodata;
-            uniform int f_image_lvl;
 
             uniform sampler2D dfdxy_image;
             uniform vec3 dfdxy_image_nodata;
-            uniform int dfdxy_image_lvl;
+            
+            uniform int in_lvl;
+            uniform int out_lvl;
 
             uniform float fx;
             uniform float fy;
 
+            uniform int out_width;
+            uniform int out_height;
+
             void main()
             {
-                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+                // ivec2 tex_size = textureSize(f_image, in_lvl);
 
-                float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
+                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
-                if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
-                {
-                    discard;
-                }
+                //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
+                //{
+                //    discard;
+                //}
 
                 float r = f - kf;
                 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_tra = vec3(v0, v1, v2);
@@ -1086,15 +1113,18 @@ public:
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
-        kf_image_lvl_loc_ = glGetUniformLocation(program_, "kf_image_lvl");
 
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
-        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
 
         dfdxy_image_loc_ = glGetUniformLocation(program_, "dfdxy_image");
         dfdxy_image_nodata_loc_ = glGetUniformLocation(program_, "dfdxy_image_nodata");
-        dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
+
+        in_lvl_loc_ = glGetUniformLocation(program_, "in_lvl");
+        out_lvl_loc_ = glGetUniformLocation(program_, "out_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1102,8 +1132,8 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &kf_texture,
+                const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
                 TextureGL<linalg::Vec3<float>> &jrot_texture,
@@ -1124,6 +1154,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jtra_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
@@ -1192,15 +1224,18 @@ public:
 
         glUniform1i(kf_image_loc_, 0);
         glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
-        glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform1f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
+
+        glUniform1i(in_lvl_loc_, in_lvl);
+        glUniform1i(out_lvl_loc_, out_lvl);
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1219,15 +1254,18 @@ private:
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
-    GLint kf_image_lvl_loc_ = -1;
 
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
-    GLint f_image_lvl_loc_ = -1;
 
     GLint dfdxy_image_loc_ = -1;
     GLint dfdxy_image_nodata_loc_ = -1;
-    GLint dfdxy_image_lvl_loc_ = -1;
+
+    GLint in_lvl_loc_ = -1;
+    GLint out_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };
 
 class JMapRendererGL : public BaseRendererGL
@@ -1320,36 +1358,39 @@ public:
 
             uniform sampler2D kf_image;
             uniform float kf_image_nodata;
-            uniform int kf_image_lvl;
 
             uniform sampler2D f_image;
             uniform float f_image_nodata;
-            uniform int f_image_lvl;
 
             uniform sampler2D dfdxy_image;
             uniform vec3 dfdxy_image_nodata;
-            uniform int dfdxy_image_lvl;
+
+            uniform int in_lvl;
+            uniform int out_lvl;
+
+            uniform int out_width;
+            uniform int out_height;
 
             uniform float fx;
             uniform float fy;
 
             void main()
             {
-                ivec2 tex_size = textureSize(f_image, f_image_lvl);
+                // ivec2 tex_size = textureSize(f_image, f_image_lvl);
 
-                float kf = textureLod(kf_image, texcoord, float(kf_image_lvl)).r;
-                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), f_image_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), dfdxy_image_lvl).xy;
+                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
-                if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
-                {
-                    discard;
-                }
+                //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
+                //{
+                //    discard;
+                //}
 
                 float r = f - kf;
 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
@@ -1381,15 +1422,18 @@ public:
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
-        kf_image_lvl_loc_ = glGetUniformLocation(program_, "kf_image_lvl");
 
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
-        f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
 
         dfdxy_image_loc_ = glGetUniformLocation(program_, "dfdxy_image");
         dfdxy_image_nodata_loc_ = glGetUniformLocation(program_, "dfdxy_image_nodata");
-        dfdxy_image_lvl_loc_ = glGetUniformLocation(program_, "dfdxy_image_lvl");
+
+        in_lvl_loc_ = glGetUniformLocation(program_, "in_lvl");
+        out_lvl_loc_ = glGetUniformLocation(program_, "out_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1397,11 +1441,11 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &kf_texture,
-                const TextureGL<float> &f_texture,
+                const TextureGL<unsigned char> &kf_texture,
+                const TextureGL<unsigned char> &f_texture,
                 const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<float>> &pids_texture,
+                TextureGL<linalg::Vec3<int>> &pids_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -1419,6 +1463,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1487,15 +1533,18 @@ public:
 
         glUniform1i(kf_image_loc_, 0);
         glUniform1f(kf_image_nodata_loc_, kf_texture.nodata());
-        glUniform1i(kf_image_lvl_loc_, in_lvl);
 
         glUniform1i(f_image_loc_, 1);
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
 
         glUniform1i(dfdxy_image_loc_, 2);
         // glUniform3f(dfdxy_image_nodata_loc_, dfdxy_texture.nodata());
-        glUniform1i(dfdxy_image_lvl_loc_, out_lvl);
+
+        glUniform1i(in_lvl_loc_, in_lvl);
+        glUniform1i(out_lvl_loc_, out_lvl);
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1514,15 +1563,18 @@ private:
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
-    GLint kf_image_lvl_loc_ = -1;
 
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
-    GLint f_image_lvl_loc_ = -1;
 
     GLint dfdxy_image_loc_ = -1;
     GLint dfdxy_image_nodata_loc_ = -1;
-    GLint dfdxy_image_lvl_loc_ = -1;
+
+    GLint in_lvl_loc_ = -1;
+    GLint out_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };
 
 class DiffRendererGL : public BaseRendererGL
@@ -1623,6 +1675,9 @@ public:
             uniform float fx;
             uniform float fy;
 
+            uniform int out_width;
+            uniform int out_height;
+
             vec2 get_dfdxy(sampler2D image, ivec2 tc, ivec2 tex_size, float nodata, int lvl)
             {
                 int x_p = tc.x + 1;
@@ -1641,10 +1696,10 @@ public:
                 float f_x_p = texelFetch(image, ivec2(x_p, tc.y), lvl).r;
                 float f_x_m = texelFetch(image, ivec2(x_m, tc.y), lvl).r;
 
-                if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
-                {
-                    return vec2(nodata, nodata);
-                }
+                //if (f_x_p == nodata || f_x_m == nodata || f_y_p == nodata || f_y_m == nodata)
+                //{
+                //    return vec2(nodata, nodata);
+                //}
 
                 return vec2((f_x_p - f_x_m) / 2.0f, (f_y_p - f_y_m) / 2.0f);
             }
@@ -1656,20 +1711,20 @@ public:
                 //float f = texelFetch(f_image, ivec2(gl_FragCoord.xy), f_image_lvl).r;
                 float f = textureLod(f_image, texcoord, float(f_image_lvl)).r;
 
-                if (f == f_image_nodata)
-                {
-                    discard;
-                }
+                //if (f == f_image_nodata)
+                //{
+                //    discard;
+                //}
 
-                vec2 dfdxy = get_dfdxy(f_image, ivec2(gl_FragCoord.xy), tex_size, f_image_nodata, f_image_lvl);
+                vec2 dfdxy = get_dfdxy(f_image, ivec2(texcoord.x*tex_size.x, texcoord.y*tex_size.y), tex_size, f_image_nodata, f_image_lvl);
 
-                if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
-                {
-                    discard;
-                }
+                //if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
+                //{
+                //    discard;
+                //}
 
-                float v0 = dfdxy.x * fx * tex_size.x / f_ver.z;
-                float v1 = dfdxy.y * fy * tex_size.y / f_ver.z;
+                float v0 = dfdxy.x * fx * out_width / f_ver.z;
+                float v1 = dfdxy.y * fy * out_height / f_ver.z;
                 float v2 = -(v0 * f_ver.x + v1 * f_ver.y) / f_ver.z;
 
                 vec3 d_f_i_d_f_ver = vec3(v0, v1, v2);
@@ -1705,6 +1760,9 @@ public:
         f_image_loc_ = glGetUniformLocation(program_, "f_image");
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
         f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
+
+        out_width_loc_ = glGetUniformLocation(program_, "out_width");
+        out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
 
     void Render(const MeshGL &mesh,
@@ -1712,13 +1770,13 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<float> &f_texture,
-                TextureGL<float> &image_texture,
+                const TextureGL<unsigned char> &diffuse_texture,
+                TextureGL<unsigned char> &image_texture,
                 TextureGL<float> &depth_texture,
                 TextureGL<linalg::Vec3<float>> &jtra_texture,
                 TextureGL<linalg::Vec3<float>> &jrot_texture,
                 TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<float>> &pids_texture)
+                TextureGL<linalg::Vec3<int>> &pids_texture)
     {
         save_state();
 
@@ -1730,6 +1788,8 @@ public:
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, jmap_texture.id(), out_lvl);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, pids_texture.id(), out_lvl);
 
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_); // now actually attach it
+
         const GLenum bufs[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
         glDrawBuffers(6, bufs);
 
@@ -1738,6 +1798,8 @@ public:
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
         // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
 
         const GLsizei W = static_cast<GLsizei>(jmap_texture.width(out_lvl));
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
@@ -1748,14 +1810,14 @@ public:
         linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
         linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
         linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
-        linalg::Vec3<float> pids_nodata = pids_texture.nodata();
+        linalg::Vec3<int> pids_nodata = pids_texture.nodata();
 
         float image_clear[4] = {image_nodata, 0, 0, 1.f};
         float depth_clear[4] = {depth_nodata, 0, 0, 1.f};
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
-        float pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1.f};
+        int pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
@@ -1791,7 +1853,7 @@ public:
         const GLenum bufs5[1] = {GL_COLOR_ATTACHMENT5};
         glDrawBuffers(1, bufs5);
         glClearColor(pids_clear[0], pids_clear[1], pids_clear[2], pids_clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
@@ -1803,13 +1865,13 @@ public:
 #if defined(GL_VERSION_4_5)
         if (GLAD_GL_VERSION_4_5)
         {
-            glBindTextureUnit(0, f_texture.id());
+            glBindTextureUnit(0, diffuse_texture.id());
         }
         else
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, f_texture.id());
+            glBindTexture(GL_TEXTURE_2D, diffuse_texture.id());
         }
 
         glUseProgram(program_);
@@ -1821,11 +1883,14 @@ public:
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
 
         glUniform1i(f_image_loc_, 0);
-        glUniform1f(f_image_nodata_loc_, f_texture.nodata());
-        glUniform1i(f_image_lvl_loc_, out_lvl);
+        glUniform1f(f_image_nodata_loc_, diffuse_texture.nodata());
+        glUniform1i(f_image_lvl_loc_, in_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
+
+        glUniform1i(out_width_loc_, W);
+        glUniform1i(out_height_loc_, H);
 
         mesh.draw();
 
@@ -1842,4 +1907,7 @@ private:
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
     GLint f_image_lvl_loc_ = -1;
+
+    GLint out_width_loc_ = -1;
+    GLint out_height_loc_ = -1;
 };

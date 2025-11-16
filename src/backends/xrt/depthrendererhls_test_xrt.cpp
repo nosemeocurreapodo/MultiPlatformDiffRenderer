@@ -53,9 +53,9 @@ int main(int argc, char **argv)
     // UploadMatToTexture(image_src_cpu, 0, image_src_cv);
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
 
-    std::vector<float> vertices, texcoords, weights;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices);
 
     // std::vector<float> screen_vertices, screen_texcoords, screen_weights;
     // std::vector<unsigned int> screen_indices;

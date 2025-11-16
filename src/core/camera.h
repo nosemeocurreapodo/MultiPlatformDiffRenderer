@@ -22,23 +22,25 @@ public:
         cx_ = 0;
         cy_ = 0;
     }
-    PinholeCamera(T fx, T fy, T cx, T cy, unsigned int width, unsigned int height)
+    template <typename T2>
+    PinholeCamera(T2 fx, T2 fy, T2 cx, T2 cy, unsigned int width, unsigned int height)
     {
-        fx_ = fx / width;
-        fy_ = fy / height;
-        cx_ = cx / width;
-        cy_ = cy / height;
+        fx_ = T(fx) / width;
+        fy_ = T(fy) / height;
+        cx_ = T(cx) / width;
+        cy_ = T(cy) / height;
 
         // float alpha = std::exp(-imageExp(0));
         // float beta = imageExp(1);
         // imageType f_i_cor = alpha * (f_i - beta);
     }
-    PinholeCamera(T fx, T fy, T cx, T cy)
+    template <typename T2>
+    PinholeCamera(T2 fx, T2 fy, T2 cx, T2 cy)
     {
-        fx_ = fx;
-        fy_ = fy;
-        cx_ = cx;
-        cy_ = cy;
+        fx_ = T(fx);
+        fy_ = T(fy);
+        cx_ = T(cx);
+        cy_ = T(cy);
     }
     PinholeCamera(T *data)
     {
@@ -70,15 +72,51 @@ public:
 
     linalg::Mat4<T> GetProjectiveMatrix(T znear, T zfar) const
     {
-        linalg::Mat4<T> projmat = linalg::Mat4<T>::Zero();
+        linalg::Mat4<T> projmat; // = linalg::Mat4<T>::Zero();
 
         projmat(0, 0) = T(2) * fx_;
-        projmat(1, 1) = T(2) * fy_;
+        projmat(0, 1) = T(0);
         projmat(0, 2) = T(1) - T(2) * cx_;
+        projmat(0, 3) = T(0);
+        //- here to flip the y axis (to render like opencv)
+        projmat(1, 0) = T(0);
+        projmat(1, 1) = -T(2) * fy_;
         projmat(1, 2) = -T(1) + T(2) * cy_;
+        projmat(1, 3) = T(0);
+
+        projmat(2, 0) = T(0);
+        projmat(2, 1) = T(0);
+        projmat(2, 2) = -(zfar + znear) / (zfar - znear);
+        projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+
+        projmat(3, 0) = T(0);
+        projmat(3, 1) = T(0);
+        projmat(3, 2) = -T(1);
+        projmat(3, 3) = T(0);
+
+        /*
+        projmat(0, 0) = T(2) * fx_;
+        projmat(1, 1) = -T(2) * fy_;
+        projmat(0, 2) = T(2) * cx_ - T(1);
+        projmat(1, 2) = T(1) - T(2) * cy_;
+        projmat(2, 2) = (zfar + znear) / (zfar - znear);
+        projmat(3, 2) = T(1);
+        projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+        */
+        /*
+        T l = -znear * cx_ / fx_;
+        T r = znear * (T(1) - cx_) / fx_;
+        T t = znear * (T(1) - cy_) / fy_;
+        T b = -znear * cy_ / fy_;
+
+        projmat(0, 0) = T(2) * znear / (r - l);
+        projmat(1, 1) = T(2) * znear / (t - b);
+        projmat(0, 2) = (r + l) / (r - l);
+        projmat(1, 2) = (t + b) / (t - b);
         projmat(2, 2) = -(zfar + znear) / (zfar - znear);
         projmat(3, 2) = -T(1);
         projmat(2, 3) = -T(2) * zfar * znear / (zfar - znear);
+        */
 
         return projmat;
     }

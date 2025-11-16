@@ -1,6 +1,9 @@
 #pragma once
 
+#include <Eigen/Core>
+#include <opencv2/opencv.hpp>
 #include "backends/cpu/buffercpu.h"
+#include "backends/base/MappedView.h"
 
 class MeshCPU
 {
@@ -8,26 +11,44 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
-    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
-            const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions),
-          tex_buffer_(texcoords),
-          ebo_buffer_(indices)
+    MeshCPU(const std::vector<float> &vertex,
+            const std::vector<unsigned int> &indices,
+            bool has_position,
+            bool has_texcoord,
+            bool has_normal)
     {
-        // validate_();
-    }
+        stride_ = 0;
 
-    MeshCPU(const std::vector<float> &positions, // 3 floats per vertex
-            const std::vector<float> &normals,
-            const std::vector<float> &texcoords, // 2 floats per vertex
-            const std::vector<unsigned int> &indices)
-        : pos_buffer_(positions),
-          nor_buffer_(normals),
-          tex_buffer_(texcoords),
-          ebo_buffer_(indices)
-    {
-        // validate_();
+        if (has_position)
+        {
+            pos_offset_ = 0;
+            stride_ += 3;
+        }
+        else
+        {
+            pos_offset_ = -1;
+        }
+        if (has_texcoord)
+        {
+            tex_offset_ = 3;
+            stride_ += 2;
+        }
+        else
+        {
+            tex_offset_ = -1;
+        }
+        if (has_normal)
+        {
+            nor_offset_ = 5;
+            stride_ += 3;
+        }
+        else
+        {
+            nor_offset_ = -1;
+        }
+
+        vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
+        ebo_buffer_ = BufferCPU<unsigned int>(indices.size(), indices.data());
     }
 
     // Copy/move
@@ -49,7 +70,7 @@ public:
     //[[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
-    unsigned int vertex_count() const noexcept { return pos_buffer_.size() / 3; }
+    unsigned int vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
     unsigned int index_count() const noexcept { return ebo_buffer_.size(); }
     unsigned int triangle_count() const noexcept { return index_count() / 3; }
 
@@ -67,36 +88,10 @@ public:
     // BufferCPU<float> &Weights() { return wei_buffer_; }
     // BufferCPU<index_type> &Indices() { return ebo_buffer_; }
 
-    // private:
-    void validate_() const
-    {
-        // position size must be multiple of 3
-        assert(pos_buffer_.size() % 3 == 0);
-        const std::size_t nverts = pos_buffer_.size() / 3;
-
-        // tex must be multiple of 2 and match vertex count
-        assert(tex_buffer_.size() % 2 == 0);
-        assert(tex_buffer_.size() / 2 == nverts);
-
-        // weights match vertex count
-        assert(wei_buffer_.size() == nverts);
-
-        // indices multiple of 3
-        assert(ebo_buffer_.size() % 3 == 0);
-
-        // (Optional) indices range check in debug
-#ifndef NDEBUG
-        auto idx = ebo_buffer_.MapRead();
-        for (std::size_t i = 0; i < idx.size(); ++i)
-        {
-            assert(idx[i] < static_cast<std::size_t>(nverts));
-        }
-#endif
-    }
-
-    BufferCPU<float> pos_buffer_;
-    BufferCPU<float> nor_buffer_;
-    BufferCPU<float> tex_buffer_;
-    BufferCPU<float> wei_buffer_;
+    BufferCPU<float> vertex_buffer_;
     BufferCPU<unsigned int> ebo_buffer_;
+    int stride_;
+    int pos_offset_;
+    int tex_offset_;
+    int nor_offset_;
 };

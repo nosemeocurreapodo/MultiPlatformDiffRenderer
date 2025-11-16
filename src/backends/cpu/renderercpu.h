@@ -14,6 +14,119 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
+void DepthRendererRef(const TextureCPU<float> &depth_texture,
+                      const linalg::SE3<float> &pose,
+                      const Camera<float> &cam,
+                      int out_lvl,
+                      TextureCPU<float> &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
+            linalg::Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
+            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
+            f_pix(1) = f_pix(1) * out_texture.height(out_lvl);
+            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
+            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
+                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
+void ImageRendererRef(const TextureCPU<float> &depth_texture,
+                      const TextureCPU<unsigned char> &image_texture,
+                      const linalg::SE3<float> &pose,
+                      const Camera<float> &cam,
+                      int out_lvl,
+                      TextureCPU<unsigned char> &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            float kf = image_texture.texel_(y, x, out_lvl);
+            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
+            linalg::Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
+            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
+            f_pix(1) = f_pix(1) * out_texture.height(out_lvl);
+            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
+template <class Base>
+class RendererBaseCPU
+    : public RendererBase<float, int, Base>
+{
+public:
+    // RendererBaseHLS() = default;
+    //~RendererBaseHLS() = default;
+
+    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
+    void RenderNaive(const BoundingBox<int> &viewport,
+                     const Mesh &mesh,
+                     const Uniforms &uniforms,
+                     InTextures &intextures,
+                     OutTextures &outtextures)
+    {
+        // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
+        float depth_buffer[1024 * 1024] = {-1.0f};
+
+    // Loop over triangles
+    renderbase_render_triangles_loop:
+        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        {
+#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+
+            int vertexids[3];
+
+            vertexids[0] = mesh.ebo_buffer_[i + 0];
+            vertexids[1] = mesh.ebo_buffer_[i + 1];
+            vertexids[2] = mesh.ebo_buffer_[i + 2];
+
+            typename Base::VertexData vertexdata[3];
+
+            vertexdata[0] = Base::get_vertex_data(mesh, vertexids[0]);
+            vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
+            vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
+
+            typename RendererBase<float, int, Base>::Triangle triangle;
+
+            this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+
+            // directly write to dram
+            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, outtextures);
+        }
+    }
+};
+
+/*
 class GouraudRendererCPU
     : public GouraudRendererBase<float, float, MeshCPU, TextureCPU>
 {
@@ -38,21 +151,65 @@ public:
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        GouraudRendererBase::Render(mesh, pose, cam, light_pos, light_color, ambient_reflectance, diffuse_reflectance, specular_reflectance, shininess, ambient_light, out_lvl, out_texture);
+        Render(mesh, pose, cam, light_pos, light_color, ambient_reflectance, diffuse_reflectance, specular_reflectance, shininess, ambient_light, out_lvl, out_texture);
     }
 
 private:
-};
+    void Render(const MeshCPU &mesh,
+                const linalg::SE3<float> &pose,
+                const Camera<float> &cam,
+                const linalg::Vec3<float> &light_pos,
+                const linalg::Vec3<float> &light_color,
+                const linalg::Vec3<float> &ambient_reflectance,
+                const linalg::Vec3<float> &diffuse_reflectance,
+                const linalg::Vec3<float> &specular_reflectance,
+                const float shininess,
+                const linalg::Vec3<float> &ambient_light,
+                unsigned int out_lvl,
+                TextureCPU<linalg::Vec3<float>> &out_texture)
+    {
+        linalg::SE3<float> cam2world = pose.inverse();
 
+        // model already in world space
+        uModel_ = linalg::Mat4<float>::Identity();
+        uView_ = this->opencv2opengl_ * pose.matrix();
+        uProjection_ = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        uNormalMatrix_ = linalg::Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
+
+        uLightPos_ = light_pos;
+        uViewPos_ = cam2world.translation(); // camera position in world space
+
+        uKa_ = ambient_reflectance;
+        uKd_ = diffuse_reflectance;
+        uKs_ = specular_reflectance;
+        uShininess_ = shininess;
+        uLightColor_ = light_color;
+        uAmbientLight_ = ambient_light;
+
+        out_lvl_ = out_lvl;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        InTextures intextures{0};
+        OutTextures outtextures{out_texture};
+
+        RendererBase<float, GouraudRendererBase>::RenderNaive(viewport, mesh, intextures, outtextures);
+    }
+};
+*/
 // -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public DepthRendererBase<float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<DepthRendererBase<float, float, TextureCPU>>
 {
 public:
+    using Base = DepthRendererBase<float, float, TextureCPU>;
+
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
 
@@ -63,10 +220,32 @@ public:
                 TextureCPU<float> &out_texture)
     {
         // Validate inputs
-        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
-        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DepthRendererBase::Render(mesh, pose, cam, out_lvl, out_texture);
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        Base::Uniforms uniforms;
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
+        uniforms.out_lvl = out_lvl;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::InTextures intextures{0};
+        Base::OutTextures outtextures{out_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
@@ -78,9 +257,11 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public ImageRendererBase<float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<ImageRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = ImageRendererBase<float, int, TextureCPU>;
+
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
 
@@ -89,13 +270,37 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &in_texture,
-                TextureCPU<float> &out_texture)
+                const TextureCPU<unsigned char> &diffuse_texture,
+                TextureCPU<unsigned char> &out_texture)
     {
-        ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
-        ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
+        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        ImageRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, in_texture, out_texture);
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        Base::Uniforms uniforms;
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::InTextures intextures{diffuse_texture};
+        Base::OutTextures outtextures{out_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
@@ -107,9 +312,11 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public ResidualRendererBase<float, float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<ResidualRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = ResidualRendererBase<float, int, TextureCPU>;
+
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
 
@@ -118,73 +325,92 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
-                TextureCPU<float> &f_texture,
+                const TextureCPU<unsigned char> &kf_texture,
+                const TextureCPU<unsigned char> &f_texture,
                 TextureCPU<float> &r_texture)
     {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        ResidualRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
-    }
+        r_texture.fill(out_lvl, r_texture.nodata());
 
-private:
-};
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
 
-class L2RendererCPU
-    : public L2RendererBase<float, float, float, MeshCPU, TextureCPU>
-{
-public:
-    L2RendererCPU() = default;
-    ~L2RendererCPU() = default;
+        Base::Uniforms uniforms;
+        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
 
-    void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
-                int in_lvl,
-                int out_lvl,
-                TextureCPU<float> &kf_texture,
-                TextureCPU<float> &f_texture,
-                TextureCPU<float> &r_texture)
-    {
+        const int W = static_cast<int>(r_texture.width(out_lvl));
+        const int H = static_cast<int>(r_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
 
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
-        // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        Base::InTextures intextures{kf_texture, f_texture};
+        Base::OutTextures outtextures{r_texture};
 
-        L2RendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, r_texture);
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
 };
 
 class DIDxyRendererCPU
-    : public DIDxyRendererBase<float, float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<DIDxyRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = DIDxyRendererBase<float, int, TextureCPU>;
+
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &in_texture,
+                const TextureCPU<unsigned char> &in_texture,
                 TextureCPU<linalg::Vec3<float>> &out_texture)
     {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DIDxyRendererBase::Render(mesh, in_lvl, out_lvl, in_texture, out_texture);
+        out_texture.fill(out_lvl, out_texture.nodata());
+
+        const int W = static_cast<int>(out_texture.width(out_lvl));
+        const int H = static_cast<int>(out_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
+
+        Base::InTextures intextures{in_texture};
+        Base::OutTextures outtextures{out_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
 };
 
 class JPoseRendererCPU
-    : public JPoseRendererBase<float, float, float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<JPoseRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = JPoseRendererBase<float, int, TextureCPU>;
+
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() = default;
 
@@ -193,27 +419,59 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
-                TextureCPU<float> &f_texture,
-                TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                const TextureCPU<unsigned char> &kf_texture,
+                const TextureCPU<unsigned char> &f_texture,
+                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
                 TextureCPU<float> &r_texture)
     {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        JPoseRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jtra_texture, jrot_texture, r_texture);
+        jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        r_texture.fill(out_lvl, r_texture.nodata());
+
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(r_texture.width(out_lvl));
+        const int H = static_cast<int>(r_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+
+        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
+        Base::OutTextures outtextures{jtra_texture, jrot_texture, r_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
 };
 
 class JMapRendererCPU
-    : public JMapRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<JMapRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = JMapRendererBase<float, int, TextureCPU>;
+
     JMapRendererCPU() = default;
     ~JMapRendererCPU() = default;
 
@@ -222,27 +480,59 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &kf_texture,
-                TextureCPU<float> &f_texture,
-                TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
+                const TextureCPU<unsigned char> &kf_texture,
+                const TextureCPU<unsigned char> &f_texture,
+                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<float>> &pids_texture,
+                TextureCPU<linalg::Vec3<int>> &pids_texture,
                 TextureCPU<float> &r_texture)
     {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        JMapRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, kf_texture, f_texture, dfdxy_texture, jmap_texture, pids_texture, r_texture);
+        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        pids_texture.fill(out_lvl, pids_texture.nodata());
+        r_texture.fill(out_lvl, r_texture.nodata());
+
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(r_texture.width(out_lvl));
+        const int H = static_cast<int>(r_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+
+        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
+        Base::OutTextures outtextures{jmap_texture, pids_texture, r_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:
 };
 
 class DiffRendererCPU
-    : public DiffRendererBase<float, float, float, float, float, MeshCPU, TextureCPU>
+    : public RendererBaseCPU<DiffRendererBase<float, int, TextureCPU>>
 {
 public:
+    using Base = DiffRendererBase<float, int, TextureCPU>;
+
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
 
@@ -251,19 +541,51 @@ public:
                 const Camera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<float> &f_texture,
-                TextureCPU<float> &image_texture,
+                const TextureCPU<unsigned char> &diffuse_texture,
+                TextureCPU<unsigned char> &image_texture,
                 TextureCPU<float> &depth_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<float>> &pids_texture)
+                TextureCPU<linalg::Vec3<int>> &pids_texture)
     {
-
-        // ErrorHandling::ValidateTextureDimensions(r_texture.width(out_lvl), r_texture.height(out_lvl), out_lvl);
+        // Validate inputs
+        // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        DiffRendererBase::Render(mesh, pose, cam, in_lvl, out_lvl, f_texture, image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture);
+        // nodata_.depth = out_texture.nodata();
+        image_texture.fill(out_lvl, image_texture.nodata());
+        depth_texture.fill(out_lvl, depth_texture.nodata());
+        jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        pids_texture.fill(out_lvl, pids_texture.nodata());
+
+        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.in_lvl = in_lvl;
+        uniforms.out_lvl = out_lvl;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::InTextures intextures{diffuse_texture};
+        Base::OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
     }
 
 private:

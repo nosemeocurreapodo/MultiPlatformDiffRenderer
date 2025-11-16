@@ -1,13 +1,14 @@
 #pragma once
-#include <algorithm>
-#include <cassert>
-#include <cstddef>
-#include <stdexcept>
-#include <utility>
-#include <vector>
+// #include <algorithm>
+// #include <cassert>
+// #include <cstddef>
+// #include <stdexcept>
+// #include <utility>
+// #include <vector>
 
 #include "backends/gl/devicegl_glad.h"
 #include "backends/base/MappedView.h"
+#include "backends/gl/format_converters.h"
 
 struct GLPboUnmap
 {
@@ -244,17 +245,6 @@ public:
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-protected:
-    friend class GouraudRendererGL;
-    friend class DepthRendererGL;
-    friend class ImageRendererGL;
-    friend class ResidualRendererGL;
-    friend class L2RendererGL;
-    friend class DIDxyRendererGL;
-    friend class JPoseRendererGL;
-    friend class JMapRendererGL;
-    friend class DiffRendererGL;
-
     [[nodiscard]] GLuint id() const noexcept
     {
         assert(tex_ != 0 && "Texture not created");
@@ -262,22 +252,6 @@ protected:
     }
 
 private:
-    /*
-    static std::size_t mip_levels_(int w, int h)
-    {
-        std::size_t levels = 0;
-        std::size_t W = static_cast<std::size_t>(w);
-        std::size_t H = static_cast<std::size_t>(h);
-        do
-        {
-            ++levels;
-            W = std::max<std::size_t>(1, W >> 1);
-            H = std::max<std::size_t>(1, H >> 1);
-        } while (W > 1 || H > 1);
-        return levels;
-    }
-    */
-
     void compute_dims_(int w, int h)
     {
         widths_.clear();
@@ -356,8 +330,8 @@ private:
         // Mutable fallback
         glGenTextures(1, &tex_);
         glBindTexture(GL_TEXTURE_2D, tex_);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 

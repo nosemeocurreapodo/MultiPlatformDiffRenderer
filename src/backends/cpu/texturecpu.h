@@ -6,8 +6,10 @@
 // #include <utility>
 // #include <vector>
 // #include <cmath>
+#include <cstring>
 #include "backends/base/texturebase.h"
 #include "backends/cpu/buffercpu.h"
+#include "core/boundingbox.h"
 
 template <class T>
 class TextureCPU
@@ -34,15 +36,49 @@ public:
     TextureCPU(unsigned int w, unsigned int h, T nodata, const T *base)
         : TextureCPU(w, h, nodata)
     {
-        auto m = MapWrite(0);
-        std::copy_n(base, w * h, m.data());
+        if (w > 0 && h > 0)
+        {
+            auto m = MapWrite(0);
+            // std::copy_n(base, w * h, m.data());
+            std::memcpy(m.data(), base, w * h * sizeof(T));
+        }
+    }
+
+    // bounding box is between 0-1
+    TextureCPU(const TextureCPU &tex, const BoundingBox<float> &bb)
+        : TextureCPU(int(ceil(bb.width_ * tex.width(0))),
+                     int(ceil(bb.height_ * tex.height(0))),
+                     tex.nodata())
+    {
+        for (int lvl = 0; lvl < levels(); ++lvl)
+        {
+            auto r = tex.MapRead(lvl);
+            auto m = MapWrite(lvl);
+
+            BoundingBox<int> level_bb(int(floor(bb.min_x_ * tex.width(lvl))),
+                                      int(ceil(bb.max_x_ * tex.width(lvl))),
+                                      int(floor(bb.min_y_ * tex.height(lvl))),
+                                      int(ceil(bb.max_y_ * tex.height(lvl))));
+
+            for (int y = 0; y < height(lvl); y++)
+            {
+                for (int x = 0; x < width(lvl); x++)
+                {
+                    int src_y = y + level_bb.min_y_;
+                    int src_x = x + level_bb.min_x_;
+
+                    T val = r[src_y * tex.width(lvl) + src_x];
+                    m[y * width(lvl) + x] = val;
+                }
+            }
+        }
     }
 
     // Rule of 5
-    TextureCPU(const TextureCPU &) = default;
-    TextureCPU &operator=(const TextureCPU &) = default;
-    TextureCPU(TextureCPU &&) noexcept = default;
-    TextureCPU &operator=(TextureCPU &&) noexcept = default;
+    // TextureCPU(const TextureCPU &) = default;
+    // TextureCPU &operator=(const TextureCPU &) = default;
+    // TextureCPU(TextureCPU &&) noexcept = default;
+    // TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;
 
     // Introspection
@@ -99,19 +135,15 @@ public:
         storage_.data()[L.offset + y * L.w + x] = v;
     }
 
-protected:
-    // template <class T, class Mesh, template <class> class Texture>
-    // friend class DepthRendererBase;
-    // template <class T, class Mesh, template <class> class Texture>
-    // friend class ImageRendererBase;
-    //  friend class DepthRendererCPU;
-    //  friend class ImageRendererCPU;
-    // friend class ResidualRendererCPU;
-    // friend class L2RendererCPU;
-    // friend class DIDxyRendererCPU;
-    // friend class JPoseRendererCPU;
-    // friend class JMapRendererCPU;
+    // void set_texel_(const T &v, unsigned int address, unsigned int lvl)
+    // {
+    // assert(x < width(lvl) && y < height(lvl));
 
+    //   const auto &L = levels_[lvl];
+    //  storage_.data()[L.offset + address] = v;
+    // }
+
+protected:
     struct Level
     {
         unsigned int offset; // element offset in storage_

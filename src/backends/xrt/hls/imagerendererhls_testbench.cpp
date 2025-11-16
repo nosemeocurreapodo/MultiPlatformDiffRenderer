@@ -1,32 +1,32 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/src/tests/data"
 
-#include "loaddataset.h"
-#include "common/test_helpers.h"
+#include "tests/common/loaddataset.h"
+#include "tests/common/test_helpers.h"
 // #include "core/types.h"
 #include "core/camera.h"
-#include "core/common.h"
+#include "core/mesh_helpers.h"
+#include <ap_int.h>
 
 extern "C"
 {
-    void ImageRenderHLS(const float *pos_buffer_data,
-                        const float *tex_buffer_data,
-                        const float *wei_buffer_data,
-                        const unsigned int *ebo_buffer_data,
-                        float *in_texture_data,
-                        float *out_texture_data,
-                        unsigned int pos_buffer_size,
-                        unsigned int tex_buffer_size,
-                        unsigned int wei_buffer_size,
+    void ImageRenderHLS(float *vertex_buffer_data,
+                        unsigned int *ebo_buffer_data,
+                        ap_uint<8> *diffuse_texture_data_ch1,
+                        ap_uint<8> *diffuse_texture_data_ch2,
+                        ap_uint<8> *diffuse_texture_data_ch3,
+                        ap_uint<8> *diffuse_texture_data_ch4,
+                        ap_uint<8> *out_texture_data,
+                        unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
-                        unsigned int in_texture_width,
-                        unsigned int in_texture_height,
-                        float in_nodata_value,
-                        unsigned int in_lvl,
+                        unsigned int diffuse_texture_width,
+                        unsigned int diffuse_texture_height,
+                        unsigned char diffuse_nodata_value,
+                        unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
-                        float out_nodata_value,
+                        unsigned char out_nodata_value,
                         unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
@@ -48,54 +48,49 @@ int main()
 
     float scale = 1.0f / depth_factor;
 
-    cv::Mat image_src_cv = ReadMat(image_files[0]);
-    cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
+    cv::Mat image_src_cv = ReadMat(image_files[0], false);
+    cv::Mat depth_src_cv = ReadMat(depth_files[0], true) * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    TextureCPU<float> image_src_cpu(w, h, -1.0f);
-    TextureCPU<float> depth_src_cpu(w, h, -1.0f);
-
-    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
-    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
-
-    cv::Mat image_dst_cv = ReadMat(image_files[50]);
-    cv::Mat depth_dst_cv = ReadMat(depth_files[50]) * scale;
+    cv::Mat image_dst_cv = ReadMat(image_files[50], false);
+    cv::Mat depth_dst_cv = ReadMat(depth_files[50], true) * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
-    std::vector<float> vertices, texcoords, weights;
+    std::vector<float> vertex;
     std::vector<unsigned int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, weights, indices);
+    CreateMesh(depth_src_cv, cam, 32, vertex, indices);
 
-    std::vector<float> screen_vertices, screen_texcoords, screen_weights;
+    std::vector<float> screen_vertex;
     std::vector<unsigned int> screen_indices;
-    CreateScreenQuad(screen_vertices, screen_texcoords, screen_weights, screen_indices);
+    CreateScreenQuad(screen_vertex, screen_indices);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 1;
+    unsigned int lvl = 0;
 
-    // Avoid using a const pointer, it does not work so well with TextureRAM (for now at least)
-    // auto image_in_map = image_src_cpu.MapRead(0);
-    auto image_in_map = image_src_cpu.MapWrite(0);
+    TextureCPU<unsigned char> diffuse_cpu(w, h, 0);
+    UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
+    auto diffuse_map = diffuse_cpu.MapWrite(0);
 
-    TextureCPU<float> image_out_cpu(w, h, -1.0f);
+    TextureCPU<unsigned char> image_out_cpu(w, h, 0);
     auto image_out_map = image_out_cpu.MapWrite(0);
 
     ImageRenderHLS(
-        vertices.data(),
-        texcoords.data(),
-        weights.data(),
+        vertex.data(),
         indices.data(),
-        image_in_map.data(),
-        image_out_map.data(),
-        vertices.size(), texcoords.size(), weights.size(), indices.size(),
-        w, h, -1.0f, lvl,
-        w, h, -1.0f, lvl,
+        (ap_uint<8> *)diffuse_map.data(),
+        (ap_uint<8> *)diffuse_map.data(),
+        (ap_uint<8> *)diffuse_map.data(),
+        (ap_uint<8> *)diffuse_map.data(),
+        (ap_uint<8> *)image_out_map.data(),
+        vertex.size(), indices.size(),
+        w, h, 0, lvl,
+        w, h, 0, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
-    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_32FC1);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl, CV_8UC1);
 
     // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
     SaveDebugImage(image_out_cv, "imagerenderhls_output.png");

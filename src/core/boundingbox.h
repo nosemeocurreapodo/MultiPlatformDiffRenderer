@@ -1,27 +1,44 @@
 #pragma once
 
-#include "core/types.h"
-#include "core/common.h"
+#ifdef USE_VITIS
+#include "backends/xrt/hls/math_common.h"
+#else
+#include "backends/cpu/math_common.h"
+#endif
 
 template <typename T>
 class BoundingBox
 {
 public:
+    BoundingBox()
+    {
+        min_x_ = 0;
+        min_y_ = 0;
+        max_x_ = 0;
+        max_y_ = 0;
+        width_ = 0;
+        height_ = 0;
+    }
+
     BoundingBox(T minx, T maxx, T miny, T maxy)
     {
         min_x_ = minx;
         min_y_ = miny;
         max_x_ = maxx;
         max_y_ = maxy;
+        width_ = maxx - minx;
+        height_ = maxy - miny;
     }
 
     template <typename Vec2Type>
     BoundingBox(Vec2Type t1, Vec2Type t2, Vec2Type t3)
     {
-        min_x_ = Type(min(min(t1(0), t2(0)), t3(0)));
-        max_x_ = Type(max(max(t1(0), t2(0)), t3(0)));
-        min_y_ = Type(min(min(t1(1), t2(1)), t3(1)));
-        max_y_ = Type(max(max(t1(1), t2(1)), t3(1)));
+        min_x_ = T(min(min(t1(0), t2(0)), t3(0)));
+        max_x_ = T(max(max(t1(0), t2(0)), t3(0)));
+        min_y_ = T(min(min(t1(1), t2(1)), t3(1)));
+        max_y_ = T(max(max(t1(1), t2(1)), t3(1)));
+        width_ = max_x_ - min_x_;
+        height_ = max_y_ - min_y_;
     }
 
     bool IsPixInBoundingBox(T x, T y)
@@ -39,22 +56,24 @@ public:
         return true;
     }
 
-    BoundingBox Union(BoundingBox win)
+    template <typename T2>
+    BoundingBox Union(BoundingBox<T2> win)
     {
-        T min_x = min(min_x_, win.min_x);
-        T max_x = max(max_x_, win.max_x);
-        T min_y = min(min_y_, win.min_y);
-        T max_y = max(max_y_, win.max_y);
+        T min_x = min(min_x_, T(win.min_x_));
+        T max_x = max(max_x_, T(win.max_x_));
+        T min_y = min(min_y_, T(win.min_y_));
+        T max_y = max(max_y_, T(win.max_y_));
 
         return BoundingBox(min_x, max_x, min_y, max_y);
     }
 
-    BoundingBox Intersection(BoundingBox win)
+    template <typename T2>
+    BoundingBox Intersection(BoundingBox<T2> win)
     {
-        T min_x = max(min_x_, win.min_x_);
-        T max_x = min(max_x_, win.max_x_);
-        T min_y = max(min_y_, win.min_y_);
-        T max_y = min(max_y_, win.max_y_);
+        T min_x = max(min_x_, T(win.min_x_));
+        T max_x = min(max_x_, T(win.max_x_));
+        T min_y = max(min_y_, T(win.min_y_));
+        T max_y = min(max_y_, T(win.max_y_));
 
         return BoundingBox(min_x, max_x, min_y, max_y);
     }
@@ -63,4 +82,6 @@ public:
     T max_x_;
     T min_y_;
     T max_y_;
+    T width_;
+    T height_;
 };

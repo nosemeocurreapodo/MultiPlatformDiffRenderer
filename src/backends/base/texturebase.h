@@ -1,13 +1,10 @@
 #pragma once
-// #include <algorithm>
-// #include <cassert>
-// #include <cstddef>
-// #include <type_traits>
-// #include <utility>
-// #include <vector>
-// #include <cmath> // std::floor, std::fmod
 
-#include "core/types.h"
+#ifdef USE_VITIS
+#include "backends/xrt/hls/math_common.h"
+#else
+#include "backends/cpu/math_common.h"
+#endif
 
 enum class AddressMode
 {
@@ -22,18 +19,20 @@ enum class FilterMode
 };
 
 template <class T>
-inline T wrap(T t, AddressMode addr)
+T wrap(T t, AddressMode addr)
 {
+#pragma HLS inline
+
     switch (addr)
     {
     case AddressMode::Clamp:
-        return clamp(t, 0.0f, 1.0f);
+        return clamp(t, T(0), T(1));
     case AddressMode::Repeat:
     {
         // wrap to [0,1)
-        T r = fmod(t, 1.0f);
-        if (r < 0.0f)
-            r += 1.0f;
+        T r = fmod(t, T(1));
+        if (r < T(0))
+            r += T(1);
         return r;
     }
     case AddressMode::Mirror:
@@ -42,23 +41,27 @@ inline T wrap(T t, AddressMode addr)
         T ip = floor(t);
         T f = t - ip;
         bool odd = static_cast<long>(ip) & 1L;
-        return odd ? (1.0f - f) : f;
+        return odd ? (T(T(1) - f)) : f;
     }
     }
     return t; // unreachable
 };
 
 template <class T, class Tex>
-T nearest(Tex &tex, T y, T x, unsigned int lvl)
+T nearest(const Tex &tex, T y, T x, unsigned int lvl)
 {
+#pragma HLS inline
+
     const auto xi = static_cast<unsigned int>(lround(x));
     const auto yi = static_cast<unsigned int>(lround(y));
-    return tex.texel_(yi, xi, lvl);
+    return T(tex.texel_(yi, xi, lvl));
 }
 
 template <class T, class Tex>
-T bilinear(Tex &tex, T y, T x, unsigned int lvl)
+T bilinear(const Tex &tex, T y, T x, unsigned int lvl)
 {
+#pragma HLS inline
+
     const auto w = tex.width(lvl);
     const auto h = tex.height(lvl);
 
@@ -72,97 +75,77 @@ T bilinear(Tex &tex, T y, T x, unsigned int lvl)
     const T dx = x - static_cast<T>(x0);
     const T dy = y - static_cast<T>(y0);
 
-    /*
-    // auto m = MapRead(lvl); // one mapping, four reads
-    const auto idx = [&](UInt yy, UInt xx)
-    {
-        // return m[xx + yy * w];
-        //  return lvls_[lvl].buf[xx + yy * w];
-        return derived_().texel_(yy, xx, lvl);
-    };
+    const auto tl = T(tex.texel_(y0, x0, lvl));
+    const auto tr = T(tex.texel_(y0, x1, lvl));
+    const auto bl = T(tex.texel_(y1, x0, lvl));
+    const auto br = T(tex.texel_(y1, x1, lvl));
 
-    const T tl = idx(y0, x0);
-    const T tr = idx(y0, x1);
-    const T bl = idx(y1, x0);
-    const T br = idx(y1, x1);
-    */
-
-    const T tl = T(tex.texel_(y0, x0, lvl));
-    const T tr = T(tex.texel_(y0, x1, lvl));
-    const T bl = T(tex.texel_(y1, x0, lvl));
-    const T br = T(tex.texel_(y1, x1, lvl));
-
-    if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
-        return tex.nodata();
-
-    // const Scalar w_tl = (1.0f - dx) * (1.0f - dy);
-    // const Scalar w_tr = (dx) * (1.0f - dy);
-    // const Scalar w_bl = (1.0f - dx) * (dy);
-    // const Scalar w_br = (dx) * (dy);
-    // return static_cast<T>(tl * w_tl + tr * w_tr + bl * w_bl + br * w_br);
+    // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
+    //     return T(tex.nodata());
 
     const T Cx0 = tl * (T(1) - dx) + tr * dx;
     const T Cx1 = bl * (T(1) - dx) + br * dx;
-    return static_cast<T>(Cx0 * (T(1) - dy) + Cx1 * dy);
+    return Cx0 * (T(1) - dy) + Cx1 * dy;
 }
 
 // Normalized sampling in [0,1] (allows outside depending on address mode)
 template <class T, class Tex>
-T sample(Tex &tex,
+T sample(const Tex &tex,
          T v, T u,
          unsigned int lvl = 0,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
+#pragma HLS inline
+
     const T w = static_cast<T>(tex.width(lvl));
     const T h = static_cast<T>(tex.height(lvl));
 
     const T uu = wrap(u, addr);
     const T vv = wrap(v, addr);
 
-    const float x = uu * w - 0.5f;
-    const float y = vv * h - 0.5f;
+    const T x = uu * w - T(0.5f);
+    const T y = vv * h - T(0.5f);
 
     return (filt == FilterMode::Nearest)
                ? nearest<T, Tex>(tex, y, x, lvl)
                : bilinear<T, Tex>(tex, y, x, lvl);
 }
 
-template <class T, class Tex>
-linalg::Vec3<T> compute_didxy(const Tex &tex, T y, T x, unsigned int lvl)
+template <class T, template <class> class V, class Tex>
+V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
 {
     // const UInt w = tex.width(lvl);
     // const UInt h = tex.height(lvl);
 
-    const int xf = int(floor(x));
-    const int yf = int(floor(y));
+#pragma HLS inline
 
-    int x_p = xf + 1;
-    int x_m = xf - 1;
-    int y_p = yf + 1;
-    int y_m = yf - 1;
+    int x_p = x + 1;
+    int x_m = x - 1;
+    int y_p = y + 1;
+    int y_m = y - 1;
 
     if (x_p >= tex.width(lvl) || x_m < 0 || y_p >= tex.height(lvl) || y_m < 0)
     {
-        return linalg::Vec3<T>(tex.nodata(), tex.nodata(), tex.nodata());
+        return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
     }
 
-    T f = T(tex.texel_(y, x, lvl));
-    T f_y_p = T(tex.texel_(y_p, x, lvl));
-    T f_y_m = T(tex.texel_(y_m, x, lvl));
-    T f_x_p = T(tex.texel_(y, x_p, lvl));
-    T f_x_m = T(tex.texel_(y, x_m, lvl));
+    auto f = tex.texel_(y, x, lvl);
+    auto f_y_p = tex.texel_(y_p, x, lvl);
+    auto f_y_m = tex.texel_(y_m, x, lvl);
+    auto f_x_p = tex.texel_(y, x_p, lvl);
+    auto f_x_m = tex.texel_(y, x_m, lvl);
 
-    if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
-        f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
-    {
-        return linalg::Vec3<T>(tex.nodata(), tex.nodata(), tex.nodata());
-    }
+    // if (f_x_p == tex.nodata() || f_x_m == tex.nodata() ||
+    //     f_y_p == tex.nodata() || f_y_m == tex.nodata() || f == tex.nodata())
+    //{
+    //     return V<T>(tex.nodata(), tex.nodata(), tex.nodata());
+    // }
 
-    linalg::Vec3<T> out_fragment;
+    V<T> out_fragment;
     out_fragment(0) = (f_x_p - f_x_m) / T(2);
     out_fragment(1) = (f_y_p - f_y_m) / T(2);
-    out_fragment(2) = 0.0; // f; // save the projected frame for later processing
+    out_fragment(2) = T(0); // f; // save the projected frame for later processing
 
     return out_fragment;
 }
@@ -176,7 +159,7 @@ void generate_mipmap(Tex<T> &tex, unsigned int lvl)
     const unsigned int dh = tex.height(lvl);
 
     // const auto s_idx = [&](UInt yy, UInt xx) -> T
-    //{
+    // {
     //     yy = min(yy, sh - 1);
     //     xx = min(xx, sw - 1);
     //     return derived_().texel_(yy, xx, lvl - 1);
@@ -197,20 +180,25 @@ void generate_mipmap(Tex<T> &tex, unsigned int lvl)
             // const T bl = s_idx(sy + 1, sx);
             // const T br = s_idx(sy + 1, sx + 1);
 
-            const T tl = map_read[sy * sw + sx];
-            const T tr = map_read[sy * sw + min(sx + 1, sw - 1)];
-            const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
-            const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
+            // const T tl = map_read[sy * sw + sx];
+            // const T tr = map_read[sy * sw + min(sx + 1, sw - 1)];
+            // const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
+            // const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
 
-            if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
-            {
-                map_write[y * dw + x] = tex.nodata();
-            }
-            else
-            {
-                T val = static_cast<T>((tl + tr + bl + br) * 0.25f);
-                map_write[y * dw + x] = val;
-            }
+            const float tl = float(map_read[sy * sw + sx]);
+            const float tr = float(map_read[sy * sw + min(sx + 1, sw - 1)]);
+            const float bl = float(map_read[min(sy + 1, sh - 1) * sw + sx]);
+            const float br = float(map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)]);
+
+            // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
+            // {
+            //     map_write[y * dw + x] = tex.nodata();
+            // }
+            // else
+            // {
+            T val = static_cast<T>(round(tl * 0.25f + tr * 0.25f + bl * 0.25f + br * 0.25f));
+            map_write[y * dw + x] = val;
+            // }
         }
     }
 }

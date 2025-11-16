@@ -1,7 +1,5 @@
 #pragma once
 
-// #include "core/types.h"
-
 template <typename T>
 class BufferRAM
 {

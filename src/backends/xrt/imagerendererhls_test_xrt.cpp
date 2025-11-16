@@ -76,12 +76,12 @@ int main(int argc, char **argv)
     ImageRendererXRT renderer;
 
     MeshXRT mesh(vertices, texcoords, weights, indices,
-                 renderer.kernel_.group_id(0), renderer.kernel_.group_id(1), renderer.kernel_.group_id(2), renderer.kernel_.group_id(3));
+                 renderer.kernel_.group_id(0), renderer.kernel_.group_id(1));
 
-    TextureXRT<float> input(w, h, -1.0f, renderer.kernel_.group_id(4));
+    TextureXRT<unsigned char> input(w, h, 0, renderer.kernel_.group_id(2));
     UploadMatToTexture(input, 0, image_src_cv);
 
-    TextureXRT<float> output(w, h, -1.0f, renderer.kernel_.group_id(5));
+    TextureXRT<unsigned char> output(w, h, 0, renderer.kernel_.group_id(6));
 
     std::vector<double> times;
     times.reserve(iterations);
