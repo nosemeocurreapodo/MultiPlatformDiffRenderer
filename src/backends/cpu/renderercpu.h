@@ -16,7 +16,7 @@
 
 void DepthRendererRef(const TextureCPU<float> &depth_texture,
                       const linalg::SE3<float> &pose,
-                      const Camera<float> &cam,
+                      const PinholeCamera<float> &cam,
                       int out_lvl,
                       TextureCPU<float> &out_texture)
 {
@@ -50,7 +50,7 @@ void DepthRendererRef(const TextureCPU<float> &depth_texture,
 void ImageRendererRef(const TextureCPU<float> &depth_texture,
                       const TextureCPU<unsigned char> &image_texture,
                       const linalg::SE3<float> &pose,
-                      const Camera<float> &cam,
+                      const PinholeCamera<float> &cam,
                       int out_lvl,
                       TextureCPU<unsigned char> &out_texture)
 {
@@ -215,7 +215,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
@@ -267,7 +267,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<unsigned char> &diffuse_texture,
@@ -322,7 +322,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<unsigned char> &kf_texture,
@@ -416,7 +416,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<unsigned char> &kf_texture,
@@ -477,7 +477,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<unsigned char> &kf_texture,
@@ -538,7 +538,7 @@ public:
 
     void Render(const MeshCPU &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<unsigned char> &diffuse_texture,

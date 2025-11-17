@@ -74,7 +74,7 @@ void CreateScreenQuad(std::vector<float> &vertex,
 }
 
 void CreateMesh(const cv::Mat &depth,
-                Camera<float> &cam, int grid_size,
+                PinholeCamera<float> &cam, int grid_size,
                 std::vector<float> &vertex,
                 std::vector<unsigned int> &indices,
                 bool add_pos = true,
@@ -208,7 +208,7 @@ void CreateMesh(const cv::Mat &depth,
 }
 
 void CreateMesh(const TextureCPU<float> &depth,
-                Camera<float> &cam, int grid_size,
+                PinholeCamera<float> &cam, int grid_size,
                 std::vector<Eigen::Vector3f> &vertices,
                 std::vector<Eigen::Vector2f> &texcoords,
                 std::vector<Eigen::Vector3f> &normals,
@@ -321,7 +321,7 @@ void CreateMesh(const TextureCPU<float> &depth,
 }
 
 void CreateFlatMesh(float min_depth, float max_depth,
-                    Camera<float> &cam, int grid_size,
+                    PinholeCamera<float> &cam, int grid_size,
                     std::vector<Eigen::Vector3f> &vertices,
                     std::vector<Eigen::Vector2f> &texcoords,
                     std::vector<unsigned int> &indices)
@@ -352,7 +352,7 @@ void CreateFlatMesh(float min_depth, float max_depth,
 }
 
 void CreateSphereMesh(float depth,
-                      Camera<float> &cam, int grid_size,
+                      PinholeCamera<float> &cam, int grid_size,
                       std::vector<Eigen::Vector3f> &vertices,
                       std::vector<Eigen::Vector2f> &texcoords,
                       std::vector<unsigned int> &indices)

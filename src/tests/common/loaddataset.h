@@ -154,7 +154,7 @@ public:
         return time_stamps_;
     }
 
-    Camera<float> GetCamera()
+    PinholeCamera<float> GetCamera()
     {
         return cam_;
     }
@@ -201,7 +201,7 @@ protected:
     std::vector<std::string> depth_files_;
     std::vector<linalg::SE3<float>> poses_;
     std::vector<double> time_stamps_;
-    Camera<float> cam_;
+    PinholeCamera<float> cam_;
 };
 
 class LoadDatasetTumRgbd : public LoadDatasetBase

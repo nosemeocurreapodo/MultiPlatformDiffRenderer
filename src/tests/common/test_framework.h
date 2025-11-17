@@ -100,7 +100,7 @@ protected:
 
     std::vector<std::string> image_files_, depth_files_;
     std::vector<linalg::SE3<float>> poses_;
-    Camera<float> cam_;
+    PinholeCamera<float> cam_;
     int w_, h_;
     float depth_factor_;
 

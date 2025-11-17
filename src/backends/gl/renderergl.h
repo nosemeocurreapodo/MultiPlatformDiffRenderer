@@ -420,7 +420,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 const linalg::Vec3<float> &light_pos,
                 const linalg::Vec3<float> &light_color,
                 const linalg::Vec3<float> &ambient_reflectance,
@@ -562,7 +562,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int out_lvl,
                 TextureGL<float> &depth_texture)
     {
@@ -672,7 +672,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<unsigned char> &diffuse_texture,
@@ -807,7 +807,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<unsigned char> &kf_texture,
@@ -1129,7 +1129,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<unsigned char> &kf_texture,
@@ -1438,7 +1438,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<unsigned char> &kf_texture,
@@ -1767,7 +1767,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<unsigned char> &diffuse_texture,

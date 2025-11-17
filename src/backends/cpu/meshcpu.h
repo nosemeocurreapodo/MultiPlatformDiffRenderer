@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Eigen/Core>
-#include <opencv2/opencv.hpp>
 #include "backends/cpu/buffercpu.h"
 #include "backends/base/MappedView.h"
 

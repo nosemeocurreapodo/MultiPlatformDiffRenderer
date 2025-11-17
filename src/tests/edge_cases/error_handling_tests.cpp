@@ -214,7 +214,7 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
     // Create camera with extreme parameters
-    Camera<float> extreme_cam;
+    PinholeCamera<float> extreme_cam;
     linalg::Vec4<float> extreme_params;
     extreme_params(0) = 1e6f;
     extreme_params(1) = 1e6f;

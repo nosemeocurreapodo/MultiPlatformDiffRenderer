@@ -6,12 +6,6 @@
 #include "linalg/linalg.h"
 
 template <typename T>
-class PinholeCamera;
-
-template <typename T>
-using Camera = PinholeCamera<T>;
-
-template <typename T>
 class PinholeCamera
 {
 public:

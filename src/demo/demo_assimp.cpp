@@ -226,7 +226,7 @@ int main(int argc, char **argv)
     float cx = 0.5f * (width - 1);
     float cy = 0.5f * (height - 1);
 
-    Camera<float> camera(fx, fy, cx, cy, width, height);
+    PinholeCamera<float> camera(fx, fy, cx, cy, width, height);
 
     std::vector<std::string> output_names;
     output_names.push_back("image");

@@ -1,10 +1,10 @@
 #pragma once
-//#include <algorithm>
-//#include <cassert>
-//#include <cstddef>
-//#include <memory>
-//#include <utility>
-//#include <vector>
+#include <algorithm> // for copy_n
+#include <cassert>   // for assert
+// #include <cstddef>
+#include <memory> // for unique_ptr
+// #include <utility>
+#include <vector> // for vector
 
 #include "backends/base/MappedView.h" // your MappedView + NoopReleaser
 
@@ -45,8 +45,8 @@ public:
     }
 
     // Move (nothrow)
-    BufferCPU(BufferCPU &&) noexcept = default;
-    BufferCPU &operator=(BufferCPU &&) noexcept = default;
+    //BufferCPU(BufferCPU &&) noexcept = default;
+    //BufferCPU &operator=(BufferCPU &&) noexcept = default;
 
     ~BufferCPU() = default;
 
