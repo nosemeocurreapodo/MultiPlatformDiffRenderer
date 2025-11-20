@@ -172,6 +172,7 @@ endif()
 
 if(COMPILE_TESTS)
     include(CTest)
+    include(GoogleTest)
     enable_testing()
     add_subdirectory(src/tests)
 endif()

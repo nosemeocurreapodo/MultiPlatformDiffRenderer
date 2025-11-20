@@ -1,5 +1,3 @@
-include(GoogleTest)
-
 # Unit tests for individual backends
 add_subdirectory(unit)
 

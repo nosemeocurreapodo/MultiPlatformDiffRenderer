@@ -1,7 +1,3 @@
-# Unit tests for individual backends
-find_package(OpenCV REQUIRED)
-find_package(Eigen3 REQUIRED)
-
 # Unified typed backend tests
 add_executable(renderer_tests renderer_tests.cpp)
 target_link_libraries(renderer_tests 
