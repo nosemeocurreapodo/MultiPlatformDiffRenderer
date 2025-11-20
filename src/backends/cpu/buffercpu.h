@@ -1,4 +1,5 @@
 #pragma once
+
 #include <algorithm> // for copy_n
 #include <cassert>   // for assert
 // #include <cstddef>

@@ -54,63 +54,64 @@ public:
         vbo_vertex_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(vertex.size(), vertex.data());
         ebo_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
 
-        glGenVertexArrays(1, &vao_);
-        glBindVertexArray(vao_);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_.id());
-
-        int attribute_index = 0;
-        if (has_position)
-        {
-            glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_, (void *)pos_offset_);
-            attribute_index++;
-        }
-        if (has_texcoord)
-        {
-            glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 2, GL_FLOAT, GL_FALSE, stride_, (void *)tex_offset_);
-            attribute_index++;
-        }
-        if (has_normal)
-        {
-            glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_, (void *)nor_offset_);
-        }
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
-
-        glBindVertexArray(0);
+        create_vao_();
     }
 
     ~MeshGL() { destroy_vao_(); }
 
-    MeshGL(const MeshGL &) = delete;
-    MeshGL &operator=(const MeshGL &) = delete;
+    // ---------- COPY CONSTRUCTOR ----------
+    MeshGL(const MeshGL &other)
+        : vao_(0),
+          vbo_vertex_(other.vbo_vertex_),
+          ebo_(other.ebo_),
+          stride_(other.stride_),
+          pos_offset_(other.pos_offset_),
+          tex_offset_(other.tex_offset_),
+          nor_offset_(other.nor_offset_)
+    {
+        create_vao_();
+    }
 
+    // ---------- COPY ASSIGNMENT ----------
+    MeshGL &operator=(const MeshGL &other)
+    {
+        if (this != &other)
+        {
+            destroy_vao_();
+
+            vbo_vertex_ = other.vbo_vertex_;
+            ebo_ = other.ebo_;
+
+            stride_     = other.stride_;
+            pos_offset_ = other.pos_offset_;
+            tex_offset_ = other.tex_offset_;
+            nor_offset_ = other.nor_offset_;
+
+            create_vao_();
+        }
+        return *this;
+    }
+
+    // ---------- MOVE CONSTRUCTOR / ASSIGNMENT ----------
     MeshGL(MeshGL &&o) noexcept { *this = std::move(o); }
+
     MeshGL &operator=(MeshGL &&o) noexcept
     {
         if (this != &o)
         {
             destroy_vao_();
+
             vao_ = std::exchange(o.vao_, 0);
             vbo_vertex_ = std::move(o.vbo_vertex_);
             ebo_ = std::move(o.ebo_);
+
+            stride_     = o.stride_;
+            pos_offset_ = o.pos_offset_;
+            tex_offset_ = o.tex_offset_;
+            nor_offset_ = o.nor_offset_;
         }
         return *this;
     }
-
-    // Cross-backend style mapped views (avoid storing the view)
-    //[[nodiscard]] MappedView<const float, GLUnmap> MapReadPositions() const & { return vbo_pos_.MapRead(); }
-    //[[nodiscard]] MappedView<const float, GLUnmap> MapReadTexcoords() const & { return vbo_uv_.MapRead(); }
-    //[[nodiscard]] MappedView<const float, GLUnmap> MapReadWeights() const & { return vbo_w_.MapRead(); }
-    //[[nodiscard]] MappedView<const unsigned int, GLUnmap> MapReadIndices() const & { return ebo_.MapRead(); }
-
-    //[[nodiscard]] MappedView<float, GLUnmap> MapWritePositions() { return vbo_pos_.MapWrite(); }
-    //[[nodiscard]] MappedView<float, GLUnmap> MapWriteTexcoords() { return vbo_uv_.MapWrite(); }
-    //[[nodiscard]] MappedView<float, GLUnmap> MapWriteWeights() { return vbo_w_.MapWrite(); }
-    //[[nodiscard]] MappedView<unsigned int, GLUnmap> MapWriteIndices() { return ebo_.MapWrite(); }
 
     // --- Info ---
     std::size_t vertex_count() const noexcept { return vbo_vertex_.size() / stride_; }
@@ -139,8 +140,43 @@ public:
     BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vbo_vertex_;
     BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
 
-    int stride_;
-    long int pos_offset_;
-    long int tex_offset_;
-    long int nor_offset_;
+    int stride_{};
+    long int pos_offset_{-1};
+    long int tex_offset_{-1};
+    long int nor_offset_{-1};
+
+private:
+    void create_vao_()
+    {
+        glGenVertexArrays(1, &vao_);
+        glBindVertexArray(vao_);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_.id());
+
+        int attribute_index = 0;
+        if (pos_offset_ >= 0)
+        {
+            glEnableVertexAttribArray(attribute_index);
+            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_,
+                                  reinterpret_cast<void *>(pos_offset_));
+            attribute_index++;
+        }
+        if (tex_offset_ >= 0)
+        {
+            glEnableVertexAttribArray(attribute_index);
+            glVertexAttribPointer(attribute_index, 2, GL_FLOAT, GL_FALSE, stride_,
+                                  reinterpret_cast<void *>(tex_offset_));
+            attribute_index++;
+        }
+        if (nor_offset_ >= 0)
+        {
+            glEnableVertexAttribArray(attribute_index);
+            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_,
+                                  reinterpret_cast<void *>(nor_offset_));
+        }
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
+
+        glBindVertexArray(0);
+    }
 };
