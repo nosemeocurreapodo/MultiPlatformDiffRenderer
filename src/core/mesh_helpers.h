@@ -322,6 +322,65 @@ void CreateMesh(const TextureCPU<float> &depth,
 
 void CreateFlatMesh(float min_depth, float max_depth,
                     PinholeCamera<float> &cam, int grid_size,
+                    std::vector<float> &vertex,
+                    std::vector<unsigned int> &indices,
+                    bool add_pos = true,
+                    bool add_tex = true,
+                    bool add_normal = true)
+{
+    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+
+    int stride = 0;
+    if (add_pos)
+        stride += 3;
+    if (add_tex)
+        stride += 2;
+    if (add_normal)
+        stride += 3;
+
+    std::vector<Eigen::Vector2f> texcoords;
+    texcoords.reserve(grid_uv.size());
+
+    vertex.clear();
+    vertex.reserve(grid_uv.size() * stride);
+
+    for (const linalg::Vec2<float> &uv : grid_uv)
+    {
+        const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
+
+        if (depth <= 0.0f)
+            continue;
+
+        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        const linalg::Vec3<float> ver = ray * depth;
+        const linalg::Vec3<float> nor(0.0, 0.0, 1.0);
+
+        if (add_pos)
+        {
+            vertex.push_back(ver(0));
+            vertex.push_back(ver(1));
+            vertex.push_back(ver(2));
+        }
+        if (add_tex)
+        {
+            vertex.push_back(uv(0));
+            vertex.push_back(uv(1));
+        }
+        if (add_normal)
+        {
+            vertex.push_back(nor(0));
+            vertex.push_back(nor(1));
+            vertex.push_back(nor(2));
+        }
+
+        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
+    }
+
+    BuildTriangles(texcoords, indices);
+}
+
+void CreateFlatMesh(float min_depth, float max_depth,
+                    PinholeCamera<float> &cam, int grid_size,
                     std::vector<Eigen::Vector3f> &vertices,
                     std::vector<Eigen::Vector2f> &texcoords,
                     std::vector<unsigned int> &indices)

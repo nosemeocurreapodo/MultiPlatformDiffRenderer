@@ -82,7 +82,7 @@ public:
             vbo_vertex_ = other.vbo_vertex_;
             ebo_ = other.ebo_;
 
-            stride_     = other.stride_;
+            stride_ = other.stride_;
             pos_offset_ = other.pos_offset_;
             tex_offset_ = other.tex_offset_;
             nor_offset_ = other.nor_offset_;
@@ -105,7 +105,7 @@ public:
             vbo_vertex_ = std::move(o.vbo_vertex_);
             ebo_ = std::move(o.ebo_);
 
-            stride_     = o.stride_;
+            stride_ = o.stride_;
             pos_offset_ = o.pos_offset_;
             tex_offset_ = o.tex_offset_;
             nor_offset_ = o.nor_offset_;
@@ -117,6 +117,48 @@ public:
     std::size_t vertex_count() const noexcept { return vbo_vertex_.size() / stride_; }
     std::size_t index_count() const noexcept { return ebo_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
+
+    std::vector<float> get_positions()
+    {
+        std::vector<float> pos;
+        if (pos_offset_ < 0)
+            return pos;
+        auto vertex_map = vbo_vertex_.MapRead();
+        for (int i = 0; i < vertex_count(); i++)
+        {
+            float v0 = vertex_map[i * stride_ + pos_offset_ + 0];
+            float v1 = vertex_map[i * stride_ + pos_offset_ + 1];
+            float v2 = vertex_map[i * stride_ + pos_offset_ + 2];
+
+            pos.push_back(v0);
+            pos.push_back(v1);
+            pos.push_back(v2);
+        }
+        return pos;
+    }
+
+    std::vector<int> get_indices()
+    {
+        std::vector<int> ids;
+        auto index_map = ebo_.MapRead();
+        for (int i = 0; i < index_map.size(); i++)
+        {
+            int id = index_map[i];
+            ids.push_back(id);
+        }
+        return ids;
+    }
+
+    void set_positions(std::vector<float> &positions)
+    {
+        auto vertex_map = vbo_vertex_.MapWrite();
+        for (int i = 0; i < vertex_count(); i++)
+        {
+            vertex_map[i * stride_ + pos_offset_ + 0] = positions[i * 3 + 0];
+            vertex_map[i * stride_ + pos_offset_ + 1] = positions[i * 3 + 1];
+            vertex_map[i * stride_ + pos_offset_ + 2] = positions[i * 3 + 2];
+        }
+    }
 
     void draw() const
     {
