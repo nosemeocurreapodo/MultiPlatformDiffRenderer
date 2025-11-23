@@ -10,7 +10,7 @@ public:
     //  using size_type = std::size_t;
 
     MeshCPU(const std::vector<float> &vertex,
-            const std::vector<unsigned int> &indices,
+            const std::vector<int> &indices,
             bool has_position,
             bool has_texcoord,
             bool has_normal)
@@ -46,7 +46,7 @@ public:
         }
 
         vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
-        ebo_buffer_ = BufferCPU<unsigned int>(indices.size(), indices.data());
+        ebo_buffer_ = BufferCPU<int>(indices.size(), indices.data());
     }
 
     // Copy/move
@@ -110,9 +110,9 @@ public:
     //[[nodiscard]] MappedView<index_type> MapWriteIndices() { return ebo_buffer_.MapWrite(); }
 
     // Info
-    unsigned int vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
-    unsigned int index_count() const noexcept { return ebo_buffer_.size(); }
-    unsigned int triangle_count() const noexcept { return index_count() / 3; }
+    int vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
+    int index_count() const noexcept { return ebo_buffer_.size(); }
+    int triangle_count() const noexcept { return index_count() / 3; }
 
     // protected:
     // template <class T, class Derived>
@@ -129,7 +129,7 @@ public:
     // BufferCPU<index_type> &Indices() { return ebo_buffer_; }
 
     BufferCPU<float> vertex_buffer_;
-    BufferCPU<unsigned int> ebo_buffer_;
+    BufferCPU<int> ebo_buffer_;
     int stride_;
     int pos_offset_;
     int tex_offset_;

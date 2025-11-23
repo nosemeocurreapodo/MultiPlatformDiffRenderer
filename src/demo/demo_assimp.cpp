@@ -6,8 +6,9 @@
 #include <cmath>
 
 #include "tests/common/test_helpers.h"
-#include "model.h"
+#include "core/types.h"
 #include "linalg/converters.h"
+#include "model.h"
 
 #ifdef COMPILE_CPU
 // #include "backends/cpu/devicecpu.h"
@@ -63,7 +64,7 @@ int main(int argc, char **argv)
 
     // Load mesh via Assimp
     std::vector<float> vertex;
-    std::vector<unsigned int> indices;
+    std::vector<int> indices;
     std::vector<std::string> textures;
     bool has_positions, has_texcoords, has_normals;
 
@@ -131,7 +132,6 @@ int main(int argc, char **argv)
     if (!textures.empty())
     {
         diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
-        // diffuse_cv.convertTo(diffuse_cv, CV_32F, 1.0 / 255.0);
     }
     // if (diffuse.empty())
     // {
@@ -151,15 +151,15 @@ int main(int argc, char **argv)
 
     MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
 
-    TextureCPU<unsigned char> diffusecpu(diffuse_cv.cols, diffuse_cv.rows, 0);
+    TextureCPU<ImageType> diffusecpu(diffuse_cv.cols, diffuse_cv.rows, 0);
     UploadMatToTexture(diffusecpu, 0, diffuse_cv);
 
-    TextureCPU<unsigned char> imagecpu(width, height, 0);
+    TextureCPU<ImageType> imagecpu(width, height, 0);
     TextureCPU<float> depthcpu(width, height, -1.0f);
-    TextureCPU<linalg::Vec3<float>> jtracpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<linalg::Vec3<float>> jrotcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<linalg::Vec3<float>> jmapcpu(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<linalg::Vec3<int>> pidscpu(width, height, linalg::Vec3<int>(-1, -1, -1));
+    TextureCPU<Vec3<float>> jtracpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> jrotcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> jmapcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<PidType>> pidscpu(width, height, Vec3<PidType>(-1, -1, -1));
 #endif
 
 #ifdef COMPILE_GL
@@ -167,15 +167,15 @@ int main(int argc, char **argv)
 
     MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
 
-    TextureGL<unsigned char> diffusegl(diffuse_cv.cols, diffuse_cv.rows, 0);
+    TextureGL<ImageType> diffusegl(diffuse_cv.cols, diffuse_cv.rows, 0);
     UploadMatToTexture(diffusegl, 0, diffuse_cv);
 
-    TextureGL<unsigned char> imagegl(width, height, 0);
+    TextureGL<ImageType> imagegl(width, height, 0);
     TextureGL<float> depthgl(width, height, -1.0f);
-    TextureGL<linalg::Vec3<float>> jtragl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<linalg::Vec3<float>> jrotgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<linalg::Vec3<float>> jmapgl(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<linalg::Vec3<int>> pidsgl(width, height, linalg::Vec3<int>(-1, -1, -1));
+    TextureGL<Vec3<float>> jtragl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> jrotgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> jmapgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<PidType>> pidsgl(width, height, Vec3<PidType>(-1, -1, -1));
 #endif
 
 #ifdef COMPILE_GLES2
@@ -183,15 +183,15 @@ int main(int argc, char **argv)
 
     MeshGLES2 meshgles2(vertex, indices, has_positions, has_texcoords, has_normals);
 
-    TextureGLES2<unsigned char> diffusegles(diffuse_cv.cols, diffuse_cv.rows, 0);
+    TextureGLES2<ImageType> diffusegles(diffuse_cv.cols, diffuse_cv.rows, 0);
     UploadMatToTexture(diffusegles, 0, diffuse_cv);
 
-    TextureGLES2<unsigned char> imagegles2(width, height, 0);
+    TextureGLES2<ImageType> imagegles2(width, height, 0);
     TextureGLES2<float> depthgles2(width, height, -1.0f);
-    TextureGLES2<linalg::Vec3<float>> jtragles2(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGLES2<linalg::Vec3<float>> jrotgles2(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGLES2<linalg::Vec3<float>> jmapgles2(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGLES2<linalg::Vec3<int>> pidsgles2(width, height, linalg::Vec3<int>(-1, -1, -1));
+    TextureGLES2<Vec3<float>> jtragles2(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGLES2<Vec3<float>> jrotgles2(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGLES2<Vec3<float>> jmapgles2(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGLES2<Vec3<PidType>> pidsgles2(width, height, Vec3<PidType>(-1, -1, -1));
 #endif
 
 #ifdef COMPILE_XRT
@@ -201,10 +201,10 @@ int main(int argc, char **argv)
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
 
-    TextureXRT<unsigned char> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
+    TextureXRT<ImageType> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
     UploadMatToTexture(diffusexrt, 0, diffuse_cv);
 
-    TextureXRT<unsigned char> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
+    TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
     // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -319,19 +319,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(imagecpu, out_lvl, CV_8UC1);
+                out_f = DownloadTextureToMat(imagecpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(imagegl, out_lvl, CV_8UC1);
+                out_f = DownloadTextureToMat(imagegl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(imagegles2, out_lvl, CV_8UC1);
+                out_f = DownloadTextureToMat(imagegles2, out_lvl);
 #endif
 #ifdef COMPILE_XRT
             if (backend_names[backend] == "xrt")
-                out_f = DownloadTextureToMat(imagexrt, out_lvl, CV_8UC1);
+                out_f = DownloadTextureToMat(imagexrt, out_lvl);
 #endif
         }
 
@@ -339,19 +339,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(depthcpu, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(depthcpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(depthgl, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(depthgl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(depthgles2, out_lvl, CV_32FC1);
+                out_f = DownloadTextureToMat(depthgles2, out_lvl);
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                out_f = DownloadTextureToMat(depthxrt, out_lvl, CV_32FC1);
+            //                out_f = DownloadTextureToMat(depthxrt, out_lvl);
             // #endif
         }
 
@@ -359,19 +359,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(jtracpu, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jtracpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(jtragl, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jtragl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(jtragles2, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jtragles2, out_lvl);
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jtraxrt, out_lvl, CV_32FC3);
+            //                 out_f = DownloadTextureToMat(jtraxrt, out_lvl);
             // #endif
         }
 
@@ -379,19 +379,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(jrotcpu, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jrotcpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(jrotgl, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jrotgl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(jrotgles2, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jrotgles2, out_lvl);
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jrotxrt, out_lvl, CV_32FC3);
+            //                 out_f = DownloadTextureToMat(jrotxrt, out_lvl);
             // #endif
         }
 
@@ -399,19 +399,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(jmapcpu, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jmapcpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(jmapgl, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jmapgl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(jmapgles2, out_lvl, CV_32FC3);
+                out_f = DownloadTextureToMat(jmapgles2, out_lvl);
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jmapxrt, out_lvl, CV_32FC3);
+            //                 out_f = DownloadTextureToMat(jmapxrt, out_lvl);
             // #endif
         }
 
@@ -419,19 +419,19 @@ int main(int argc, char **argv)
         {
 #ifdef COMPILE_CPU
             if (backend_names[backend] == "cpu")
-                out_f = DownloadTextureToMat(pidscpu, out_lvl, CV_32SC3);
+                out_f = DownloadTextureToMat(pidscpu, out_lvl);
 #endif
 #ifdef COMPILE_GL
             if (backend_names[backend] == "gl")
-                out_f = DownloadTextureToMat(pidsgl, out_lvl, CV_32SC3);
+                out_f = DownloadTextureToMat(pidsgl, out_lvl);
 #endif
 #ifdef COMPILE_GLES2
             if (backend_names[backend] == "gles2")
-                out_f = DownloadTextureToMat(pidsgles2, out_lvl, CV_32SC3);
+                out_f = DownloadTextureToMat(pidsgles2, out_lvl);
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(pidsxrt, out_lvl, CV_32SC3);
+            //                 out_f = DownloadTextureToMat(pidsxrt, out_lvl);
             // #endif
         }
 

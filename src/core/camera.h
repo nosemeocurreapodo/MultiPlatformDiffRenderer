@@ -2,8 +2,7 @@
 
 // #include <cassert>
 // #include <vector>
-// #include "core/types.h"
-#include "linalg/linalg.h"
+#include "core/types.h"
 
 template <typename T>
 class PinholeCamera
@@ -64,9 +63,9 @@ public:
         return *this;
     }
 
-    linalg::Mat4<T> GetProjectiveMatrix(T znear, T zfar) const
+    Mat4<T> GetProjectiveMatrix(T znear, T zfar) const
     {
-        linalg::Mat4<T> projmat; // = linalg::Mat4<T>::Zero();
+        Mat4<T> projmat; // = linalg::Mat4<T>::Zero();
 
         projmat(0, 0) = T(2) * fx_;
         projmat(0, 1) = T(0);
@@ -137,7 +136,7 @@ public:
     }
     */
 
-    linalg::Vec2<T> RayToPix(linalg::Vec3<T> ray) const
+    Vec2<T> RayToPix(Vec3<T> ray) const
     {
         linalg::Vec2<T> pix;
         pix(0) = fx_ * ray(0) + cx_;
@@ -146,9 +145,9 @@ public:
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    linalg::Mat<T, 2, 3> d_pix_d_ver(linalg::Vec3<T> ver) const
+    Mat<T, 2, 3> d_pix_d_ver(Vec3<T> ver) const
     {
-        linalg::Mat<T, 2, 3> d_pix_d_ver;
+        Mat<T, 2, 3> d_pix_d_ver;
 
         d_pix_d_ver(0, 0) = fx_ / ver(2);
         d_pix_d_ver(0, 1) = T(0);
@@ -161,9 +160,9 @@ public:
         return d_pix_d_ver;
     }
 
-    linalg::Mat<T, 2, 4> d_pix_d_intrinsics(linalg::Vec3<T> ray) const
+    Mat<T, 2, 4> d_pix_d_intrinsics(Vec3<T> ray) const
     {
-        linalg::Mat<T, 2, 4> d_pix_d_int;
+        Mat<T, 2, 4> d_pix_d_int;
 
         d_pix_d_int(0, 0) = ray(0);
         d_pix_d_int(0, 1) = T(0);
@@ -178,9 +177,9 @@ public:
         return d_pix_d_int;
     }
 
-    linalg::Vec3<T> PixToRay(linalg::Vec2<T> pix) const
+    Vec3<T> PixToRay(Vec2<T> pix) const
     {
-        linalg::Vec3<T> ray;
+        Vec3<T> ray;
         ray(0) = (pix(0) - cx_) / fx_;
         ray(1) = (pix(1) - cy_) / fy_;
         ray(2) = T(1);
@@ -211,12 +210,12 @@ public:
     }
     */
 
-    linalg::Vec4<T> GetParams() const
+    Vec4<T> GetParams() const
     {
-        return linalg::Vec4<T>(fx_, fy_, cx_, cy_);
+        return Vec4<T>(fx_, fy_, cx_, cy_);
     }
 
-    void SetParams(linalg::Vec4<T> params)
+    void SetParams(Vec4<T> params)
     {
         fx_ = params(0);
         fy_ = params(1);

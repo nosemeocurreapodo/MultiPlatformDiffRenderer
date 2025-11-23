@@ -10,6 +10,7 @@
 #include "backends/base/texturebase.h"
 #include "backends/cpu/buffercpu.h"
 #include "core/boundingbox.h"
+#include "core/typeindex_common.h"
 
 template <class T>
 class TextureCPU
@@ -87,6 +88,7 @@ public:
     unsigned int levels() const { return levels_.size(); }
     // UInt size() const { return total_size_; }
     unsigned int type_size() const { return sizeof(T); };
+    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant

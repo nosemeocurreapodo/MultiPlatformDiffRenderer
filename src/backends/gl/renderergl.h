@@ -6,10 +6,12 @@
 // #include <type_traits>
 // #include <cassert>
 
-#include "backends/gl/devicegl_glad.h"
-#include "core/camera.h"
 #include "core/render_constants.h"
 #include "core/error_handling.h"
+#include "core/types.h"
+#include "core/camera.h"
+#include "core/boundingbox.h"
+#include "backends/gl/devicegl_glad.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
 
@@ -421,15 +423,15 @@ public:
     void Render(const MeshGL &mesh,
                 const linalg::SE3<float> &pose,
                 const PinholeCamera<float> &cam,
-                const linalg::Vec3<float> &light_pos,
-                const linalg::Vec3<float> &light_color,
-                const linalg::Vec3<float> &ambient_reflectance,
-                const linalg::Vec3<float> &diffuse_reflectance,
-                const linalg::Vec3<float> &specular_reflectance,
+                const Vec3<float> &light_pos,
+                const Vec3<float> &light_color,
+                const Vec3<float> &ambient_reflectance,
+                const Vec3<float> &diffuse_reflectance,
+                const Vec3<float> &specular_reflectance,
                 const float shininess,
-                const linalg::Vec3<float> &ambient_light,
+                const Vec3<float> &ambient_light,
                 unsigned int out_lvl,
-                TextureGL<linalg::Vec3<float>> &out_texture)
+                TextureGL<Vec3<float>> &out_texture)
     {
         // Validate inputs
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -466,15 +468,15 @@ public:
 
         glUseProgram(program_);
 
-        linalg::SE3<float> cam2world = pose.inverse();
+        SE3<float> cam2world = pose.inverse();
 
         // model already in world space
-        linalg::Mat4<float> uModel = linalg::Mat4<float>::Identity();
-        linalg::Mat4<float> uView = this->opencv2opengl_ * pose.matrix();
-        linalg::Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-        linalg::Mat3<float> uNormalMatrix = linalg::Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
+        Mat4<float> uModel = Mat4<float>::Identity();
+        Mat4<float> uView = this->opencv2opengl_ * pose.matrix();
+        Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        Mat3<float> uNormalMatrix = Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
 
-        linalg::Vec3<float> uViewPos = cam2world.translation(); // camera position in world space
+        Vec3<float> uViewPos = cam2world.translation(); // camera position in world space
 
         glUniformMatrix4fv(uModel_loc_, 1, GL_FALSE, uModel.data());
         glUniformMatrix4fv(uView_loc_, 1, GL_FALSE, uView.data());
@@ -561,7 +563,7 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int out_lvl,
                 TextureGL<float> &depth_texture)
@@ -671,12 +673,12 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &diffuse_texture,
-                TextureGL<unsigned char> &out_texture)
+                const TextureGL<ImageType> &diffuse_texture,
+                TextureGL<ImageType> &out_texture)
     {
         save_state();
 
@@ -724,9 +726,9 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                             opencv2opengl_ *
-                                             pose.matrix();
+        const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+                                     opencv2opengl_ *
+                                     pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(image_loc_, 0);                               // texture unit
@@ -806,12 +808,12 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &kf_texture,
-                const TextureGL<unsigned char> &f_texture,
+                const TextureGL<ImageType> &kf_texture,
+                const TextureGL<ImageType> &f_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -860,7 +862,7 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
+        const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_ * pose.matrix();
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
 
         glUniform1i(kf_image_loc_, 0);
@@ -962,7 +964,7 @@ public:
     void Render(const MeshGL &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &in_texture,
+                const TextureGL<ImageType> &in_texture,
                 TextureGL<linalg::Vec3<float>> &out_texture)
     {
         save_state();
@@ -1128,15 +1130,15 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &kf_texture,
-                const TextureGL<unsigned char> &f_texture,
-                const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
-                TextureGL<linalg::Vec3<float>> &jtra_texture,
-                TextureGL<linalg::Vec3<float>> &jrot_texture,
+                const TextureGL<ImageType> &kf_texture,
+                const TextureGL<ImageType> &f_texture,
+                const TextureGL<Vec3<float>> &dfdxy_texture,
+                TextureGL<Vec3<float>> &jtra_texture,
+                TextureGL<Vec3<float>> &jrot_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -1161,8 +1163,8 @@ public:
         const GLsizei H = static_cast<GLsizei>(jtra_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
-        linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
+        Vec3<float> jtra_nodata = jtra_texture.nodata();
+        Vec3<float> jrot_nodata = jrot_texture.nodata();
         float r_nodata = r_texture.nodata();
 
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
@@ -1437,15 +1439,15 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &kf_texture,
-                const TextureGL<unsigned char> &f_texture,
-                const TextureGL<linalg::Vec3<float>> &dfdxy_texture,
-                TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<int>> &pids_texture,
+                const TextureGL<ImageType> &kf_texture,
+                const TextureGL<ImageType> &f_texture,
+                const TextureGL<Vec3<float>> &dfdxy_texture,
+                TextureGL<Vec3<float>> &jmap_texture,
+                TextureGL<Vec3<PidType>> &pids_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -1470,8 +1472,8 @@ public:
         const GLsizei H = static_cast<GLsizei>(jmap_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
-        linalg::Vec3<float> pids_nodata = pids_texture.nodata();
+        Vec3<float> jmap_nodata = jmap_texture.nodata();
+        Vec3<float> pids_nodata = pids_texture.nodata();
         float r_nodata = r_texture.nodata();
 
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
@@ -1766,17 +1768,17 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureGL<unsigned char> &diffuse_texture,
-                TextureGL<unsigned char> &image_texture,
+                const TextureGL<ImageType> &diffuse_texture,
+                TextureGL<ImageType> &image_texture,
                 TextureGL<float> &depth_texture,
-                TextureGL<linalg::Vec3<float>> &jtra_texture,
-                TextureGL<linalg::Vec3<float>> &jrot_texture,
-                TextureGL<linalg::Vec3<float>> &jmap_texture,
-                TextureGL<linalg::Vec3<int>> &pids_texture)
+                TextureGL<Vec3<float>> &jtra_texture,
+                TextureGL<Vec3<float>> &jrot_texture,
+                TextureGL<Vec3<float>> &jmap_texture,
+                TextureGL<Vec3<PidType>> &pids_texture)
     {
         save_state();
 

@@ -180,15 +180,15 @@ void generate_mipmap(Tex<T> &tex, unsigned int lvl)
             // const T bl = s_idx(sy + 1, sx);
             // const T br = s_idx(sy + 1, sx + 1);
 
-            // const T tl = map_read[sy * sw + sx];
-            // const T tr = map_read[sy * sw + min(sx + 1, sw - 1)];
-            // const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
-            // const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
+            const T tl = map_read[sy * sw + sx];
+            const T tr = map_read[sy * sw + min(sx + 1, sw - 1)];
+            const T bl = map_read[min(sy + 1, sh - 1) * sw + sx];
+            const T br = map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)];
 
-            const float tl = float(map_read[sy * sw + sx]);
-            const float tr = float(map_read[sy * sw + min(sx + 1, sw - 1)]);
-            const float bl = float(map_read[min(sy + 1, sh - 1) * sw + sx]);
-            const float br = float(map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)]);
+            // const float tl = float(map_read[sy * sw + sx]);
+            // const float tr = float(map_read[sy * sw + min(sx + 1, sw - 1)]);
+            // const float bl = float(map_read[min(sy + 1, sh - 1) * sw + sx]);
+            // const float br = float(map_read[min(sy + 1, sh - 1) * sw + min(sx + 1, sw - 1)]);
 
             // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
             // {
@@ -196,7 +196,7 @@ void generate_mipmap(Tex<T> &tex, unsigned int lvl)
             // }
             // else
             // {
-            T val = static_cast<T>(round(tl * 0.25f + tr * 0.25f + bl * 0.25f + br * 0.25f));
+            T val = static_cast<T>(tl * 0.25f + tr * 0.25f + bl * 0.25f + br * 0.25f);
             map_write[y * dw + x] = val;
             // }
         }

@@ -1,14 +1,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
-
-inline cv::Mat ReadMat(const std::string &filename, bool to_float)
-{
-    cv::Mat image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
-    if (to_float)
-        image.convertTo(image, CV_32FC1);
-    return image;
-}
+#include "core/cv_converters.h"
 
 // Save debug images
 inline void SaveDebugImage(const cv::Mat &image, const std::string &filename)
@@ -29,8 +22,11 @@ inline void SaveDebugImageColor(const cv::Mat &image, const std::string &filenam
 
 // Helper functions for texture operations
 template <typename Texture>
-inline void UploadMatToTexture(Texture &tex, int lvl, const cv::Mat &mat)
+inline void UploadMatToTexture(Texture &tex, int lvl, cv::Mat &mat)
 {
+    int cv_type = GetOpenCVFormat(tex.get_type_index());
+    mat.convertTo(mat, cv_type, 1.0); // / 255.0);
+
     assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
     {
         auto mapped = tex.MapWrite(lvl);
@@ -40,8 +36,10 @@ inline void UploadMatToTexture(Texture &tex, int lvl, const cv::Mat &mat)
 }
 
 template <typename Texture>
-inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl, int cv_type)
+inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl)
 {
+    int cv_type = GetOpenCVFormat(tex.get_type_index());
+
     cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
     {
         auto mapped = tex.MapRead(lvl);

@@ -3,11 +3,11 @@
 // #include <algorithm>
 // #include <cmath>
 // #include <cstdint>
-// #include "core/types.h"
-#include "core/camera.h"
-#include "core/boundingbox.h"
 #include "core/render_constants.h"
 #include "core/error_handling.h"
+#include "core/types.h"
+#include "core/camera.h"
+#include "core/boundingbox.h"
 #include "backends/base/rendererbase.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
@@ -15,7 +15,7 @@
 #include "backends/cpu/meshcpu.h"
 
 static void DepthRendererRef(const TextureCPU<float> &depth_texture,
-                             const linalg::SE3<float> &pose,
+                             const SE3<float> &pose,
                              const PinholeCamera<float> &cam,
                              int out_lvl,
                              TextureCPU<float> &out_texture)
@@ -27,15 +27,15 @@ static void DepthRendererRef(const TextureCPU<float> &depth_texture,
         for (int x = 0; x < out_texture.width(out_lvl); x++)
         {
             float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
-            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
-            linalg::Vec3<float> f_vec = pose * kf_vec;
+            Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            Vec3<float> kf_vec = kf_ray * kf_depth;
+            Vec3<float> f_vec = pose * kf_vec;
             float f_depth = f_vec(2);
             if (f_depth <= 0.0f)
                 continue;
-            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
-            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            Vec3<float> f_ray = f_vec / f_vec(2);
+            Vec2<float> f_pix = cam.RayToPix(f_ray);
             if (!cam.IsPixVisible(f_pix))
                 continue;
             f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
@@ -48,11 +48,11 @@ static void DepthRendererRef(const TextureCPU<float> &depth_texture,
 }
 
 static void ImageRendererRef(const TextureCPU<float> &depth_texture,
-                             const TextureCPU<unsigned char> &image_texture,
-                             const linalg::SE3<float> &pose,
+                             const TextureCPU<ImageType> &image_texture,
+                             const SE3<float> &pose,
                              const PinholeCamera<float> &cam,
                              int out_lvl,
-                             TextureCPU<unsigned char> &out_texture)
+                             TextureCPU<ImageType> &out_texture)
 {
     out_texture.fill(out_lvl, out_texture.nodata());
 
@@ -61,16 +61,16 @@ static void ImageRendererRef(const TextureCPU<float> &depth_texture,
         for (int x = 0; x < out_texture.width(out_lvl); x++)
         {
             float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            float kf = image_texture.texel_(y, x, out_lvl);
-            linalg::Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
-            linalg::Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            linalg::Vec3<float> kf_vec = kf_ray * kf_depth;
-            linalg::Vec3<float> f_vec = pose * kf_vec;
+            ImageType kf = image_texture.texel_(y, x, out_lvl);
+            Vec2<float> kf_pix(float(x) / out_texture.width(out_lvl), float(y) / out_texture.height(out_lvl));
+            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            Vec3<float> kf_vec = kf_ray * kf_depth;
+            Vec3<float> f_vec = pose * kf_vec;
             float f_depth = f_vec(2);
             if (f_depth <= 0.0f)
                 continue;
-            linalg::Vec3<float> f_ray = f_vec / f_vec(2);
-            linalg::Vec2<float> f_pix = cam.RayToPix(f_ray);
+            Vec3<float> f_ray = f_vec / f_vec(2);
+            Vec2<float> f_pix = cam.RayToPix(f_ray);
             if (!cam.IsPixVisible(f_pix))
                 continue;
             f_pix(0) = f_pix(0) * out_texture.width(out_lvl);
@@ -82,7 +82,7 @@ static void ImageRendererRef(const TextureCPU<float> &depth_texture,
 
 template <class Base>
 class RendererBaseCPU
-    : public RendererBase<float, int, Base>
+    : public RendererBase<Base>
 {
 public:
     // RendererBaseHLS() = default;
@@ -116,7 +116,7 @@ public:
             vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
             vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
 
-            typename RendererBase<float, int, Base>::Triangle triangle;
+            typename RendererBase<Base>::Triangle triangle;
 
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
 
@@ -205,16 +205,16 @@ private:
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public RendererBaseCPU<DepthRendererBase<float, float, TextureCPU>>
+    : public RendererBaseCPU<DepthRendererBase<TextureCPU>>
 {
 public:
-    using Base = DepthRendererBase<float, float, TextureCPU>;
+    using Base = DepthRendererBase<TextureCPU>;
 
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int out_lvl,
                 TextureCPU<float> &out_texture)
@@ -225,7 +225,7 @@ public:
 
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
@@ -257,21 +257,21 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBaseCPU<ImageRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<ImageRendererBase<TextureCPU>>
 {
 public:
-    using Base = ImageRendererBase<float, int, TextureCPU>;
+    using Base = ImageRendererBase<TextureCPU>;
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &diffuse_texture,
-                TextureCPU<unsigned char> &out_texture)
+                const TextureCPU<ImageType> &diffuse_texture,
+                TextureCPU<ImageType> &out_texture)
     {
         // Validate inputs
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -279,7 +279,7 @@ public:
 
         out_texture.fill(out_lvl, out_texture.nodata());
 
-        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
@@ -312,21 +312,21 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public RendererBaseCPU<ResidualRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<ResidualRendererBase<TextureCPU>>
 {
 public:
-    using Base = ResidualRendererBase<float, int, TextureCPU>;
+    using Base = ResidualRendererBase<TextureCPU>;
 
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &kf_texture,
-                const TextureCPU<unsigned char> &f_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<ImageType> &f_texture,
                 TextureCPU<float> &r_texture)
     {
         // Validate inputs
@@ -335,7 +335,7 @@ public:
 
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
@@ -363,10 +363,10 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBaseCPU<DIDxyRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<DIDxyRendererBase<TextureCPU>>
 {
 public:
-    using Base = DIDxyRendererBase<float, int, TextureCPU>;
+    using Base = DIDxyRendererBase<TextureCPU>;
 
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
@@ -374,8 +374,8 @@ public:
     void Render(const MeshCPU &mesh,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &in_texture,
-                TextureCPU<linalg::Vec3<float>> &out_texture)
+                const TextureCPU<ImageType> &in_texture,
+                TextureCPU<Vec3<float>> &out_texture)
     {
         // Validate inputs
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -406,24 +406,24 @@ private:
 };
 
 class JPoseRendererCPU
-    : public RendererBaseCPU<JPoseRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<JPoseRendererBase<TextureCPU>>
 {
 public:
-    using Base = JPoseRendererBase<float, int, TextureCPU>;
+    using Base = JPoseRendererBase<TextureCPU>;
 
     JPoseRendererCPU() = default;
     ~JPoseRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &kf_texture,
-                const TextureCPU<unsigned char> &f_texture,
-                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
-                TextureCPU<linalg::Vec3<float>> &jtra_texture,
-                TextureCPU<linalg::Vec3<float>> &jrot_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<ImageType> &f_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<Vec3<float>> &jtra_texture,
+                TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<float> &r_texture)
     {
         // Validate inputs
@@ -434,7 +434,7 @@ public:
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
         r_texture.fill(out_lvl, r_texture.nodata());
 
-        linalg::Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
+        Mat4<float> opencv2opengl = linalg::Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
@@ -467,24 +467,24 @@ private:
 };
 
 class JMapRendererCPU
-    : public RendererBaseCPU<JMapRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<JMapRendererBase<TextureCPU>>
 {
 public:
-    using Base = JMapRendererBase<float, int, TextureCPU>;
+    using Base = JMapRendererBase<TextureCPU>;
 
     JMapRendererCPU() = default;
     ~JMapRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &kf_texture,
-                const TextureCPU<unsigned char> &f_texture,
-                const TextureCPU<linalg::Vec3<float>> &dfdxy_texture,
-                TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<int>> &pids_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<ImageType> &f_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture,
                 TextureCPU<float> &r_texture)
     {
         // Validate inputs
@@ -528,26 +528,26 @@ private:
 };
 
 class DiffRendererCPU
-    : public RendererBaseCPU<DiffRendererBase<float, int, TextureCPU>>
+    : public RendererBaseCPU<DiffRendererBase<TextureCPU>>
 {
 public:
-    using Base = DiffRendererBase<float, int, TextureCPU>;
+    using Base = DiffRendererBase<TextureCPU>;
 
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<unsigned char> &diffuse_texture,
-                TextureCPU<unsigned char> &image_texture,
+                const TextureCPU<ImageType> &diffuse_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<float> &depth_texture,
                 TextureCPU<linalg::Vec3<float>> &jtra_texture,
                 TextureCPU<linalg::Vec3<float>> &jrot_texture,
                 TextureCPU<linalg::Vec3<float>> &jmap_texture,
-                TextureCPU<linalg::Vec3<int>> &pids_texture)
+                TextureCPU<linalg::Vec3<PidType>> &pids_texture)
     {
         // Validate inputs
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);

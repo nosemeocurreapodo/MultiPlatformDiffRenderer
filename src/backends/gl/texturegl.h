@@ -126,8 +126,8 @@ public:
     {
         if (this != &other)
         {
-            TextureGL tmp(other);        // copy into a fresh texture
-            *this = std::move(tmp);      // reuse move assignment to swap in
+            TextureGL tmp(other);   // copy into a fresh texture
+            *this = std::move(tmp); // reuse move assignment to swap in
         }
         return *this;
     }
@@ -198,6 +198,7 @@ public:
     std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
     std::size_t levels() const { return static_cast<std::size_t>(widths_.size()); }
     std::size_t type_size() const { return sizeof(T); };
+    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
     T nodata() const { return nodata_; }
 
     void generate_mipmaps(int base_lvl)

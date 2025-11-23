@@ -37,7 +37,7 @@ float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_
     return depth;
 }
 
-void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<unsigned int> &tris_f)
+void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
     std::vector<linalg::Vec2<float>> tex_coords_2d;
@@ -60,7 +60,7 @@ void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<
 
 // Screen quad for image-space rendering
 void CreateScreenQuad(std::vector<float> &vertex,
-                      std::vector<unsigned int> &indices)
+                      std::vector<int> &indices)
 {
     vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
               -1.f, -1.f, 1.f, 0.f, 0.f,
@@ -76,7 +76,7 @@ void CreateScreenQuad(std::vector<float> &vertex,
 void CreateMesh(const cv::Mat &depth,
                 PinholeCamera<float> &cam, int grid_size,
                 std::vector<float> &vertex,
-                std::vector<unsigned int> &indices,
+                std::vector<int> &indices,
                 bool add_pos = true,
                 bool add_tex = true,
                 bool add_normal = true)
@@ -212,7 +212,7 @@ void CreateMesh(const TextureCPU<float> &depth,
                 std::vector<Eigen::Vector3f> &vertices,
                 std::vector<Eigen::Vector2f> &texcoords,
                 std::vector<Eigen::Vector3f> &normals,
-                std::vector<unsigned int> &indices)
+                std::vector<int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
@@ -323,7 +323,7 @@ void CreateMesh(const TextureCPU<float> &depth,
 void CreateFlatMesh(float min_depth, float max_depth,
                     PinholeCamera<float> &cam, int grid_size,
                     std::vector<float> &vertex,
-                    std::vector<unsigned int> &indices,
+                    std::vector<int> &indices,
                     bool add_pos = true,
                     bool add_tex = true,
                     bool add_normal = true)
@@ -383,7 +383,7 @@ void CreateFlatMesh(float min_depth, float max_depth,
                     PinholeCamera<float> &cam, int grid_size,
                     std::vector<Eigen::Vector3f> &vertices,
                     std::vector<Eigen::Vector2f> &texcoords,
-                    std::vector<unsigned int> &indices)
+                    std::vector<int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
@@ -414,7 +414,7 @@ void CreateSphereMesh(float depth,
                       PinholeCamera<float> &cam, int grid_size,
                       std::vector<Eigen::Vector3f> &vertices,
                       std::vector<Eigen::Vector2f> &texcoords,
-                      std::vector<unsigned int> &indices)
+                      std::vector<int> &indices)
 {
     std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 

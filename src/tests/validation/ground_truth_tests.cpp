@@ -91,7 +91,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
         EXPECT_LT(rmse, this->thresholds_.gt_max_depth_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
 
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - this->depth_dst_cv_;
@@ -155,8 +155,8 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
         EXPECT_LT(rmse, this->thresholds_.ref_max_depth_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
-    cv::Mat ref = DownloadTextureToMat(reference, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
+    cv::Mat ref = DownloadTextureToMat(reference, 0);
 
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - ref;
@@ -187,9 +187,9 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> ground_truth(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> ground_truth(this->w_, this->h_, 0);
 
     UploadMatToTexture(ground_truth, 0, this->image_dst_cv_);
     UploadMatToTexture(input, 0, this->image_src_cv_);
@@ -215,7 +215,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
         EXPECT_LT(rmse, this->thresholds_.gt_max_image_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_8UC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - this->image_dst_cv_;
     // cv::Mat masked_diff;
@@ -246,10 +246,10 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<unsigned char> input_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
 
-    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> reference(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> reference(this->w_, this->h_, 0);
 
     UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
     UploadMatToTexture(input_image, 0, this->image_src_cv_);
@@ -282,8 +282,8 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
         EXPECT_LT(rmse, this->thresholds_.ref_max_image_error) << "RMSE error: " << rmse;
     }
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
-    cv::Mat ref = DownloadTextureToMat(reference, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
+    cv::Mat ref = DownloadTextureToMat(reference, 0);
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff = result - ref;
     // cv::Mat masked_diff;

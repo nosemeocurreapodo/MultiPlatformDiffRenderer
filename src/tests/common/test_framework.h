@@ -10,6 +10,7 @@
 // #include <fstream>
 // #include <sstream>
 
+#include "core/types.h"
 #include "core/mesh_helpers.h"
 
 #include "backends/cpu/texturecpu.h"
@@ -22,6 +23,7 @@
 #include "backends/gl/meshgl.h"
 #include "backends/gl/renderergl.h"
 #endif
+
 #ifdef COMPILE_HLS
 // #include "backends/xrt/hls/devicegl_glad.h"
 #include "backends/xrt/hls/texturehls.h"
@@ -99,7 +101,7 @@ protected:
     // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
-    std::vector<linalg::SE3<float>> poses_;
+    std::vector<SE3<float>> poses_;
     PinholeCamera<float> cam_;
     int w_, h_;
     float depth_factor_;
@@ -125,12 +127,18 @@ protected:
 
         float scale = 1.0f / depth_factor_;
 
-        image_src_cv_ = ReadMat(image_files_[0], false);
-        depth_src_cv_ = ReadMat(depth_files_[0], true) * scale;
+        image_src_cv_ = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
+        depth_src_cv_ = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
+        depth_src_cv_.convertTo(depth_src_cv_, CV_32FC1);
+        depth_src_cv_ = depth_src_cv_ * scale;
+
         pose_src_ = poses_[0];
 
-        image_dst_cv_ = ReadMat(image_files_[50], false);
-        depth_dst_cv_ = ReadMat(depth_files_[50], true) * scale;
+        image_dst_cv_ = cv::imread(image_files_[50], cv::IMREAD_GRAYSCALE);
+        depth_dst_cv_ = cv::imread(depth_files_[50], cv::IMREAD_GRAYSCALE);
+        depth_dst_cv_.convertTo(depth_dst_cv_, CV_32FC1);
+        depth_dst_cv_ = depth_dst_cv_ * scale;
+
         pose_dst_ = poses_[50];
 
         CreateMesh(depth_src_cv_, cam_, 32, vertex_, indices_);
@@ -140,13 +148,13 @@ protected:
 
     cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
 
-    linalg::SE3<float> pose_src_, pose_dst_;
+    SE3<float> pose_src_, pose_dst_;
 
     std::vector<float> vertex_;
-    std::vector<unsigned int> indices_;
+    std::vector<int> indices_;
 
     std::vector<float> screen_vertex_;
-    std::vector<unsigned int> screen_indices_;
+    std::vector<int> screen_indices_;
 };
 
 // Test result reporting utilities
@@ -255,13 +263,13 @@ struct ValidationThresholds
     double ref_max_image_error = 14.0;
 
     int cr_max_valid_diff = 200;
-    double cr_max_mipmap_error = 1.1;//0.00015;
+    double cr_max_mipmap_error = 1.1; // 0.00015;
     double cr_max_gouraud_error = 0.00054;
     double cr_max_depth_error = 8.68e-7;
     double cr_max_image_error = 1.55;
     double cr_max_residual_error = 1.03;
     double cr_max_l2_error = 79.0;
-    double cr_max_didxy_error = 0.63; //0.0073;
+    double cr_max_didxy_error = 0.63; // 0.0073;
     double cr_max_jtra_error = 0.060;
     double cr_max_jrot_error = 0.11;
     double cr_max_r_error = 1.99;

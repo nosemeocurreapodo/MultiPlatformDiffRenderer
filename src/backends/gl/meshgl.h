@@ -16,7 +16,7 @@ class MeshGL
 {
 public:
     MeshGL(const std::vector<float> &vertex,
-           const std::vector<unsigned int> &indices,
+           const std::vector<int> &indices,
            bool has_position,
            bool has_texcoord,
            bool has_normal)
@@ -52,7 +52,7 @@ public:
         }
 
         vbo_vertex_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(vertex.size(), vertex.data());
-        ebo_ = BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
+        ebo_ = BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
 
         create_vao_();
     }
@@ -180,7 +180,7 @@ public:
     GLuint vao_ = 0;
 
     BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vbo_vertex_;
-    BufferGL<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
+    BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
 
     int stride_{};
     long int pos_offset_{-1};

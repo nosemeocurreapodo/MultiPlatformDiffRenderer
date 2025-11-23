@@ -86,7 +86,7 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output));
 
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, out_lvl);
 
     cv::Mat mask = (result != -1.0f);
     cv::Scalar mean_val, std_val;
@@ -118,17 +118,17 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
-    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
 
     UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input, output));
 
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_8UC1);
+    cv::Mat result = DownloadTextureToMat(output, out_lvl);
     cv::Scalar mean_val, std_val;
     cv::Mat mask = (result != -1.0f);
     cv::meanStdDev(result, mean_val, std_val, mask);
@@ -142,8 +142,8 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
-    typename Traits::template TextureT<unsigned char> input1(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> input2(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> input1(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> input2(this->w_, this->h_, 0);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
 
     UploadMatToTexture(input1, 0, this->image_src_cv_);
@@ -154,7 +154,7 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input1, input2, output));
 
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, out_lvl);
     cv::Scalar mean_val, std_val;
     cv::Mat mask = (result != 0.0f);
     cv::meanStdDev(result, mean_val, std_val, mask);
@@ -169,15 +169,15 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
     const int in_lvl = 0, out_lvl = 0;
 
     typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, true, true, false);
-    typename Traits::template TextureT<unsigned char> input(this->w_, this->h_, 0);
-    typename Traits::template TextureT<linalg::Vec3<float>> output(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
+    typename Traits::template TextureT<Vec3<float>> output(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
 
     UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::DIDxyRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, in_lvl, out_lvl, input, output));
 
-    cv::Mat result = DownloadTextureToMat(output, out_lvl, CV_32FC3);
+    cv::Mat result = DownloadTextureToMat(output, out_lvl);
 
     cv::Mat channels[3];
     cv::split(result, channels);
@@ -201,8 +201,8 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, true, true, false);
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    typename Traits::template TextureT<unsigned char> kf_tex(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> f_tex(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> f_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jtra_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<linalg::Vec3<float>> jrot_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -219,7 +219,7 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
     ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, r_tex));
 
-    cv::Mat result = DownloadTextureToMat(jtra_tex, out_lvl, CV_32FC3);
+    cv::Mat result = DownloadTextureToMat(jtra_tex, out_lvl);
 
     cv::Mat channels[3];
     cv::split(result, channels);
@@ -247,11 +247,11 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, true, true, false);
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    typename Traits::template TextureT<unsigned char> kf_tex(this->w_, this->h_, 0);
-    typename Traits::template TextureT<unsigned char> f_tex(this->w_, this->h_, 0);
-    typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<linalg::Vec3<float>> jmap_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<linalg::Vec3<int>> pids_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> f_tex(this->w_, this->h_, 0);
+    typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jmap_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<PidType>> pids_tex(this->w_, this->h_, Vec3<float>(-1, -1, -1));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
@@ -260,12 +260,12 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::DIDxyRendererT didxy_renderer;
     typename Traits::JMapRendererT jmap_renderer;
 
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
     ASSERT_NO_THROW(jmap_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jmap_tex, pids_tex, r_tex));
 
-    cv::Mat result = DownloadTextureToMat(jmap_tex, out_lvl, CV_32FC3);
+    cv::Mat result = DownloadTextureToMat(jmap_tex, out_lvl);
 
     cv::Mat channels[3];
     cv::split(result, channels);
@@ -291,7 +291,7 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
     const int in_lvl = 0, out_lvl = 0;
 
     std::vector<float> emtpy_vertex;
-    std::vector<unsigned int> empty_indices;
+    std::vector<int> empty_indices;
 
     typename Traits::MeshT empty_mesh(emtpy_vertex, empty_indices, true, true, true);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -343,7 +343,7 @@ TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
     {
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
         renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output);
-        results.push_back(DownloadTextureToMat(output, out_lvl, CV_32FC1));
+        results.push_back(DownloadTextureToMat(output, out_lvl));
     }
 
     for (int i = 1; i < iterations; ++i)
@@ -367,7 +367,7 @@ TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
 
         typename Traits::DepthRendererT renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
-        cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+        cv::Mat result = DownloadTextureToMat(output, 0);
         EXPECT_EQ(result.cols, w);
         EXPECT_EQ(result.rows, h);
     }

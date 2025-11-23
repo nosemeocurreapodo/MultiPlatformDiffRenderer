@@ -64,7 +64,7 @@ TYPED_TEST_P(ErrorHandlingTests, EmptyMeshHandling)
     using Traits = TypeParam;
 
     std::vector<float> empty_vertex, empty_texcoords;
-    std::vector<unsigned int> empty_indices;
+    std::vector<int> empty_indices;
 
     typename Traits::MeshT empty_mesh(empty_vertex, empty_indices, true, true, true);
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
@@ -72,7 +72,7 @@ TYPED_TEST_P(ErrorHandlingTests, EmptyMeshHandling)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(empty_mesh, linalg::SE3<float>(), this->cam_, 0, output));
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
 
     // Should remain at nodata value
     cv::Scalar mean_val = cv::mean(result);
@@ -150,7 +150,7 @@ TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, large_scale, this->cam_, 0, output));
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
 
     // Check for invalid values
     bool has_invalid = false;
@@ -199,7 +199,7 @@ TYPED_TEST_P(ErrorHandlingTests, TextureSizeMismatch)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, large_output));
 
-    cv::Mat result = DownloadTextureToMat(large_output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(large_output, 0);
 
     // Should handle size mismatch gracefully
     cv::Scalar mean_val = cv::mean(result);
@@ -227,7 +227,7 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
     typename Traits::DepthRendererT renderer;
     ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), extreme_cam, 0, output));
 
-    cv::Mat result = DownloadTextureToMat(output, 0, CV_32FC1);
+    cv::Mat result = DownloadTextureToMat(output, 0);
 
     // Check for invalid values
     bool has_invalid = false;

@@ -32,7 +32,7 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
 
 bool LoadAssimpMesh(const std::string &path,
                     std::vector<float> &vertex,
-                    std::vector<unsigned int> &indices,
+                    std::vector<int> &indices,
                     std::vector<std::string> &textures,
                     bool &has_positions,
                     bool &has_texcoords,

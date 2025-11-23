@@ -3,10 +3,10 @@
 // #include <algorithm>
 // #include <cmath>
 // #include <cstdint>
-#include "linalg/linalg.h"
+// #include "linalg/linalg.h"
 #include "backends/base/texturebase.h"
 #include "core/render_constants.h"
-// #include "core/error_handling.h"
+#include "core/types.h"
 
 #ifdef USE_VITIS
 #include "backends/xrt/hls/math_common.h"
@@ -22,13 +22,13 @@
 
 // Edge function E_ab(p) = (vout[1].screen(1)-vout[0].screen(1))*px + (vout[0].screen(0)-vout[1].screen(0))*py + (vout[1].screen(0)*vout[0].screen(1) - vout[0].screen(0)*vout[1].screen(1))
 template <typename T>
-T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::Vec2<T> &v2)
+T edge_func(const Vec2<T> &v0, const Vec2<T> &v1, const Vec2<T> &v2)
 {
     // #pragma HLS INLINE
     //   return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
     //    return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
-    linalg::Vec2<T> v10 = v1 - v0;
-    linalg::Vec2<T> v20 = v2 - v0;
+    Vec2<T> v10 = v1 - v0;
+    Vec2<T> v20 = v2 - v0;
     // for y up
     // return v10.cross(v20);
     // for y down
@@ -38,7 +38,7 @@ T edge_func(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1, const linalg::
 
 // Top-left test: returns true if edge is a "top" or "left" edge
 template <typename T>
-bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
+bool is_top_left(const Vec2<T> &v0, const Vec2<T> &v1)
 {
     // #pragma HLS INLINE
     //   return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
@@ -51,16 +51,16 @@ bool is_top_left(const linalg::Vec2<T> &v0, const linalg::Vec2<T> &v1)
 // -----------------------------------------------------------------------------
 // RendererBase
 // -----------------------------------------------------------------------------
-template <typename RealType, typename IntType, class Derived>
+template <class Derived>
 class RendererBase
 {
 public:
     // Vertex shading & clip → NDC → screen
     struct VSOut
     {
-        linalg::Vec2<RealType> screen; // x,y in pixel space (float)
-        RealType depth;                // z in [0,1] if your projection is like GL_ZERO_TO_ONE
-        RealType invW;                 // 1 / clip.w
+        Vec2<RealType> screen; // x,y in pixel space (float)
+        RealType depth;        // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+        RealType invW;         // 1 / clip.w
         // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
         typename Derived::Varyings var; // original varyings (for convenience)
     };
@@ -158,10 +158,10 @@ protected:
             // Triangle bounding box (float → int, clamp to viewport)
             BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
-            //IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-            //IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-            //IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-            //IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+            // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+            // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+            // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+            // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
             IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(tri_bb.min_x_));
             IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
@@ -214,7 +214,7 @@ protected:
         {
             // #pragma HLS UNROLL
 
-            linalg::Vec4<RealType> gl_Position;
+            Vec4<RealType> gl_Position;
             typename Derived::Varyings outvaryings;
             Derived::vertex_shader(vertexdata[j], vertexids[j], uniforms, gl_Position, outvaryings);
 
@@ -268,7 +268,7 @@ protected:
         const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        linalg::Vec2<RealType> p;
+        Vec2<RealType> p;
         p(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
         p(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
 
@@ -392,10 +392,10 @@ protected:
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
-        //IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        //IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        //IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        //IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
         IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
         IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
@@ -512,7 +512,7 @@ protected:
                 if (prev_depth > RealType(0) && prev_depth < depth_px)
                     continue;
 
-                linalg::Vec4<RealType> gl_FragCoord;
+                Vec4<RealType> gl_FragCoord;
                 gl_FragCoord(0) = static_cast<RealType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                 gl_FragCoord(1) = static_cast<RealType>(texture_y); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
                 gl_FragCoord(2) = depth_px;
@@ -688,7 +688,7 @@ public:
 //   Evout[0].screen(0)mple derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class DepthRendererBase
 {
 public:
@@ -805,7 +805,7 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class ImageRendererBase
 {
 public:
@@ -814,12 +814,12 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &in_texture;
+        const Texture<ImageType> &in_texture;
     };
 
     struct OutTextures
     {
-        Texture<unsigned char> &out_texture;
+        Texture<ImageType> &out_texture;
     };
 
     struct VertexData
@@ -831,8 +831,8 @@ public:
     struct Uniforms
     {
         linalg::Mat4<RealType> t_matrix;
-        int in_lvl;
-        int out_lvl;
+        IntType in_lvl;
+        IntType out_lvl;
     };
 
     struct Varyings
@@ -926,7 +926,7 @@ public:
     }
 };
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class ResidualRendererBase
 {
 public:
@@ -935,8 +935,8 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &kf_texture;
-        const Texture<unsigned char> &f_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
     };
 
     struct OutTextures
@@ -1058,7 +1058,7 @@ public:
     }
 };
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class DIDxyRendererBase
 {
 public:
@@ -1067,7 +1067,7 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &in_texture;
+        const Texture<ImageType> &in_texture;
     };
     struct OutTextures
     {
@@ -1226,7 +1226,7 @@ public:
     }
 };
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class JPoseRendererBase
 {
 public:
@@ -1235,8 +1235,8 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &kf_texture;
-        const Texture<unsigned char> &f_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
         const Texture<linalg::Vec3<float>> &dfdxy_texture;
     };
 
@@ -1407,7 +1407,7 @@ public:
     }
 };
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class JMapRendererBase
 {
 public:
@@ -1416,15 +1416,15 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &kf_texture;
-        const Texture<unsigned char> &f_texture;
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
         const Texture<linalg::Vec3<float>> &dfdxy_texture;
     };
 
     struct OutTextures
     {
         Texture<linalg::Vec3<float>> &jmap_texture;
-        Texture<linalg::Vec3<int>> &pids_texture;
+        Texture<linalg::Vec3<PidType>> &pids_texture;
         Texture<float> &r_texture;
     };
 
@@ -1555,7 +1555,7 @@ public:
         linalg::Vec3<IntType> vertexid = in_varying.pids;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        unsigned char f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         linalg::Vec3<RealType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
         // linalg::Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
@@ -1608,7 +1608,7 @@ public:
         linalg::Vec3<IntType> vertexid = in_varying.pids;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        unsigned char f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         linalg::Vec3<RealType> f_der = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
         // linalg::Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
@@ -1641,7 +1641,7 @@ public:
     }
 };
 
-template <typename RealType, typename IntType, template <class> class Texture>
+template <template <class> class Texture>
 class DiffRendererBase
 {
 public:
@@ -1650,17 +1650,17 @@ public:
 
     struct InTextures
     {
-        const Texture<unsigned char> &diffuse_texture;
+        const Texture<ImageType> &diffuse_texture;
     };
 
     struct OutTextures
     {
-        Texture<unsigned char> &image_texture;
+        Texture<ImageType> &image_texture;
         Texture<float> &depth_texture;
         Texture<linalg::Vec3<float>> &jtra_texture;
         Texture<linalg::Vec3<float>> &jrot_texture;
         Texture<linalg::Vec3<float>> &jmap_texture;
-        Texture<linalg::Vec3<int>> &pids_texture;
+        Texture<linalg::Vec3<PidType>> &pids_texture;
     };
 
     struct VertexData
@@ -1773,11 +1773,11 @@ public:
     {
 #pragma HLS inline
 
-        linalg::Vec4<RealType> f_ver = uniforms.pose_matrix * linalg::Vec4<RealType>(vertexdata.vertex, RealType(1));
+        Vec4<RealType> f_ver = uniforms.pose_matrix * linalg::Vec4<RealType>(vertexdata.vertex, RealType(1));
         gl_Position = uniforms.view_matrix * f_ver;
 
-        linalg::Vec3<RealType> kf_ray(vertexdata.vertex(0) / vertexdata.vertex(2), vertexdata.vertex(1) / vertexdata.vertex(2), RealType(1));
-        linalg::Vec3<RealType> d_f_ver_d_kf_depth = linalg::Vec3<RealType>(uniforms.pose_matrix * linalg::Vec4<RealType>(kf_ray, RealType(0)));
+        Vec3<RealType> kf_ray(vertexdata.vertex(0) / vertexdata.vertex(2), vertexdata.vertex(1) / vertexdata.vertex(2), RealType(1));
+        Vec3<RealType> d_f_ver_d_kf_depth = linalg::Vec3<RealType>(uniforms.pose_matrix * linalg::Vec4<RealType>(kf_ray, RealType(0)));
         // linalg::Vec3<MathType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
         outVarying.f_ver = linalg::Vec3<RealType>(f_ver);
@@ -1801,18 +1801,18 @@ public:
         IntType out_width = uniforms.out_width;
         IntType out_height = uniforms.out_height;
 
-        linalg::Vec3<RealType> f_ver = in_varying.f_ver;
-        linalg::Vec3<RealType> kf_ray = in_varying.kf_ray;
-        linalg::Vec2<RealType> texcoord = in_varying.texcoord;
-        linalg::Vec3<RealType> baricentric = in_varying.baricentric;
-        linalg::Vec3<IntType> vertexid = in_varying.pids;
+        Vec3<RealType> f_ver = in_varying.f_ver;
+        Vec3<RealType> kf_ray = in_varying.kf_ray;
+        Vec2<RealType> texcoord = in_varying.texcoord;
+        Vec3<RealType> baricentric = in_varying.baricentric;
+        Vec3<IntType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         RealType f = sample(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<RealType> f_der = compute_didxy<RealType, linalg::Vec3, Texture<unsigned char>>(intextures.diffuse_texture, IntType(in_varying.texcoord(1) * RealType(in_height)), IntType(in_varying.texcoord(0) * RealType(in_width)), uniforms.in_lvl);
+        Vec3<RealType> f_der = compute_didxy<RealType, Vec3, Texture<unsigned char>>(intextures.diffuse_texture, IntType(in_varying.texcoord(1) * RealType(in_height)), IntType(in_varying.texcoord(0) * RealType(in_width)), uniforms.in_lvl);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;
@@ -1823,16 +1823,16 @@ public:
         d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * RealType(out_height) / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
-        linalg::Vec3<RealType> d_f_i_d_rot = linalg::Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+        // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
+        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-        linalg::Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
         RealType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
 
-        linalg::Vec3<RealType> d_depth_d_vert_depth = baricentric;
+        Vec3<RealType> d_depth_d_vert_depth = baricentric;
 
-        linalg::Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        linalg::Vec3<IntType> ids = linalg::Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
+        Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
 
         fragment.image = f;
         fragment.depth = f_ver(2);
@@ -1853,41 +1853,41 @@ public:
         IntType in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
         IntType in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
 
-        IntType out_width = uniforms.out_width; //outtextures.image_texture.width(uniforms.out_lvl);
-        IntType out_height = uniforms.out_height; //outtextures.image_texture.height(uniforms.out_lvl);
+        IntType out_width = uniforms.out_width;   // outtextures.image_texture.width(uniforms.out_lvl);
+        IntType out_height = uniforms.out_height; // outtextures.image_texture.height(uniforms.out_lvl);
 
-        linalg::Vec3<RealType> f_ver = in_varying.f_ver;
-        linalg::Vec3<RealType> kf_ray = in_varying.kf_ray;
-        linalg::Vec2<RealType> texcoord = in_varying.texcoord;
-        linalg::Vec3<RealType> baricentric = in_varying.baricentric;
-        linalg::Vec3<IntType> vertexid = in_varying.pids;
+        Vec3<RealType> f_ver = in_varying.f_ver;
+        Vec3<RealType> kf_ray = in_varying.kf_ray;
+        Vec2<RealType> texcoord = in_varying.texcoord;
+        Vec3<RealType> baricentric = in_varying.baricentric;
+        Vec3<IntType> vertexid = in_varying.pids;
 
         // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
         RealType f = sample(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         // if (f == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<RealType> f_der = compute_didxy<RealType, linalg::Vec3, Texture<unsigned char>>(intextures.diffuse_texture, IntType(in_varying.texcoord(1) * RealType(in_height)), IntType(in_varying.texcoord(0) * RealType(in_width)), uniforms.in_lvl);
+        Vec3<RealType> f_der = compute_didxy<RealType, Vec3, Texture<ImageType>>(intextures.diffuse_texture, IntType(in_varying.texcoord(1) * RealType(in_height)), IntType(in_varying.texcoord(0) * RealType(in_width)), uniforms.in_lvl);
 
         // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
         //     return;
 
-        linalg::Vec3<RealType> d_f_i_d_f_ver;
+        Vec3<RealType> d_f_i_d_f_ver;
 
         d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * RealType(out_width) / f_ver(2);
         d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * RealType(out_height) / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-        // linalg::Vec3<MathType>d_f_i_d_tra = linalg::Vec3<MathType>(v0, v1, v2);
-        linalg::Vec3<RealType> d_f_i_d_rot = linalg::Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+        // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
+        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-        linalg::Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
+        Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
         RealType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
 
-        linalg::Vec3<RealType> d_depth_d_vert_depth = baricentric;
+        Vec3<RealType> d_depth_d_vert_depth = baricentric;
 
-        linalg::Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        linalg::Vec3<IntType> ids = linalg::Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
+        Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
 
         outtextures.image_texture.set_texel_(f, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         outtextures.depth_texture.set_texel_(f_ver(2), gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
