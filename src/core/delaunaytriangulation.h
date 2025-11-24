@@ -8,13 +8,13 @@
 #include <unordered_map>
 #include <utility>
 
-#include "linalg/linalg.h"
+#include "core/types.h"
 
 class DelaunayTriangulation
 {
 public:
-    using Vec2f = linalg::Vec2<float>;
-    using Tri3i = linalg::Vec3<int>;
+    using Vec2f = Vec2<float>;
+    using Tri3i = Vec3<int>;
 
     DelaunayTriangulation() = default;
 
@@ -164,14 +164,13 @@ private:
     // Robust-ish orientation test; positive if CCW
     static double Orient(const Vec2f &a, const Vec2f &b, const Vec2f &c)
     {
-        // const double ax = a(0), ay = a(1);
-        // const double bx = b(0), by = b(1);
-        // const double cx = c(0), cy = c(1);
-        // return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-        Vec2f ba = b - a;
-        Vec2f ca = c - a;
-
-        return ba.cross(ca);
+        const double ax = a(0), ay = a(1);
+        const double bx = b(0), by = b(1);
+        const double cx = c(0), cy = c(1);
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+        // Vec2f ba = b - a;
+        // Vec2f ca = c - a;
+        // return ba.cross(ca);
     }
 
     bool IsCCW(const Tri3i &t) const

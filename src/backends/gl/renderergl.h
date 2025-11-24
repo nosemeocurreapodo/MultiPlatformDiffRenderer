@@ -38,7 +38,7 @@ public:
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        opencv2opengl_ = linalg::Mat4<float>::Identity();
+        opencv2opengl_ = Mat4<float>::Identity();
         opencv2opengl_(1, 1) = -1.0;
         opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
     }
@@ -168,7 +168,7 @@ protected:
 
     GLint prevFbo_ = 0, prevProg_ = 0, prevViewport_[4];
 
-    linalg::Mat4<float> opencv2opengl_;
+    Mat4<float> opencv2opengl_;
 
     // common uniform locations (optional to use in derived shaders)
     // GLint view_matrix_loc_ = -1;
@@ -265,13 +265,13 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                linalg::Mat4<float> &projection,
-                linalg::Mat4<float> &view,
-                linalg::Mat4<float> &model,
+                Mat4<float> &projection,
+                Mat4<float> &view,
+                Mat4<float> &model,
                 int in_lvl,
                 int out_lvl,
-                TextureGL<linalg::Vec3<float>> &in_texture,
-                TextureGL<linalg::Vec3<float>> &out_texture)
+                TextureGL<Vec3<float>> &in_texture,
+                TextureGL<Vec3<float>> &out_texture)
     {
         // Validate inputs
         ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
@@ -421,7 +421,7 @@ public:
     }
 
     void Render(const MeshGL &mesh,
-                const linalg::SE3<float> &pose,
+                const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 const Vec3<float> &light_pos,
                 const Vec3<float> &light_color,
@@ -474,7 +474,7 @@ public:
         Mat4<float> uModel = Mat4<float>::Identity();
         Mat4<float> uView = this->opencv2opengl_ * pose.matrix();
         Mat4<float> uProjection = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-        Mat3<float> uNormalMatrix = Mat3<float>::Identity(); // linalg::Mat3<MathType>(uModel_).inverse().transpose();
+        Mat3<float> uNormalMatrix = Mat3<float>::Identity(); // Mat3<MathType>(uModel_).inverse().transpose();
 
         Vec3<float> uViewPos = cam2world.translation(); // camera position in world space
 
@@ -603,10 +603,10 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
+        const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
                                              opencv2opengl_ *
                                              pose.matrix();
-        // const linalg::Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
+        // const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
 
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
         glUniform1f(near_plane_loc_, RenderConstants::NEAR_PLANE);
@@ -790,7 +790,7 @@ public:
 
                 float r = f - kf;
 
-                a_output = 255.0f * r;
+                a_output = r;
             }
             )Shader";
 
@@ -935,10 +935,10 @@ public:
                     discard;
                 }
 
-                float f_x_p = 255.0f * texelFetch(image, ivec2(x_p, y), image_lvl).r;
-                float f_x_m = 255.0f * texelFetch(image, ivec2(x_m, y), image_lvl).r;
-                float f_y_p = 255.0f * texelFetch(image, ivec2(x, y_p), image_lvl).r;
-                float f_y_m = 255.0f * texelFetch(image, ivec2(x, y_m), image_lvl).r;
+                float f_x_p = texelFetch(image, ivec2(x_p, y), image_lvl).r;
+                float f_x_m = texelFetch(image, ivec2(x_m, y), image_lvl).r;
+                float f_y_p = texelFetch(image, ivec2(x, y_p), image_lvl).r;
+                float f_y_m = texelFetch(image, ivec2(x, y_m), image_lvl).r;
 
                 //if (f_x_p == image_nodata || f_x_m == image_nodata ||
                 //    f_y_p == image_nodata || f_y_m == image_nodata)
@@ -965,7 +965,7 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<ImageType> &in_texture,
-                TextureGL<linalg::Vec3<float>> &out_texture)
+                TextureGL<Vec3<float>> &out_texture)
     {
         save_state();
 
@@ -987,7 +987,7 @@ public:
         const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
         glViewport(0, 0, W, H);
 
-        linalg::Vec3<float> nodata = out_texture.nodata();
+        Vec3<float> nodata = out_texture.nodata();
         float clear[4] = {nodata(0), nodata(1), nodata(2), 1.f};
 
         // #if defined(GL_VERSION_3_0)
@@ -1081,8 +1081,8 @@ public:
             {
                 // ivec2 tex_size = textureSize(f_image, in_lvl);
 
-                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
-                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
                 vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
@@ -1218,8 +1218,8 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
-        const linalg::Mat4<float> pose_matrix = pose.matrix();
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -1380,8 +1380,8 @@ public:
             {
                 // ivec2 tex_size = textureSize(f_image, f_image_lvl);
 
-                float kf = 255.0f * textureLod(kf_image, texcoord, float(in_lvl)).r;
-                float f = 255.0f * texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
+                float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
+                float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
                 vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
@@ -1527,8 +1527,8 @@ public:
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
-        const linalg::Mat4<float> pose_matrix = pose.matrix();
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -1599,7 +1599,9 @@ public:
 
             void main() {
                 vec4 ver = pose_matrix * vec4(a_position, 1.0);
-                vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
+                vec3 kf_ray = a_position/a_position.z;
+                //vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
+                vec3 rray = (pose_matrix * vec4(kf_ray, 0.0)).xyz;
                 gl_Position = view_matrix * ver;
                 v_f_ver = ver.xyz;
                 v_kf_ray = rray.xyz;
@@ -1674,6 +1676,10 @@ public:
             uniform float f_image_nodata;
             uniform int f_image_lvl;
 
+            uniform sampler2D didxy_image;
+            //uniform float didxy_image_nodata;
+            uniform int didxy_image_lvl;
+
             uniform float fx;
             uniform float fy;
 
@@ -1718,7 +1724,8 @@ public:
                 //    discard;
                 //}
 
-                vec2 dfdxy = get_dfdxy(f_image, ivec2(texcoord.x*tex_size.x, texcoord.y*tex_size.y), tex_size, f_image_nodata, f_image_lvl);
+                //vec2 dfdxy = get_dfdxy(f_image, ivec2(texcoord.x*tex_size.x, texcoord.y*tex_size.y), tex_size, f_image_nodata, f_image_lvl);
+                vec2 dfdxy = textureLod(didxy_image, texcoord, float(didxy_image_lvl)).xy;
 
                 //if(dfdxy.x == f_image_nodata && dfdxy.y == f_image_nodata)
                 //{
@@ -1763,6 +1770,10 @@ public:
         f_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
         f_image_lvl_loc_ = glGetUniformLocation(program_, "f_image_lvl");
 
+        didxy_image_loc_ = glGetUniformLocation(program_, "didxy_image");
+        // didxy_image_nodata_loc_ = glGetUniformLocation(program_, "f_image_nodata");
+        didxy_image_lvl_loc_ = glGetUniformLocation(program_, "didxy_image_lvl");
+
         out_width_loc_ = glGetUniformLocation(program_, "out_width");
         out_height_loc_ = glGetUniformLocation(program_, "out_height");
     }
@@ -1773,6 +1784,7 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureGL<ImageType> &diffuse_texture,
+                const TextureGL<Vec3<float>> &didxy_texture,
                 TextureGL<ImageType> &image_texture,
                 TextureGL<float> &depth_texture,
                 TextureGL<Vec3<float>> &jtra_texture,
@@ -1809,17 +1821,17 @@ public:
 
         float image_nodata = image_texture.nodata();
         float depth_nodata = depth_texture.nodata();
-        linalg::Vec3<float> jtra_nodata = jtra_texture.nodata();
-        linalg::Vec3<float> jrot_nodata = jrot_texture.nodata();
-        linalg::Vec3<float> jmap_nodata = jmap_texture.nodata();
-        linalg::Vec3<int> pids_nodata = pids_texture.nodata();
+        Vec3<float> jtra_nodata = jtra_texture.nodata();
+        Vec3<float> jrot_nodata = jrot_texture.nodata();
+        Vec3<float> jmap_nodata = jmap_texture.nodata();
+        Vec3<PidType> pids_nodata = pids_texture.nodata();
 
         float image_clear[4] = {image_nodata, 0, 0, 1.f};
         float depth_clear[4] = {depth_nodata, 0, 0, 1.f};
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
         float jmap_clear[4] = {jmap_nodata(0), jmap_nodata(1), jmap_nodata(2), 1.f};
-        int pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1};
+        PidType pids_clear[4] = {pids_nodata(0), pids_nodata(1), pids_nodata(2), 1};
 
         // #if defined(GL_VERSION_3_0)
         //         glClearBufferfv(GL_COLOR, 0, jmap_clear);
@@ -1868,18 +1880,21 @@ public:
         if (GLAD_GL_VERSION_4_5)
         {
             glBindTextureUnit(0, diffuse_texture.id());
+            glBindTextureUnit(1, didxy_texture.id());
         }
         else
 #endif
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, diffuse_texture.id());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, didxy_texture.id());
         }
 
         glUseProgram(program_);
 
-        const linalg::Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
-        const linalg::Mat4<float> pose_matrix = pose.matrix();
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -1887,6 +1902,10 @@ public:
         glUniform1i(f_image_loc_, 0);
         glUniform1f(f_image_nodata_loc_, diffuse_texture.nodata());
         glUniform1i(f_image_lvl_loc_, in_lvl);
+
+        glUniform1i(didxy_image_loc_, 1);
+        // glUniform1f(didxy_image_nodata_loc_, diffuse_texture.nodata());
+        glUniform1i(didxy_image_lvl_loc_, in_lvl);
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
@@ -1909,6 +1928,10 @@ private:
     GLint f_image_loc_ = -1;
     GLint f_image_nodata_loc_ = -1;
     GLint f_image_lvl_loc_ = -1;
+
+    GLint didxy_image_loc_ = -1;
+    GLint didxy_image_nodata_loc_ = -1;
+    GLint didxy_image_lvl_loc_ = -1;
 
     GLint out_width_loc_ = -1;
     GLint out_height_loc_ = -1;

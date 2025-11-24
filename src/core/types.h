@@ -1,7 +1,7 @@
 #pragma once
 
 // #ifdef USE_EIGEN
-#if FALSE
+#if 0
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -11,13 +11,16 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
-using Scalar = float;
-using Int = int;
-using UInt = unsigned int;
+using ImageType = float;
+using RealType = float;
+using IntType = int;
+using PidType = float;
 
-template <typename T, int rows>
-using Vec = Eigen::Matrix<T, rows, 1>;
+template <typename T>
+using Vecx = Eigen::VectorX<T>;
 
+template <typename T, int size>
+using Vec = Eigen::Vector<T, size>;
 template <typename T>
 using Vec2 = Eigen::Matrix<T, 2, 1>;
 template <typename T>
@@ -27,6 +30,11 @@ using Vec4 = Eigen::Matrix<T, 4, 1>;
 template <typename T>
 using Vec6 = Eigen::Matrix<T, 6, 1>;
 
+template <typename T>
+using Matx = Eigen::MatrixX<T>;
+
+template <typename T, int rows, int cols>
+using Mat = Eigen::Matrix<T, rows, cols>;
 template <typename T>
 using Mat3 = Eigen::Matrix<T, 3, 3>;
 template <typename T>
@@ -38,18 +46,29 @@ template <typename T>
 using Quaternion = Eigen::Quaternion<T>;
 
 template <typename T>
-using SE3 = Sophus::SE3<T>;
+using SO3 = Sophus::SO3<T>;
 template <typename T>
-using SIM3 = Sophus::Sim3<T>;
+using SE3 = Sophus::SE3<T>;
+
+template <typename T>
+using LDLT = Eigen::LDLT<Eigen::MatrixX<T>>;
+
+template <typename T>
+using LDLTx = Eigen::LDLT<Eigen::MatrixX<T>>;
 
 #else
 #include "linalg/linalg.h"
+#include "linalg/linalgx.h"
+#include "linalg/ldlt_solver.h"
+#include "linalg/ldlt_solverx.h"
 
 using ImageType = float;
 using RealType = float;
 using IntType = int;
 using PidType = float;
 
+template <typename T>
+using Vecx = linalg::Vecx<T>;
 template <typename T, int size>
 using Vec = linalg::Vec<T, size>;
 template <typename T>
@@ -63,9 +82,10 @@ using Vec5 = linalg::Vec5<T>;
 template <typename T>
 using Vec6 = linalg::Vec6<T>;
 
+template <typename T>
+using Matx = linalg::Matx<T>;
 template <typename T, int rows, int cols>
 using Mat = linalg::Mat<T, rows, cols>;
-
 template <typename T>
 using Mat3 = linalg::Mat3<T>;
 template <typename T>
@@ -80,5 +100,11 @@ template <typename T>
 using SO3 = linalg::SO3<T>;
 template <typename T>
 using SE3 = linalg::SE3<T>;
+
+template <typename T, int size>
+using LDLT = linalg::LDLT<T, size>;
+
+template <typename T>
+using LDLTx = linalg::LDLTx<T>;
 
 #endif

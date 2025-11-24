@@ -43,8 +43,11 @@ int main(int argc, char **argv)
 
     float scale = 1.0f / depth_factor;
 
-    cv::Mat image_src_cv = ReadMat(image_files[0]);
-    cv::Mat depth_src_cv = ReadMat(depth_files[0]) * scale;
+    cv::Mat image_src_cv_ = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_src_cv_ = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
+    depth_src_cv_.convertTo(depth_src_cv_, CV_32FC1);
+    depth_src_cv_ = depth_src_cv_ * scale;
+
     linalg::SE3<float> pose_src = poses[0];
 
     // TextureXRT<float> image_src_cpu(w, h, -1.0f);
@@ -100,7 +103,7 @@ int main(int argc, char **argv)
         double time_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
         times.push_back(time_ms);
 
-        cv::Mat depth_out_cv = DownloadTextureToMat(output, out_lvl, CV_32FC1);
+        cv::Mat depth_out_cv = DownloadTextureToMat(output, out_lvl);
 
         // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
         SaveDebugImage(depth_out_cv, "depthrenderhls_output_" + std::to_string(i) + ".png");

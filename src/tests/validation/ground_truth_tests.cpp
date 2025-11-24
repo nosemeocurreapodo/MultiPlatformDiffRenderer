@@ -71,7 +71,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
 
     typename Traits::DepthRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -110,7 +110,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_depth_ground_truth.png");
+    SaveDebugImage(diff, std::string(typeid(typename Traits::DepthRendererT).name()) + "_depth_ground_truth.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";
 }
@@ -129,7 +129,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
     UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
 
     typename Traits::DepthRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -175,7 +175,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_depth_reference.png");
+    SaveDebugImage(diff, std::string(typeid(typename Traits::DepthRendererT).name()) + "_depth_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";
 }
@@ -195,7 +195,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
     UploadMatToTexture(input, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -255,7 +255,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     UploadMatToTexture(input_image, 0, this->image_src_cv_);
 
     typename Traits::ImageRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {

@@ -2,7 +2,7 @@
 
 #include <typeindex>
 #include <typeinfo>
-#include "linalg/linalg.h"
+#include "core/types.h"
 
 template <typename T>
 inline std::type_index GetTypeIndex()
@@ -25,19 +25,19 @@ inline int getChannels()
     {
         return 1;
     }
-    else if constexpr (std::is_same_v<T, linalg::Vec2<float>>)
+    else if constexpr (std::is_same_v<T, Vec2<float>>)
     {
         return 2;
     }
-    else if constexpr (std::is_same_v<T, linalg::Vec3<float>>)
+    else if constexpr (std::is_same_v<T, Vec3<float>>)
     {
         return 3;
     }
-    else if constexpr (std::is_same_v<T, linalg::Vec3<int>>)
+    else if constexpr (std::is_same_v<T, Vec3<int>>)
     {
         return 3;
     }
-    else if constexpr (std::is_same_v<T, linalg::Vec4<float>>)
+    else if constexpr (std::is_same_v<T, Vec4<float>>)
     {
         return 4;
     }

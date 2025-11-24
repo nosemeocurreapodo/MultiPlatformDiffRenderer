@@ -114,7 +114,7 @@ public:
         return projmat;
     }
 
-    bool IsPixVisible(linalg::Vec2<T> pix) const
+    bool IsPixVisible(Vec2<T> pix) const
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -138,7 +138,7 @@ public:
 
     Vec2<T> RayToPix(Vec3<T> ray) const
     {
-        linalg::Vec2<T> pix;
+        Vec2<T> pix;
         pix(0) = fx_ * ray(0) + cx_;
         pix(1) = fy_ * ray(1) + cy_;
         return pix;

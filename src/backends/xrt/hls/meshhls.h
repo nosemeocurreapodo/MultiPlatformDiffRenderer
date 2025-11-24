@@ -10,7 +10,7 @@ class MeshHLS
 public:
     MeshHLS(float *vertexs,
             unsigned int vertex_size,
-            unsigned int *indices,
+            int *indices,
             unsigned int indices_size)
         : vertex_buffer_(vertex_size, vertexs),
           ebo_buffer_(indices_size, indices)
@@ -44,7 +44,7 @@ public:
     // BufferHLS<UInt> Indices() const { return ebo_buffer_; }
 
     BufferRAM<float> vertex_buffer_;
-    BufferRAM<unsigned int> ebo_buffer_;
+    BufferRAM<int> ebo_buffer_;
 
     int stride_;
     int pos_offset_;

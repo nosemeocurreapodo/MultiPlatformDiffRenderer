@@ -1,6 +1,6 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/MultiPlatformDiffRenderer/src/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/tests/data"
 
 #include "tests/common/loaddataset.h"
 #include "tests/common/test_helpers.h"
@@ -12,11 +12,15 @@
 extern "C"
 {
     void DiffRenderHLS(float *vertex_buffer_data,
-                       unsigned int *ebo_buffer_data,
+                       int *ebo_buffer_data,
                        ap_uint<8> *f_texture_data_ch1,
                        ap_uint<8> *f_texture_data_ch2,
                        ap_uint<8> *f_texture_data_ch3,
                        ap_uint<8> *f_texture_data_ch4,
+                       ap_uint<8> *didxy_texture_data_ch1,
+                       ap_uint<8> *didxy_texture_data_ch2,
+                       ap_uint<8> *didxy_texture_data_ch3,
+                       ap_uint<8> *didxy_texture_data_ch4,
                        ap_uint<8> *image_texture_data,
                        float *depth_texture_data,
                        linalg::Vec3<float> *jtra_texture_data,
@@ -52,26 +56,30 @@ int main()
     std::vector<std::string> depth_files = dataset.GetDepthFiles();
     std::vector<linalg::SE3<float>> poses = dataset.GetPoses();
     float depth_factor = dataset.GetDepthFactor();
-    Camera<float> cam = dataset.GetCamera();
+    PinholeCamera<float> cam = dataset.GetCamera();
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
     float scale = 1.0f / depth_factor;
 
-    cv::Mat image_src_cv = ReadMat(image_files[0], false);
-    cv::Mat depth_src_cv = ReadMat(depth_files[0], true) * scale;
+    cv::Mat image_src_cv = cv::imread(image_files[0], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_src_cv = cv::imread(depth_files[0], cv::IMREAD_GRAYSCALE);
+    depth_src_cv.convertTo(depth_src_cv, CV_32FC1);
+    depth_src_cv = depth_src_cv * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    cv::Mat image_dst_cv = ReadMat(image_files[50], false);
-    cv::Mat depth_dst_cv = ReadMat(depth_files[50], true) * scale;
+    cv::Mat image_src_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_src_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
+    depth_src_cv.convertTo(depth_src_cv, CV_32FC1);
+    depth_src_cv = depth_src_cv * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
     std::vector<float> vertex;
-    std::vector<unsigned int> indices;
+    std::vector<int> indices;
     CreateMesh(depth_src_cv, cam, 32, vertex, indices);
 
     std::vector<float> screen_vertex;
-    std::vector<unsigned int> screen_indices;
+    std::vector<int> screen_indices;
     CreateScreenQuad(screen_vertex, screen_indices);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
@@ -79,15 +87,16 @@ int main()
     int in_lvl = 0;
     int out_lvl = 0;
 
-    TextureCPU<unsigned char> image_src_cpu(w, h, 0);
+    TextureCPU<ImageType> image_src_cpu(w, h, 0);
     UploadMatToTexture(image_src_cpu, 0, image_src_cv);
+    TextureCPU<linalg::Vec3<float>> didxy_src_cpu(w, h, linalg::Vec3(0.0, 0.0, 0.0));
 
-    TextureCPU<unsigned char> image_out_cpu(w, h, 0);
+    TextureCPU<ImageType> image_out_cpu(w, h, 0);
     TextureCPU<float> depth_out_cpu(w, h, -1.0f);
     TextureCPU<linalg::Vec3<float>> jtra_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jrot_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<linalg::Vec3<float>> jmap_out_cpu(w, h, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<linalg::Vec3<float>> pids_out_cpu(w, h, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
+    TextureCPU<linalg::Vec3<PidType>> pids_out_cpu(w, h, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
 
     auto image_in_map = image_src_cpu.MapWrite(0);
     auto image_out_map = image_out_cpu.MapWrite(0);
@@ -119,12 +128,12 @@ int main()
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
-    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, out_lvl, CV_8UC1);
-    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, out_lvl, CV_32FC1);
-    cv::Mat jtra_out_cv = DownloadTextureToMat(jtra_out_cpu, out_lvl, CV_32FC3);
-    cv::Mat jrot_out_cv = DownloadTextureToMat(jrot_out_cpu, out_lvl, CV_32FC3);
-    cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, out_lvl, CV_32FC3);
-    cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, out_lvl, CV_32FC3);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, out_lvl);
+    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, out_lvl);
+    cv::Mat jtra_out_cv = DownloadTextureToMat(jtra_out_cpu, out_lvl);
+    cv::Mat jrot_out_cv = DownloadTextureToMat(jrot_out_cpu, out_lvl);
+    cv::Mat jmap_out_cv = DownloadTextureToMat(jmap_out_cpu, out_lvl);
+    cv::Mat pids_out_cv = DownloadTextureToMat(pids_out_cpu, out_lvl);
 
     cv::normalize(image_out_cv, image_out_cv, 0, 255, cv::NORM_MINMAX);
     image_out_cv.convertTo(image_out_cv, CV_8U);

@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "tests/common/test_helpers.h"
+#include "core/mesh_helpers.h"
 #include "core/types.h"
 #include "linalg/converters.h"
 #include "model.h"
@@ -75,6 +76,10 @@ int main(int argc, char **argv)
 
     std::cout << "Model loaded. Vertices: " << (vertex.size() / 3)
               << "  Tris: " << (indices.size() / 3) << std::endl;
+
+    std::vector<float> screen_vertex;
+    std::vector<int> screen_indices;
+    CreateScreenQuad(screen_vertex, screen_indices);
 
     std::vector<std::string> backend_names;
 
@@ -148,11 +153,16 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
+    DIDxyRendererCPU didxyrenderercpu;
 
     MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
 
     TextureCPU<ImageType> diffusecpu(diffuse_cv.cols, diffuse_cv.rows, 0);
     UploadMatToTexture(diffusecpu, 0, diffuse_cv);
+
+    TextureCPU<Vec3<float>> didxycpu(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
+    MeshCPU meshcpu_screen(screen_vertex, screen_indices, true, true, false);
+    didxyrenderercpu.Render(meshcpu_screen, in_lvl, in_lvl, diffusecpu, didxycpu);
 
     TextureCPU<ImageType> imagecpu(width, height, 0);
     TextureCPU<float> depthcpu(width, height, -1.0f);
@@ -164,11 +174,16 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_GL
     DiffRendererGL renderergl;
+    DIDxyRendererGL didxyrenderergl;
 
     MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
 
     TextureGL<ImageType> diffusegl(diffuse_cv.cols, diffuse_cv.rows, 0);
     UploadMatToTexture(diffusegl, 0, diffuse_cv);
+
+    TextureGL<Vec3<float>> didxygl(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
+    MeshGL meshgl_screen(screen_vertex, screen_indices, true, true, false);
+    didxyrenderergl.Render(meshgl_screen, in_lvl, in_lvl, diffusegl, didxygl);
 
     TextureGL<ImageType> imagegl(width, height, 0);
     TextureGL<float> depthgl(width, height, -1.0f);
@@ -259,9 +274,9 @@ int main(int argc, char **argv)
         view_e_.block<3, 1>(0, 3) = -R * camPos;
         view_e_.row(3) = Eigen::Vector4f(0, 0, 0, 1);
 
-        linalg::Mat4<float> v_ = EigenToLinalg(view_e_);
+        Mat4<float> v_ = EigenToLinalg(view_e_);
 
-        linalg::SE3<float> transform(v_);
+        SE3<float> transform(v_);
 
         auto t0 = std::chrono::high_resolution_clock::now();
 #ifdef COMPILE_CPU
@@ -273,6 +288,7 @@ int main(int argc, char **argv)
                                in_lvl,
                                out_lvl,
                                diffusecpu,
+                               didxycpu,
                                imagecpu,
                                depthcpu,
                                jtracpu,
@@ -289,6 +305,7 @@ int main(int argc, char **argv)
                               in_lvl,
                               out_lvl,
                               diffusegl,
+                              didxygl,
                               imagegl,
                               depthgl,
                               jtragl,

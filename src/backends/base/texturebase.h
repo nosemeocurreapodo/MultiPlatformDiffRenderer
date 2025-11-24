@@ -3,6 +3,7 @@
 #ifdef USE_VITIS
 #include "backends/xrt/hls/math_common.h"
 #else
+#include "core/types.h"
 #include "backends/cpu/math_common.h"
 #endif
 
@@ -47,65 +48,65 @@ T wrap(T t, AddressMode addr)
     return t; // unreachable
 };
 
-template <class T, class Tex>
-T nearest(const Tex &tex, T y, T x, unsigned int lvl)
+template <class T, template <class> class Tex>
+T nearest(const Tex<T> &tex, RealType y, RealType x, IntType lvl)
 {
 #pragma HLS inline
 
-    const auto xi = static_cast<unsigned int>(lround(x));
-    const auto yi = static_cast<unsigned int>(lround(y));
-    return T(tex.texel_(yi, xi, lvl));
+    const IntType xi = static_cast<IntType>(lround(x));
+    const IntType yi = static_cast<IntType>(lround(y));
+    return tex.texel_(yi, xi, lvl);
 }
 
-template <class T, class Tex>
-T bilinear(const Tex &tex, T y, T x, unsigned int lvl)
+template <class T, template <class> class Tex>
+T bilinear(const Tex<T> &tex, RealType y, RealType x, IntType lvl)
 {
 #pragma HLS inline
 
-    const auto w = tex.width(lvl);
-    const auto h = tex.height(lvl);
+    const IntType w = tex.width(lvl);
+    const IntType h = tex.height(lvl);
 
-    const T xf = floor(x);
-    const T yf = floor(y);
-    const auto x0 = static_cast<unsigned int>(xf < T(0) ? T(0) : xf);
-    const auto y0 = static_cast<unsigned int>(yf < T(0) ? T(0) : yf);
-    const auto x1 = min(x0 + 1, w - 1);
-    const auto y1 = min(y0 + 1, h - 1);
+    const RealType xf = floor(x);
+    const RealType yf = floor(y);
+    const IntType x0 = static_cast<IntType>(xf < RealType(0) ? RealType(0) : xf);
+    const IntType y0 = static_cast<IntType>(yf < RealType(0) ? RealType(0) : yf);
+    const IntType x1 = min(x0 + 1, w - 1);
+    const IntType y1 = min(y0 + 1, h - 1);
 
-    const T dx = x - static_cast<T>(x0);
-    const T dy = y - static_cast<T>(y0);
+    const RealType dx = x - static_cast<RealType>(x0);
+    const RealType dy = y - static_cast<RealType>(y0);
 
-    const auto tl = T(tex.texel_(y0, x0, lvl));
-    const auto tr = T(tex.texel_(y0, x1, lvl));
-    const auto bl = T(tex.texel_(y1, x0, lvl));
-    const auto br = T(tex.texel_(y1, x1, lvl));
+    const T tl = tex.texel_(y0, x0, lvl);
+    const T tr = tex.texel_(y0, x1, lvl);
+    const T bl = tex.texel_(y1, x0, lvl);
+    const T br = tex.texel_(y1, x1, lvl);
 
     // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
     //     return T(tex.nodata());
 
-    const T Cx0 = tl * (T(1) - dx) + tr * dx;
-    const T Cx1 = bl * (T(1) - dx) + br * dx;
-    return Cx0 * (T(1) - dy) + Cx1 * dy;
+    const T Cx0 = tl * (RealType(1) - dx) + tr * dx;
+    const T Cx1 = bl * (RealType(1) - dx) + br * dx;
+    return Cx0 * (RealType(1) - dy) + Cx1 * dy;
 }
 
 // Normalized sampling in [0,1] (allows outside depending on address mode)
-template <class T, class Tex>
-T sample(const Tex &tex,
-         T v, T u,
-         unsigned int lvl = 0,
+template <class T, template <class> class Tex>
+T sample(const Tex<T> &tex,
+         RealType v, RealType u,
+         IntType lvl = 0,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
 #pragma HLS inline
 
-    const T w = static_cast<T>(tex.width(lvl));
-    const T h = static_cast<T>(tex.height(lvl));
+    const RealType w = static_cast<RealType>(tex.width(lvl));
+    const RealType h = static_cast<RealType>(tex.height(lvl));
 
-    const T uu = wrap(u, addr);
-    const T vv = wrap(v, addr);
+    const RealType uu = wrap(u, addr);
+    const RealType vv = wrap(v, addr);
 
-    const T x = uu * w - T(0.5f);
-    const T y = vv * h - T(0.5f);
+    const RealType x = uu * w - RealType(0.5f);
+    const RealType y = vv * h - RealType(0.5f);
 
     return (filt == FilterMode::Nearest)
                ? nearest<T, Tex>(tex, y, x, lvl)

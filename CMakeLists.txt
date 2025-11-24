@@ -24,10 +24,10 @@ set(HLSLInearAlgebra_PATH "HLSLinearAlgebra/include")
 include_directories(
     ${MultiPlatformRenderer_PATH}
     ${HLSLInearAlgebra_PATH}
-#   ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
-    ${PROJECT_SOURCE_DIR}/thirdparty
-    ${EIGEN3_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+#    ${PROJECT_SOURCE_DIR}/thirdparty
 )
 
 include(FetchContent)

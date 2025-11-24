@@ -225,7 +225,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 // Compare CPU vs GL image rendering
 TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
-    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
     MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
     MeshGL mesh_gl(vertex_, indices_, true, true, true);
@@ -573,7 +573,7 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
     TextureCPU<ImageType> f_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jmap_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3<PidType>> pids_cpu(w_, h_, Vec3<int>(-1, -1, -1));
+    TextureCPU<Vec3<PidType>> pids_cpu(w_, h_, Vec3<PidType>(-1, -1, -1));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
     TextureGL<ImageType> kf_gl(w_, h_, 0);

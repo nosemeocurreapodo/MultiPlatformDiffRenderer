@@ -82,7 +82,7 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output));
 
@@ -150,7 +150,7 @@ TYPED_TEST_P(RendererTypedTests, ResidualRendererBasicFunctionality)
     UploadMatToTexture(input2, 0, this->image_dst_cv_);
 
     typename Traits::ResidualRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     ASSERT_NO_THROW(renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, input1, input2, output));
 
@@ -203,9 +203,9 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
 
     typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<ImageType> f_tex(this->w_, this->h_, 0);
-    typename Traits::template TextureT<linalg::Vec3<float>> dfdxy_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<linalg::Vec3<float>> jtra_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<linalg::Vec3<float>> jrot_tex(this->w_, this->h_, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jtra_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jrot_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
@@ -214,7 +214,7 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::DIDxyRendererT didxy_renderer;
     typename Traits::JPoseRendererT jpose_renderer;
 
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
     ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, r_tex));
@@ -298,15 +298,15 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
 
     typename Traits::DepthRendererT renderer;
 
-    ASSERT_NO_THROW(renderer.Render(empty_mesh, linalg::SE3<float>(), this->cam_, out_lvl, output));
+    ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3<float>(), this->cam_, out_lvl, output));
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
-    ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, out_lvl, output));
+    ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, out_lvl, output));
 
     if (this->w_ >= 4 && this->h_ >= 4)
     {
-        ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 1, output));
-        ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, 1, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, 0, output));
     }
 }
 
@@ -320,7 +320,7 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
         typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, 0, output));
     }
     SUCCEED();
 }
@@ -338,7 +338,7 @@ TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
         typename Traits::template TextureT<float> output(w, h, -1.0f);
 
         typename Traits::DepthRendererT renderer;
-        ASSERT_NO_THROW(renderer.Render(mesh, linalg::SE3<float>(), this->cam_, 0, output));
+        ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, 0, output));
         cv::Mat result = DownloadTextureToMat(output, 0);
         EXPECT_EQ(result.cols, w);
         EXPECT_EQ(result.rows, h);

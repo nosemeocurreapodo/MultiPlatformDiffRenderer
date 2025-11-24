@@ -32,13 +32,13 @@
 
 template <class Derived, class Base>
 class RendererBaseHLS
-    : public RendererBase<RealType, IntType, Base>
+    : public RendererBase<Base>
 {
 public:
     // RendererBaseHLS() = default;
     //~RendererBaseHLS() = default;
 
-    using Triangle = typename RendererBase<RealType, IntType, Base>::Triangle;
+    using Triangle = typename RendererBase<Base>::Triangle;
 
     template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<IntType> &viewport,
@@ -760,7 +760,7 @@ public:
     }
 
 private:
-    template <typename Triangle, typename Uniforms, typename InTextures, typename Fragment>
+    template <typename Uniforms, typename InTextures, typename Fragment>
     void draw_triangle_stream_(hls::stream<Triangle> &triangles_stream, const BoundingBox<IntType> &viewport, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
     {
         Triangle triangle = triangles_stream.read();
@@ -801,17 +801,17 @@ private:
 };
 
 class DepthRendererHLS
-    : public RendererBaseHLS<DepthRendererHLS, DepthRendererBase<RealType, IntType, TextureRAM>>
+    : public RendererBaseHLS<DepthRendererHLS, DepthRendererBase<TextureRAM>>
 {
 public:
-    using Base = DepthRendererBase<RealType, IntType, TextureRAM>;
+    using Base = DepthRendererBase<TextureRAM>;
 
     // DepthRendererHLS() = default;
     //~DepthRendererHLS() = default;
 
     void Render(const MeshHLS &mesh,
                 const linalg::SE3<RealType> &pose,
-                const Camera<RealType> &cam,
+                const PinholeCamera<RealType> &cam,
                 int out_lvl,
                 TextureRAM<float> &out_texture)
     {
@@ -1001,24 +1001,24 @@ private:
 */
 
 class ImageRendererHLS
-    : public RendererBaseHLS<ImageRendererHLS, ImageRendererBase<RealType, IntType, TextureRAM>>
+    : public RendererBaseHLS<ImageRendererHLS, ImageRendererBase<TextureRAM>>
 {
 public:
-    using Base = ImageRendererBase<RealType, IntType, TextureRAM>;
+    using Base = ImageRendererBase<TextureRAM>;
 
     ImageRendererHLS() = default;
     ~ImageRendererHLS() = default;
 
     void Render(const MeshHLS &mesh,
                 const linalg::SE3<RealType> &pose,
-                const Camera<RealType> &cam,
+                const PinholeCamera<RealType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureRAM<unsigned char> &diffuse_texture_ch1,
-                const TextureRAM<unsigned char> &diffuse_texture_ch2,
-                const TextureRAM<unsigned char> &diffuse_texture_ch3,
-                const TextureRAM<unsigned char> &diffuse_texture_ch4,
-                TextureRAM<unsigned char> &out_texture)
+                const TextureRAM<ImageType> &diffuse_texture_ch1,
+                const TextureRAM<ImageType> &diffuse_texture_ch2,
+                const TextureRAM<ImageType> &diffuse_texture_ch3,
+                const TextureRAM<ImageType> &diffuse_texture_ch4,
+                TextureRAM<ImageType> &out_texture)
     {
         Base::Uniforms uniforms;
 
@@ -1089,7 +1089,7 @@ public:
                 int y = iy + tex_bb.min_y_;
                 int address = iy * tex_bb.width_ + ix;
 
-                unsigned char color = fragment_buffer[address].color;
+                ImageType color = fragment_buffer[address].color;
                 textures.out_texture.set_texel_(color, y, x, uniforms.out_lvl);
             }
         }
@@ -1239,29 +1239,33 @@ private:
 
 class DiffRendererHLS
     : public RendererBaseHLS<DiffRendererHLS,
-                             DiffRendererBase<RealType, IntType, TextureRAM>>
+                             DiffRendererBase<TextureRAM>>
 {
 public:
-    using Base = DiffRendererBase<RealType, IntType, TextureRAM>;
+    using Base = DiffRendererBase<TextureRAM>;
 
     DiffRendererHLS() = default;
     ~DiffRendererHLS() = default;
 
     void Render(const MeshHLS &mesh,
                 const linalg::SE3<RealType> &pose,
-                const Camera<RealType> &cam,
+                const PinholeCamera<RealType> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureRAM<unsigned char> &diffuse_texture_ch1,
-                const TextureRAM<unsigned char> &diffuse_texture_ch2,
-                const TextureRAM<unsigned char> &diffuse_texture_ch3,
-                const TextureRAM<unsigned char> &diffuse_texture_ch4,
-                TextureRAM<unsigned char> &image_texture,
+                const TextureRAM<ImageType> &diffuse_texture_ch1,
+                const TextureRAM<ImageType> &diffuse_texture_ch2,
+                const TextureRAM<ImageType> &diffuse_texture_ch3,
+                const TextureRAM<ImageType> &diffuse_texture_ch4,
+                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch1,
+                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch2,
+                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch3,
+                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch4,
+                TextureRAM<ImageType> &image_texture,
                 TextureRAM<float> &depth_texture,
                 TextureRAM<linalg::Vec3<float>> &jtra_texture,
                 TextureRAM<linalg::Vec3<float>> &jrot_texture,
                 TextureRAM<linalg::Vec3<float>> &jmap_texture,
-                TextureRAM<linalg::Vec3<int>> &pids_texture)
+                TextureRAM<linalg::Vec3<PidType>> &pids_texture)
     {
         linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -1279,10 +1283,10 @@ public:
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<IntType> viewport(0, W, 0, H);
 
-        Base::InTextures intextures_ch1{diffuse_texture_ch1};
-        Base::InTextures intextures_ch2{diffuse_texture_ch2};
-        Base::InTextures intextures_ch3{diffuse_texture_ch3};
-        Base::InTextures intextures_ch4{diffuse_texture_ch4};
+        Base::InTextures intextures_ch1{diffuse_texture_ch1, didxy_texture_ch1};
+        Base::InTextures intextures_ch2{diffuse_texture_ch2, didxy_texture_ch2};
+        Base::InTextures intextures_ch3{diffuse_texture_ch3, didxy_texture_ch3};
+        Base::InTextures intextures_ch4{diffuse_texture_ch4, didxy_texture_ch4};
 
         Base::OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
 
@@ -1316,7 +1320,7 @@ public:
                 int y = iy + tex_bb.min_y_;
                 int address = iy * tex_bb.width_ + ix;
 
-                unsigned char image = fragment_buffer[address].image;
+                ImageType image = fragment_buffer[address].image;
                 RealType depth = fragment_buffer[address].depth;
                 linalg::Vec3<RealType> jtra = fragment_buffer[address].jtra;
                 linalg::Vec3<RealType> jrot = fragment_buffer[address].jrot;

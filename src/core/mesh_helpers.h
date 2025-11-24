@@ -6,14 +6,14 @@
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
 
-std::vector<linalg::Vec2<float>> UniformTexCoords(int width, int height)
+std::vector<Vec2<float>> UniformTexCoords(int width, int height)
 {
-    std::vector<linalg::Vec2<float>> texcoords;
+    std::vector<Vec2<float>> texcoords;
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            linalg::Vec2<float> pix;
+            Vec2<float> pix;
             pix(0) = float(x) / (width - 1);
             pix(1) = float(y) / (height - 1);
 
@@ -30,7 +30,7 @@ float RandomDepth(float min_depth, float max_depth)
     return depth;
 }
 
-float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_depth)
+float VerticallySmoothDepth(Vec2<float> pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
@@ -40,14 +40,14 @@ float VerticallySmoothDepth(linalg::Vec2<float> pix, float min_depth, float max_
 void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
-    std::vector<linalg::Vec2<float>> tex_coords_2d;
+    std::vector<Vec2<float>> tex_coords_2d;
     for (size_t i = 0; i < tex_coords.size(); i++)
     {
-        tex_coords_2d.push_back(linalg::Vec2<float>(tex_coords[i].x(), tex_coords[i].y()));
+        tex_coords_2d.push_back(Vec2<float>(tex_coords[i].x(), tex_coords[i].y()));
     }
     triangulator_.LoadPoints(tex_coords_2d);
     triangulator_.Triangulate();
-    std::vector<linalg::Vec3<int>> tris = triangulator_.GetTriangles();
+    std::vector<Vec3<int>> tris = triangulator_.GetTriangles();
     tris_f.clear();
     tris_f.reserve(tris.size() * 3);
     for (size_t i = 0; i < tris.size(); i++)
@@ -81,7 +81,7 @@ void CreateMesh(const cv::Mat &depth,
                 bool add_tex = true,
                 bool add_normal = true)
 {
-    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     int stride = 0;
     if (add_pos)
@@ -108,7 +108,7 @@ void CreateMesh(const cv::Mat &depth,
     { return std::max(0.0f, std::min(1.0f, x)); };
 
     // Sample a 3D point from (u,v) using nearest-neighbor depth. Returns false if invalid.
-    auto sample_pos = [&](float u, float v, linalg::Vec3<float> &out) -> bool
+    auto sample_pos = [&](float u, float v, Vec3<float> &out) -> bool
     {
         // u = clamp01(u);
         // v = clamp01(v);
@@ -125,31 +125,31 @@ void CreateMesh(const cv::Mat &depth,
         if (z <= 0.0f)
             return false;
 
-        const linalg::Vec2<float> uv{u, v};
-        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        const Vec2<float> uv{u, v};
+        const Vec3<float> ray = cam.PixToRay(uv);
         out = ray * z; // camera/world space position along the ray
         return true;
     };
 
-    for (const linalg::Vec2<float> &uv : grid_uv)
+    for (const Vec2<float> &uv : grid_uv)
     {
         const float u = uv(0), v = uv(1);
 
         // Center point
-        linalg::Vec3<float> P;
+        Vec3<float> P;
         if (!sample_pos(u, v, P))
             continue; // skip invalid vertex entirely (keep this if your pipeline expects sparse vertices)
 
         // Neighbors for finite differences
-        linalg::Vec3<float> PR, PL, PU, PD;
+        Vec3<float> PR, PL, PU, PD;
         const bool hasR = sample_pos(u + du, v, PR);
         const bool hasL = sample_pos(u - du, v, PL);
         const bool hasU = sample_pos(u, v + dv, PU);
         const bool hasD = sample_pos(u, v - dv, PD);
 
         // Tangents in world/camera space
-        linalg::Vec3<float> dUvec{0, 0, 0};
-        linalg::Vec3<float> dVvec{0, 0, 0};
+        Vec3<float> dUvec{0, 0, 0};
+        Vec3<float> dVvec{0, 0, 0};
 
         if (hasR && hasL)
             dUvec = PR - PL; // central diff
@@ -170,7 +170,7 @@ void CreateMesh(const cv::Mat &depth,
             continue;
 
         // Normal from cross product (right-handed): n = normalize(dU x dV)
-        linalg::Vec3<float> N = -dUvec.cross(dVvec);
+        Vec3<float> N = -dUvec.cross(dVvec);
         const float len2 = N.norm();
         if (len2 > 1e-12f)
         {
@@ -179,7 +179,7 @@ void CreateMesh(const cv::Mat &depth,
         else
         {
             // Degenerate neighborhood: fall back to a view-facing normal
-            const linalg::Vec3<float> ray = -cam.PixToRay(uv);
+            const Vec3<float> ray = -cam.PixToRay(uv);
             N = ray.normalized();
         }
 
@@ -214,7 +214,7 @@ void CreateMesh(const TextureCPU<float> &depth,
                 std::vector<Eigen::Vector3f> &normals,
                 std::vector<int> &indices)
 {
-    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -236,7 +236,7 @@ void CreateMesh(const TextureCPU<float> &depth,
     { return std::max(0.0f, std::min(1.0f, x)); };
 
     // Sample a 3D point from (u,v) using nearest-neighbor depth. Returns false if invalid.
-    auto sample_pos = [&](float u, float v, linalg::Vec3<float> &out) -> bool
+    auto sample_pos = [&](float u, float v, Vec3<float> &out) -> bool
     {
         // u = clamp01(u);
         // v = clamp01(v);
@@ -253,31 +253,31 @@ void CreateMesh(const TextureCPU<float> &depth,
         if (z <= 0.0f || z == depth.nodata())
             return false;
 
-        const linalg::Vec2<float> uv{u, v};
-        const linalg::Vec3<float> ray = cam.PixToRay(uv);
+        const Vec2<float> uv{u, v};
+        const Vec3<float> ray = cam.PixToRay(uv);
         out = ray * z; // camera/world space position along the ray
         return true;
     };
 
-    for (const linalg::Vec2<float> &uv : grid_uv)
+    for (const Vec2<float> &uv : grid_uv)
     {
         const float u = uv(0), v = uv(1);
 
         // Center point
-        linalg::Vec3<float> P;
+        Vec3<float> P;
         if (!sample_pos(u, v, P))
             continue; // skip invalid vertex entirely (keep this if your pipeline expects sparse vertices)
 
         // Neighbors for finite differences
-        linalg::Vec3<float> PR, PL, PU, PD;
+        Vec3<float> PR, PL, PU, PD;
         const bool hasR = sample_pos(u + du, v, PR);
         const bool hasL = sample_pos(u - du, v, PL);
         const bool hasU = sample_pos(u, v + dv, PU);
         const bool hasD = sample_pos(u, v - dv, PD);
 
         // Tangents in world/camera space
-        linalg::Vec3<float> dUvec{0, 0, 0};
-        linalg::Vec3<float> dVvec{0, 0, 0};
+        Vec3<float> dUvec{0, 0, 0};
+        Vec3<float> dVvec{0, 0, 0};
 
         if (hasR && hasL)
             dUvec = PR - PL; // central diff
@@ -298,7 +298,7 @@ void CreateMesh(const TextureCPU<float> &depth,
             continue;
 
         // Normal from cross product (right-handed): n = normalize(dU x dV)
-        linalg::Vec3<float> N = -dUvec.cross(dVvec);
+        Vec3<float> N = -dUvec.cross(dVvec);
         const float len2 = N.norm();
         if (len2 > 1e-12f)
         {
@@ -307,7 +307,7 @@ void CreateMesh(const TextureCPU<float> &depth,
         else
         {
             // Degenerate neighborhood: fall back to a view-facing normal
-            const linalg::Vec3<float> ray = -cam.PixToRay(uv);
+            const Vec3<float> ray = -cam.PixToRay(uv);
             N = ray.normalized();
         }
 
@@ -328,7 +328,7 @@ void CreateFlatMesh(float min_depth, float max_depth,
                     bool add_tex = true,
                     bool add_normal = true)
 {
-    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     int stride = 0;
     if (add_pos)
@@ -344,16 +344,16 @@ void CreateFlatMesh(float min_depth, float max_depth,
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
 
-    for (const linalg::Vec2<float> &uv : grid_uv)
+    for (const Vec2<float> &uv : grid_uv)
     {
         const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
 
-        const linalg::Vec3<float> ray = cam.PixToRay(uv);
-        const linalg::Vec3<float> ver = ray * depth;
-        const linalg::Vec3<float> nor(0.0, 0.0, 1.0);
+        const Vec3<float> ray = cam.PixToRay(uv);
+        const Vec3<float> ver = ray * depth;
+        const Vec3<float> nor(0.0, 0.0, 1.0);
 
         if (add_pos)
         {
@@ -385,7 +385,7 @@ void CreateFlatMesh(float min_depth, float max_depth,
                     std::vector<Eigen::Vector2f> &texcoords,
                     std::vector<int> &indices)
 {
-    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -393,15 +393,15 @@ void CreateFlatMesh(float min_depth, float max_depth,
     vertices.reserve(grid_uv.size());
     texcoords.reserve(grid_uv.size());
 
-    for (const linalg::Vec2<float> &uv : grid_uv)
+    for (const Vec2<float> &uv : grid_uv)
     {
         const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
 
-        const linalg::Vec3<float> ray = cam.PixToRay(uv);
-        const linalg::Vec3<float> vertex = ray * depth;
+        const Vec3<float> ray = cam.PixToRay(uv);
+        const Vec3<float> vertex = ray * depth;
 
         vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
         texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
@@ -416,7 +416,7 @@ void CreateSphereMesh(float depth,
                       std::vector<Eigen::Vector2f> &texcoords,
                       std::vector<int> &indices)
 {
-    std::vector<linalg::Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
 
     vertices.clear();
     texcoords.clear();
@@ -424,14 +424,14 @@ void CreateSphereMesh(float depth,
     vertices.reserve(grid_uv.size());
     texcoords.reserve(grid_uv.size());
 
-    for (const linalg::Vec2<float> &uv : grid_uv)
+    for (const Vec2<float> &uv : grid_uv)
     {
         if (depth <= 0.0f)
             continue;
 
-        linalg::Vec3<float> ray = cam.PixToRay(uv);
+        Vec3<float> ray = cam.PixToRay(uv);
         ray = ray / ray.norm();
-        const linalg::Vec3<float> vertex = ray * depth;
+        const Vec3<float> vertex = ray * depth;
 
         vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
         texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
