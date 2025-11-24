@@ -86,8 +86,40 @@ inline double RMSE(const Texture1 &tex1, const Texture2 &tex2, int lvl)
             continue;
         }
 
+        double diff = double(val1) - double(val2);
+        double diff_sq = diff * diff;
+        total_error += diff_sq;
+
+        valid_pixels++;
+    }
+
+    return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
+}
+
+template <typename Texture1, typename Texture2>
+inline double RMSEV(const Texture1 &tex1, const Texture2 &tex2, int lvl)
+{
+    assert(tex1.width(lvl) == tex2.width(lvl) && tex1.height(lvl) == tex2.height(lvl));
+
+    double total_error = 0.0;
+    int valid_pixels = 0;
+
+    auto tx1_map = tex1.MapRead(lvl);
+    auto tx2_map = tex2.MapRead(lvl);
+
+    for (int i = 0; i < tx1_map.size(); ++i)
+    {
+        auto val1 = tx1_map[i];
+        auto val2 = tx2_map[i];
+
+        if (val1 == tex1.nodata() || val2 == tex2.nodata())
+        {
+            continue;
+        }
+
         auto diff = val1 - val2;
-        total_error += diff * diff;
+        auto diff_sq = diff.transpose() * diff;
+        total_error += std::sqrt(diff_sq(0, 0));
 
         valid_pixels++;
     }
@@ -113,74 +145,4 @@ inline int CountValid(const Texture &tex, int lvl)
     }
 
     return valid_pixels;
-}
-
-// Error computation
-template <typename T>
-inline double ComputeL2ErrorScalar(const cv::Mat &mat1, const cv::Mat &mat2, T nodata_value)
-{
-    assert(mat1.size() == mat2.size());
-    assert(mat1.type() == mat2.type());
-
-    double total_error = 0.0;
-    int valid_pixels = 0;
-
-    for (int y = 0; y < mat1.rows; ++y)
-    {
-        for (int x = 0; x < mat1.cols; ++x)
-        {
-            const T val1 = mat1.at<T>(y, x);
-            const T val2 = mat2.at<T>(y, x);
-
-            if (val1 != nodata_value && val2 != nodata_value)
-            {
-                double diff = static_cast<double>(val1) - static_cast<double>(val2);
-
-                total_error += diff * diff;
-                valid_pixels++;
-
-                // if (diff != 0.0f)
-                //  {
-                //     std::cout << "error " << std::endl;
-                // }
-            }
-        }
-    }
-
-    return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
-}
-
-inline double ComputeL2ErrorVector(const cv::Mat &mat1, const cv::Mat &mat2, cv::Vec3f nodata_value)
-{
-    assert(mat1.size() == mat2.size());
-    assert(mat1.type() == mat2.type());
-
-    double total_error = 0.0;
-    int valid_pixels = 0;
-
-    for (int y = 0; y < mat1.rows; ++y)
-    {
-        for (int x = 0; x < mat1.cols; ++x)
-        {
-            const cv::Vec3f val1 = mat1.at<cv::Vec3f>(y, x);
-            const cv::Vec3f val2 = mat2.at<cv::Vec3f>(y, x);
-
-            if (val1 != nodata_value && val2 != nodata_value)
-            {
-                // Handle vector types like cv::Vec3f
-                auto diff = val1 - val2;
-                double l2_error = 0.0;
-                for (int i = 0; i < diff.channels; ++i)
-                {
-                    double d = static_cast<double>(diff[i]);
-                    l2_error += d * d;
-                }
-                l2_error = std::sqrt(l2_error);
-                total_error += l2_error;
-                valid_pixels++;
-            }
-        }
-    }
-
-    return valid_pixels > 0 ? std::sqrt(total_error / valid_pixels) : 0.0;
 }

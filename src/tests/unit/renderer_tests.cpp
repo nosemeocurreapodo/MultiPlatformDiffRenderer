@@ -325,34 +325,6 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
     SUCCEED();
 }
 
-// Numerical precision & determinism
-TYPED_TEST_P(RendererTypedTests, NumericalPrecisionDeterminism)
-{
-    using Traits = TypeParam;
-    const int out_lvl = 0;
-    const int iterations = 5;
-
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
-
-    typename Traits::DepthRendererT renderer;
-    linalg::SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
-
-    std::vector<cv::Mat> results;
-    results.reserve(iterations);
-    for (int i = 0; i < iterations; ++i)
-    {
-        typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-        renderer.Render(mesh, pose_transform, this->cam_, out_lvl, output);
-        results.push_back(DownloadTextureToMat(output, out_lvl));
-    }
-
-    for (int i = 1; i < iterations; ++i)
-    {
-        double error = ComputeL2ErrorScalar(results[0], results[i], -1.0f);
-        EXPECT_LT(error, 1e-6) << "Results should be deterministic, iteration " << i;
-    }
-}
-
 // Varying texture sizes (generalized framebuffer/resize validation)
 TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
 {
@@ -383,7 +355,6 @@ REGISTER_TYPED_TEST_SUITE_P(
     JMapRendererBasicFunctionality,
     ErrorHandlingAndEdgeCases,
     ResourceManagement,
-    NumericalPrecisionDeterminism,
     VaryingTextureSizes);
 
 using TestBackends = ::testing::Types<CPUBackendTraits

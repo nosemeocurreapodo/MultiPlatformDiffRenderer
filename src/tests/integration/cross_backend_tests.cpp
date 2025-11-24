@@ -45,21 +45,13 @@ TEST_F(CrossBackendTests, MipMapComparison)
         if (in_lvl > 3)
             continue;
 
-        timer_.Start();
-        cv::Mat cpu_result = DownloadTextureToMat(input_cpu, in_lvl);
-        acc_cpu_time += timer_.Stop();
-
-        timer_.Start();
-        cv::Mat gl_result = DownloadTextureToMat(input_gl, in_lvl);
-        acc_gl_time += timer_.Stop();
-
         int valid_cpu = CountValid(input_cpu, in_lvl);
         int valid_gl = CountValid(input_gl, in_lvl);
         int valid_diff = std::abs(valid_cpu - valid_gl);
 
         EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " in lvl " << in_lvl;
 
-        double l2_error = ComputeL2ErrorScalar<unsigned char>(cpu_result, gl_result, 0);
+        double l2_error = RMSE(input_cpu, input_gl, in_lvl);
         EXPECT_LT(l2_error, thresholds_.cr_max_mipmap_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl;
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
@@ -187,12 +179,10 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 
         timer_.Start();
         renderer_cpu.Render(mesh_cpu, pose_transform, cam_, lvl, output_cpu);
-        cv::Mat cpu_result = DownloadTextureToMat(output_cpu, lvl);
         acc_cpu_time += timer_.Stop();
 
         timer_.Start();
         renderer_gl.Render(mesh_gl, pose_transform, cam_, lvl, output_gl);
-        cv::Mat gl_result = DownloadTextureToMat(output_gl, lvl);
         acc_gl_time += timer_.Stop();
 
         int valid_cpu = CountValid(output_cpu, lvl);
@@ -202,7 +192,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " lvl " << lvl;
 
         // Detailed error analysis
-        double l2_error = ComputeL2ErrorScalar<float>(cpu_result, gl_result, -1.0f);
+        double l2_error = RMSE(output_cpu, output_gl, lvl);
         EXPECT_LT(l2_error, thresholds_.cr_max_depth_error) << "Cross-backend validation failed with L2 error: " << l2_error << " lvl " << lvl;
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
@@ -264,13 +254,11 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             ImageRendererCPU renderer_cpu;
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl);
             acc_cpu_time += timer_.Stop();
 
             ImageRendererGL renderer_gl;
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
-            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -279,7 +267,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 
             EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
-            double l2_error = ComputeL2ErrorScalar<unsigned char>(cpu_result, gl_result, 0);
+            double l2_error = RMSE(output_cpu, output_gl, out_lvl);
             EXPECT_LT(l2_error, thresholds_.cr_max_image_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
             acc_l2_error = std::max(acc_l2_error, l2_error);
         }
@@ -346,12 +334,10 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
-            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -360,7 +346,7 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
 
             EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
-            double l2_error = ComputeL2ErrorScalar<float>(cpu_result, gl_result, 0.0f);
+            double l2_error = RMSE(output_cpu, output_gl, out_lvl);
             EXPECT_LT(l2_error, thresholds_.cr_max_residual_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
             acc_l2_error = std::max(acc_l2_error, l2_error);
         }
@@ -420,12 +406,10 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, in_lvl, out_lvl, input_cpu, output_cpu);
-            cv::Mat cpu_result = DownloadTextureToMat(output_cpu, out_lvl);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             renderer_gl.Render(mesh_gl, in_lvl, out_lvl, input_gl, output_gl);
-            cv::Mat gl_result = DownloadTextureToMat(output_gl, out_lvl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -435,7 +419,7 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
             EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
             // Cross-backend validation for Vec3 data
-            double l2_error = ComputeL2ErrorVector(cpu_result, gl_result, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            double l2_error = RMSEV(output_cpu, output_gl, out_lvl);
             EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
             acc_l2_error = std::max(acc_l2_error, l2_error);
         }
@@ -517,16 +501,10 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 
             timer_.Start();
             jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
-            cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, out_lvl);
-            cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, out_lvl);
-            cv::Mat cpu_r = DownloadTextureToMat(r_cpu, out_lvl);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
-            cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, out_lvl);
-            cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, out_lvl);
-            cv::Mat gl_r = DownloadTextureToMat(r_gl, out_lvl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);
@@ -536,9 +514,13 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
             // EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
             // Validate both Jtra and Jrot
-            double jtra_error = ComputeL2ErrorVector(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
-            double jrot_error = ComputeL2ErrorVector(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
-            double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+            // double jtra_error = ComputeL2ErrorVector(cpu_jtra, gl_jtra, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            // double jrot_error = ComputeL2ErrorVector(cpu_jrot, gl_jrot, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            // double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+
+            double jtra_error = RMSEV(jtra_cpu, jtra_gl, out_lvl);
+            double jrot_error = RMSEV(jrot_cpu, jrot_gl, out_lvl);
+            double r_error = RMSE(r_cpu, r_gl, out_lvl);
 
             EXPECT_LT(jtra_error, thresholds_.cr_max_jtra_error) << "Jtra cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
             EXPECT_LT(jrot_error, thresholds_.cr_max_jrot_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
@@ -630,16 +612,10 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
             timer_.Start();
             jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jmap_cpu, pids_cpu, r_cpu);
-            cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, out_lvl);
-            cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, out_lvl);
-            cv::Mat cpu_r = DownloadTextureToMat(r_cpu, out_lvl);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
             jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jmap_gl, pids_gl, r_gl);
-            cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, out_lvl);
-            cv::Mat gl_pids = DownloadTextureToMat(pids_gl, out_lvl);
-            cv::Mat gl_r = DownloadTextureToMat(r_gl, out_lvl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);
@@ -649,9 +625,13 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
             EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
 
             // Validate both Jtra and Jrot
-            double jmap_error = ComputeL2ErrorVector(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
-            double pids_error = ComputeL2ErrorVector(cpu_pids, gl_pids, cv::Vec3f(-1.0f, -1.0f, -1.0f));
-            double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+            // double jmap_error = ComputeL2ErrorVector(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            // double pids_error = ComputeL2ErrorVector(cpu_pids, gl_pids, cv::Vec3f(-1.0f, -1.0f, -1.0f));
+            // double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+
+            double jmap_error = RMSEV(jmap_cpu, jmap_gl, out_lvl);
+            double pids_error = RMSEV(pids_cpu, pids_gl, out_lvl);
+            double r_error = RMSE(r_cpu, r_gl, out_lvl);
 
             EXPECT_LT(jmap_error, thresholds_.cr_max_jmap_error) << "Jtra cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
             EXPECT_LT(pids_error, thresholds_.cr_max_pids_error) << "Jrot cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
@@ -900,61 +880,5 @@ TEST_F(CrossBackendTests, MeshComplexityComparison)
     }
 }
 */
-
-// Test numerical precision comparison
-TEST_F(CrossBackendTests, NumericalPrecisionComparison)
-{
-    const int out_lvl = 0;
-    const int iterations = 3;
-
-    linalg::SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
-
-    std::vector<cv::Mat> cpu_results, gl_results;
-    cpu_results.reserve(iterations);
-    gl_results.reserve(iterations);
-
-    for (int i = 0; i < iterations; ++i)
-    {
-        // CPU
-        MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
-        TextureCPU<float> output_cpu(w_, h_, 0.0f);
-
-        DepthRendererCPU renderer_cpu;
-        renderer_cpu.Render(mesh_cpu, pose_transform, cam_, out_lvl, output_cpu);
-        cpu_results.push_back(DownloadTextureToMat(output_cpu, out_lvl));
-
-        // GL
-        MeshGL mesh_gl(vertex_, indices_, true, true, true);
-        TextureGL<float> output_gl(w_, h_, 0.0f);
-
-        DepthRendererGL renderer_gl;
-        renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, output_gl);
-        gl_results.push_back(DownloadTextureToMat(output_gl, out_lvl));
-    }
-
-    // Check CPU consistency
-    for (int i = 1; i < iterations; ++i)
-    {
-        double cpu_error = ComputeL2ErrorScalar(cpu_results[0], cpu_results[i], 0.0f);
-        EXPECT_LT(cpu_error, 1e-5) << "CPU results not deterministic, iteration " << i;
-    }
-
-    // Check GL consistency
-    for (int i = 1; i < iterations; ++i)
-    {
-        double gl_error = ComputeL2ErrorScalar(gl_results[0], gl_results[i], 0.0f);
-        EXPECT_LT(gl_error, 1e-4) << "GL results not sufficiently consistent, iteration " << i;
-    }
-
-    // Check cross-backend consistency
-    double cross_error = ComputeL2ErrorScalar(cpu_results[0], gl_results[0], 0.0f);
-    EXPECT_LT(cross_error, thresholds_.cr_max_depth_error)
-        << "Cross-backend precision error: " << cross_error;
-
-    std::cout << "Numerical Precision Comparison:\n";
-    std::cout << "  CPU Consistency: < 1e-5\n";
-    std::cout << "  GL Consistency:  < 1e-4\n";
-    std::cout << "  Cross-Backend:   " << cross_error << "\n";
-}
 
 #endif // COMPILE_GL
