@@ -27,7 +27,7 @@
 #define max_tiles_x max_height / tile_height
 
 // taken from the planet dataset
-#define max_num_tri 768 // 768;
+#define max_num_tri 4096 // 768;
 #define max_tri_per_tile max_num_tri / (max_tiles_x * max_tiles_y * 2)
 
 template <class Derived, class Base>
@@ -141,7 +141,6 @@ public:
                     IntType max_x = min(viewport_buffer.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
                     IntType min_y = max(viewport_buffer.min_y_, static_cast<IntType>(tri_bb.min_y_));
                     IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
-
 
                     if (min_x >= max_x || min_y >= max_y)
                         continue;
@@ -278,16 +277,15 @@ public:
                 renderbase_triangle_tile_loop:
                     for (int i = 0; i < num_buffers; i++)
                     {
-                        //IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-                        //IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-                        //IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-                        //IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+                        // IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+                        // IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+                        // IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+                        // IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
                         IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(tri_bb.min_x_));
                         IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
                         IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(tri_bb.min_y_));
                         IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
-
 
                         if (min_x >= max_x || min_y >= max_y)
                             continue;
@@ -568,10 +566,10 @@ public:
                 renderbase_triangle_tile_loop:
                     for (int i = 0; i < num_buffers; i++)
                     {
-                        //IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-                        //IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-                        //IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-                        //IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+                        // IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+                        // IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+                        // IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+                        // IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
                         IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(tri_bb.min_x_));
                         IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));

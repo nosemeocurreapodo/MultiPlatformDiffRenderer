@@ -9,6 +9,11 @@
 #include "core/mesh_helpers.h"
 #include <ap_int.h>
 
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/cpu/renderercpu.h"
+
 extern "C"
 {
     void DiffRenderHLS(float *vertex_buffer_data,
@@ -26,22 +31,26 @@ extern "C"
                        linalg::Vec3<float> *jtra_texture_data,
                        linalg::Vec3<float> *jrot_texture_data,
                        linalg::Vec3<float> *jmap_texture_data,
-                       linalg::Vec3<float> *pids_texture_data,
+                       linalg::Vec3<PidType> *pids_texture_data,
                        unsigned int vertex_buffer_size,
                        unsigned int ebo_buffer_size,
                        unsigned int f_texture_width,
                        unsigned int f_texture_height,
-                       unsigned char f_nodata_value,
-                       unsigned int in_lvl,
+                       unsigned int f_lvl,
+                       ImageType f_nodata_value,
+                       unsigned int didxy_texture_width,
+                       unsigned int didxy_texture_height,
+                       unsigned int didxy_lvl,
+                       linalg::Vec3<float> didxy_nodata_value,
                        unsigned int out_texture_width,
                        unsigned int out_texture_height,
-                       unsigned char image_nodata_value,
+                       unsigned int out_lvl,
+                       ImageType image_nodata_value,
                        float depth_nodata_value,
                        linalg::Vec3<float> jtra_nodata_value,
                        linalg::Vec3<float> jrot_nodata_value,
                        linalg::Vec3<float> jmap_nodata_value,
-                       linalg::Vec3<float> pids_nodata_value,
-                       unsigned int out_lvl,
+                       linalg::Vec3<PidType> pids_nodata_value,
                        float q_x, float q_y, float q_z, float q_w,
                        float t_x, float t_y, float t_z,
                        float fx, float fy, float cx, float cy);
@@ -68,10 +77,10 @@ int main()
     depth_src_cv = depth_src_cv * scale;
     linalg::SE3<float> pose_src = poses[0];
 
-    cv::Mat image_src_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
-    cv::Mat depth_src_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
-    depth_src_cv.convertTo(depth_src_cv, CV_32FC1);
-    depth_src_cv = depth_src_cv * scale;
+    cv::Mat image_dst_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
+    cv::Mat depth_dst_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
+    depth_dst_cv.convertTo(depth_dst_cv, CV_32FC1);
+    depth_dst_cv = depth_dst_cv * scale;
     linalg::SE3<float> pose_dst = poses[50];
 
     std::vector<float> vertex;
@@ -89,7 +98,11 @@ int main()
 
     TextureCPU<ImageType> image_src_cpu(w, h, 0);
     UploadMatToTexture(image_src_cpu, 0, image_src_cv);
-    TextureCPU<linalg::Vec3<float>> didxy_src_cpu(w, h, linalg::Vec3(0.0, 0.0, 0.0));
+    TextureCPU<linalg::Vec3<float>> didxy_src_cpu(w, h, linalg::Vec3<float>(0.0, 0.0, 0.0));
+
+    DIDxyRendererCPU didxyrenderercpu;
+    MeshCPU meshcpu_screen(screen_vertex, screen_indices, true, true, false);
+    didxyrenderercpu.Render(meshcpu_screen, in_lvl, in_lvl, image_src_cpu, didxy_src_cpu);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
     TextureCPU<float> depth_out_cpu(w, h, -1.0f);
@@ -99,6 +112,7 @@ int main()
     TextureCPU<linalg::Vec3<PidType>> pids_out_cpu(w, h, linalg::Vec3<float>(-1.0f, -1.0f, -1.0f));
 
     auto image_in_map = image_src_cpu.MapWrite(0);
+    auto didxy_in_map = didxy_src_cpu.MapWrite(0);
     auto image_out_map = image_out_cpu.MapWrite(0);
     auto depth_out_map = depth_out_cpu.MapWrite(0);
     auto jtra_out_map = jtra_out_cpu.MapWrite(0);
@@ -113,6 +127,10 @@ int main()
         (ap_uint<8> *)image_in_map.data(),
         (ap_uint<8> *)image_in_map.data(),
         (ap_uint<8> *)image_in_map.data(),
+        (ap_uint<8> *)didxy_in_map.data(),
+        (ap_uint<8> *)didxy_in_map.data(),
+        (ap_uint<8> *)didxy_in_map.data(),
+        (ap_uint<8> *)didxy_in_map.data(),
         (ap_uint<8> *)image_out_map.data(),
         depth_out_map.data(),
         jtra_out_map.data(),
@@ -120,10 +138,10 @@ int main()
         jmap_out_map.data(),
         pids_out_map.data(),
         vertex.size(), indices.size(),
-        w, h, 0, in_lvl,
-        w, h,
+        w, h, in_lvl, image_src_cpu.nodata(),
+        w, h, in_lvl, didxy_src_cpu.nodata(),
+        w, h, out_lvl,
         image_out_cpu.nodata(), depth_out_cpu.nodata(), jtra_out_cpu.nodata(), jrot_out_cpu.nodata(), jmap_out_cpu.nodata(), pids_out_cpu.nodata(),
-        out_lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
