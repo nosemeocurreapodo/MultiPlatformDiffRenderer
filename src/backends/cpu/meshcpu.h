@@ -56,7 +56,7 @@ public:
     MeshCPU &operator=(MeshCPU &&) noexcept = default;
     ~MeshCPU() = default;
 
-    std::vector<float> get_positions()
+    std::vector<float> get_positions() const
     {
         std::vector<float> pos;
         if (pos_offset_ < 0)
@@ -75,7 +75,7 @@ public:
         return pos;
     }
 
-    std::vector<int> get_indices()
+    std::vector<int> get_indices() const
     {
         std::vector<int> ids;
         auto index_map = ebo_buffer_.MapRead();
