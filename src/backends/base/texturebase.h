@@ -151,6 +151,24 @@ V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
     return out_fragment;
 }
 
+template <typename T>
+T apply_exposure(const T &v, const Vec2<T> &exposure)
+{
+    return v * exp(exposure(0)) + exposure(1);
+}
+
+template <typename T>
+T d_f_exp_d_f(const T &v, const Vec2<T> &exposure)
+{
+    return exp(exposure(0));
+}
+
+template <typename T>
+Vec3<T> d_f_exp_d_exp(const T &v, const Vec2<T> &exposure)
+{
+    return Vec3<T>(v * exp(exposure(0)), T(1), T(0));
+}
+
 template <class T, template <class> class Tex>
 void generate_mipmap(Tex<T> &tex, unsigned int lvl)
 {

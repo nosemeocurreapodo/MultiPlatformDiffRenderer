@@ -604,8 +604,8 @@ public:
         glUseProgram(program_);
 
         const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                             opencv2opengl_ *
-                                             pose.matrix();
+                                     opencv2opengl_ *
+                                     pose.matrix();
         // const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
 
         glUniformMatrix4fv(t_matrix_loc_, 1, GL_FALSE, t_matrix.data());
@@ -674,6 +674,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const SE3<float> &pose,
+                const Vec2<float> &exposure,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
@@ -809,6 +810,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const SE3<float> &pose,
+                const Vec2<float> &exposure,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
@@ -1026,6 +1028,125 @@ private:
     GLint image_lvl_loc_;
 };
 
+class DIDexpRendererGL : public BaseRendererGL
+{
+public:
+    DIDexpRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+            
+            out vec2 texcoord;
+
+            void main() {
+                // gl_Position = vec4(a_position.x, a_position.y, 0.0, 1.0);
+                gl_Position = vec4(2.0f * a_texcoord.x - 1.0f, 2.0f * a_texcoord.y - 1.0f, 0.0f, 1.0f);
+                texcoord = a_texcoord;
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 330 core
+            layout(location = 0) out vec3 a_output;
+            in vec2 texcoord;
+
+            uniform sampler2D image;
+            uniform float image_nodata;
+            uniform int image_lvl;
+            uniform vec2 exposure;
+
+            void main()
+            {
+                ivec2 tex_size = textureSize(image, image_lvl);
+                int x = int(texcoord.x * (tex_size.x - 1));
+                int y = int(texcoord.y * (tex_size.y - 1));
+
+                float f = texelFetch(image, ivec2(x, y), image_lvl).r;
+
+                a_output.x = f * exp(exposure.x);
+                a_output.y = 1.0f;
+                a_output.z = 0.0f;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, fragment_shader);
+
+        image_loc_ = glGetUniformLocation(program_, "image");
+        image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
+        image_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
+        exposure_loc_ = glGetUniformLocation(program_, "exposure");
+    }
+
+    void Render(const MeshGL &mesh,
+                const Vec2<float> &exposure,
+                int in_lvl,
+                int out_lvl,
+                const TextureGL<ImageType> &in_texture,
+                TextureGL<Vec3<float>> &out_texture)
+    {
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
+
+        const GLsizei W = static_cast<GLsizei>(out_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(out_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        Vec3<float> nodata = out_texture.nodata();
+        float clear[4] = {nodata(0), nodata(1), nodata(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // #endif
+
+#if defined(GL_VERSION_4_5)
+        if (GLAD_GL_VERSION_4_5)
+        {
+            glBindTextureUnit(0, in_texture.id());
+        }
+        else
+#endif
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, in_texture.id());
+        }
+
+        glUseProgram(program_);
+
+        glUniform1i(image_loc_, 0);                           // texture unit
+        glUniform1f(image_nodata_loc_, in_texture.nodata());  // **int**, not float
+        glUniform1i(image_lvl_loc_, in_lvl);                  // **int**, not float
+        glUniform2f(exposure_loc_, exposure(0), exposure(1)); // **int**, not float
+
+        mesh.draw();
+
+        restore_state();
+    }
+
+private:
+    GLint image_loc_;
+    GLint image_nodata_loc_;
+    GLint image_lvl_loc_;
+    GLint exposure_loc_;
+};
+
 class JPoseRendererGL : public BaseRendererGL
 {
 public:
@@ -1054,7 +1175,8 @@ public:
             #version 330 core
             layout(location = 0) out vec3 jtra_output;
             layout(location = 1) out vec3 jrot_output;
-            layout(location = 2) out float r_output;
+            layout(location = 2) out vec3 jexp_output;
+            layout(location = 3) out float r_output;
 
             in vec3 f_ver;
             in vec2 texcoord;
@@ -1101,6 +1223,7 @@ public:
 
                 jtra_output = d_f_i_d_tra;
                 jrot_output = d_f_i_d_rot;
+                jexp_out = d_f_i_d_exp;
                 r_output = r;
             }
             )Shader";
@@ -1131,6 +1254,7 @@ public:
 
     void Render(const MeshGL &mesh,
                 const SE3<float> &pose,
+                const Vec2<float> &exposure,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
@@ -1139,6 +1263,7 @@ public:
                 const TextureGL<Vec3<float>> &dfdxy_texture,
                 TextureGL<Vec3<float>> &jtra_texture,
                 TextureGL<Vec3<float>> &jrot_texture,
+                TextureGL<Vec3<float>> &jexp_texture,
                 TextureGL<float> &r_texture)
     {
         save_state();
@@ -1146,10 +1271,11 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, jrot_texture.id(), out_lvl);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, r_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, jexp_texture.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, r_texture.id(), out_lvl);
 
-        const GLenum bufs[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(3, bufs);
+        const GLenum bufs[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(4, bufs);
 
         check_framebuffer();
 
@@ -1165,10 +1291,12 @@ public:
 
         Vec3<float> jtra_nodata = jtra_texture.nodata();
         Vec3<float> jrot_nodata = jrot_texture.nodata();
+        Vec3<float> jexp_nodata = jexp_texture.nodata();
         float r_nodata = r_texture.nodata();
 
         float jtra_clear[4] = {jtra_nodata(0), jtra_nodata(1), jtra_nodata(2), 1.f};
         float jrot_clear[4] = {jrot_nodata(0), jrot_nodata(1), jrot_nodata(2), 1.f};
+        float jexp_clear[4] = {jexp_nodata(0), jexp_nodata(1), jexp_nodata(2), 1.f};
         float r_clear[4] = {r_nodata, 0.f, 0.f, 1.f};
 
         // #if defined(GL_VERSION_3_0)
@@ -1189,13 +1317,18 @@ public:
         // Clear GL_COLOR_ATTACHMENT2
         const GLenum bufs2[1] = {GL_COLOR_ATTACHMENT2};
         glDrawBuffers(1, bufs2);
+        glClearColor(jexp_clear[0], jexp_clear[1], jexp_clear[2], jexp_clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // Clear GL_COLOR_ATTACHMENT3
+        const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(1, bufs3);
         glClearColor(r_clear[0], r_clear[1], r_clear[2], r_clear[3]);
         glClear(GL_COLOR_BUFFER_BIT);
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
-        const GLenum bufs_restore[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glDrawBuffers(3, bufs_restore);
+        const GLenum bufs_restore[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+        glDrawBuffers(4, bufs_restore);
         // #endif
 
 #if defined(GL_VERSION_4_5)

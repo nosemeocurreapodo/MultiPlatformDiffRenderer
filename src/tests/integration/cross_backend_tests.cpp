@@ -226,6 +226,7 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 TEST_F(CrossBackendTests, ImageRenderingComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
     MeshGL mesh_gl(vertex_, indices_, true, true, true);
@@ -253,12 +254,12 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 
             ImageRendererCPU renderer_cpu;
             timer_.Start();
-            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
             acc_cpu_time += timer_.Stop();
 
             ImageRendererGL renderer_gl;
             timer_.Start();
-            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input_gl, output_gl);
+            renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, input_gl, output_gl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -300,6 +301,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 TEST_F(CrossBackendTests, ResidualRenderingComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
     MeshGL mesh_gl(vertex_, indices_, true, true, true);
@@ -333,11 +335,11 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
                 continue;
 
             timer_.Start();
-            renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
+            renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input1_cpu, input2_cpu, output_cpu);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
-            renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
+            renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, input1_gl, input2_gl, output_gl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
@@ -446,10 +448,84 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     // EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
+// Compare CPU vs GL gradient computation
+TEST_F(CrossBackendTests, DIDexpComputationComparison)
+{
+    MeshCPU mesh_cpu(screen_vertex_, screen_indices_, true, true, false);
+    MeshGL mesh_gl(screen_vertex_, screen_indices_, true, true, false);
+
+    Vec2<float> exposure(0.0, 0.0);
+
+    TextureCPU<ImageType> input_cpu(w_, h_, 0);
+    TextureCPU<Vec3<float>> output_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<ImageType> input_gl(w_, h_, 0);
+    TextureGL<Vec3<float>> output_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+
+    UploadMatToTexture(input_cpu, 0, image_src_cv_);
+    UploadMatToTexture(input_gl, 0, image_src_cv_);
+
+    DIDexpRendererCPU renderer_cpu;
+    DIDexpRendererGL renderer_gl;
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
+    for (int out_lvl = 0; out_lvl < output_cpu.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            if (in_lvl > 3)
+                continue;
+            if (out_lvl > 3)
+                continue;
+
+            timer_.Start();
+            renderer_cpu.Render(mesh_cpu, exposure, in_lvl, out_lvl, input_cpu, output_cpu);
+            acc_cpu_time += timer_.Stop();
+
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, exposure, in_lvl, out_lvl, input_gl, output_gl);
+            acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(output_cpu, out_lvl);
+            int valid_gl = CountValid(output_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
+
+            // Cross-backend validation for Vec3 data
+            double l2_error = RMSEV(output_cpu, output_gl, out_lvl);
+            EXPECT_LT(l2_error, thresholds_.cr_max_didxy_error) << "Cross-backend validation failed with L2 error: " << l2_error << " in lvl " << in_lvl << " out lvl " << out_lvl;
+            acc_l2_error = std::max(acc_l2_error, l2_error);
+        }
+    }
+
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+
+    SaveDebugImageColor(cpu_result, "cross_didexp_cpu.png");
+    SaveDebugImageColor(gl_result, "cross_didexp_gl.png");
+
+    // cv::Mat diff_image;
+    // cv::absdiff(cpu_result, gl_result, diff_image);
+    // SaveDebugImageColor(diff_image, "cross_gradient_diff.png");
+
+    std::cout << "DIDexp Computation Cross-Backend Comparison:\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_didxy_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_didxy_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
 // Test full Jacobian pipeline comparison
 TEST_F(CrossBackendTests, JPosePipelineComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, true, true, false);
@@ -462,6 +538,7 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jtra_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jrot_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> jexp_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
     TextureGL<ImageType> kf_gl(w_, h_, 0);
@@ -469,6 +546,7 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     TextureGL<Vec3<float>> dfdxy_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jtra_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jrot_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> jexp_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(kf_cpu, 0, image_src_cv_);
@@ -500,11 +578,11 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
                 continue;
 
             timer_.Start();
-            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
+            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, jexp_cpu, r_cpu);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
-            jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
+            jpose_renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, jexp_gl, r_gl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);

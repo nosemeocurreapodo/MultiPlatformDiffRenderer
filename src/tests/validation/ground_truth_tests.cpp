@@ -196,6 +196,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 
     typename Traits::ImageRendererT renderer;
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -204,7 +205,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input, output);
+        renderer.Render(mesh, pose_transform, exposure, this->cam_, lvl, lvl, input, output);
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
@@ -256,6 +257,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 
     typename Traits::ImageRendererT renderer;
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     for (int lvl = 0; lvl < output.levels(); lvl++)
     {
@@ -271,7 +273,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 
         PerformanceTimer timer;
         timer.Start();
-        renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, input_image, output);
+        renderer.Render(mesh, pose_transform, exposure, this->cam_, lvl, lvl, input_image, output);
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
