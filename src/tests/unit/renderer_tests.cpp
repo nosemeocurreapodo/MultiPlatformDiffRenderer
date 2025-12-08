@@ -208,7 +208,6 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jtra_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jrot_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
-    typename Traits::template TextureT<Vec3<float>> jexp_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
@@ -218,10 +217,9 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::JPoseRendererT jpose_renderer;
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
-    Vec2<float> exposure(0.0, 0.0);
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
-    ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, exposure, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, jexp_tex, r_tex));
+    ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, r_tex));
 
     cv::Mat result = DownloadTextureToMat(jtra_tex, out_lvl);
 

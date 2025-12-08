@@ -525,7 +525,6 @@ TEST_F(CrossBackendTests, DIDexpComputationComparison)
 TEST_F(CrossBackendTests, JPosePipelineComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
-    Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, true, true, false);
@@ -538,7 +537,6 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jtra_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jrot_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureCPU<Vec3<float>> jexp_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<float> r_cpu(w_, h_, 0.0f);
 
     TextureGL<ImageType> kf_gl(w_, h_, 0);
@@ -546,7 +544,6 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     TextureGL<Vec3<float>> dfdxy_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jtra_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jrot_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
-    TextureGL<Vec3<float>> jexp_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<float> r_gl(w_, h_, 0.0f);
 
     UploadMatToTexture(kf_cpu, 0, image_src_cv_);
@@ -578,11 +575,11 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
                 continue;
 
             timer_.Start();
-            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, jexp_cpu, r_cpu);
+            jpose_renderer_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, kf_cpu, f_cpu, dfdxy_cpu, jtra_cpu, jrot_cpu, r_cpu);
             acc_cpu_time += timer_.Stop();
 
             timer_.Start();
-            jpose_renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, jexp_gl, r_gl);
+            jpose_renderer_gl.Render(mesh_gl, pose_transform, cam_, in_lvl, out_lvl, kf_gl, f_gl, dfdxy_gl, jtra_gl, jrot_gl, r_gl);
             acc_gl_time += timer_.Stop();
 
             int valid_cpu = CountValid(r_cpu, out_lvl);
