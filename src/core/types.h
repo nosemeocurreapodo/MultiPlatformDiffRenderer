@@ -28,6 +28,8 @@ using Vec3 = Eigen::Matrix<T, 3, 1>;
 template <typename T>
 using Vec4 = Eigen::Matrix<T, 4, 1>;
 template <typename T>
+using Vec5 = Eigen::Matrix<T, 5, 1>;
+template <typename T>
 using Vec6 = Eigen::Matrix<T, 6, 1>;
 
 template <typename T>
@@ -50,13 +52,14 @@ using SO3 = Sophus::SO3<T>;
 template <typename T>
 using SE3 = Sophus::SE3<T>;
 
-template <typename T>
-using LDLT = Eigen::LDLT<Eigen::MatrixX<T>>;
+template <typename T, int size>
+using LDLT = Eigen::LDLT<Eigen::Matrix<T, size, size>>;
 
 template <typename T>
 using LDLTx = Eigen::LDLT<Eigen::MatrixX<T>>;
 
 #else
+
 #include "linalg/linalg.h"
 #include "linalg/linalgx.h"
 #include "linalg/ldlt_solver.h"

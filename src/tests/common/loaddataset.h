@@ -499,7 +499,7 @@ public:
         std::string depth_path = dataset_path + "/depths";
         std::string poses_path = dataset_path + "/poses";
 
-        this->depth_factor_ = 1.0 / 255.0; // 275.0;
+        this->depth_factor_ = 5000.0 / 255.0; // 275.0;
 
         getdir(images_path, this->image_files_);
         getdir(depth_path, this->depth_files_);
@@ -639,6 +639,10 @@ private:
         Vec3<float> row1 = -upvector;
         Vec3<float> row2 = direction;
 
+        //row0 = row0.normalized();
+        //row1 = row1.normalized();
+        //row2 = row2.normalized();
+
         Rot(0, 0) = row0(0);
         Rot(0, 1) = row0(1);
         Rot(0, 2) = row0(2);
@@ -651,8 +655,8 @@ private:
 
         // T=-R*Mat(posvector);
 
-        Vec3<float> Tra;
-        Tra = -Rot * posvector;
+        Vec3<float> Tra = -Rot * posvector;
+        Tra = Tra / 2000.0f;
 
         SE3<float> pose = SE3<float>(Rot, Tra);
 

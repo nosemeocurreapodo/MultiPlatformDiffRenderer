@@ -118,7 +118,7 @@ public:
     std::size_t index_count() const noexcept { return ebo_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
-    std::vector<float> get_positions()
+    std::vector<float> get_positions() const
     {
         std::vector<float> pos;
         if (pos_offset_ < 0)
@@ -137,7 +137,7 @@ public:
         return pos;
     }
 
-    std::vector<int> get_indices()
+    std::vector<int> get_indices() const
     {
         std::vector<int> ids;
         auto index_map = ebo_.MapRead();

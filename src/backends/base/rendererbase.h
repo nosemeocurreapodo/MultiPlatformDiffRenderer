@@ -223,6 +223,10 @@ protected:
             const RealType ndc_y = gl_Position(1) * invW;
             const RealType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
+            // #ifndef USE_VITIS
+            // assert(ndc_x >= -1 && ndc_x <= 1 && ndc_y >= -1 && ndc_y <= 1 && ndc_z >= -1 && ndc_z <= 1);
+            // #endif
+
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
             triangle.vout[j].screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
             triangle.vout[j].screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
@@ -362,7 +366,7 @@ protected:
                                     w2 * triangle.vout[2].depth;
 
                 // Depth test
-                if (prev_depth > RealType(0) && prev_depth < depth_px)
+                if (depth_px <= RealType(0) || (prev_depth > RealType(0) && prev_depth < depth_px))
                     continue;
 
                 Vec4<RealType> gl_FragCoord;
@@ -371,159 +375,14 @@ protected:
                 gl_FragCoord(2) = depth_px;
                 gl_FragCoord(3) = inv_invW_px;
 
-                Fragment fragment;
+                // Fragment fragment;
                 Derived::fragment_shader(gl_FragCoord,
                                          uniforms,
                                          varying_px,
                                          intextures,
-                                         fragment);
+                                         fragment_buffer[tile_address]);
 
-                fragment_buffer[tile_address] = fragment;
-                depth_buffer[tile_address] = depth_px;
-            }
-        }
-    }
-
-    // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename InTextures, typename Uniforms, typename OutTextures>
-    static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, OutTextures &outtextures)
-    {
-#pragma HLS inline
-
-        BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
-
-        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
-
-        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
-        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
-
-        BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
-
-        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
-
-        if (area2 <= RealType(0))
-            return; // enable to cull backfaces
-
-        const RealType inv_area2 = RealType(1) / area2;
-
-        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
-        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
-        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
-
-        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        Vec2<RealType> p;
-        p(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        p(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-
-        RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-        RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-        RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
-
-        // Step increments when moving +1 in X or +1 in Y
-        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
-        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
-        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
-        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
-        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
-        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
-        // for y down, the - is needed
-        const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
-
-    // Rasterize
-    draw_triangle_y_loop:
-        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
-        {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-
-            IntType texture_y = iy + triangle_bb.min_y_;
-            IntType tile_y = texture_y - tile_bb.min_y_;
-
-            const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
-
-        draw_triangle_x_loop:
-            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
-            {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-#pragma HLS loop_flatten
-                //    #pragma HLS PIPELINE II = 1
-
-#pragma HLS dependence variable = depth_buffer type = inter false
-                // #pragma HLS dependence variable = depth_buffer type = intra false
-
-                IntType texture_x = ix + triangle_bb.min_x_;
-                IntType tile_x = texture_x - tile_bb.min_x_;
-                IntType tile_address = tile_y * tile_bb.width_ + tile_x;
-
-                RealType prev_depth = depth_buffer[tile_address];
-
-                const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
-
-                // Top-left rule adjustments (include pixels on top/left edges)
-                const bool inside =
-                    (eAB > 0 || (eAB == 0 && tlAB)) &&
-                    (eBC > 0 || (eBC == 0 && tlBC)) &&
-                    (eCA > 0 || (eCA == 0 && tlCA));
-
-                if (!inside)
-                    continue;
-
-                // Baricentric weights normalized
-                // const MathType w0 = eBC * inv_area2;
-                // const MathType w1 = eCA * inv_area2;
-                // const MathType w2 = eAB * inv_area2;
-                // Baricentric weights normalized (perpective)
-                RealType w0 = eBC * inv_area2 * triangle.vout[0].invW;
-                RealType w1 = eCA * inv_area2 * triangle.vout[1].invW;
-                RealType w2 = eAB * inv_area2 * triangle.vout[2].invW;
-
-                // Perspective: 1/w at pixel
-                const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
-
-                w0 *= inv_invW_px;
-                w1 *= inv_invW_px;
-                w2 *= inv_invW_px;
-
-                typename Derived::Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
-                                                                                      triangle.vout[0].var,
-                                                                                      triangle.vout[1].var,
-                                                                                      triangle.vout[2].var);
-
-                // Depth (if needed; same trick)
-                RealType depth_px = w0 * triangle.vout[0].depth +
-                                    w1 * triangle.vout[1].depth +
-                                    w2 * triangle.vout[2].depth;
-
-                // Depth test
-                if (prev_depth > RealType(0) && prev_depth < depth_px)
-                    continue;
-
-                Vec4<RealType> gl_FragCoord;
-                gl_FragCoord(0) = static_cast<RealType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                gl_FragCoord(1) = static_cast<RealType>(texture_y); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                gl_FragCoord(2) = depth_px;
-                gl_FragCoord(3) = inv_invW_px;
-
-                Derived::fragment_shader(gl_FragCoord,
-                                         uniforms,
-                                         varying_px,
-                                         intextures,
-                                         outtextures);
-
+                // fragment_buffer[tile_address] = fragment;
                 depth_buffer[tile_address] = depth_px;
             }
         }
@@ -792,16 +651,28 @@ public:
         fragment.depth = depth;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-#pragma HLS INLINE
-        Fragment frag;
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
-        outtextures.out_texture.set_texel_(frag.depth, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                RealType depth = fragment_buffer[address].depth;
+                textures.out_texture.set_texel_(depth, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -923,18 +794,28 @@ public:
         fragment.color = pix;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-#pragma HLS inline
+        // #pragma HLS INLINE
 
-        Fragment frag;
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.out_texture.set_texel_(frag.color, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                ImageType color = fragment_buffer[address].color;
+                textures.out_texture.set_texel_(color, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -979,6 +860,13 @@ public:
     {
         RealType error;
     };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{RealType(textures.r_texture.nodata())};
+    }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
@@ -1050,18 +938,28 @@ public:
         fragment.error = e;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        // #pragma HLS inline
+        // #pragma HLS INLINE
 
-        Fragment frag;
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.r_texture.set_texel_(frag.error, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                RealType error = fragment_buffer[address].error;
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -1102,6 +1000,13 @@ public:
         Vec3<RealType> didxy;
     };
 
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.out_texture.nodata())};
+    }
+
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
@@ -1141,7 +1046,7 @@ public:
         gl_Position = Vec4<RealType>(RealType(2) * vertexdata.texcoord(0) - RealType(1), RealType(2) * vertexdata.texcoord(1) - RealType(1), RealType(0), RealType(1));
         outVarying.texcoord = vertexdata.texcoord;
     }
-    
+
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
                                 const Uniforms &uniforms,
                                 const Varyings &in_varying,
@@ -1166,8 +1071,8 @@ public:
         IntType y_m = y - 1;
         IntType y_mm = y - 2;
 
-        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0 ||
-            x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
+        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0) // ||
+                                                                 // x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
         {
             //  No need to explicitly set to nodata, it is already in the background color
             return;
@@ -1178,10 +1083,10 @@ public:
         ImageType f_y_m = intextures.in_texture.texel_(y_m, x, uniforms.in_lvl);
         ImageType f_x_p = intextures.in_texture.texel_(y, x_p, uniforms.in_lvl);
         ImageType f_x_m = intextures.in_texture.texel_(y, x_m, uniforms.in_lvl);
-        ImageType f_y_pp = intextures.in_texture.texel_(y_pp, x, uniforms.in_lvl);
-        ImageType f_y_mm = intextures.in_texture.texel_(y_mm, x, uniforms.in_lvl);
-        ImageType f_x_pp = intextures.in_texture.texel_(y, x_pp, uniforms.in_lvl);
-        ImageType f_x_mm = intextures.in_texture.texel_(y, x_mm, uniforms.in_lvl);
+        // ImageType f_y_pp = intextures.in_texture.texel_(y_pp, x, uniforms.in_lvl);
+        // ImageType f_y_mm = intextures.in_texture.texel_(y_mm, x, uniforms.in_lvl);
+        // mageType f_x_pp = intextures.in_texture.texel_(y, x_pp, uniforms.in_lvl);
+        // ImageType f_x_mm = intextures.in_texture.texel_(y, x_mm, uniforms.in_lvl);
 
         // if (f_x_p == nodata || f_x_m == nodata ||
         //     f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -1203,7 +1108,7 @@ public:
 
         fragment.didxy = out_fragment;
     }
-    
+
     /*
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
                                 const Uniforms &uniforms,
@@ -1320,19 +1225,30 @@ public:
         fragment.didxy = out_fragment;
     }
     */
-    
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
-    {
-        // #pragma HLS inline
 
-        Fragment frag;
-        frag.didxy = outtextures.out_texture.nodata();
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
-        outtextures.out_texture.set_texel_(frag.didxy, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    {
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> didxy = fragment_buffer[address].didxy;
+
+                textures.out_texture.set_texel_(didxy, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -1373,6 +1289,13 @@ public:
     {
         Vec3<RealType> didexp;
     };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.out_texture.nodata())};
+    }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
@@ -1438,18 +1361,29 @@ public:
         fragment.didexp = out_fragment;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        // #pragma HLS inline
+        // #pragma HLS INLINE
 
-        Fragment frag;
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.out_texture.set_texel_(frag.didexp, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> didexp = fragment_buffer[address].didexp;
+
+                textures.out_texture.set_texel_(didexp, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -1504,6 +1438,15 @@ public:
         Vec3<RealType> jrot;
         RealType r;
     };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.jtra_texture.nodata()),
+                        Vec3<RealType>(textures.jrot_texture.nodata()),
+                        RealType(textures.r_texture.nodata())};
+    }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
@@ -1575,9 +1518,8 @@ public:
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
-        // Vec3<MathType>f_der = sample<Vec3, Texture<Vec3>>(textures.dfdxy_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
         if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
             return;
@@ -1596,22 +1538,33 @@ public:
         fragment.r = r;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        Fragment frag;
-        frag.jtra = outtextures.jtra_texture.nodata();
-        frag.jrot = outtextures.jrot_texture.nodata();
-        frag.r = outtextures.r_texture.nodata();
+        // #pragma HLS INLINE
 
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.jtra_texture.set_texel_(frag.jtra, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jrot_texture.set_texel_(frag.jrot, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.r_texture.set_texel_(frag.r, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
+                RealType error = fragment_buffer[address].r;
+
+                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -1670,6 +1623,16 @@ public:
         RealType r;
     };
 
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.jtra_texture.nodata()),
+                        Vec3<RealType>(textures.jrot_texture.nodata()),
+                        Vec3<RealType>(textures.jexp_texture.nodata()),
+                        RealType(textures.r_texture.nodata())};
+    }
+
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
@@ -1740,9 +1703,8 @@ public:
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        // float f = sample<T, Texture<MathType>>(textures.f_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
-        // Vec3<MathType>f_der = sample<Vec3, Texture<Vec3>>(textures.dfdxy_texture, screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
         if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
             return;
@@ -1767,24 +1729,35 @@ public:
         fragment.r = r;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        Fragment frag;
-        frag.jtra = outtextures.jtra_texture.nodata();
-        frag.jrot = outtextures.jrot_texture.nodata();
-        frag.jexp = outtextures.jexp_texture.nodata();
-        frag.r = outtextures.r_texture.nodata();
+        // #pragma HLS INLINE
 
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.jtra_texture.set_texel_(frag.jtra, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jrot_texture.set_texel_(frag.jrot, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jexp_texture.set_texel_(frag.jexp, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.r_texture.set_texel_(frag.r, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
+                Vec3<RealType> jexp = fragment_buffer[address].jexp;
+                RealType error = fragment_buffer[address].r;
+
+                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
+                textures.jexp_texture.set_texel_(jexp, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 
@@ -1844,6 +1817,18 @@ public:
         Vec3<IntType> pids;
         RealType r;
     };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        Vec3<float> jmap_nodata(textures.jmap_texture.nodata());
+        Vec3<PidType> pids_nodata(textures.pids_texture.nodata());
+
+        return Fragment{Vec3<RealType>(jmap_nodata(0), jmap_nodata(1), jmap_nodata(2)),
+                        Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2)),
+                        RealType(textures.r_texture.nodata())};
+    }
 
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
@@ -1943,12 +1928,11 @@ public:
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
-        // Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        //Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
-        if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
-            return;
+        // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
+        //     return;
 
         RealType r = RealType(f) - RealType(kf);
 
@@ -1974,22 +1958,36 @@ public:
         fragment.r = r;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        Fragment frag;
-        frag.jmap = outtextures.jmap_texture.nodata();
-        frag.pids = outtextures.pids_texture.nodata();
-        frag.r = outtextures.r_texture.nodata();
+        // #pragma HLS INLINE
 
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.jmap_texture.set_texel_(frag.jmap, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.pids_texture.set_texel_(frag.pids, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.r_texture.set_texel_(frag.r, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jmap = fragment_buffer[address].jmap;
+                Vec3<IntType> pids = fragment_buffer[address].pids;
+                RealType error = fragment_buffer[address].r;
+
+                Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
+                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
+
+                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
+                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 template <template <class> class Texture>
@@ -2052,6 +2050,20 @@ public:
         RealType r;
     };
 
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        Vec3<float> jmap_nodata(textures.jmap_texture.nodata());
+        Vec3<float> jexp_nodata(textures.jexp_texture.nodata());
+        Vec3<PidType> pids_nodata(textures.pids_texture.nodata());
+
+        return Fragment{Vec3<RealType>(jmap_nodata(0), jmap_nodata(1), jmap_nodata(2)),
+                        Vec3<RealType>(jexp_nodata(0), jexp_nodata(1), jexp_nodata(2)),
+                        Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2)),
+                        RealType(textures.r_texture.nodata())};
+    }
+
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
@@ -2150,9 +2162,8 @@ public:
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
-        // Vec3<MathType>f_der = dfdxy_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
         if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
             return;
@@ -2187,24 +2198,39 @@ public:
         fragment.r = r;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        Fragment frag;
-        frag.jmap = outtextures.jmap_texture.nodata();
-        frag.jexp = outtextures.jexp_texture.nodata();
-        frag.pids = outtextures.pids_texture.nodata();
-        frag.r = outtextures.r_texture.nodata();
+        // #pragma HLS INLINE
 
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.jmap_texture.set_texel_(frag.jmap, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jexp_texture.set_texel_(frag.jexp, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.pids_texture.set_texel_(frag.pids, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.r_texture.set_texel_(frag.r, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jmap = fragment_buffer[address].jmap;
+                Vec3<RealType> jexp = fragment_buffer[address].jexp;
+                Vec3<IntType> pids = fragment_buffer[address].pids;
+                RealType error = fragment_buffer[address].r;
+
+                Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
+                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
+
+                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
+                textures.jexp_texture.set_texel_(jexp_out, y, x, uniforms.out_lvl);
+                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };
 template <template <class> class Texture>
@@ -2273,12 +2299,17 @@ public:
     {
 #pragma HLS inline
 
+        Vec3<float> jtra_nodata(textures.jtra_texture.nodata());
+        Vec3<float> jrot_nodata(textures.jrot_texture.nodata());
+        Vec3<float> jmap_nodata(textures.jmap_texture.nodata());
+        Vec3<PidType> pids_nodata(textures.pids_texture.nodata());
+
         return Fragment{RealType(textures.image_texture.nodata()),
                         RealType(textures.depth_texture.nodata()),
-                        Vec3<RealType>(textures.jtra_texture.nodata()),
-                        Vec3<RealType>(textures.jrot_texture.nodata()),
-                        Vec3<RealType>(textures.jmap_texture.nodata()),
-                        Vec3<IntType>(textures.pids_texture.nodata())};
+                        Vec3<RealType>(jtra_nodata(0), jtra_nodata(1), jtra_nodata(2)),
+                        Vec3<RealType>(jrot_nodata(0), jrot_nodata(1), jrot_nodata(2)),
+                        Vec3<RealType>(jmap_nodata(0), jmap_nodata(1), jmap_nodata(2)),
+                        Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2))};
     }
 
     template <class Mesh>
@@ -2415,22 +2446,43 @@ public:
         fragment.pids = ids;
     }
 
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                OutTextures &outtextures)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-#pragma HLS inline
+        // #pragma HLS INLINE
 
-        Fragment frag;
-        fragment_shader(gl_FragCoord, uniforms, in_varying, intextures, frag);
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
 
-        outtextures.image_texture.set_texel_(frag.image, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.depth_texture.set_texel_(frag.depth, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jtra_texture.set_texel_(frag.jtra, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jrot_texture.set_texel_(frag.jrot, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.jmap_texture.set_texel_(frag.jmap, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        outtextures.pids_texture.set_texel_(frag.pids, gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                ImageType image = fragment_buffer[address].image;
+                RealType depth = fragment_buffer[address].depth;
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
+                Vec3<RealType> jmap = fragment_buffer[address].jmap;
+                Vec3<IntType> pids = fragment_buffer[address].pids;
+
+                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
+                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
+                Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
+                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
+
+                textures.image_texture.set_texel_(image, y, x, uniforms.out_lvl);
+                textures.depth_texture.set_texel_(depth, y, x, uniforms.out_lvl);
+                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
+                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
+                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
+            }
+        }
     }
 };

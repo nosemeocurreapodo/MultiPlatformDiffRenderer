@@ -96,7 +96,18 @@ public:
                      OutTextures &outtextures)
     {
         // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
-        float depth_buffer[1024 * 1024] = {-1.0f};
+        // typename Base::Fragment fragment_buffer[viewport.width_ * viewport.height_] = {Base::fragment_nodata(outtextures)};
+        // float depth_buffer[viewport.width_ * viewport.height_] = {-1.0f};
+        typename Base::Fragment *fragment_buffer;
+        float *depth_buffer;
+        fragment_buffer = new typename Base::Fragment[viewport.width_ * viewport.height_];
+        depth_buffer = new float[viewport.width_ * viewport.height_];
+
+        for (int i = 0; i < viewport.width_ * viewport.height_; i++)
+        {
+            fragment_buffer[i] = Base::fragment_nodata(outtextures);
+            depth_buffer[i] = -1.0f;
+        }
 
     // Loop over triangles
     renderbase_render_triangles_loop:
@@ -121,8 +132,10 @@ public:
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
 
             // directly write to dram
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, outtextures);
+            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
         }
+
+        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
     }
 };
 
@@ -223,7 +236,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        out_texture.fill(out_lvl, out_texture.nodata());
+        // out_texture.fill(out_lvl, out_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -278,7 +291,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        out_texture.fill(out_lvl, out_texture.nodata());
+        // out_texture.fill(out_lvl, out_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -336,7 +349,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        r_texture.fill(out_lvl, r_texture.nodata());
+        // r_texture.fill(out_lvl, r_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -385,7 +398,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        out_texture.fill(out_lvl, out_texture.nodata());
+        // out_texture.fill(out_lvl, out_texture.nodata());
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
@@ -429,7 +442,7 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        out_texture.fill(out_lvl, out_texture.nodata());
+        // out_texture.fill(out_lvl, out_texture.nodata());
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
@@ -479,9 +492,9 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        jtra_texture.fill(out_lvl, jtra_texture.nodata());
-        jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        // jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        // jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        // r_texture.fill(out_lvl, r_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -542,10 +555,10 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        jtra_texture.fill(out_lvl, jtra_texture.nodata());
-        jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        jexp_texture.fill(out_lvl, jexp_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        // jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        // jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        // jexp_texture.fill(out_lvl, jexp_texture.nodata());
+        // r_texture.fill(out_lvl, r_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -605,9 +618,9 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        jmap_texture.fill(out_lvl, jmap_texture.nodata());
-        pids_texture.fill(out_lvl, pids_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        // jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        // pids_texture.fill(out_lvl, pids_texture.nodata());
+        // r_texture.fill(out_lvl, r_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -668,10 +681,10 @@ public:
         // ErrorHandling::ValidateTextureDimensions(out_texture.width(out_lvl), out_texture.height(out_lvl), out_lvl);
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        jmap_texture.fill(out_lvl, jmap_texture.nodata());
-        jexp_texture.fill(out_lvl, jexp_texture.nodata());
-        pids_texture.fill(out_lvl, pids_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        // jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        // jexp_texture.fill(out_lvl, jexp_texture.nodata());
+        // pids_texture.fill(out_lvl, pids_texture.nodata());
+        // r_texture.fill(out_lvl, r_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
@@ -734,12 +747,12 @@ public:
         // ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         // nodata_.depth = out_texture.nodata();
-        image_texture.fill(out_lvl, image_texture.nodata());
-        depth_texture.fill(out_lvl, depth_texture.nodata());
-        jtra_texture.fill(out_lvl, jtra_texture.nodata());
-        jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        jmap_texture.fill(out_lvl, jmap_texture.nodata());
-        pids_texture.fill(out_lvl, pids_texture.nodata());
+        // image_texture.fill(out_lvl, image_texture.nodata());
+        // depth_texture.fill(out_lvl, depth_texture.nodata());
+        // jtra_texture.fill(out_lvl, jtra_texture.nodata());
+        // jrot_texture.fill(out_lvl, jrot_texture.nodata());
+        // jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        // pids_texture.fill(out_lvl, pids_texture.nodata());
 
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;

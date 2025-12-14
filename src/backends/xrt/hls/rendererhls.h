@@ -780,22 +780,6 @@ private:
             this->draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, fragment_buffer);
         }
     }
-
-    template <typename OutTextures, typename Uniforms, typename InTextures>
-    void render_tile_(OutTextures &outtextures, RealType *depth_buffer, const Triangle *triangles, IntType num_triangles, const BoundingBox<IntType> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
-    {
-#pragma HLS INLINE
-
-    render_tile_loop:
-        for (IntType tri = 0; tri < num_triangles; tri++)
-        {
-// #pragma HLS pipeline off
-#pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
-
-            Triangle triangle = triangles[tri];
-            this->draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, outtextures);
-        }
-    }
 };
 
 class DepthRendererHLS
@@ -846,31 +830,6 @@ public:
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledDualChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, outtextures_ch1, outtextures_ch2);
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuff(viewport, mesh, uniforms, intextures_ch1, outtextures);
         RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuffInChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, intextures_ch3, intextures_ch4, outtextures);
-    }
-
-    template <typename OutTextures, typename Uniforms, typename Fragment>
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
-    {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (int iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (int ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
-
-                int x = ix + tex_bb.min_x_;
-                int y = iy + tex_bb.min_y_;
-                int address = iy * tex_bb.width_ + ix;
-
-                RealType depth = fragment_buffer[address].depth;
-                textures.out_texture.set_texel_(depth, y, x, uniforms.out_lvl);
-            }
-        }
     }
 };
 
@@ -1066,31 +1025,6 @@ public:
             intextures_ch3,
             intextures_ch4,
             outtextures);
-    }
-
-    template <typename OutTextures, typename Uniforms, typename Fragment>
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
-    {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (int iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (int ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
-
-                int x = ix + tex_bb.min_x_;
-                int y = iy + tex_bb.min_y_;
-                int address = iy * tex_bb.width_ + ix;
-
-                ImageType color = fragment_buffer[address].color;
-                textures.out_texture.set_texel_(color, y, x, uniforms.out_lvl);
-            }
-        }
     }
 
 private:
@@ -1297,42 +1231,6 @@ public:
             intextures_ch3,
             intextures_ch4,
             outtextures);
-    }
-
-    template <typename OutTextures, typename Uniforms, typename Fragment>
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
-    {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (int iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (int ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
-
-                int x = ix + tex_bb.min_x_;
-                int y = iy + tex_bb.min_y_;
-                int address = iy * tex_bb.width_ + ix;
-
-                ImageType image = fragment_buffer[address].image;
-                RealType depth = fragment_buffer[address].depth;
-                linalg::Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                linalg::Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                linalg::Vec3<RealType> jmap = fragment_buffer[address].jmap;
-                linalg::Vec3<IntType> pids = fragment_buffer[address].pids;
-
-                textures.image_texture.set_texel_(image, y, x, uniforms.out_lvl);
-                textures.depth_texture.set_texel_(depth, y, x, uniforms.out_lvl);
-                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
-                textures.jmap_texture.set_texel_(jmap, y, x, uniforms.out_lvl);
-                textures.pids_texture.set_texel_(pids, y, x, uniforms.out_lvl);
-            }
-        }
     }
 
 private:
