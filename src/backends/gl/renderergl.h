@@ -1204,7 +1204,8 @@ public:
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                // vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                vec2 dfdxy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{
@@ -1449,7 +1450,8 @@ public:
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                // vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                vec2 dfdxy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{
@@ -1687,7 +1689,9 @@ public:
             flat in int v_vertexID[];           // from VS (Option A)
 
             out vec3 f_ver;
-            out vec3 kf_ray;
+            flat out vec3 kf_ray_0;
+            flat out vec3 kf_ray_1;
+            flat out vec3 kf_ray_2;
             out vec2 texcoord;
             flat out ivec3 triIDs;         // to FS: the 3 vertex IDs of this triangle
             smooth out vec3  bc;           // perspective-correct barycentrics to FS
@@ -1709,9 +1713,12 @@ public:
                 //     texelFetch(uIndexBuf, int(base+2)).x
                 // );
 
+                kf_ray_0 = v_kf_ray[0];
+                kf_ray_1 = v_kf_ray[1];
+                kf_ray_2 = v_kf_ray[2];
+
                 for (int i = 0; i < 3; ++i) {
                     f_ver = v_f_ver[i];
-                    kf_ray = v_kf_ray[i];
                     texcoord = v_texcoord[i];
                     triIDs = ids;
                     bc     = vec3(i == 0, i == 1, i == 2);
@@ -1729,7 +1736,9 @@ public:
             layout(location = 2) out float r_output;
 
             in vec3 f_ver;
-            in vec3 kf_ray;
+            flat in vec3 kf_ray_0;
+            flat in vec3 kf_ray_1;
+            flat in vec3 kf_ray_2;
             in vec2 texcoord;
 
             smooth in vec3  bc;          // or noperspective if chosen above
@@ -1759,7 +1768,8 @@ public:
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                // vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                vec2 dfdxy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{
@@ -1778,12 +1788,16 @@ public:
                 //jtra_output = d_f_i_d_tra;
                 //jrot_output = d_f_i_d_rot;
 
-                vec3 d_f_ver_d_kf_depth = kf_ray;
-                float d_f_i_d_kf_depth = dot(d_f_i_d_f_ver, d_f_ver_d_kf_depth);
+                float d_f_i_d_kf_depth_0 = dot(d_f_i_d_f_ver, kf_ray_0);
+                float d_f_i_d_kf_depth_1 = dot(d_f_i_d_f_ver, kf_ray_1);
+                float d_f_i_d_kf_depth_2 = dot(d_f_i_d_f_ver, kf_ray_2);
 
                 vec3 d_depth_d_vert_depth = bc;
 
-                vec3 jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+                vec3 jac;
+                jac.x = d_f_i_d_kf_depth_0 * d_depth_d_vert_depth.x;
+                jac.y = d_f_i_d_kf_depth_1 * d_depth_d_vert_depth.y;
+                jac.z = d_f_i_d_kf_depth_2 * d_depth_d_vert_depth.z;
 
                 jmap_output = jac;
                 pids_output = triIDs;
@@ -2068,7 +2082,8 @@ public:
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
-                vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                // vec2 dfdxy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                vec2 dfdxy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xy;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
                 //{

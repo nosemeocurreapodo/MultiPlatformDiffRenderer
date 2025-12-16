@@ -33,7 +33,8 @@ T edge_func(const Vec2<T> &v0, const Vec2<T> &v1, const Vec2<T> &v2)
     // return v10.cross(v20);
     // for y down
     // return v20.cross(v10);
-    return -((v2(1) - v0(1)) * (v1(0) - v0(0)) - (v2(0) - v0(0)) * (v1(1) - v0(1)));
+    // return -((v2(1) - v0(1)) * (v1(0) - v0(0)) - (v2(0) - v0(0)) * (v1(1) - v0(1)));
+    return (v2(0) - v0(0)) * (v1(1) - v0(1)) - (v2(1) - v0(1)) * (v1(0) - v0(0));
 }
 
 // Top-left test: returns true if edge is a "top" or "left" edge
@@ -230,9 +231,8 @@ protected:
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
             triangle.vout[j].screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
             triangle.vout[j].screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
-            // triangle.vout[i].screen(0) = MathType(0.5) * (ndc_x + MathType(1));
-            // triangle.vout[i].screen(1) = MathType(0.5) * (ndc_y + MathType(1));
-            triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
+            // triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
+            triangle.vout[j].depth = ndc_z;
             triangle.vout[j].invW = invW;
             triangle.vout[j].var = outvaryings;
             // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
@@ -272,13 +272,13 @@ protected:
         const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        Vec2<RealType> p;
-        p(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        p(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        Vec2<RealType> p_tl;
+        p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
 
-        RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-        RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-        RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
+        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
+        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
 
         // Step increments when moving +1 in X or +1 in Y
         // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
@@ -288,12 +288,12 @@ protected:
         // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
         // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
         // for y down, the - is needed
-        const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
     // Rasterize
     draw_triangle_y_loop:
@@ -304,9 +304,9 @@ protected:
             IntType texture_y = iy + triangle_bb.min_y_;
             IntType tile_y = texture_y - tile_bb.min_y_;
 
-            const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
+            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
+            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
+            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
             for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
@@ -326,9 +326,16 @@ protected:
 
                 RealType prev_depth = depth_buffer[tile_address];
 
-                const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
+                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
+                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+
+                Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
+                                 RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
+
+                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
 
                 // Top-left rule adjustments (include pixels on top/left edges)
                 const bool inside =
@@ -340,13 +347,13 @@ protected:
                     continue;
 
                 // Baricentric weights normalized
-                // const MathType w0 = eBC * inv_area2;
-                // const MathType w1 = eCA * inv_area2;
-                // const MathType w2 = eAB * inv_area2;
+                const RealType b0 = eBC * inv_area2;
+                const RealType b1 = eCA * inv_area2;
+                const RealType b2 = eAB * inv_area2;
                 // Baricentric weights normalized (perpective)
-                RealType w0 = eBC * inv_area2 * triangle.vout[0].invW;
-                RealType w1 = eCA * inv_area2 * triangle.vout[1].invW;
-                RealType w2 = eAB * inv_area2 * triangle.vout[2].invW;
+                RealType w0 = eBC * triangle.vout[0].invW;
+                RealType w1 = eCA * triangle.vout[1].invW;
+                RealType w2 = eAB * triangle.vout[2].invW;
 
                 // Perspective: 1/w at pixel
                 const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
@@ -355,23 +362,25 @@ protected:
                 w1 *= inv_invW_px;
                 w2 *= inv_invW_px;
 
-                typename Derived::Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
+                // I am not sure if I should use perspective corrected interpolation or not
+                // Comparing with ground truth, nonperspective seems to give less error
+                typename Derived::Varyings varying_px = Derived::interpolate_varyings(b0, b1, b2,
                                                                                       triangle.vout[0].var,
                                                                                       triangle.vout[1].var,
                                                                                       triangle.vout[2].var);
 
                 // Depth (if needed; same trick)
-                RealType depth_px = w0 * triangle.vout[0].depth +
-                                    w1 * triangle.vout[1].depth +
-                                    w2 * triangle.vout[2].depth;
+                RealType depth_px = b0 * triangle.vout[0].depth +
+                                    b1 * triangle.vout[1].depth +
+                                    b2 * triangle.vout[2].depth;
 
                 // Depth test
-                if (depth_px <= RealType(0) || (prev_depth > RealType(0) && prev_depth < depth_px))
+                if (depth_px < RealType(0) || (prev_depth >= RealType(0) && prev_depth < depth_px))
                     continue;
 
                 Vec4<RealType> gl_FragCoord;
-                gl_FragCoord(0) = static_cast<RealType>(texture_x); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
-                gl_FragCoord(1) = static_cast<RealType>(texture_y); // + MathType(RenderConstants::PIXEL_CENTER_OFFSET);
+                gl_FragCoord(0) = p(0);
+                gl_FragCoord(1) = p(1);
                 gl_FragCoord(2) = depth_px;
                 gl_FragCoord(3) = inv_invW_px;
 
@@ -648,6 +657,8 @@ public:
 #pragma HLS INLINE
 
         RealType depth = in_varying.depth;
+        // RealType depth = gl_FragCoord(2);
+
         fragment.depth = depth;
     }
 
@@ -845,7 +856,8 @@ public:
 
     struct Uniforms
     {
-        Mat4<RealType> t_matrix;
+        Mat4<RealType> pose_matrix;
+        Mat4<RealType> view_matrix;
         IntType in_lvl;
         IntType out_lvl;
         Vec2<RealType> exposure;
@@ -906,10 +918,11 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-        gl_Position = uniforms.t_matrix * Vec4<RealType>(vertexdata.vertex(0),
-                                                         vertexdata.vertex(1),
-                                                         vertexdata.vertex(2),
-                                                         RealType(1));
+        Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
+                                                                     vertexdata.vertex(1),
+                                                                     vertexdata.vertex(2),
+                                                                     RealType(1));
+        gl_Position = uniforms.view_matrix * f_ver;
         outVarying.texcoord = vertexdata.texcoord;
     }
 
@@ -928,8 +941,8 @@ public:
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
-        // if (kf == textures.kf_texture.nodata() || f == textures.f_texture.nodata())
-        //     return;
+        if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata())
+            return;
 
         RealType f_exp = apply_exposure(RealType(f), uniforms.exposure);
 
@@ -1805,6 +1818,9 @@ public:
         Vec2<RealType> texcoord;
         Vec3<RealType> f_ver;
         Vec3<RealType> kf_ray;
+        Vec3<RealType> kf_ray_0;
+        Vec3<RealType> kf_ray_1;
+        Vec3<RealType> kf_ray_2;
         RealType depth;
         Vec3<RealType> baricentric;
         IntType vertexId;
@@ -1861,10 +1877,9 @@ public:
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
              w2 * varying_px2.f_ver);
-        var_over_w_px.kf_ray =
-            (w0 * varying_px0.kf_ray +
-             w1 * varying_px1.kf_ray +
-             w2 * varying_px2.kf_ray);
+        var_over_w_px.kf_ray_0 = varying_px0.kf_ray;
+        var_over_w_px.kf_ray_1 = varying_px1.kf_ray;
+        var_over_w_px.kf_ray_2 = varying_px2.kf_ray;
         // var_over_w_px.barvout[2].screen(1)entric = Vec3<MathType>(w0 * invW0 * varying_px0.depth,
         //                                  w1 * invW1 * varying_px1.depth,
         //                                  w2 * invW2 * varying_px2.depth) *
@@ -1921,14 +1936,16 @@ public:
         // Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
         Vec3<RealType> f_ver = in_varying.f_ver;
-        Vec3<RealType> kf_ray = in_varying.kf_ray;
+        Vec3<RealType> kf_ray_0 = in_varying.kf_ray_0;
+        Vec3<RealType> kf_ray_1 = in_varying.kf_ray_1;
+        Vec3<RealType> kf_ray_2 = in_varying.kf_ray_2;
         Vec2<RealType> texcoord = in_varying.texcoord;
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        //Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
@@ -1945,12 +1962,17 @@ public:
         // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
         // Vec3<MathType>d_f_i_d_rot = Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        RealType d_f_i_d_kf_depth = (d_f_i_d_f_ver.transpose() * d_f_ver_d_kf_depth)(0, 0);
+        RealType d_f_i_d_kf_depth_0 = (d_f_i_d_f_ver.transpose() * kf_ray_0)(0, 0);
+        RealType d_f_i_d_kf_depth_1 = (d_f_i_d_f_ver.transpose() * kf_ray_1)(0, 0);
+        RealType d_f_i_d_kf_depth_2 = (d_f_i_d_f_ver.transpose() * kf_ray_2)(0, 0);
 
         Vec3<RealType> d_depth_d_vert_depth = baricentric;
 
-        Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
+        Vec3<RealType> jac;
+        jac(0) = d_f_i_d_kf_depth_0 * d_depth_d_vert_depth(0);
+        jac(1) = d_f_i_d_kf_depth_1 * d_depth_d_vert_depth(1);
+        jac(2) = d_f_i_d_kf_depth_2 * d_depth_d_vert_depth(2);
+
         Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
 
         fragment.jmap = jac;

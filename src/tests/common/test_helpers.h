@@ -28,10 +28,12 @@ inline void UploadMatToTexture(Texture &tex, int lvl, cv::Mat &mat)
     mat.convertTo(mat, cv_type, 1.0); // / 255.0);
 
     assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
+    
     {
         auto mapped = tex.MapWrite(lvl);
         std::memcpy(mapped.data(), mat.ptr(), mat.total() * tex.type_size());
     }
+
     tex.generate_mipmaps(lvl);
 }
 
@@ -41,6 +43,7 @@ inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl)
     int cv_type = GetOpenCVFormat(tex.get_type_index());
 
     cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
+
     {
         auto mapped = tex.MapRead(lvl);
         std::memcpy(result.ptr(), mapped.data(), tex.height(lvl) * tex.width(lvl) * tex.type_size());
@@ -55,6 +58,7 @@ inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl)
         }
         */
     }
+
     return result;
 }
 

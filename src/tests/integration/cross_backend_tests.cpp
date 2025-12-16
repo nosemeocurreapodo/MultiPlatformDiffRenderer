@@ -164,8 +164,8 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
     MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
     MeshGL mesh_gl(vertex_, indices_, true, true, true);
 
-    TextureCPU<float> output_cpu(w_, h_, -1.0f);
-    TextureGL<float> output_gl(w_, h_, -1.0f);
+    TextureCPU<float> output_cpu(w_, h_, 0.0f);
+    TextureGL<float> output_gl(w_, h_, 0.0f);
 
     DepthRendererCPU renderer_cpu;
     DepthRendererGL renderer_gl;
@@ -558,8 +558,8 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 
     for (int lvl = 0; lvl < f_cpu.levels(); ++lvl)
     {
-        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
-        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
+        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, kf_cpu, dfdxy_cpu);
+        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, kf_gl, dfdxy_gl);
     }
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jtra_error = 0.0, acc_jrot_error = 0.0, acc_r_error = 0.0;
@@ -670,8 +670,8 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
     for (int lvl = 0; lvl < f_cpu.levels(); ++lvl)
     {
-        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, f_cpu, dfdxy_cpu);
-        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, f_gl, dfdxy_gl);
+        didxy_renderer_cpu.Render(mesh_img_cpu, lvl, lvl, kf_cpu, dfdxy_cpu);
+        didxy_renderer_gl.Render(mesh_img_gl, lvl, lvl, kf_gl, dfdxy_gl);
     }
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_jmap_error = 0.0, acc_pids_error = 0.0, acc_r_error = 0.0;

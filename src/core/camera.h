@@ -69,12 +69,13 @@ public:
 
         projmat(0, 0) = T(2) * fx_;
         projmat(0, 1) = T(0);
-        projmat(0, 2) = T(1) - T(2) * cx_;
+        //projmat(0, 2) = T(1) - T(2) * cx_;
+        projmat(0, 2) = T(2) * cx_ - T(1);
         projmat(0, 3) = T(0);
         //- here to flip the y axis (to render like opencv)
         projmat(1, 0) = T(0);
         projmat(1, 1) = -T(2) * fy_;
-        projmat(1, 2) = -T(1) + T(2) * cy_;
+        projmat(1, 2) = T(1) - T(2) * cy_;
         projmat(1, 3) = T(0);
 
         projmat(2, 0) = T(0);

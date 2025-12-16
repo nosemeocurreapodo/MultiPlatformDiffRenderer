@@ -64,9 +64,9 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
     using Traits = TypeParam;
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
-    
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, -1.0f);
+
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
 
     UploadMatToTexture(ground_truth, 0, this->depth_dst_cv_);
 
@@ -122,9 +122,9 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
-    typename Traits::template TextureT<float> reference(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> reference(this->w_, this->h_, 0.0f);
 
     UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
 
@@ -246,7 +246,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
 
-    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
 
     typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
@@ -316,7 +316,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
     typename Traits::MeshT mesh_sceen(this->screen_vertex_, this->screen_indices_, true, true, false);
 
-    typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> kf_image(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> kf_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<ImageType> f_image(this->w_, this->h_, 0);
@@ -324,6 +324,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 
     typename Traits::template TextureT<ImageType> image_1(this->w_, this->h_, 0);
     typename Traits::template TextureT<ImageType> image_2(this->w_, this->h_, 0);
+    typename Traits::template TextureT<float> image_diff(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> reference_jtra(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> reference_jrot(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
 
@@ -337,6 +338,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     UploadMatToTexture(f_image, 0, this->image_dst_cv_);
 
     typename Traits::ImageRendererT image_renderer;
+    typename Traits::ResidualRendererT residual_renderer;
     typename Traits::DIDxyRendererT didxy_renderer;
     typename Traits::JPoseRendererT jpose_renderer;
 
@@ -388,6 +390,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 
             image_renderer.Render(mesh, pose_transform_1, exposure, this->cam_, lvl, lvl, kf_image, image_1);
             image_renderer.Render(mesh, pose_transform_2, exposure, this->cam_, lvl, lvl, kf_image, image_2);
+            residual_renderer.Render(mesh, SE3<float>(), Vec2<float>(0.0, 0.0), this->cam_, lvl, lvl, image_2, image_1, image_diff);
 
             for (int y = 0; y < f_image.height(lvl); y++)
             {
@@ -395,11 +398,17 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
                 {
                     ImageType data_1 = image_1.texel_(y, x, lvl);
                     ImageType data_2 = image_2.texel_(y, x, lvl);
+                    RealType diff = image_diff.texel_(y, x, lvl);
 
-                    if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    // if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    //     continue;
+
+                    // RealType der = (RealType(data_1) - RealType(data_2)) / (2 * delta);
+
+                    if (diff == image_diff.nodata())
                         continue;
 
-                    RealType der = (RealType(data_1) - RealType(data_2)) / (2 * delta);
+                    RealType der = diff / (2 * delta);
 
                     if (i < 3)
                     {
@@ -453,14 +462,14 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImage(diff_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_diff.png");
-    SaveDebugImage(diff_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_diff.png");
+    SaveDebugImageColor(diff_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_diff.png");
+    SaveDebugImageColor(diff_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_diff.png");
 
-    SaveDebugImage(result_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_result.png");
-    SaveDebugImage(ref_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_reference.png");
+    SaveDebugImageColor(result_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_result.png");
+    SaveDebugImageColor(ref_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_reference.png");
 
-    SaveDebugImage(result_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_result.png");
-    SaveDebugImage(ref_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_reference.png");
+    SaveDebugImageColor(result_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_result.png");
+    SaveDebugImageColor(ref_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
@@ -473,7 +482,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
     typename Traits::MeshT mesh_sceen(this->screen_vertex_, this->screen_indices_, true, true, false);
 
-    typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, -1.0f);
+    typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> kf_image(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> kf_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<ImageType> f_image(this->w_, this->h_, 0);
@@ -516,7 +525,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
 
     std::vector<float> positions = mesh.get_positions();
     std::vector<int> indices = mesh.get_indices();
-    float delta = 1e-3;
+    float delta = 1e-2;
 
     for (int lvl = 0; lvl < output_jmap.levels(); lvl++)
     {
@@ -528,9 +537,9 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
         PerformanceTimer timer;
         timer.Start();
 
-        //mesh.set_positions(positions);
+        // mesh.set_positions(positions);
         jmap_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, kf_didxy, output_jmap, output_pids, output_r);
-        
+
         for (int i = 0; i < mesh.vertex_count(); i++)
         {
             if (i > 100)
@@ -544,11 +553,13 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
             vertex(1) = positions[i * 3 + 1];
             vertex(2) = positions[i * 3 + 2];
 
+            float depth = vertex(2);
+
             Vec3<float> vertex_p;
             Vec3<float> vertex_m;
 
-            float depth_p = vertex(2) + delta;
-            float depth_m = vertex(2) - delta;
+            float depth_p = depth - delta;
+            float depth_m = depth + delta;
 
             vertex_p = (vertex / vertex(2)) * depth_p;
             vertex_m = (vertex / vertex(2)) * depth_m;
@@ -581,7 +592,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
 
                     RealType der = (RealType(data_1) - RealType(data_2)) / (2 * delta);
 
-                    if(der == RealType(0.0))
+                    if (der == RealType(0.0))
                         continue;
 
                     Vec3<float> data = reference_jmap.texel_(y, x, lvl);
@@ -600,7 +611,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
                 }
             }
         }
-        
+
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
@@ -631,10 +642,10 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImage(diff_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_diff.png");
+    SaveDebugImageColor(diff_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_diff.png");
 
-    SaveDebugImage(result_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_result.png");
-    SaveDebugImage(ref_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_reference.png");
+    SaveDebugImageColor(result_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_result.png");
+    SaveDebugImageColor(ref_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }

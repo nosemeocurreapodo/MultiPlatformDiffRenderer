@@ -356,7 +356,8 @@ public:
         opencv2opengl(2, 2) = -1.0;
 
         Base::Uniforms uniforms;
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
