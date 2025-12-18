@@ -2596,8 +2596,10 @@ public:
         d_f_i_d_f_ver(1) = d_f_d_xy(1) * uniforms.fy * RealType(out_height) / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-        // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
-        // Vec3<MathType>d_f_i_d_rot = Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+        Vec3<RealType> d_f_i_d_tra = d_f_i_d_f_ver;
+        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2),
+                                                     f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2),
+                                                    -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
         RealType d_f_i_d_kf_depth_0 = (d_f_i_d_f_ver.transpose() * kf_ray_0)(0, 0);
         RealType d_f_i_d_kf_depth_1 = (d_f_i_d_f_ver.transpose() * kf_ray_1)(0, 0);
@@ -2612,6 +2614,8 @@ public:
 
         Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
 
+        fragment.jtra = d_f_i_d_tra;
+        fragment.jrot = d_f_i_d_rot;
         fragment.jmap = jac;
         fragment.pids = ids;
         fragment.r = r;
@@ -2635,13 +2639,19 @@ public:
                 IntType y = iy + tex_bb.min_y_;
                 IntType address = iy * tex_bb.width_ + ix;
 
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
                 Vec3<RealType> jmap = fragment_buffer[address].jmap;
                 Vec3<IntType> pids = fragment_buffer[address].pids;
                 RealType error = fragment_buffer[address].r;
 
+                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
+                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
                 Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
+                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
                 textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
                 textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
                 textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
