@@ -76,10 +76,10 @@ public:
     }
 
     // Rule of 5
-    // TextureCPU(const TextureCPU &) = default;
-    // TextureCPU &operator=(const TextureCPU &) = default;
-    // TextureCPU(TextureCPU &&) noexcept = default;
-    // TextureCPU &operator=(TextureCPU &&) noexcept = default;
+    TextureCPU(const TextureCPU &) = default;
+    TextureCPU &operator=(const TextureCPU &) = default;
+    TextureCPU(TextureCPU &&) noexcept = default;
+    TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;
 
     // Introspection
@@ -180,7 +180,7 @@ protected:
         }
     }
 
-    unsigned int total_size_;
+    unsigned int total_size_ = 0;
     std::vector<Level> levels_;
     BufferCPU<T> storage_;
     T nodata_{};

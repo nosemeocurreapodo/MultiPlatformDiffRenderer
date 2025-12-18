@@ -46,8 +46,8 @@ public:
     }
 
     // Move (nothrow)
-    //BufferCPU(BufferCPU &&) noexcept = default;
-    //BufferCPU &operator=(BufferCPU &&) noexcept = default;
+    BufferCPU(BufferCPU &&) noexcept = default;
+    BufferCPU &operator=(BufferCPU &&) noexcept = default;
 
     ~BufferCPU() = default;
 

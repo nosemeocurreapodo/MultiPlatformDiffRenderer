@@ -19,25 +19,27 @@ public:
 
         if (has_position)
         {
-            pos_offset_ = 0;
+            pos_offset_ = stride_;
             stride_ += 3;
         }
         else
         {
             pos_offset_ = -1;
         }
+
         if (has_texcoord)
         {
-            tex_offset_ = 3;
+            tex_offset_ = stride_;
             stride_ += 2;
         }
         else
         {
             tex_offset_ = -1;
         }
+
         if (has_normal)
         {
-            nor_offset_ = 5;
+            nor_offset_ = stride_;
             stride_ += 3;
         }
         else
@@ -59,6 +61,8 @@ public:
     std::vector<float> get_positions() const
     {
         std::vector<float> pos;
+        pos.reserve(vertex_count() * 3);
+
         if (pos_offset_ < 0)
             return pos;
         auto vertex_map = vertex_buffer_.MapRead();

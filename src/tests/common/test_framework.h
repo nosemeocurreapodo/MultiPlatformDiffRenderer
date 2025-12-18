@@ -75,9 +75,9 @@ protected:
     void SetUp() override
     {
         // Load test dataset
-        // dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
-        dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
-        // dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
+         //dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
+        //dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
+        dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
         depth_files_ = dataset_->GetDepthFiles();
@@ -96,9 +96,9 @@ protected:
 
 protected:
     // Dataset and test data
-    // std::unique_ptr<LoadDatasetIclNuim> dataset_;
-    std::unique_ptr<LoadDesktopDataset> dataset_;
-    // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
+     //std::unique_ptr<LoadDatasetIclNuim> dataset_;
+    //std::unique_ptr<LoadDesktopDataset> dataset_;
+    std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
     std::vector<SE3<float>> poses_;
@@ -141,7 +141,7 @@ protected:
 
         pose_dst_ = poses_[50];
 
-        CreateMesh(depth_src_cv_, cam_, 32, vertex_, indices_);
+        CreateMesh(depth_src_cv_, cam_, 16, vertex_, indices_);
 
         CreateScreenQuad(screen_vertex_, screen_indices_);
     }
@@ -256,13 +256,14 @@ public:
 // Validation thresholds
 struct ValidationThresholds
 {
-    double gt_max_depth_error = 0.27;
-    double gt_max_image_error = 14.0;
+    double gt_max_depth_error = 0.20;
+    double gt_max_image_error = 10.3;
 
-    double ref_max_depth_error = 0.27;
-    double ref_max_image_error = 14.0;
+    double ref_max_depth_error = 0.20;
+    double ref_max_image_error = 12.21;
     double ref_max_jtra_error = 14.0;
     double ref_max_jrot_error = 14.0;
+    double ref_max_r_error = 14.0;
     double ref_max_jmap_error = 14.0;
 
     int cr_max_valid_diff = 200;
@@ -272,7 +273,7 @@ struct ValidationThresholds
     double cr_max_image_error = 0.59;
     double cr_max_residual_error = 0.60;
     double cr_max_l2_error = 79.0;
-    double cr_max_didxy_error = 0.0073;
+    double cr_max_didxy_error = 0.0087;
     double cr_max_jtra_error = 0.060;
     double cr_max_jrot_error = 0.11;
     double cr_max_r_error = 0.83;

@@ -56,8 +56,8 @@ TEST_F(CrossBackendTests, MipMapComparison)
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(input_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(input_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(input_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(input_gl, 0);
 
     SaveDebugImage(cpu_result, "mipmap_image_cpu.png");
     SaveDebugImage(gl_result, "mipmap_image_gl.png");
@@ -197,8 +197,8 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
         acc_l2_error = std::max(acc_l2_error, l2_error);
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
     SaveDebugImage(cpu_result, "cross_depth_cpu.png");
     SaveDebugImage(gl_result, "cross_depth_gl.png");
@@ -274,8 +274,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
     SaveDebugImage(cpu_result, "cross_image_cpu.png");
     SaveDebugImage(gl_result, "cross_image_gl.png");
@@ -354,8 +354,8 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
     SaveDebugImage(cpu_result, "cross_residual_cpu.png");
     SaveDebugImage(gl_result, "cross_residual_gl.png");
@@ -427,8 +427,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
     SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
     SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
@@ -500,8 +500,8 @@ TEST_F(CrossBackendTests, DIDexpComputationComparison)
         }
     }
 
-    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 1);
-    cv::Mat gl_result = DownloadTextureToMat(output_gl, 1);
+    cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
+    cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
     SaveDebugImageColor(cpu_result, "cross_didexp_cpu.png");
     SaveDebugImageColor(gl_result, "cross_didexp_gl.png");
@@ -606,12 +606,12 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
         }
     }
 
-    cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 1);
-    cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 1);
-    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1);
-    cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 1);
-    cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 1);
-    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1);
+    cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 0);
+    cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 0);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 0);
+    cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 0);
+    cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 0);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 0);
 
     SaveDebugImageColor(cpu_jtra, "cross_jtra_cpu.png");
     SaveDebugImageColor(gl_jtra, "cross_jtra_gl.png");
@@ -718,12 +718,12 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
         }
     }
 
-    cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, 1);
-    cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, 1);
-    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 1);
-    cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, 1);
-    cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 1);
-    cv::Mat gl_r = DownloadTextureToMat(r_gl, 1);
+    cv::Mat cpu_jmap = DownloadTextureToMat(jmap_cpu, 0);
+    cv::Mat cpu_pids = DownloadTextureToMat(pids_cpu, 0);
+    cv::Mat cpu_r = DownloadTextureToMat(r_cpu, 0);
+    cv::Mat gl_jmap = DownloadTextureToMat(jmap_gl, 0);
+    cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 0);
+    cv::Mat gl_r = DownloadTextureToMat(r_gl, 0);
 
     SaveDebugImageColor(cpu_jmap, "cross_jmap_cpu.png");
     SaveDebugImageColor(gl_jmap, "cross_jmap_gl.png");
