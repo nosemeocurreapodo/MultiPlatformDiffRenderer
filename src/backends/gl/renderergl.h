@@ -925,8 +925,8 @@ public:
                 ivec2 tex_size = textureSize(image, image_lvl);
                 //int x = int(texcoord.x * (tex_size.x - 1));
                 //int y = int(texcoord.y * (tex_size.y - 1));
-                int x = gl_FragCoord.x;
-                int y = gl_FragCoord.y;
+                int x = int(gl_FragCoord.x);
+                int y = int(gl_FragCoord.y);
 
                 int x_p = x + 1;
                 int x_m = x - 1;
