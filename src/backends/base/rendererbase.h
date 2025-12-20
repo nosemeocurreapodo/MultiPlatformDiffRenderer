@@ -576,12 +576,16 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
+        Vec2<RealType> texcoord;
     };
 
     struct Uniforms
     {
-        Mat4<RealType> t_matrix;
-        int out_lvl;
+        Mat4<RealType> pose_matrix;
+        Mat4<RealType> view_matrix;
+        Vec6<RealType> vel_matrix;
+        IntType out_lvl;
+        RealType readout_time;
     };
 
     struct Varyings
@@ -612,6 +616,9 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + 2];
 
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+
         return vertexdata;
     }
 
@@ -640,11 +647,17 @@ public:
                               Varyings &outVarying)
     {
 #pragma HLS INLINE
+
+        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
+
+        Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
+                                                     vertexdata.vertex(1),
+                                                     vertexdata.vertex(2),
+                                                     RealType(1));
+
         //   std::cout << "calling vertex shader " << std::endl;
-        gl_Position = uniforms.t_matrix * Vec4<RealType>(vertexdata.vertex(0),
-                                                         vertexdata.vertex(1),
-                                                         vertexdata.vertex(2),
-                                                         RealType(1));
+        gl_Position = uniforms.view_matrix * f_ver;
         outVarying.depth = gl_Position(2);
     }
 
@@ -717,10 +730,13 @@ public:
 
     struct Uniforms
     {
-        Mat4<RealType> t_matrix;
+        Mat4<RealType> pose_matrix;
+        Mat4<RealType> view_matrix;
+        Vec6<RealType> vel_matrix;
         Vec2<RealType> exposure;
         IntType in_lvl;
         IntType out_lvl;
+        RealType readout_time;
     };
 
     struct Varyings
@@ -785,10 +801,15 @@ public:
     {
 #pragma HLS inline
 
-        gl_Position = uniforms.t_matrix * Vec4<RealType>(vertexdata.vertex(0),
-                                                         vertexdata.vertex(1),
-                                                         vertexdata.vertex(2),
-                                                         RealType(1));
+        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
+
+        Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
+                                                     vertexdata.vertex(1),
+                                                     vertexdata.vertex(2),
+                                                     RealType(1));
+
+        gl_Position = uniforms.view_matrix * f_ver;
         outVarying.texcoord = vertexdata.texcoord;
     }
 
@@ -858,9 +879,11 @@ public:
     {
         Mat4<RealType> pose_matrix;
         Mat4<RealType> view_matrix;
+        Vec6<RealType> vel_matrix;
         IntType in_lvl;
         IntType out_lvl;
         Vec2<RealType> exposure;
+        RealType readout_time;
     };
 
     struct Varyings
@@ -918,10 +941,13 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-        Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
-                                                                     vertexdata.vertex(1),
-                                                                     vertexdata.vertex(2),
-                                                                     RealType(1));
+        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
+
+        Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
+                                                     vertexdata.vertex(1),
+                                                     vertexdata.vertex(2),
+                                                     RealType(1));
         gl_Position = uniforms.view_matrix * f_ver;
         outVarying.texcoord = vertexdata.texcoord;
     }
@@ -1781,6 +1807,430 @@ public:
 };
 
 template <template <class> class Texture>
+class JPoseVelRendererBase
+{
+public:
+    JPoseVelRendererBase() = delete;
+    //~JPoseRendererBase() = default;
+
+    struct InTextures
+    {
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<Vec3<float>> &dfdxy_texture;
+    };
+
+    struct OutTextures
+    {
+        Texture<Vec3<float>> &jtra_texture;
+        Texture<Vec3<float>> &jrot_texture;
+        Texture<Vec3<float>> &jtravel_texture;
+        Texture<Vec3<float>> &jrotvel_texture;
+        Texture<float> &r_texture;
+    };
+
+    struct VertexData
+    {
+        Vec3<RealType> vertex;
+        Vec2<RealType> texcoord;
+    };
+
+    struct Uniforms
+    {
+        RealType fx;
+        RealType fy;
+        Mat4<RealType> view_matrix;
+        Mat4<RealType> pose_matrix;
+        Vec6<RealType> vel_matrix;
+        IntType in_lvl;
+        IntType out_lvl;
+        IntType out_width;
+        IntType out_height;
+        RealType readout_time;
+    };
+
+    struct Varyings
+    {
+        Vec2<RealType> texcoord;
+        Vec3<RealType> f_ver;
+        RealType dt;
+    };
+
+    struct Fragment
+    {
+        Vec3<RealType> jtra;
+        Vec3<RealType> jrot;
+        Vec3<RealType> jtravel;
+        Vec3<RealType> jrotvel;
+        RealType r;
+    };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.jtra_texture.nodata()),
+                        Vec3<RealType>(textures.jrot_texture.nodata()),
+                        Vec3<RealType>(textures.jtravel_texture.nodata()),
+                        Vec3<RealType>(textures.jrotvel_texture.nodata()),
+                        RealType(textures.r_texture.nodata())};
+    }
+
+    template <class Mesh>
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    {
+        VertexData vertexdata;
+
+        IntType base = vertexid * mesh.stride_;
+
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+
+        return vertexdata;
+    }
+
+    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0,
+                                         const Varyings &varying_px1,
+                                         const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.texcoord =
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
+        var_over_w_px.f_ver =
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
+        var_over_w_px.dt =
+            (w0 * varying_px0.dt +
+             w1 * varying_px1.dt +
+             w2 * varying_px2.dt);
+        return var_over_w_px;
+    }
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    static void vertex_shader(const VertexData &vertexdata,
+                              const IntType &vertexid,
+                              const Uniforms &uniforms,
+                              Vec4<RealType> &gl_Position,
+                              Varyings &outVarying)
+    {
+        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
+        Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
+                                                     vertexdata.vertex(1),
+                                                     vertexdata.vertex(2),
+                                                     RealType(1));
+        gl_Position = uniforms.view_matrix * f_ver;
+
+        outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.texcoord = vertexdata.texcoord;
+        outVarying.dt = dt;
+    }
+
+    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
+                                const Uniforms &uniforms,
+                                const Varyings &in_varying,
+                                const InTextures &intextures,
+                                Fragment &fragment)
+    {
+        // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
+        // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
+        IntType out_width = uniforms.out_width;
+        IntType out_height = uniforms.out_height;
+
+        // Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
+
+        Vec3<RealType> f_ver = in_varying.f_ver;
+        Vec2<RealType> texcoord = in_varying.texcoord;
+
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+
+        if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
+            return;
+
+        RealType r = RealType(f) - RealType(kf);
+
+        RealType v0 = d_f_d_xy(0) * uniforms.fx * RealType(out_width) / f_ver(2);
+        RealType v1 = d_f_d_xy(1) * uniforms.fy * RealType(out_height) / f_ver(2);
+        RealType v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        Vec3<RealType> d_f_i_d_tra = Vec3<RealType>(v0, v1, v2);
+        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        Vec3<RealType> d_f_i_d_travel = in_varying.dt * d_f_i_d_tra;
+        Vec3<RealType> d_f_i_d_rotvel = in_varying.dt * d_f_i_d_rot;
+
+        fragment.jtra = d_f_i_d_tra;
+        fragment.jrot = d_f_i_d_rot;
+        fragment.jtravel = d_f_i_d_travel;
+        fragment.jrotvel = d_f_i_d_rotvel;
+        fragment.r = r;
+    }
+
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    {
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
+                Vec3<RealType> jtravel = fragment_buffer[address].jtravel;
+                Vec3<RealType> jrotvel = fragment_buffer[address].jrotvel;
+                RealType error = fragment_buffer[address].r;
+
+                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
+                textures.jtravel_texture.set_texel_(jtravel, y, x, uniforms.out_lvl);
+                textures.jrotvel_texture.set_texel_(jrotvel, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
+    }
+};
+
+template <template <class> class Texture>
+class JPoseVelExpRendererBase
+{
+public:
+    JPoseVelExpRendererBase() = delete;
+    //~JPoseRendererBase() = default;
+
+    struct InTextures
+    {
+        const Texture<ImageType> &kf_texture;
+        const Texture<ImageType> &f_texture;
+        const Texture<Vec3<float>> &dfdxy_texture;
+    };
+
+    struct OutTextures
+    {
+        Texture<Vec3<float>> &jtra_texture;
+        Texture<Vec3<float>> &jrot_texture;
+        Texture<Vec3<float>> &jtravel_texture;
+        Texture<Vec3<float>> &jrotvel_texture;
+        Texture<Vec3<float>> &jexp_texture;
+        Texture<float> &r_texture;
+    };
+
+    struct VertexData
+    {
+        Vec3<RealType> vertex;
+        Vec2<RealType> texcoord;
+    };
+
+    struct Uniforms
+    {
+        RealType fx;
+        RealType fy;
+        Mat4<RealType> view_matrix;
+        Mat4<RealType> pose_matrix;
+        Vec6<RealType> vel_matrix;
+        Vec2<RealType> exposure;
+        IntType in_lvl;
+        IntType out_lvl;
+        IntType out_width;
+        IntType out_height;
+        RealType readout_time;
+    };
+
+    struct Varyings
+    {
+        Vec2<RealType> texcoord;
+        Vec3<RealType> f_ver;
+        RealType dt;
+    };
+
+    struct Fragment
+    {
+        Vec3<RealType> jtra;
+        Vec3<RealType> jrot;
+        Vec3<RealType> jtravel;
+        Vec3<RealType> jrotvel;
+        Vec3<RealType> jexp;
+        RealType r;
+    };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        return Fragment{Vec3<RealType>(textures.jtra_texture.nodata()),
+                        Vec3<RealType>(textures.jrot_texture.nodata()),
+                        Vec3<RealType>(textures.jtravel_texture.nodata()),
+                        Vec3<RealType>(textures.jrotvel_texture.nodata()),
+                        Vec3<RealType>(textures.jexp_texture.nodata()),
+                        RealType(textures.r_texture.nodata())};
+    }
+
+    template <class Mesh>
+    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    {
+        VertexData vertexdata;
+
+        IntType base = vertexid * mesh.stride_;
+
+        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
+        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
+        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+
+        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+
+        return vertexdata;
+    }
+
+    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0,
+                                         const Varyings &varying_px1,
+                                         const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.texcoord =
+            (w0 * varying_px0.texcoord +
+             w1 * varying_px1.texcoord +
+             w2 * varying_px2.texcoord);
+        var_over_w_px.f_ver =
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
+        var_over_w_px.dt =
+            (w0 * varying_px0.dt +
+             w1 * varying_px1.dt +
+             w2 * varying_px2.dt);
+        return var_over_w_px;
+    }
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    static void vertex_shader(const VertexData &vertexdata,
+                              const IntType &vertexid,
+                              const Uniforms &uniforms,
+                              Vec4<RealType> &gl_Position,
+                              Varyings &outVarying)
+    {
+        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
+        Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
+                                                     vertexdata.vertex(1),
+                                                     vertexdata.vertex(2),
+                                                     RealType(1));
+        gl_Position = uniforms.view_matrix * f_ver;
+
+        outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.texcoord = vertexdata.texcoord;
+        outVarying.dt = dt;
+    }
+
+    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
+                                const Uniforms &uniforms,
+                                const Varyings &in_varying,
+                                const InTextures &intextures,
+                                Fragment &fragment)
+    {
+        // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
+        // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
+        IntType out_width = uniforms.out_width;
+        IntType out_height = uniforms.out_height;
+
+        // Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
+
+        Vec3<RealType> f_ver = in_varying.f_ver;
+        Vec2<RealType> texcoord = in_varying.texcoord;
+
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+
+        if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
+            return;
+
+        RealType f_exp = apply_exposure(RealType(f), uniforms.exposure);
+        RealType d_fexp_d_f = d_f_exp_d_f(RealType(f), uniforms.exposure);
+        Vec3<RealType> d_fexp_d_exp = d_f_exp_d_exp(RealType(f), uniforms.exposure);
+        Vec3<RealType> d_fexp_d_xy = d_fexp_d_f * d_f_d_xy;
+
+        RealType r = RealType(f_exp) - RealType(kf);
+
+        RealType v0 = d_fexp_d_xy(0) * uniforms.fx * RealType(out_width) / f_ver(2);
+        RealType v1 = d_fexp_d_xy(1) * uniforms.fy * RealType(out_height) / f_ver(2);
+        RealType v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+        Vec3<RealType> d_f_i_d_tra = Vec3<RealType>(v0, v1, v2);
+        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+
+        Vec3<RealType> d_f_i_d_travel = in_varying.dt * d_f_i_d_tra;
+        Vec3<RealType> d_f_i_d_rotvel = in_varying.dt * d_f_i_d_rot;
+
+        fragment.jtra = d_f_i_d_tra;
+        fragment.jrot = d_f_i_d_rot;
+        fragment.jtravel = d_f_i_d_travel;
+        fragment.jrotvel = d_f_i_d_rotvel;
+        fragment.jexp = d_fexp_d_exp;
+        fragment.r = r;
+    }
+
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    {
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jtra = fragment_buffer[address].jtra;
+                Vec3<RealType> jrot = fragment_buffer[address].jrot;
+                Vec3<RealType> jtravel = fragment_buffer[address].jtravel;
+                Vec3<RealType> jrotvel = fragment_buffer[address].jrotvel;
+                Vec3<RealType> jexp = fragment_buffer[address].jexp;
+                RealType error = fragment_buffer[address].r;
+
+                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
+                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
+                textures.jtravel_texture.set_texel_(jtravel, y, x, uniforms.out_lvl);
+                textures.jrotvel_texture.set_texel_(jrotvel, y, x, uniforms.out_lvl);
+                textures.jexp_texture.set_texel_(jexp, y, x, uniforms.out_lvl);
+                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+            }
+        }
+    }
+};
+
+template <template <class> class Texture>
 class PidsRendererBase
 {
 public:
@@ -2598,7 +3048,7 @@ public:
 
         Vec3<RealType> d_f_i_d_tra = d_f_i_d_f_ver;
         Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2),
-                                                     f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2),
+                                                    f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2),
                                                     -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
         RealType d_f_i_d_kf_depth_0 = (d_f_i_d_f_ver.transpose() * kf_ray_0)(0, 0);
@@ -2865,7 +3315,7 @@ public:
 
         Vec3<RealType> d_f_i_d_tra = d_f_i_d_f_ver;
         Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2),
-                                                     f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2),
+                                                    f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2),
                                                     -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
         RealType d_f_i_d_kf_depth_0 = (d_f_i_d_f_ver.transpose() * kf_ray_0)(0, 0);
