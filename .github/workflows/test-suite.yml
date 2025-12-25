@@ -133,9 +133,16 @@ jobs:
           libeigen3-dev \
           libopencv-dev \
           libgtest-dev \
+          libassimp-dev \
+          libboost-all-dev \
           libegl1-mesa-dev \
           libgl1-mesa-dev \
-          xvfb
+          xvfb \
+          mesa-utils \
+          libglu1-mesa-dev \
+          freeglut3-dev \
+          mesa-common-dev \
+          libglm-dev
     
     - name: Configure CMake
       run: |
