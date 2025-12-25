@@ -86,6 +86,8 @@ jobs:
           libeigen3-dev \
           libopencv-dev \
           libgtest-dev \
+          libassimp-dev \
+          libboost-all-dev \
           libegl1-mesa-dev \
           libgl1-mesa-dev \
           xvfb \
