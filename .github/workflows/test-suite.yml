@@ -37,9 +37,11 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCOMPILE_CPU=ON \
           -DCOMPILE_GL=OFF \
           -DCOMPILE_XRT=OFF \
-          -DBUILD_TESTING=ON \
+          -DCOMPILE_DEMO=OFF \
+          -DCOMPILE_TESTS=ON \
           -DCMAKE_CXX_FLAGS="--coverage" \
           -DCMAKE_C_FLAGS="--coverage"
     

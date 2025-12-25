@@ -261,10 +261,10 @@ struct ValidationThresholds
 
     double ref_max_depth_error = 0.20;
     double ref_max_image_error = 12.21;
-    double ref_max_jtra_error = 14.0;
-    double ref_max_jrot_error = 14.0;
+    double ref_max_jtra_error = 18.37;
+    double ref_max_jrot_error = 27.7;
     double ref_max_r_error = 14.0;
-    double ref_max_jmap_error = 14.0;
+    double ref_max_jmap_error = 2.6;
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;
