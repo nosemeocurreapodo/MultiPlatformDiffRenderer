@@ -25,9 +25,9 @@ struct CPUBackendTraits
     using ResidualRendererT = ResidualRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseFDRendererT = JPoseFDRendererCPU;
-    using JPoseRendererT = JPoseRendererCPU;
+    using JPoseExpRendererT = JPoseExpRendererCPU;
     using JMapFDRendererT = JMapFDRendererCPU;
-    using JMapRendererT = JMapRendererCPU;
+    using JMapExpRendererT = JMapExpRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -41,8 +41,8 @@ struct GLBackendTraits
     using ImageRendererT = ImageRendererGL;
     using ResidualRendererT = ResidualRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
-    using JPoseRendererT = JPoseRendererGL;
-    using JMapRendererT = JMapRendererGL;
+    using JPoseExpRendererT = JPoseExpRendererGL;
+    using JMapExpRendererT = JMapExpRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
@@ -330,6 +330,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 
     typename Traits::template TextureT<Vec3<float>> output_jtra(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> output_jrot(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<Vec3<float>> output_jexp(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<float> output_r(this->w_, this->h_, 0);
 
     UploadMatToTexture(kf_depth, 0, this->depth_src_cv_);
@@ -338,7 +339,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     UploadMatToTexture(f_image, 0, this->image_dst_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JPoseRendererT jpose_renderer;
+    typename Traits::JPoseExpRendererT jpose_renderer;
     typename Traits::JPoseFDRendererT jposefd_renderer;
 
     // didxy_renderer.Render(mesh_sceen, 0, 0, f_image, f_didxy);
@@ -357,7 +358,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     Vec2<float> exposure(0.0, 0.0);
 
     int lvl = 1;
-    //for (int lvl = 4; lvl >= 0; lvl--)
+    // for (int lvl = 4; lvl >= 0; lvl--)
     {
         // if (lvl > 0)
         //     continue;
@@ -365,7 +366,13 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
         PerformanceTimer timer;
         timer.Start();
 
-        jpose_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, kf_didxy, output_jtra, output_jrot, output_r);
+        jpose_renderer.Render(mesh,
+                              pose_transform,
+                              exposure,
+                              this->cam_,
+                              lvl, lvl,
+                              kf_image, f_image, kf_didxy,
+                              output_jtra, output_jrot, output_jexp, output_r);
         jposefd_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, kf_didxy, reference_jtra, reference_jrot, reference_r);
 
         // Performance validation
@@ -410,18 +417,18 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImageColor(diff_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_diff.png");
-    SaveDebugImageColor(diff_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_diff.png");
-    SaveDebugImage(diff_r, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_r_diff.png");
+    SaveDebugImageColor(diff_jtra, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jtra_diff.png");
+    SaveDebugImageColor(diff_jrot, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jrot_diff.png");
+    SaveDebugImage(diff_r, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_r_diff.png");
 
-    SaveDebugImageColor(result_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_result.png");
-    SaveDebugImageColor(ref_jtra, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jtra_reference.png");
+    SaveDebugImageColor(result_jtra, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jtra_result.png");
+    SaveDebugImageColor(ref_jtra, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jtra_reference.png");
 
-    SaveDebugImageColor(result_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_result.png");
-    SaveDebugImageColor(ref_jrot, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_jrot_reference.png");
+    SaveDebugImageColor(result_jrot, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jrot_result.png");
+    SaveDebugImageColor(ref_jrot, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_jrot_reference.png");
 
-    SaveDebugImage(result_r, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_r_result.png");
-    SaveDebugImage(ref_r, std::string(typeid(typename Traits::JPoseRendererT).name()) + "_r_reference.png");
+    SaveDebugImage(result_r, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_r_result.png");
+    SaveDebugImage(ref_r, std::string(typeid(typename Traits::JPoseExpRendererT).name()) + "_r_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
@@ -445,6 +452,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     typename Traits::template TextureT<float> reference_r(this->w_, this->h_, 0);
 
     typename Traits::template TextureT<Vec3<float>> output_jmap(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<Vec3<float>> output_jexp(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<PidType>> output_pids(this->w_, this->h_, Vec3<PidType>(-1, -1, -1));
     typename Traits::template TextureT<float> output_r(this->w_, this->h_, 0);
 
@@ -455,20 +463,20 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
 
     typename Traits::ImageRendererT image_renderer;
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JMapRendererT jmap_renderer;
+    typename Traits::JMapExpRendererT jmap_renderer;
     typename Traits::JMapFDRendererT jmapfd_renderer;
 
-    //didxy_renderer.Render(mesh_sceen, 0, 0, f_image, f_didxy);
-    //f_didxy.generate_mipmaps(0);
+    // didxy_renderer.Render(mesh_sceen, 0, 0, f_image, f_didxy);
+    // f_didxy.generate_mipmaps(0);
 
-    //didxy_renderer.Render(mesh_sceen, 0, 0, kf_image, kf_didxy);
-    //kf_didxy.generate_mipmaps(0);
+    // didxy_renderer.Render(mesh_sceen, 0, 0, kf_image, kf_didxy);
+    // kf_didxy.generate_mipmaps(0);
 
-     for (int lvl = 0; lvl < output_jmap.levels(); lvl++)
+    for (int lvl = 0; lvl < output_jmap.levels(); lvl++)
     {
         didxy_renderer.Render(mesh_sceen, lvl, lvl, f_image, f_didxy);
-       didxy_renderer.Render(mesh_sceen, lvl, lvl, kf_image, kf_didxy);
-     }
+        didxy_renderer.Render(mesh_sceen, lvl, lvl, kf_image, kf_didxy);
+    }
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
@@ -478,7 +486,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     float delta = 1e-1;
 
     int lvl = 1;
-    //for (int lvl = 4; lvl >= 0; lvl--)
+    // for (int lvl = 4; lvl >= 0; lvl--)
     {
         // if (lvl > 0)
         //     continue;
@@ -489,8 +497,19 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
         timer.Start();
 
         // mesh.set_positions(positions);
-        jmap_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, kf_didxy, output_jmap, output_pids, output_r);
-        jmapfd_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, kf_didxy, reference_jmap, reference_pids, reference_r);
+        jmap_renderer.Render(mesh,
+                             pose_transform,
+                             exposure,
+                             this->cam_,
+                             lvl, lvl,
+                             kf_image, f_image, kf_didxy,
+                             output_jmap, output_jexp, output_pids, output_r);
+        jmapfd_renderer.Render(mesh,
+                               pose_transform,
+                               this->cam_,
+                               lvl, lvl,
+                               kf_image, f_image, kf_didxy,
+                               reference_jmap, reference_pids, reference_r);
 
         // Performance validation
         double duration = timer.Stop();
@@ -522,10 +541,10 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImageColor(diff_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_diff.png");
+    SaveDebugImageColor(diff_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_diff.png");
 
-    SaveDebugImageColor(result_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_result.png");
-    SaveDebugImageColor(ref_jmap, std::string(typeid(typename Traits::JMapRendererT).name()) + "_jmap_reference.png");
+    SaveDebugImageColor(result_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_result.png");
+    SaveDebugImageColor(ref_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }

@@ -22,8 +22,8 @@ struct CPUBackendTraits
     using ImageRendererT = ImageRendererCPU;
     using ResidualRendererT = ResidualRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
-    using JPoseRendererT = JPoseRendererCPU;
-    using JMapRendererT = JMapRendererCPU;
+    using JPoseExpRendererT = JPoseExpRendererCPU;
+    using JMapExpRendererT = JMapExpRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -37,8 +37,8 @@ struct GLBackendTraits
     using ImageRendererT = ImageRendererGL;
     using ResidualRendererT = ResidualRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
-    using JPoseRendererT = JPoseRendererGL;
-    using JMapRendererT = JMapRendererGL;
+    using JPoseExpRendererT = JPoseExpRendererGL;
+    using JMapExpRendererT = JMapExpRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
@@ -208,18 +208,26 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jtra_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jrot_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jexp_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
     UploadMatToTexture(f_tex, 0, this->image_dst_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JPoseRendererT jpose_renderer;
+    typename Traits::JPoseExpRendererT jpose_renderer;
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
-    ASSERT_NO_THROW(jpose_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jtra_tex, jrot_tex, r_tex));
+    ASSERT_NO_THROW(jpose_renderer.Render(mesh,
+                                          pose_transform,
+                                          exposure,
+                                          this->cam_,
+                                          in_lvl, out_lvl,
+                                          kf_tex, f_tex, dfdxy_tex,
+                                          jtra_tex, jrot_tex, jexp_tex, r_tex));
 
     cv::Mat result = DownloadTextureToMat(jtra_tex, out_lvl);
 
@@ -253,6 +261,7 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::template TextureT<ImageType> f_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jmap_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jexp_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<PidType>> pids_tex(this->w_, this->h_, Vec3<float>(-1, -1, -1));
     typename Traits::template TextureT<float> r_tex(this->w_, this->h_, 0.0);
 
@@ -260,12 +269,19 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     UploadMatToTexture(f_tex, 0, this->image_dst_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JMapRendererT jmap_renderer;
+    typename Traits::JMapExpRendererT jmap_renderer;
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, f_tex, dfdxy_tex));
-    ASSERT_NO_THROW(jmap_renderer.Render(mesh, pose_transform, this->cam_, in_lvl, out_lvl, kf_tex, f_tex, dfdxy_tex, jmap_tex, pids_tex, r_tex));
+    ASSERT_NO_THROW(jmap_renderer.Render(mesh,
+                                         pose_transform,
+                                         exposure,
+                                         this->cam_,
+                                         in_lvl, out_lvl,
+                                         kf_tex, f_tex, dfdxy_tex,
+                                         jmap_tex, jexp_tex, pids_tex, r_tex));
 
     cv::Mat result = DownloadTextureToMat(jmap_tex, out_lvl);
 

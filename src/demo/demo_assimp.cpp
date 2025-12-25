@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     const int out_lvl = 0;
 
 #ifdef COMPILE_CPU
-    DiffRendererCPU renderercpu;
+    JPoseExpMapRendererCPU renderercpu;
     DIDxyRendererCPU didxyrenderercpu;
 
     MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
@@ -165,15 +165,18 @@ int main(int argc, char **argv)
     didxyrenderercpu.Render(meshcpu_screen, in_lvl, in_lvl, diffusecpu, didxycpu);
 
     TextureCPU<ImageType> imagecpu(width, height, 0);
-    TextureCPU<float> depthcpu(width, height, -1.0f);
+    TextureCPU<float> depthcpu(width, height, 0.0f);
     TextureCPU<Vec3<float>> jtracpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jrotcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> jexpcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jmapcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<PidType>> pidscpu(width, height, Vec3<PidType>(-1, -1, -1));
+    TextureCPU<float> rcpu(width, height, 0.0f);
+
 #endif
 
 #ifdef COMPILE_GL
-    DiffRendererGL renderergl;
+    JPoseExpMapRendererGL renderergl;
     DIDxyRendererGL didxyrenderergl;
 
     MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
@@ -186,11 +189,14 @@ int main(int argc, char **argv)
     didxyrenderergl.Render(meshgl_screen, in_lvl, in_lvl, diffusegl, didxygl);
 
     TextureGL<ImageType> imagegl(width, height, 0);
-    TextureGL<float> depthgl(width, height, -1.0f);
+    TextureGL<float> depthgl(width, height, 0.0f);
     TextureGL<Vec3<float>> jtragl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jrotgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> jexpgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jmapgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<PidType>> pidsgl(width, height, Vec3<PidType>(-1, -1, -1));
+    TextureGL<float> rgl(width, height, 0.0f);
+
 #endif
 
 #ifdef COMPILE_GLES2
@@ -278,40 +284,50 @@ int main(int argc, char **argv)
 
         SE3<float> transform(v_);
 
+        Vec2<float> exposure(0.0, 0.0);
+
         auto t0 = std::chrono::high_resolution_clock::now();
 #ifdef COMPILE_CPU
         if (backend_names[backend] == "cpu")
             // renderercpu.Render(meshcpu, transform, camera, in_lvl, out_lvl, imagecpu);
             renderercpu.Render(meshcpu,
                                transform,
+                               exposure,
                                camera,
                                in_lvl,
                                out_lvl,
                                diffusecpu,
-                               didxycpu,
                                imagecpu,
-                               depthcpu,
+                               didxycpu,
+                               // imagecpu,
+                               // depthcpu,
                                jtracpu,
                                jrotcpu,
+                               jexpcpu,
                                jmapcpu,
-                               pidscpu);
+                               pidscpu,
+                               rcpu);
 #endif
 #ifdef COMPILE_GL
         if (backend_names[backend] == "gl")
             // renderergl.Render(meshgl, transform, camera, in_lvl, out_lvl, imagegl);
             renderergl.Render(meshgl,
                               transform,
+                              exposure,
                               camera,
                               in_lvl,
                               out_lvl,
                               diffusegl,
-                              didxygl,
                               imagegl,
-                              depthgl,
+                              didxygl,
+                              // imagegl,
+                              // depthgl,
                               jtragl,
                               jrotgl,
+                              jexpgl,
                               jmapgl,
-                              pidsgl);
+                              pidsgl,
+                              rgl);
 #endif
 
 #ifdef COMPILE_GLES2

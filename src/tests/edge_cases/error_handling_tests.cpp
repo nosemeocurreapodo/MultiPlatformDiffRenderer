@@ -25,8 +25,9 @@ struct CPUBackendTraits
     using ImageRendererT = ImageRendererCPU;
     using ResidualRendererT = ResidualRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
-    using JPoseRendererT = JPoseRendererCPU;
-    using JMapRendererT = JMapRendererCPU;
+    using JPoseExpRendererT = JPoseExpRendererCPU;
+    using JMapExpRendererT = JMapExpRendererCPU;
+    using JPoseExpMapRendererT = JPoseExpMapRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -40,8 +41,9 @@ struct GLBackendTraits
     using ImageRendererT = ImageRendererGL;
     using ResidualRendererT = ResidualRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
-    using JPoseRendererT = JPoseRendererGL;
-    using JMapRendererT = JMapRendererGL;
+    using JPoseExpRendererT = JPoseExpRendererGL;
+    using JMapExpRendererT = JMapExpRendererGL;
+    using JPoseExpMapRendererT = JPoseExpMapRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
