@@ -30,13 +30,8 @@ jobs:
           libopencv-dev \
           libgtest-dev \
           lcov \
-          mesa-utils \
-          libglu1-mesa-dev \
-          freeglut3-dev \
-          mesa-common-dev \
           libassimp-dev \
-          libboost-all-dev \
-          libglm-dev
+          libboost-all-dev 
     
     - name: Configure CMake
       run: |
@@ -54,7 +49,7 @@ jobs:
     - name: Run CPU Tests
       run: |
         cd build
-        ctest --output-on-failure -R "CPURendererTests"
+        ctest --output-on-failure -R "GroundTruthTests"
     
     - name: Generate Coverage
       if: matrix.build_type == 'Debug'
@@ -91,8 +86,13 @@ jobs:
           libgtest-dev \
           libegl1-mesa-dev \
           libgl1-mesa-dev \
-          xvfb
-    
+          xvfb \
+          mesa-utils \
+          libglu1-mesa-dev \
+          freeglut3-dev \
+          mesa-common-dev \
+          libglm-dev
+
     - name: Configure CMake
       run: |
         cmake -B build \
@@ -107,7 +107,7 @@ jobs:
     - name: Run OpenGL Tests
       run: |
         cd build
-        xvfb-run -a ctest --output-on-failure -R "GLRendererTests"
+        xvfb-run -a ctest --output-on-failure -R "GroundTruthTests"
 
   test-integration:
     runs-on: ubuntu-latest
@@ -147,7 +147,7 @@ jobs:
     - name: Run Integration Tests
       run: |
         cd build
-        xvfb-run -a ctest --output-on-failure -R "CrossBackend|Integration|Validation"
+        xvfb-run -a ctest --output-on-failure -R "CrossBackendTests|Integration|Validation"
     
     - name: Generate Test Report
       if: always()
