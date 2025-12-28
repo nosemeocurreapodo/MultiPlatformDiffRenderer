@@ -73,7 +73,8 @@ void CreateScreenQuad(std::vector<float> &vertex,
     BuildTriangles(uv, indices);
 }
 
-void CreateMesh(const cv::Mat &depth,
+template <class Texture>
+void CreateMesh(const Texture &depth,
                 PinholeCamera<float> &cam, int grid_size,
                 std::vector<float> &vertex,
                 std::vector<int> &indices,
@@ -97,8 +98,10 @@ void CreateMesh(const cv::Mat &depth,
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
 
-    const int w = depth.cols;
-    const int h = depth.rows;
+    const int w = depth.width(0);
+    const int h = depth.height(0);
+
+    auto depth_mm = depth.MapRead(0);
 
     // UV step for the grid (neighbors)
     const float du = 5.0f / float(w - 1);
@@ -121,9 +124,12 @@ void CreateMesh(const cv::Mat &depth,
         const int x = static_cast<int>(ix + 0.5f); // nearest; switch to bilinear if you like
         const int y = static_cast<int>(iy + 0.5f);
 
-        const float z = depth.at<float>(y, x);
-        if (z <= 0.0f)
-            return false;
+        float z = depth_mm[y * w + x];
+        if (z <= 0.0f || z == depth.nodata())
+        {
+            //    return false;
+            z = 1.0f;
+        }
 
         const Vec2<float> uv{u, v};
         const Vec3<float> ray = cam.PixToRay(uv);
@@ -202,119 +208,6 @@ void CreateMesh(const cv::Mat &depth,
         }
 
         texcoords.push_back(Eigen::Vector2f(u, v));
-    }
-
-    BuildTriangles(texcoords, indices);
-}
-
-void CreateMesh(const TextureCPU<float> &depth,
-                PinholeCamera<float> &cam, int grid_size,
-                std::vector<Eigen::Vector3f> &vertices,
-                std::vector<Eigen::Vector2f> &texcoords,
-                std::vector<Eigen::Vector3f> &normals,
-                std::vector<int> &indices)
-{
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
-
-    vertices.clear();
-    texcoords.clear();
-    normals.clear();
-
-    vertices.reserve(grid_uv.size());
-    texcoords.reserve(grid_uv.size());
-    normals.reserve(grid_uv.size()); // <-- NEW
-
-    const int w = depth.width(0);
-    const int h = depth.height(0);
-    auto depth_mm = depth.MapRead(0);
-
-    // UV step for the grid (neighbors)
-    const float du = 5.0f / float(w - 1);
-    const float dv = 5.0f / float(h - 1);
-
-    auto clamp01 = [](float x)
-    { return std::max(0.0f, std::min(1.0f, x)); };
-
-    // Sample a 3D point from (u,v) using nearest-neighbor depth. Returns false if invalid.
-    auto sample_pos = [&](float u, float v, Vec3<float> &out) -> bool
-    {
-        // u = clamp01(u);
-        // v = clamp01(v);
-
-        if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
-            return false;
-
-        const float ix = u * float(w - 1);
-        const float iy = v * float(h - 1);
-        const int x = static_cast<int>(ix + 0.5f); // nearest; switch to bilinear if you like
-        const int y = static_cast<int>(iy + 0.5f);
-
-        const float z = depth_mm[y * w + x];
-        if (z <= 0.0f || z == depth.nodata())
-            return false;
-
-        const Vec2<float> uv{u, v};
-        const Vec3<float> ray = cam.PixToRay(uv);
-        out = ray * z; // camera/world space position along the ray
-        return true;
-    };
-
-    for (const Vec2<float> &uv : grid_uv)
-    {
-        const float u = uv(0), v = uv(1);
-
-        // Center point
-        Vec3<float> P;
-        if (!sample_pos(u, v, P))
-            continue; // skip invalid vertex entirely (keep this if your pipeline expects sparse vertices)
-
-        // Neighbors for finite differences
-        Vec3<float> PR, PL, PU, PD;
-        const bool hasR = sample_pos(u + du, v, PR);
-        const bool hasL = sample_pos(u - du, v, PL);
-        const bool hasU = sample_pos(u, v + dv, PU);
-        const bool hasD = sample_pos(u, v - dv, PD);
-
-        // Tangents in world/camera space
-        Vec3<float> dUvec{0, 0, 0};
-        Vec3<float> dVvec{0, 0, 0};
-
-        if (hasR && hasL)
-            dUvec = PR - PL; // central diff
-        else if (hasR)
-            dUvec = PR - P; // forward diff
-        else if (hasL)
-            dUvec = P - PL; // backward diff
-        else
-            continue;
-
-        if (hasU && hasD)
-            dVvec = PU - PD;
-        else if (hasU)
-            dVvec = PU - P;
-        else if (hasD)
-            dVvec = P - PD;
-        else
-            continue;
-
-        // Normal from cross product (right-handed): n = normalize(dU x dV)
-        Vec3<float> N = -dUvec.cross(dVvec);
-        const float len2 = N.norm();
-        if (len2 > 1e-12f)
-        {
-            N = N / len2;
-        }
-        else
-        {
-            // Degenerate neighborhood: fall back to a view-facing normal
-            const Vec3<float> ray = -cam.PixToRay(uv);
-            N = ray.normalized();
-        }
-
-        // Output streams
-        vertices.push_back(Eigen::Vector3f(P(0), P(1), P(2)));
-        texcoords.push_back(Eigen::Vector2f(u, v));
-        normals.push_back(Eigen::Vector3f(N(0), N(1), N(2))); // <-- NEW
     }
 
     BuildTriangles(texcoords, indices);

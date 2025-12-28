@@ -1381,6 +1381,10 @@ public:
         IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
 
         ImageType f = intextures.in_texture.texel_(y, x, uniforms.in_lvl);
+
+        if (f == intextures.in_texture.nodata())
+            return;
+
         Vec3<RealType> d = d_f_exp_d_exp(RealType(f), uniforms.exposure);
 
         Vec3<RealType> out_fragment;
@@ -1764,8 +1768,8 @@ public:
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
-        if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
-            return;
+        // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
+        //     return;
 
         RealType f_exp = apply_exposure(RealType(f), uniforms.exposure);
         RealType d_fexp_d_f = d_f_exp_d_f(RealType(f), uniforms.exposure);
@@ -2138,8 +2142,8 @@ public:
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
-        //if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
-        //    return;
+        // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
+        //     return;
 
         RealType f_exp = apply_exposure(RealType(f), uniforms.exposure);
         RealType d_fexp_df = d_f_exp_d_f(RealType(f), uniforms.exposure);
@@ -2401,7 +2405,7 @@ public:
         Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
-        //     return;
+        //    return;
 
         RealType f_exp = apply_exposure(RealType(f), uniforms.exposure);
         RealType d_fexp_df = d_f_exp_d_f(RealType(f), uniforms.exposure);
@@ -2780,260 +2784,6 @@ public:
                 textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
                 textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
                 textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
-            }
-        }
-    }
-};
-
-template <template <class> class Texture>
-class DiffRendererBase
-{
-public:
-    DiffRendererBase() = delete;
-    //~DiffRendererBase() = default;
-
-    struct InTextures
-    {
-        const Texture<ImageType> &diffuse_texture;
-        const Texture<Vec3<float>> &didxy_texture;
-    };
-
-    struct OutTextures
-    {
-        Texture<ImageType> &image_texture;
-        Texture<float> &depth_texture;
-        Texture<Vec3<float>> &jtra_texture;
-        Texture<Vec3<float>> &jrot_texture;
-        Texture<Vec3<float>> &jmap_texture;
-        Texture<Vec3<PidType>> &pids_texture;
-    };
-
-    struct VertexData
-    {
-        Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
-    };
-
-    struct Uniforms
-    {
-        RealType fx;
-        RealType fy;
-        Mat4<RealType> view_matrix;
-        Mat4<RealType> pose_matrix;
-        IntType in_lvl;
-        IntType out_lvl;
-        IntType out_width;
-        IntType out_height;
-    };
-
-    struct Varyings
-    {
-        Vec2<RealType> texcoord;
-        Vec3<RealType> f_ver;
-        Vec3<RealType> kf_ray;
-        // MathType depth;
-        Vec3<RealType> baricentric;
-        IntType vertexId;
-        Vec3<IntType> pids;
-    };
-
-    struct Fragment
-    {
-        RealType image;
-        RealType depth;
-        Vec3<RealType> jtra;
-        Vec3<RealType> jrot;
-        Vec3<RealType> jmap;
-        Vec3<IntType> pids;
-    };
-
-    static Fragment fragment_nodata(OutTextures &textures)
-    {
-#pragma HLS inline
-
-        Vec3<float> jtra_nodata(textures.jtra_texture.nodata());
-        Vec3<float> jrot_nodata(textures.jrot_texture.nodata());
-        Vec3<float> jmap_nodata(textures.jmap_texture.nodata());
-        Vec3<PidType> pids_nodata(textures.pids_texture.nodata());
-
-        return Fragment{RealType(textures.image_texture.nodata()),
-                        RealType(textures.depth_texture.nodata()),
-                        Vec3<RealType>(jtra_nodata(0), jtra_nodata(1), jtra_nodata(2)),
-                        Vec3<RealType>(jrot_nodata(0), jrot_nodata(1), jrot_nodata(2)),
-                        Vec3<RealType>(jmap_nodata(0), jmap_nodata(1), jmap_nodata(2)),
-                        Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2))};
-    }
-
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
-    {
-#pragma HLS inline
-
-        VertexData vertexdata;
-
-        IntType base = vertexid * mesh.stride_;
-
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
-
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
-
-        return vertexdata;
-    }
-
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
-    {
-#pragma HLS inline
-
-        Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
-        var_over_w_px.f_ver =
-            (w0 * varying_px0.f_ver +
-             w1 * varying_px1.f_ver +
-             w2 * varying_px2.f_ver);
-        var_over_w_px.kf_ray =
-            (w0 * varying_px0.kf_ray +
-             w1 * varying_px1.kf_ray +
-             w2 * varying_px2.kf_ray);
-        var_over_w_px.baricentric = Vec3<RealType>(w0,
-                                                   w1,
-                                                   w2);
-
-        var_over_w_px.pids = Vec3<IntType>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
-
-        return var_over_w_px;
-    }
-
-    // -------------------------------------------------------------------------
-    // Shaders
-    // -------------------------------------------------------------------------
-    static void vertex_shader(const VertexData &vertexdata,
-                              const IntType &vertexid,
-                              const Uniforms &uniforms,
-                              Vec4<RealType> &gl_Position,
-                              Varyings &outVarying)
-    {
-#pragma HLS inline
-
-        Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
-                                                                     vertexdata.vertex(1),
-                                                                     vertexdata.vertex(2),
-                                                                     RealType(1));
-        gl_Position = uniforms.view_matrix * f_ver;
-
-        Vec3<RealType> kf_ray(vertexdata.vertex(0) / vertexdata.vertex(2), vertexdata.vertex(1) / vertexdata.vertex(2), RealType(1));
-        Vec4<RealType> d_f_ver_d_kf_depth_ = uniforms.pose_matrix * Vec4<RealType>(kf_ray(0),
-                                                                                   kf_ray(1),
-                                                                                   kf_ray(2),
-                                                                                   RealType(0));
-        Vec3<RealType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
-
-        outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
-        outVarying.kf_ray = d_f_ver_d_kf_depth;
-        // outVarying.depth = vertexdata.vertex(2);
-        outVarying.vertexId = vertexid;
-        outVarying.texcoord = vertexdata.texcoord;
-    }
-
-    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
-                                const Uniforms &uniforms,
-                                const Varyings &in_varying,
-                                const InTextures &intextures,
-                                Fragment &fragment)
-    {
-#pragma HLS inline
-
-        IntType in_width = intextures.diffuse_texture.width(uniforms.in_lvl);
-        IntType in_height = intextures.diffuse_texture.height(uniforms.in_lvl);
-
-        IntType out_width = uniforms.out_width;
-        IntType out_height = uniforms.out_height;
-
-        Vec3<RealType> f_ver = in_varying.f_ver;
-        Vec3<RealType> kf_ray = in_varying.kf_ray;
-        Vec2<RealType> texcoord = in_varying.texcoord;
-        Vec3<RealType> baricentric = in_varying.baricentric;
-        Vec3<IntType> vertexid = in_varying.pids;
-
-        // MathType f = textures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
-        RealType f = sample(intextures.diffuse_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
-        // if (f == textures.diffuse_texture.nodata())
-        //     return;
-        Vec3<RealType> f_der = sample(intextures.didxy_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
-        // Vec3<RealType> f_der = compute_didxy<RealType, Vec3, Texture<ImageType>>(intextures.diffuse_texture, IntType(in_varying.texcoord(1) * RealType(in_height)), IntType(in_varying.texcoord(0) * RealType(in_width)), uniforms.in_lvl);
-
-        // if (f_der(0) == textures.diffuse_texture.nodata() && f_der(1) == textures.diffuse_texture.nodata())
-        //     return;
-
-        Vec3<RealType> d_f_i_d_f_ver;
-
-        d_f_i_d_f_ver(0) = f_der(0) * uniforms.fx * RealType(out_width) / f_ver(2);
-        d_f_i_d_f_ver(1) = f_der(1) * uniforms.fy * RealType(out_height) / f_ver(2);
-        d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
-
-        // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
-        Vec3<RealType> d_f_i_d_rot = Vec3<RealType>(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
-
-        Vec3<RealType> d_f_ver_d_kf_depth = kf_ray; // kfTofPose.rotationMatrix() * kf_ray;
-        RealType d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
-        Vec3<RealType> d_depth_d_vert_depth = baricentric;
-
-        Vec3<RealType> jac = d_f_i_d_kf_depth * d_depth_d_vert_depth;
-        Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
-
-        fragment.image = f;
-        fragment.depth = f_ver(2);
-        fragment.jtra = d_f_i_d_f_ver;
-        fragment.jrot = d_f_i_d_rot;
-        fragment.jmap = jac;
-        fragment.pids = ids;
-    }
-
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
-    {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                ImageType image = fragment_buffer[address].image;
-                RealType depth = fragment_buffer[address].depth;
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jmap = fragment_buffer[address].jmap;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-
-                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
-                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
-                Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.image_texture.set_texel_(image, y, x, uniforms.out_lvl);
-                textures.depth_texture.set_texel_(depth, y, x, uniforms.out_lvl);
-                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
-                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
-                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
             }
         }
     }
