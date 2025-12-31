@@ -79,6 +79,25 @@ public:
         return pos;
     }
 
+    std::vector<float> get_texcoords() const
+    {
+        std::vector<float> pos;
+        pos.reserve(vertex_count() * 2);
+
+        if (tex_offset_ < 0)
+            return pos;
+        auto vertex_map = vertex_buffer_.MapRead();
+        for (int i = 0; i < vertex_count(); i++)
+        {
+            float v0 = vertex_map[i * stride_ + tex_offset_ + 0];
+            float v1 = vertex_map[i * stride_ + tex_offset_ + 1];
+
+            pos.push_back(v0);
+            pos.push_back(v1);
+        }
+        return pos;
+    }
+
     std::vector<int> get_indices() const
     {
         std::vector<int> ids;
@@ -91,7 +110,7 @@ public:
         return ids;
     }
 
-    void set_positions(std::vector<float> &positions)
+    void set_positions(const std::vector<float> &positions)
     {
         auto vertex_map = vertex_buffer_.MapWrite();
         for (int i = 0; i < vertex_count(); i++)
@@ -99,6 +118,16 @@ public:
             vertex_map[i * stride_ + pos_offset_ + 0] = positions[i * 3 + 0];
             vertex_map[i * stride_ + pos_offset_ + 1] = positions[i * 3 + 1];
             vertex_map[i * stride_ + pos_offset_ + 2] = positions[i * 3 + 2];
+        }
+    }
+
+    void set_texcoords(const std::vector<float> &positions)
+    {
+        auto vertex_map = vertex_buffer_.MapWrite();
+        for (int i = 0; i < vertex_count(); i++)
+        {
+            vertex_map[i * stride_ + tex_offset_ + 0] = positions[i * 2 + 0];
+            vertex_map[i * stride_ + tex_offset_ + 1] = positions[i * 2 + 1];
         }
     }
 

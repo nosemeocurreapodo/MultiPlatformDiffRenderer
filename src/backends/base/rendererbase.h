@@ -811,6 +811,10 @@ public:
     {
 #pragma HLS inline
 
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         RealType pix = sample(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
@@ -943,6 +947,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType height = intextures.kf_texture.height(uniforms.in_lvl);
 
@@ -1077,6 +1085,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         IntType height = intextures.in_texture.height(uniforms.in_lvl);
         IntType width = intextures.in_texture.width(uniforms.in_lvl);
         ImageType nodata = intextures.in_texture.nodata();
@@ -1373,6 +1385,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         IntType height = intextures.in_texture.height(uniforms.in_lvl);
         IntType width = intextures.in_texture.width(uniforms.in_lvl);
         ImageType nodata = intextures.in_texture.nodata();
@@ -1544,6 +1560,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
         IntType out_width = uniforms.out_width;
@@ -1753,6 +1773,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
         IntType out_width = uniforms.out_width;
@@ -2121,6 +2145,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
 
@@ -2383,6 +2411,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
 
@@ -2673,6 +2705,10 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
 

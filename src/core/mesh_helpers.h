@@ -2,6 +2,7 @@
 
 // #include "core/types.h"
 #include <Eigen/Core>
+#include "core/render_constants.h"
 #include "core/camera.h"
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
@@ -37,15 +38,10 @@ float VerticallySmoothDepth(Vec2<float> pix, float min_depth, float max_depth)
     return depth;
 }
 
-void BuildTriangles(const std::vector<Eigen::Vector2f> &tex_coords, std::vector<int> &tris_f)
+void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vector<int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
-    std::vector<Vec2<float>> tex_coords_2d;
-    for (size_t i = 0; i < tex_coords.size(); i++)
-    {
-        tex_coords_2d.push_back(Vec2<float>(tex_coords[i].x(), tex_coords[i].y()));
-    }
-    triangulator_.LoadPoints(tex_coords_2d);
+    triangulator_.LoadPoints(tex_coords);
     triangulator_.Triangulate();
     std::vector<Vec3<int>> tris = triangulator_.GetTriangles();
     tris_f.clear();
@@ -68,7 +64,7 @@ void CreateScreenQuad(std::vector<float> &vertex,
               -1.f, 1.f, 1.f, 0.f, 1.f,
               1.f, -1.f, 1.f, 1.f, 0.f,
               1.f, 1.f, 1.f, 1.f, 1.f};
-    std::vector<Eigen::Vector2f> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
+    std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     // indices = {0, 1, 2, 0, 2, 3};
     BuildTriangles(uv, indices);
 }
@@ -91,9 +87,6 @@ void CreateMesh(const Texture &depth,
         stride += 2;
     if (add_normal)
         stride += 3;
-
-    std::vector<Eigen::Vector2f> texcoords;
-    texcoords.reserve(grid_uv.size());
 
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
@@ -125,11 +118,17 @@ void CreateMesh(const Texture &depth,
         const int y = static_cast<int>(iy + 0.5f);
 
         float z = depth_mm[y * w + x];
-        if (z <= 0.0f || z == depth.nodata())
+        if (z == depth.nodata())
         {
             //    return false;
+            // z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
             z = 1.0f;
         }
+
+        if (z < RenderConstants::NEAR_PLANE)
+            z = RenderConstants::NEAR_PLANE;
+        if (z > RenderConstants::FAR_PLANE)
+            z = RenderConstants::FAR_PLANE;
 
         const Vec2<float> uv{u, v};
         const Vec3<float> ray = cam.PixToRay(uv);
@@ -206,11 +205,9 @@ void CreateMesh(const Texture &depth,
             vertex.push_back(N(1));
             vertex.push_back(N(2));
         }
-
-        texcoords.push_back(Eigen::Vector2f(u, v));
     }
 
-    BuildTriangles(texcoords, indices);
+    BuildTriangles(grid_uv, indices);
 }
 
 void CreateFlatMesh(float min_depth, float max_depth,
@@ -230,9 +227,6 @@ void CreateFlatMesh(float min_depth, float max_depth,
         stride += 2;
     if (add_normal)
         stride += 3;
-
-    std::vector<Eigen::Vector2f> texcoords;
-    texcoords.reserve(grid_uv.size());
 
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
@@ -265,70 +259,7 @@ void CreateFlatMesh(float min_depth, float max_depth,
             vertex.push_back(nor(1));
             vertex.push_back(nor(2));
         }
-
-        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
     }
 
-    BuildTriangles(texcoords, indices);
-}
-
-void CreateFlatMesh(float min_depth, float max_depth,
-                    PinholeCamera<float> &cam, int grid_size,
-                    std::vector<Eigen::Vector3f> &vertices,
-                    std::vector<Eigen::Vector2f> &texcoords,
-                    std::vector<int> &indices)
-{
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
-
-    vertices.clear();
-    texcoords.clear();
-
-    vertices.reserve(grid_uv.size());
-    texcoords.reserve(grid_uv.size());
-
-    for (const Vec2<float> &uv : grid_uv)
-    {
-        const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
-
-        if (depth <= 0.0f)
-            continue;
-
-        const Vec3<float> ray = cam.PixToRay(uv);
-        const Vec3<float> vertex = ray * depth;
-
-        vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
-        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
-    }
-
-    BuildTriangles(texcoords, indices);
-}
-
-void CreateSphereMesh(float depth,
-                      PinholeCamera<float> &cam, int grid_size,
-                      std::vector<Eigen::Vector3f> &vertices,
-                      std::vector<Eigen::Vector2f> &texcoords,
-                      std::vector<int> &indices)
-{
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
-
-    vertices.clear();
-    texcoords.clear();
-
-    vertices.reserve(grid_uv.size());
-    texcoords.reserve(grid_uv.size());
-
-    for (const Vec2<float> &uv : grid_uv)
-    {
-        if (depth <= 0.0f)
-            continue;
-
-        Vec3<float> ray = cam.PixToRay(uv);
-        ray = ray / ray.norm();
-        const Vec3<float> vertex = ray * depth;
-
-        vertices.push_back(Eigen::Vector3f(vertex(0), vertex(1), vertex(2)));
-        texcoords.push_back(Eigen::Vector2f(uv(0), uv(1)));
-    }
-
-    BuildTriangles(texcoords, indices);
+    BuildTriangles(grid_uv, indices);
 }
