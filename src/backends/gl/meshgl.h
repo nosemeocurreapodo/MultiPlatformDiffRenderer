@@ -118,48 +118,6 @@ public:
     std::size_t index_count() const noexcept { return ebo_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
-    std::vector<float> get_positions() const
-    {
-        std::vector<float> pos;
-        if (pos_offset_ < 0)
-            return pos;
-        auto vertex_map = vbo_vertex_.MapRead();
-        for (int i = 0; i < vertex_count(); i++)
-        {
-            float v0 = vertex_map[i * stride_ + pos_offset_ + 0];
-            float v1 = vertex_map[i * stride_ + pos_offset_ + 1];
-            float v2 = vertex_map[i * stride_ + pos_offset_ + 2];
-
-            pos.push_back(v0);
-            pos.push_back(v1);
-            pos.push_back(v2);
-        }
-        return pos;
-    }
-
-    std::vector<int> get_indices() const
-    {
-        std::vector<int> ids;
-        auto index_map = ebo_.MapRead();
-        for (int i = 0; i < index_map.size(); i++)
-        {
-            int id = index_map[i];
-            ids.push_back(id);
-        }
-        return ids;
-    }
-
-    void set_positions(std::vector<float> &positions)
-    {
-        auto vertex_map = vbo_vertex_.MapWrite();
-        for (int i = 0; i < vertex_count(); i++)
-        {
-            vertex_map[i * stride_ + pos_offset_ + 0] = positions[i * 3 + 0];
-            vertex_map[i * stride_ + pos_offset_ + 1] = positions[i * 3 + 1];
-            vertex_map[i * stride_ + pos_offset_ + 2] = positions[i * 3 + 2];
-        }
-    }
-
     void draw() const
     {
         glBindVertexArray(vao_);

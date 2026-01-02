@@ -481,10 +481,6 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
 
-    std::vector<float> positions = mesh.get_positions();
-    std::vector<int> indices = mesh.get_indices();
-    float delta = 1e-1;
-
     int lvl = 1;
     // for (int lvl = 4; lvl >= 0; lvl--)
     {

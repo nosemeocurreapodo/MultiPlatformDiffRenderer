@@ -552,7 +552,7 @@ public:
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<float> &r_texture)
-    {   
+    {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
@@ -668,7 +668,7 @@ public:
                                  kf_texture, f_texture, r_texture);
         pids_renderer.Render(mesh, pose, cam, out_lvl, pids_texture);
 
-        std::vector<float> positions = mesh.get_positions();
+        std::vector<Vec3<float>> vertices = get_vertices(mesh);
 
         MeshCPU mesh_delta(mesh);
 
@@ -676,11 +676,7 @@ public:
 
         for (int i = 0; i < mesh.vertex_count(); i++)
         {
-            Vec3<float> vertex;
-            vertex(0) = positions[i * 3 + 0];
-            vertex(1) = positions[i * 3 + 1];
-            vertex(2) = positions[i * 3 + 2];
-
+            Vec3<float> vertex = vertices[i];
             Vec3<float> ray = vertex / vertex(2);
             float depth = vertex(2);
 
@@ -693,11 +689,9 @@ public:
             vertex_p = ray * depth_p;
             vertex_m = ray * depth_m;
 
-            positions[i * 3 + 0] = vertex_p(0);
-            positions[i * 3 + 1] = vertex_p(1);
-            positions[i * 3 + 2] = vertex_p(2);
+            vertices[i] = vertex_p;
 
-            mesh_delta.set_positions(positions);
+            set_vertices(mesh_delta, vertices);
 
             image_renderer.Render(mesh_delta,
                                   pose,
@@ -706,11 +700,9 @@ public:
                                   in_lvl, out_lvl,
                                   kf_texture, image_1);
 
-            positions[i * 3 + 0] = vertex_m(0);
-            positions[i * 3 + 1] = vertex_m(1);
-            positions[i * 3 + 2] = vertex_m(2);
+            vertices[i] = vertex_m;
 
-            mesh_delta.set_positions(positions);
+            set_vertices(mesh_delta, vertices);
 
             image_renderer.Render(mesh_delta,
                                   pose,
@@ -719,11 +711,9 @@ public:
                                   in_lvl, out_lvl,
                                   kf_texture, image_2);
 
-            positions[i * 3 + 0] = vertex(0);
-            positions[i * 3 + 1] = vertex(1);
-            positions[i * 3 + 2] = vertex(2);
+            vertices[i] = vertex;
 
-            mesh_delta.set_positions(positions);
+            set_vertices(mesh_delta, vertices);
 
             for (int y = 0; y < image_1.height(out_lvl); y++)
             {

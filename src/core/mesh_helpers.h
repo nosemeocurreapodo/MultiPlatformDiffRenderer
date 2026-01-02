@@ -7,7 +7,7 @@
 #include "core/delaunaytriangulation.h"
 #include "backends/cpu/texturecpu.h"
 
-std::vector<Vec2<float>> UniformTexCoords(int width, int height)
+static std::vector<Vec2<float>> UniformTexCoords(int width, int height, float min_x, float min_y, float max_x, float max_y)
 {
     std::vector<Vec2<float>> texcoords;
     for (int y = 0; y < height; y++)
@@ -15,8 +15,8 @@ std::vector<Vec2<float>> UniformTexCoords(int width, int height)
         for (int x = 0; x < width; x++)
         {
             Vec2<float> pix;
-            pix(0) = float(x) / (width - 1);
-            pix(1) = float(y) / (height - 1);
+            pix(0) = (float(x) / (width - 1)) * (max_x - min_x) + min_x;
+            pix(1) = (float(y) / (height - 1)) * (max_y - min_y) + min_y;
 
             texcoords.push_back(pix);
         }
@@ -25,20 +25,20 @@ std::vector<Vec2<float>> UniformTexCoords(int width, int height)
     return texcoords;
 }
 
-float RandomDepth(float min_depth, float max_depth)
+static float RandomDepth(float min_depth, float max_depth)
 {
     float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
     return depth;
 }
 
-float VerticallySmoothDepth(Vec2<float> pix, float min_depth, float max_depth)
+static float VerticallySmoothDepth(Vec2<float> pix, float min_depth, float max_depth)
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
     return depth;
 }
 
-void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vector<int> &tris_f)
+static void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vector<int> &tris_f)
 {
     DelaunayTriangulation triangulator_;
     triangulator_.LoadPoints(tex_coords);
@@ -55,8 +55,8 @@ void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vector<int>
 }
 
 // Screen quad for image-space rendering
-void CreateScreenQuad(std::vector<float> &vertex,
-                      std::vector<int> &indices)
+static void CreateScreenQuad(std::vector<float> &vertex,
+                             std::vector<int> &indices)
 {
     vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
               -1.f, -1.f, 1.f, 0.f, 0.f,
@@ -70,15 +70,15 @@ void CreateScreenQuad(std::vector<float> &vertex,
 }
 
 template <class Texture>
-void CreateMesh(const Texture &depth,
-                PinholeCamera<float> &cam, int grid_size,
-                std::vector<float> &vertex,
-                std::vector<int> &indices,
-                bool add_pos = true,
-                bool add_tex = true,
-                bool add_normal = true)
+static void CreateMesh(const Texture &depth,
+                       PinholeCamera<float> &cam, int grid_size,
+                       std::vector<float> &vertex,
+                       std::vector<int> &indices,
+                       bool add_pos = true,
+                       bool add_tex = true,
+                       bool add_normal = true)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, 0.0, 0.0, 1.0, 1.0);
 
     int stride = 0;
     if (add_pos)
@@ -210,15 +210,17 @@ void CreateMesh(const Texture &depth,
     BuildTriangles(grid_uv, indices);
 }
 
-void CreateFlatMesh(float min_depth, float max_depth,
-                    PinholeCamera<float> &cam, int grid_size,
-                    std::vector<float> &vertex,
-                    std::vector<int> &indices,
-                    bool add_pos = true,
-                    bool add_tex = true,
-                    bool add_normal = true)
+static void CreateFlatMesh(float min_depth, float max_depth,
+                           PinholeCamera<float> &cam, int grid_size,
+                           std::vector<float> &vertex,
+                           std::vector<int> &indices,
+                           bool add_pos = true,
+                           bool add_tex = true,
+                           bool add_normal = true)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.25, -0.25, 1.25, 1.25);
+
+    int gridsize = grid_uv.size();
 
     int stride = 0;
     if (add_pos)
@@ -229,11 +231,11 @@ void CreateFlatMesh(float min_depth, float max_depth,
         stride += 3;
 
     vertex.clear();
-    vertex.reserve(grid_uv.size() * stride);
+    vertex.reserve(gridsize * stride);
 
     for (const Vec2<float> &uv : grid_uv)
     {
-        const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
+        const float depth = (max_depth - min_depth) / 2.0; // VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
