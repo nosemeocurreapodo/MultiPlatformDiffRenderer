@@ -35,6 +35,10 @@ static float VerticallySmoothDepth(Vec2<float> pix, float min_depth, float max_d
 {
     // max depth when y = 0
     float depth = max_depth + (min_depth - max_depth) * pix(1);
+    if (depth < min_depth)
+        depth = min_depth;
+    if (depth > max_depth)
+        depth = max_depth;
     return depth;
 }
 
@@ -120,9 +124,9 @@ static void CreateMesh(const Texture &depth,
         float z = depth_mm[y * w + x];
         if (z == depth.nodata())
         {
-            //    return false;
+            return false;
             // z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
-            z = 1.0f;
+            // z = 1.0f;
         }
 
         if (z < RenderConstants::NEAR_PLANE)
@@ -135,6 +139,8 @@ static void CreateMesh(const Texture &depth,
         out = ray * z; // camera/world space position along the ray
         return true;
     };
+
+    std::vector<Vec2<float>> ok_uv;
 
     for (const Vec2<float> &uv : grid_uv)
     {
@@ -205,9 +211,11 @@ static void CreateMesh(const Texture &depth,
             vertex.push_back(N(1));
             vertex.push_back(N(2));
         }
+
+        ok_uv.push_back(uv);
     }
 
-    BuildTriangles(grid_uv, indices);
+    BuildTriangles(ok_uv, indices);
 }
 
 static void CreateFlatMesh(float min_depth, float max_depth,
@@ -218,7 +226,7 @@ static void CreateFlatMesh(float min_depth, float max_depth,
                            bool add_tex = true,
                            bool add_normal = true)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.25, -0.25, 1.25, 1.25);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.5, -0.5, 1.5, 1.5);
 
     int gridsize = grid_uv.size();
 
@@ -235,7 +243,7 @@ static void CreateFlatMesh(float min_depth, float max_depth,
 
     for (const Vec2<float> &uv : grid_uv)
     {
-        const float depth = (max_depth - min_depth) / 2.0; // VerticallySmoothDepth(uv, min_depth, max_depth);
+        const float depth = VerticallySmoothDepth(uv, min_depth, max_depth);
 
         if (depth <= 0.0f)
             continue;
