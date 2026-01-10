@@ -76,8 +76,8 @@ protected:
     {
         // Load test dataset
         // dataset_ = std::make_unique<LoadDatasetIclNuim>(std::string(TEST_DATA_DIR));
-        // dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
-        dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
+        dataset_ = std::make_unique<LoadDesktopDataset>(std::string(TEST_DATA_DIR));
+        // dataset_ = std::make_unique<LoadDatasetTumRgbd>(std::string(TEST_DATA_DIR));
 
         image_files_ = dataset_->GetImageFiles();
         depth_files_ = dataset_->GetDepthFiles();
@@ -97,8 +97,8 @@ protected:
 protected:
     // Dataset and test data
     // std::unique_ptr<LoadDatasetIclNuim> dataset_;
-    // std::unique_ptr<LoadDesktopDataset> dataset_;
-    std::unique_ptr<LoadDatasetTumRgbd> dataset_;
+    std::unique_ptr<LoadDesktopDataset> dataset_;
+    // std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
     std::vector<SE3<float>> poses_;
@@ -144,7 +144,9 @@ protected:
         TextureCPU<float> depth_src_cpu(depth_src_cv_.cols, depth_src_cv_.rows, 0.0f);
         UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 16, vertex_, indices_);
+        CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_);
+        //float meanDepth = cv::mean(depth_src_cv_)[0];
+        //CreateFlatMesh(meanDepth * 0.5, meanDepth * 1.5, cam_, 16, vertex_, indices_, true, true, true);
 
         CreateScreenQuad(screen_vertex_, screen_indices_);
     }

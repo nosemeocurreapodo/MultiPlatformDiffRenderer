@@ -310,6 +310,70 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
 
+// Test residual renderer against itself
+// here the idea is that if the pose is the identity
+// the projected image should be equal to itself
+TYPED_TEST_P(GroundTruthTests, ResidualValidation)
+{
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+
+    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
+
+    typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> reference(this->w_, this->h_, -1);
+
+    UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
+    UploadMatToTexture(input_image, 0, this->image_src_cv_);
+
+    typename Traits::ResidualRendererT renderer;
+    SE3<float> pose_transform = SE3<float>();
+    Vec2<float> exposure(0.0, 0.0);
+
+    for (int lvl = 0; lvl >= 0; lvl--)
+    {
+        // if (lvl > 0)
+        //     continue;
+
+        reference.fill(lvl, 0);
+
+        PerformanceTimer timer;
+        timer.Start();
+        renderer.Render(mesh, pose_transform, exposure, this->cam_, lvl, lvl, input_image, input_image, output);
+        // Performance validation
+        double duration = timer.Stop();
+        // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
+
+        double rmse = RMSE(output, reference, lvl);
+
+        std::cout << "Residual RMSE " << lvl << " " << rmse << std::endl;
+        EXPECT_LT(rmse, this->thresholds_.ref_max_image_error) << "RMSE error: " << rmse;
+    }
+
+    cv::Mat result = DownloadTextureToMat(output, 0);
+
+    // cv::Mat masked_diff;
+    // diff.copyTo(masked_diff, mask);
+
+    // cv::Mat diff;
+    // cv::absdiff(result, this->image_dst_cv_, diff);
+
+    // Basic validation against expected properties
+    // cv::Mat mask = (result != -1.0f);
+    // cv::Scalar mean_val, std_val;
+    // cv::meanStdDev(result, mean_val, std_val, mask);
+
+    // EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
+    // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
+    // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
+
+    SaveDebugImage(result, std::string(typeid(typename Traits::ResidualRendererT).name()) + "_residual.png");
+
+    // std::cout << "Depth Rendering: " << duration << "ms\n";}
+}
+
 // Test image renderer against ground truth
 TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 {
@@ -551,6 +615,7 @@ REGISTER_TYPED_TEST_SUITE_P(
     DepthReferenceValidation,
     ImageGroundTruthValidation,
     ImageReferenceValidation,
+    ResidualValidation,
     JPoseReferenceValidation,
     JMapReferenceValidation);
 
