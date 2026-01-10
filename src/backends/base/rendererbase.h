@@ -217,7 +217,9 @@ protected:
 
             Vec4<RealType> gl_Position;
             typename Derived::Varyings outvaryings;
-            Derived::vertex_shader(vertexdata[j], vertexids[j], uniforms, gl_Position, outvaryings);
+            VertexData vertexdata_ = vertexdata[j];
+            IntType vertexid_ = vertexids[j];
+            Derived::vertex_shader(vertexdata_, vertexid_, uniforms, gl_Position, outvaryings);
 
             const RealType invW = RealType(1) / gl_Position(3);
             const RealType ndc_x = gl_Position(0) * invW; // [-1,1]
@@ -228,14 +230,17 @@ protected:
             // assert(ndc_x >= -1 && ndc_x <= 1 && ndc_y >= -1 && ndc_y <= 1 && ndc_z >= -1 && ndc_z <= 1);
             // #endif
 
+            VSOut vsout;
             // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            triangle.vout[j].screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
-            triangle.vout[j].screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
+            vsout.screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
+            vsout.screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
             // triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
-            triangle.vout[j].depth = ndc_z;
-            triangle.vout[j].invW = invW;
-            triangle.vout[j].var = outvaryings;
+            vsout.depth = ndc_z;
+            vsout.invW = invW;
+            vsout.var = outvaryings;
             // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
+
+            triangle.vout[j] = vsout;
         }
     }
 
@@ -247,15 +252,15 @@ protected:
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
-        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
-        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
-        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
+        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
+        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
+        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
+        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
 
         BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
 
@@ -272,9 +277,9 @@ protected:
         const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        Vec2<RealType> p_tl;
-        p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        // Vec2<RealType> p_tl;
+        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
 
         // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
         // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
@@ -720,13 +725,14 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
     {
         Mat4<RealType> pose_matrix;
         Mat4<RealType> view_matrix;
+        PinholeCamera<RealType> camera;
         Vec2<RealType> exposure;
         IntType in_lvl;
         IntType out_lvl;
@@ -734,7 +740,8 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
     };
 
     struct Fragment
@@ -762,8 +769,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -776,10 +783,14 @@ public:
 #pragma HLS inline
 
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         return var_over_w_px;
     }
 
@@ -800,7 +811,8 @@ public:
                                                                      RealType(1));
 
         gl_Position = uniforms.view_matrix * f_ver;
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
     }
 
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
@@ -811,11 +823,19 @@ public:
     {
 #pragma HLS inline
 
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
-        RealType pix = sample(intextures.in_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(in_varying.kf_ver);
+
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+        {
+            return;
+        }
+
+        RealType pix = sample(intextures.in_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -866,13 +886,14 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
     {
         Mat4<RealType> pose_matrix;
         Mat4<RealType> view_matrix;
+        PinholeCamera<RealType> camera;
         IntType in_lvl;
         IntType out_lvl;
         Vec2<RealType> exposure;
@@ -880,7 +901,9 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
+        // Vec3<RealType> f_ver;
     };
 
     struct Fragment
@@ -906,8 +929,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -918,10 +941,14 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -938,7 +965,9 @@ public:
                                                                      vertexdata.vertex(2),
                                                                      RealType(1));
         gl_Position = uniforms.view_matrix * f_ver;
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = uniforms.camera.pointToPix(vertexdata.vertex);
+        outVarying.kf_ver = vertexdata.vertex;
     }
 
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
@@ -947,16 +976,23 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType height = intextures.kf_texture.height(uniforms.in_lvl);
 
         // Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
-        RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(in_varying.kf_ver);
+
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
+
+        // RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
@@ -1462,7 +1498,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -1472,6 +1508,7 @@ public:
         Mat4<RealType> view_matrix;
         Mat4<RealType> pose_matrix;
         Vec2<RealType> exposure;
+        PinholeCamera<RealType> camera;
         IntType in_lvl;
         IntType out_lvl;
         IntType out_width;
@@ -1480,8 +1517,9 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
         Vec3<RealType> f_ver;
+        Vec3<RealType> kf_ver;
     };
 
     struct Fragment
@@ -1513,8 +1551,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1525,14 +1563,18 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
              w2 * varying_px2.f_ver);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         return var_over_w_px;
     }
     // -------------------------------------------------------------------------
@@ -1551,7 +1593,8 @@ public:
         gl_Position = uniforms.view_matrix * f_ver;
 
         outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
-        outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
+        // outVarying.texcoord = vertexdata.texcoord;
     }
 
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
@@ -1560,9 +1603,9 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
@@ -1571,8 +1614,15 @@ public:
 
         // Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
         Vec3<RealType> f_ver = in_varying.f_ver;
-        Vec2<RealType> texcoord = in_varying.texcoord;
+        // Vec2<RealType> texcoord = in_varying.texcoord;
+
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
+
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
@@ -1661,7 +1711,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -1672,6 +1722,7 @@ public:
         Mat4<RealType> pose_matrix;
         Vec6<RealType> vel_matrix;
         Vec2<RealType> exposure;
+        PinholeCamera<RealType> camera;
         IntType in_lvl;
         IntType out_lvl;
         IntType out_width;
@@ -1681,7 +1732,8 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
         Vec3<RealType> f_ver;
         RealType dt;
     };
@@ -1719,8 +1771,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -1731,10 +1783,14 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
@@ -1754,7 +1810,7 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        RealType dt; // = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
         Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
         Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
                                                      vertexdata.vertex(1),
@@ -1763,7 +1819,8 @@ public:
         gl_Position = uniforms.view_matrix * f_ver;
 
         outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
         outVarying.dt = dt;
     }
 
@@ -1773,9 +1830,9 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
@@ -1784,8 +1841,15 @@ public:
 
         // Vec2<RealType> screen_texcoord(gl_FragCoord(0) / RealType(width), gl_FragCoord(1) / RealType(height));
 
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
         Vec3<RealType> f_ver = in_varying.f_ver;
-        Vec2<RealType> texcoord = in_varying.texcoord;
+        // Vec2<RealType> texcoord = in_varying.texcoord;
+
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
+
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
@@ -2012,7 +2076,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -2021,6 +2085,7 @@ public:
         RealType fy;
         Mat4<RealType> view_matrix;
         Mat4<RealType> pose_matrix;
+        PinholeCamera<RealType> camera;
         IntType in_lvl;
         IntType out_lvl;
         IntType out_width;
@@ -2030,7 +2095,8 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
         Vec3<RealType> f_ver;
         Vec3<RealType> kf_ray;
         Vec3<RealType> kf_ray_0;
@@ -2075,8 +2141,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -2087,10 +2153,14 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
@@ -2136,7 +2206,8 @@ public:
         outVarying.kf_ray = d_f_ver_d_kf_depth;
         outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
     }
 
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
@@ -2145,9 +2216,9 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
@@ -2157,13 +2228,20 @@ public:
 
         // Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
         Vec3<RealType> f_ver = in_varying.f_ver;
         Vec3<RealType> kf_ray_0 = in_varying.kf_ray_0;
         Vec3<RealType> kf_ray_1 = in_varying.kf_ray_1;
         Vec3<RealType> kf_ray_2 = in_varying.kf_ray_2;
-        Vec2<RealType> texcoord = in_varying.texcoord;
+        // Vec2<RealType> texcoord = in_varying.texcoord;
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
+
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
+
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
@@ -2271,7 +2349,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -2281,6 +2359,7 @@ public:
         Mat4<RealType> view_matrix;
         Mat4<RealType> pose_matrix;
         Vec2<RealType> exposure;
+        PinholeCamera<RealType> camera;
         IntType in_lvl;
         IntType out_lvl;
         IntType out_width;
@@ -2289,7 +2368,8 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
         Vec3<RealType> f_ver;
         Vec3<RealType> kf_ray;
         Vec3<RealType> kf_ray_0;
@@ -2340,8 +2420,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -2352,10 +2432,14 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
@@ -2402,7 +2486,8 @@ public:
         outVarying.kf_ray = d_f_ver_d_kf_depth;
         outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
     }
 
     static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
@@ -2411,9 +2496,9 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
@@ -2423,13 +2508,19 @@ public:
 
         // Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
         Vec3<RealType> f_ver = in_varying.f_ver;
         Vec3<RealType> kf_ray_0 = in_varying.kf_ray_0;
         Vec3<RealType> kf_ray_1 = in_varying.kf_ray_1;
         Vec3<RealType> kf_ray_2 = in_varying.kf_ray_2;
-        Vec2<RealType> texcoord = in_varying.texcoord;
+        // Vec2<RealType> texcoord = in_varying.texcoord;
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
+
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
@@ -2549,7 +2640,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -2560,6 +2651,7 @@ public:
         Mat4<RealType> pose_matrix;
         Vec6<RealType> vel_matrix;
         Vec2<RealType> exposure;
+        PinholeCamera<RealType> camera;
         RealType readout_time;
         IntType in_lvl;
         IntType out_lvl;
@@ -2569,7 +2661,8 @@ public:
 
     struct Varyings
     {
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
+        Vec3<RealType> kf_ver;
         Vec3<RealType> f_ver;
         Vec3<RealType> kf_ray;
         Vec3<RealType> kf_ray_0;
@@ -2627,8 +2720,8 @@ public:
         vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
         vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -2639,10 +2732,14 @@ public:
                                          const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
-        var_over_w_px.texcoord =
-            (w0 * varying_px0.texcoord +
-             w1 * varying_px1.texcoord +
-             w2 * varying_px2.texcoord);
+        // var_over_w_px.texcoord =
+        //     (w0 * varying_px0.texcoord +
+        //      w1 * varying_px1.texcoord +
+        //      w2 * varying_px2.texcoord);
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
         var_over_w_px.f_ver =
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
@@ -2675,7 +2772,7 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-        RealType dt = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
+        RealType dt; // = (vertexdata.texcoord(1) - RealType(0.5)) * uniforms.readout_time;
         Mat4<RealType> T_rs = (SE3<float>::exp(uniforms.vel_matrix * dt)).matrix() * uniforms.pose_matrix;
         Vec4<RealType> f_ver = T_rs * Vec4<RealType>(vertexdata.vertex(0),
                                                      vertexdata.vertex(1),
@@ -2695,7 +2792,8 @@ public:
         outVarying.kf_ray = d_f_ver_d_kf_depth;
         outVarying.depth = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
-        outVarying.texcoord = vertexdata.texcoord;
+        // outVarying.texcoord = vertexdata.texcoord;
+        outVarying.kf_ver = vertexdata.vertex;
         outVarying.dt = dt;
     }
 
@@ -2705,9 +2803,9 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
-            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
-            return;
+        // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+        //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+        //     return;
 
         // IntType in_width = intextures.kf_texture.width(uniforms.in_lvl);
         // IntType in_height = intextures.kf_texture.height(uniforms.in_lvl);
@@ -2717,13 +2815,19 @@ public:
 
         // Vec2<MathType> screen_texcoord(gl_FragCoord(0) / MathType(width), gl_FragCoord(1) / MathType(height));
 
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
         Vec3<RealType> f_ver = in_varying.f_ver;
         Vec3<RealType> kf_ray_0 = in_varying.kf_ray_0;
         Vec3<RealType> kf_ray_1 = in_varying.kf_ray_1;
         Vec3<RealType> kf_ray_2 = in_varying.kf_ray_2;
-        Vec2<RealType> texcoord = in_varying.texcoord;
+        // Vec2<RealType> texcoord = in_varying.texcoord;
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
+
+        Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
+        if (texcoord(0) < RealType(0) || texcoord(0) > RealType(1) ||
+            texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
+            return;
 
         RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
         ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);

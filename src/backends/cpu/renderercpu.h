@@ -213,6 +213,7 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
@@ -266,6 +267,7 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
@@ -506,6 +508,7 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
@@ -566,6 +569,7 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.exposure = exposure;
         uniforms.readout_time = readout_time;
@@ -796,6 +800,7 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
@@ -854,6 +859,7 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
@@ -916,6 +922,7 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.readout_time = readout_time;
         uniforms.exposure = exposure;

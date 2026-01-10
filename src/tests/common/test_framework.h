@@ -144,7 +144,7 @@ protected:
         TextureCPU<float> depth_src_cpu(depth_src_cv_.cols, depth_src_cv_.rows, 0.0f);
         UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_);
+        CreateMesh(depth_src_cpu, cam_, 2, vertex_, indices_);
         //float meanDepth = cv::mean(depth_src_cv_)[0];
         //CreateFlatMesh(meanDepth * 0.5, meanDepth * 1.5, cam_, 16, vertex_, indices_, true, true, true);
 

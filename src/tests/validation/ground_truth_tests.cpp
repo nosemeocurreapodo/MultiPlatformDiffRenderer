@@ -332,7 +332,7 @@ TYPED_TEST_P(GroundTruthTests, ResidualValidation)
     SE3<float> pose_transform = SE3<float>();
     Vec2<float> exposure(0.0, 0.0);
 
-    for (int lvl = 0; lvl >= 0; lvl--)
+    for (int lvl = 2; lvl >= 0; lvl--)
     {
         // if (lvl > 0)
         //     continue;

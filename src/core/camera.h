@@ -20,8 +20,9 @@ public:
     {
         fx_ = T(fx) / width;
         fy_ = T(fy) / height;
-        cx_ = T(cx) / width;
-        cy_ = T(cy) / height;
+        // I add this 0.5 to go from opencv center at integers, to opengl center at half-integers
+        cx_ = (T(cx) + T(0.5)) / width;  // - T(0.5);
+        cy_ = (T(cy) + T(0.5)) / height; // - T(0.5);
 
         // float alpha = std::exp(-imageExp(0));
         // float beta = imageExp(1);
@@ -69,7 +70,7 @@ public:
 
         projmat(0, 0) = T(2) * fx_;
         projmat(0, 1) = T(0);
-        //projmat(0, 2) = T(1) - T(2) * cx_;
+        // projmat(0, 2) = T(1) - T(2) * cx_;
         projmat(0, 2) = T(2) * cx_ - T(1);
         projmat(0, 3) = T(0);
         //- here to flip the y axis (to render like opencv)
@@ -127,15 +128,13 @@ public:
         return true;
     }
 
-    /*
-    vec2f pointToPix(vec3f point)
+    Vec2<T> pointToPix(Vec3<T> point) const
     {
-        vec2f pix;
-        pix(0) = fx * point(0) / point(2) + cx;
-        pix(1) = fy * point(1) / point(2) + cy;
+        Vec2<T> pix;
+        pix(0) = fx_ * point(0) / point(2) + cx_;
+        pix(1) = fy_ * point(1) / point(2) + cy_;
         return pix;
     }
-    */
 
     Vec2<T> RayToPix(Vec3<T> ray) const
     {
