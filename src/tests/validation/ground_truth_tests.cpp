@@ -182,6 +182,65 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
     // std::cout << "Depth Rendering: " << duration << "ms\n";
 }
 
+// Test depth renderer against ground truth
+TYPED_TEST_P(GroundTruthTests, DepthReferenceGTValidation)
+{
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+
+    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<float> gt_depth(this->w_, this->h_, 0.0f);
+
+    UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
+    UploadMatToTexture(gt_depth, 0, this->depth_dst_cv_);
+
+    typename Traits::DepthRendererT renderer;
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+
+    for (int lvl = 4; lvl >= 0; lvl--)
+    {
+        // if (lvl > 0)
+        //     continue;
+
+        DepthRendererRef(input_depth,
+                         pose_transform,
+                         this->cam_,
+                         lvl,
+                         output);
+
+        double rmse = RMSE(output, gt_depth, lvl);
+
+        std::cout << "DepthReferenceGT RMSE " << lvl << " " << rmse << std::endl;
+        EXPECT_LT(rmse, this->thresholds_.ref_gt_max_depth_error) << "RMSE error: " << rmse;
+    }
+
+    cv::Mat result = DownloadTextureToMat(output, 0);
+    cv::Mat ref = DownloadTextureToMat(gt_depth, 0);
+
+    // cv::Mat mask = (result != 0.0f);
+    cv::Mat diff = result - ref;
+    // cv::Mat masked_diff;
+    // diff.copyTo(masked_diff, mask);
+
+    // cv::Mat diff;
+    // cv::absdiff(result, this->depth_dst_cv_, diff);
+
+    // Basic validation against expected properties
+    // cv::Mat mask = (result != -1.0f);
+    // cv::Scalar mean_val, std_val;
+    // cv::meanStdDev(result, mean_val, std_val, mask);
+
+    // EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
+    // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
+    // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
+
+    SaveDebugImage(diff, std::string(typeid(typename Traits::DepthRendererT).name()) + "_depth_reference_gt.png");
+
+    // std::cout << "Depth Rendering: " << duration << "ms\n";
+}
+
 // Test image renderer against ground truth
 TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
@@ -310,6 +369,70 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
 
+
+// Test image renderer against ground truth
+TYPED_TEST_P(GroundTruthTests, ImageReferenceGTValidation)
+{
+    using Traits = TypeParam;
+
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+
+    typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
+    typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
+
+    typename Traits::template TextureT<ImageType> output_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> reference(this->w_, this->h_, 0);
+
+    UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
+    UploadMatToTexture(input_image, 0, this->image_src_cv_);
+    UploadMatToTexture(output_image, 0, this->image_dst_cv_);
+
+    typename Traits::ImageRendererT renderer;
+    SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
+
+    for (int lvl = 4; lvl >= 0; lvl--)
+    {
+        // if (lvl > 0)
+        //     continue;
+
+        ImageRendererRef(input_depth,
+                         input_image,
+                         pose_transform,
+                         this->cam_,
+                         lvl,
+                         reference);
+
+        double rmse = RMSE(output_image, reference, lvl);
+
+        std::cout << "ImageReference GT RMSE " << lvl << " " << rmse << std::endl;
+        EXPECT_LT(rmse, this->thresholds_.ref_gt_max_image_error) << "RMSE error: " << rmse;
+    }
+
+    cv::Mat result = DownloadTextureToMat(output_image, 0);
+    cv::Mat ref = DownloadTextureToMat(reference, 0);
+    // cv::Mat mask = (result != 0.0f);
+    cv::Mat diff = result - ref;
+    // cv::Mat masked_diff;
+    // diff.copyTo(masked_diff, mask);
+
+    // cv::Mat diff;
+    // cv::absdiff(result, this->image_dst_cv_, diff);
+
+    // Basic validation against expected properties
+    // cv::Mat mask = (result != -1.0f);
+    // cv::Scalar mean_val, std_val;
+    // cv::meanStdDev(result, mean_val, std_val, mask);
+
+    // EXPECT_GT(mean_val[0], 0.0) << "Mean depth should be positive";
+    // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
+    // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
+
+    SaveDebugImage(diff, std::string(typeid(typename Traits::ImageRendererT).name()) + "_image_reference_gt.png");
+
+    // std::cout << "Depth Rendering: " << duration << "ms\n";}
+}
+
 // Test residual renderer against itself
 // here the idea is that if the pose is the identity
 // the projected image should be equal to itself
@@ -349,7 +472,7 @@ TYPED_TEST_P(GroundTruthTests, ResidualValidation)
         double rmse = RMSE(output, reference, lvl);
 
         std::cout << "Residual RMSE " << lvl << " " << rmse << std::endl;
-        EXPECT_LT(rmse, this->thresholds_.ref_max_image_error) << "RMSE error: " << rmse;
+        EXPECT_LT(rmse, this->thresholds_.ref_max_residual_error) << "RMSE error: " << rmse;
     }
 
     cv::Mat result = DownloadTextureToMat(output, 0);
@@ -613,8 +736,10 @@ REGISTER_TYPED_TEST_SUITE_P(
     GroundTruthTests,
     DepthGroundTruthValidation,
     DepthReferenceValidation,
+    DepthReferenceGTValidation,
     ImageGroundTruthValidation,
     ImageReferenceValidation,
+    ImageReferenceGTValidation,
     ResidualValidation,
     JPoseReferenceValidation,
     JMapReferenceValidation);

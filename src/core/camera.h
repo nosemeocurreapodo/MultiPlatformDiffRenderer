@@ -20,13 +20,14 @@ public:
     {
         fx_ = T(fx) / width;
         fy_ = T(fy) / height;
-        // I add this 0.5 to go from opencv center at integers, to opengl center at half-integers
-        cx_ = (T(cx) + T(0.5)) / width;  // - T(0.5);
-        cy_ = (T(cy) + T(0.5)) / height; // - T(0.5);
-
-        // float alpha = std::exp(-imageExp(0));
-        // float beta = imageExp(1);
-        // imageType f_i_cor = alpha * (f_i - beta);
+        //  I add this 0.5 to go from opencv center at integers, to opengl center at half-integers
+        cx_ = (T(cx) + T(0.5)) / width;
+        cy_ = (T(cy) + T(0.5)) / height;
+        // cx_ = T(cx) / width;
+        // cy_ = T(cy) / height;
+        //    float alpha = std::exp(-imageExp(0));
+        //    float beta = imageExp(1);
+        //    imageType f_i_cor = alpha * (f_i - beta);
     }
     template <typename T2>
     PinholeCamera(T2 fx, T2 fy, T2 cx, T2 cy)
@@ -70,8 +71,8 @@ public:
 
         projmat(0, 0) = T(2) * fx_;
         projmat(0, 1) = T(0);
-        // projmat(0, 2) = T(1) - T(2) * cx_;
-        projmat(0, 2) = T(2) * cx_ - T(1);
+        projmat(0, 2) = T(1) - T(2) * cx_;
+        // projmat(0, 2) = T(2) * cx_ - T(1);
         projmat(0, 3) = T(0);
         //- here to flip the y axis (to render like opencv)
         projmat(1, 0) = T(0);
