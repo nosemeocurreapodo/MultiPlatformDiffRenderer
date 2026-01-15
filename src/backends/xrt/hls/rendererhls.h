@@ -15,21 +15,6 @@
 
 #include "hls_task.h"
 
-#define num_buffers 4
-
-#define max_width 640
-#define max_height 480
-
-#define tile_width 80
-#define tile_height 60
-
-#define max_tiles_y max_width / tile_width
-#define max_tiles_x max_height / tile_height
-
-// taken from the planet dataset
-#define max_num_tri 4096 // 768;
-#define max_tri_per_tile max_num_tri / (max_tiles_x * max_tiles_y * 2)
-
 template <class Derived, class Base>
 class RendererBaseHLS
     : public RendererBase<Base>
@@ -38,6 +23,7 @@ public:
     // RendererBaseHLS() = default;
     //~RendererBaseHLS() = default;
 
+    using Fragment = typename Base::Fragment;
     using Triangle = typename RendererBase<Base>::Triangle;
 
     template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
@@ -48,7 +34,9 @@ public:
                      OutTextures &outtextures)
     {
         // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
+        Fragment fragment_buffer[640 * 480] = {Base::fragment_nodata(outtextures)};
         RealType depth_buffer[640 * 480] = {RealType(-1)};
+#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
 #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
 
     // Loop over triangles
@@ -74,8 +62,10 @@ public:
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
 
             // directly write to dram
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, outtextures);
+            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
         }
+
+        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
     }
 
     template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
@@ -99,6 +89,7 @@ public:
         Uniforms uniforms_buffer;
         BoundingBox<IntType> viewport_buffer;
         Triangle triangle_buffer[max_tri_per_tile];
+        Fragment fragment_buffer[tile_width * tile_height];
         RealType depth_buffer[tile_width * tile_height];
 
 #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
@@ -154,10 +145,11 @@ public:
             renderbase_reset_depth_buffer_loop:
                 for (int j = 0; j < tile_width * tile_height; j++)
                 {
+                    fragment_buffer[j] = Base::fragment_nodata(outtextures);
                     depth_buffer[j] = RealType(-1);
                 }
 
-                render_tile_(outtextures, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms_buffer, intextures);
+                render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms_buffer, intextures);
             }
         }
     }
@@ -189,6 +181,7 @@ public:
         Uniforms uniforms_buffer[num_buffers];
         BoundingBox<IntType> viewport_buffer[num_buffers];
         Triangle triangle_buffer[num_buffers][max_tri_per_tile];
+        Fragment fragment_buffer[num_buffers][tile_width * tile_height];
         RealType depth_buffer[num_buffers][tile_width * tile_height];
 
 #pragma HLS array_partition variable = triangle_count complete dim = 1
@@ -303,6 +296,7 @@ public:
                     for (int i = 0; i < num_buffers; i++)
                     {
                         // #pragma HLS unroll
+                        fragment_buffer[i][j] = Base::fragment_nodata(outtextures_ch1);
                         depth_buffer[i][j] = RealType(-1);
                     }
                 }
@@ -312,9 +306,9 @@ public:
                 {
 #pragma HLS unroll
                     if (i == 0)
-                        render_tile_(outtextures_ch1, depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch1);
+                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch1);
                     else
-                        render_tile_(outtextures_ch2, depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch2);
+                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch2);
                 }
             }
         }
@@ -804,14 +798,14 @@ public:
         // opencv2opengl(2, 2) = -1.0;
         // uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
 
-        linalg::Mat4<RealType> pose_matrix = pose.matrix();
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
     depthrenderer_opencv2opengl_loop:
         for (int i = 0; i < 4; i++)
         {
-            pose_matrix(1, i) = -pose_matrix(1, i);
-            pose_matrix(2, i) = -pose_matrix(2, i);
+            uniforms.view_matrix(1, i) = -uniforms.view_matrix(1, i);
+            uniforms.view_matrix(2, i) = -uniforms.view_matrix(2, i);
         }
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose_matrix;
 
         uniforms.out_lvl = out_lvl;
 
@@ -968,6 +962,7 @@ public:
 
     void Render(const MeshHLS &mesh,
                 const linalg::SE3<RealType> &pose,
+                const linalg::Vec2<RealType> &exposure,
                 const PinholeCamera<RealType> &cam,
                 int in_lvl,
                 int out_lvl,
@@ -984,14 +979,16 @@ public:
         // opencv2opengl(2, 2) = -1.0;
         // uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
 
-        linalg::Mat4<RealType> pose_matrix = pose.matrix();
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
     imagerenderer_opencv2opengl_loop:
         for (int i = 0; i < 4; i++)
         {
-            pose_matrix(1, i) = -pose_matrix(1, i);
-            pose_matrix(2, i) = -pose_matrix(2, i);
+            uniforms.view_matrix(1, i) = -uniforms.view_matrix(1, i);
+            uniforms.view_matrix(2, i) = -uniforms.view_matrix(2, i);
         }
-        uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose_matrix;
+        uniforms.camera = cam;
+        uniforms.exposure = exposure;
 
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
@@ -1168,70 +1165,3 @@ public:
 private:
 };
 */
-
-class DiffRendererHLS
-    : public RendererBaseHLS<DiffRendererHLS,
-                             DiffRendererBase<TextureRAM>>
-{
-public:
-    using Base = DiffRendererBase<TextureRAM>;
-
-    DiffRendererHLS() = default;
-    ~DiffRendererHLS() = default;
-
-    void Render(const MeshHLS &mesh,
-                const linalg::SE3<RealType> &pose,
-                const PinholeCamera<RealType> &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureRAM<ImageType> &diffuse_texture_ch1,
-                const TextureRAM<ImageType> &diffuse_texture_ch2,
-                const TextureRAM<ImageType> &diffuse_texture_ch3,
-                const TextureRAM<ImageType> &diffuse_texture_ch4,
-                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch1,
-                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch2,
-                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch3,
-                const TextureRAM<linalg::Vec3<float>> &didxy_texture_ch4,
-                TextureRAM<ImageType> &image_texture,
-                TextureRAM<float> &depth_texture,
-                TextureRAM<linalg::Vec3<float>> &jtra_texture,
-                TextureRAM<linalg::Vec3<float>> &jrot_texture,
-                TextureRAM<linalg::Vec3<float>> &jmap_texture,
-                TextureRAM<linalg::Vec3<PidType>> &pids_texture)
-    {
-        linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Base::Uniforms uniforms;
-        uniforms.fx = cam.GetParams()(0);
-        uniforms.fy = cam.GetParams()(1);
-        uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
-
-        const int W = static_cast<int>(image_texture.width(out_lvl));
-        const int H = static_cast<int>(image_texture.height(out_lvl));
-        BoundingBox<IntType> viewport(0, W, 0, H);
-
-        Base::InTextures intextures_ch1{diffuse_texture_ch1, didxy_texture_ch1};
-        Base::InTextures intextures_ch2{diffuse_texture_ch2, didxy_texture_ch2};
-        Base::InTextures intextures_ch3{diffuse_texture_ch3, didxy_texture_ch3};
-        Base::InTextures intextures_ch4{diffuse_texture_ch4, didxy_texture_ch4};
-
-        Base::OutTextures outtextures{image_texture, depth_texture, jtra_texture, jrot_texture, jmap_texture, pids_texture};
-
-        RendererBaseHLS<DiffRendererHLS, Base>::RenderTiledFragBuffInChannels(
-            viewport,
-            mesh,
-            uniforms,
-            intextures_ch1,
-            intextures_ch2,
-            intextures_ch3,
-            intextures_ch4,
-            outtextures);
-    }
-
-private:
-};

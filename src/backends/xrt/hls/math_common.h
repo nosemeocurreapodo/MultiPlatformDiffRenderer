@@ -4,6 +4,21 @@
 #include "ap_int.h"
 #include "ap_fixed.h"
 
+#define num_buffers 4
+
+#define max_width 640
+#define max_height 480
+
+#define tile_width 80
+#define tile_height 60
+
+#define max_tiles_y max_width / tile_width
+#define max_tiles_x max_height / tile_height
+
+// taken from the planet dataset
+#define max_num_tri 4096 // 768;
+#define max_tri_per_tile max_num_tri / (max_tiles_x * max_tiles_y * 2)
+
 template <typename T>
 inline T min(T a, T b)
 {
