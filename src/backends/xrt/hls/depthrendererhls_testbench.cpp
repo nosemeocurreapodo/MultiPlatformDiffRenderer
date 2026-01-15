@@ -37,17 +37,19 @@ int main()
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
-    float scale = 1.0f / depth_factor;
+    TextureCPU<float> depth_src_cpu(w, h, 0.0f);
+    TextureCPU<float> depth_dst_cpu(w, h, 0.0f);
 
     cv::Mat depth_src_cv = cv::imread(depth_files[0], cv::IMREAD_GRAYSCALE);
     depth_src_cv.convertTo(depth_src_cv, CV_32FC1);
-    depth_src_cv = depth_src_cv * scale;
+    depth_src_cv = depth_src_cv / depth_factor;
+    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
     linalg::SE3<float> pose_src = poses[0];
 
     cv::Mat depth_dst_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
     depth_dst_cv.convertTo(depth_dst_cv, CV_32FC1);
-    depth_dst_cv = depth_dst_cv * scale;
-
+    depth_dst_cv = depth_dst_cv / depth_factor;
+    UploadMatToTexture(depth_dst_cpu, 0, depth_dst_cv);
     linalg::SE3<float> pose_dst = poses[50];
 
     // std::vector<Eigen::Vector3f> vertices, normals;
@@ -58,18 +60,18 @@ int main()
     std::vector<float> vertex;
     std::vector<int> indices;
 
-    CreateMesh(depth_src_cv, cam, 32,
+    CreateMesh(depth_src_cpu, cam, 32,
                vertex,
                indices,
                true,
                true,
                true);
 
-    linalg::SE3<float> pose = pose_dst * pose_src.inverse();
+    linalg::SE3<float> pose;// = pose_dst * pose_src.inverse();
 
     unsigned int lvl = 1;
 
-    TextureCPU<float> depth_out_cpu(w, h, -1.0f);
+    TextureCPU<float> depth_out_cpu(w, h, 0.0f);
     auto depth_map = depth_out_cpu.MapWrite(0);
 
     DepthRenderHLS(
@@ -77,13 +79,19 @@ int main()
         indices.data(),
         depth_map.data(),
         vertex.size(), indices.size(),
-        w, h, -1.0f, lvl,
+        w, h, 0.0f, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
 
-    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl);
+    double error = RMSE(depth_dst_cpu, depth_out_cpu, lvl);
 
-    // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
+    std::cout << "Depth render HLS RMSE: " << error << " m" << std::endl;
+
+    cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl);
     SaveDebugImage(depth_out_cv, "depthrenderhls_output.png");
+
+    cv::Mat depth_in_cv = DownloadTextureToMat(depth_src_cpu, lvl);
+    SaveDebugImage(depth_in_cv, "depthrenderhls_input.png");
+
 }

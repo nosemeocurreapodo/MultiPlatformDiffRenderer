@@ -67,7 +67,10 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "linalg/linalgx.h"
 #include "linalg/ldlt_solver.h"
 #include "linalg/ldlt_solverx.h"
+
+#ifndef USE_VITIS
 #include "linalg/ldlt_solverx_lapack.h"
+#endif
 
 using ImageType = float;
 using RealType = float;
@@ -114,7 +117,9 @@ using LDLT = linalg::LDLT<T, size>;
 template <typename T>
 using LDLTx = linalg::LDLTx<T>;
 
+#ifndef USE_VITIS
 template <typename T>
 using LDLTx_LAPACK = linalg::LDLT_LAPACK<T>;
+#endif
 
 #endif

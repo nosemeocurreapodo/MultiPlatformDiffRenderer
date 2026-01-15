@@ -151,6 +151,7 @@ public:
 
                 render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms_buffer, intextures);
             }
+            Base::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms);
         }
     }
 
@@ -310,6 +311,13 @@ public:
                     else
                         render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch2);
                 }
+                for (int i = 0; i < num_buffers; i++)
+                {
+                    if (i == 0)
+                        Base::sync_outtextures(outtextures_ch1, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
+                    else
+                        Base::sync_outtextures(outtextures_ch2, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
+                }
             }
         }
     }
@@ -335,7 +343,7 @@ public:
         Uniforms uniforms_buffer;
         BoundingBox<IntType> viewport_buffer;
         Triangle triangle_buffer[max_tri_per_tile];
-        typename Base::Fragment fragment_buffer[tile_width * tile_height];
+        Fragment fragment_buffer[tile_width * tile_height];
         RealType depth_buffer[tile_width * tile_height];
 
 #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
@@ -418,7 +426,7 @@ public:
                 }
 
                 render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms_buffer, intextures);
-                Derived::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms_buffer);
+                Base::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms_buffer);
             }
         }
     }
@@ -456,7 +464,7 @@ public:
         Uniforms uniforms_buffer[num_buffers];
         BoundingBox<IntType> viewport_buffer[num_buffers];
         Triangle triangle_buffer[num_buffers][max_tri_per_tile];
-        typename Base::Fragment fragment_buffer[num_buffers][tile_width * tile_height];
+        Fragment fragment_buffer[num_buffers][tile_width * tile_height];
         RealType depth_buffer[num_buffers][tile_width * tile_height];
 
 #pragma HLS array_partition variable = triangle_count complete dim = 1
@@ -608,7 +616,7 @@ public:
             depthrendererhls_loop:
                 for (int i = 0; i < num_buffers; i++)
                 {
-                    Derived::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
+                    Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
                 }
             }
         }
@@ -640,7 +648,7 @@ public:
 
         Uniforms uniforms_buffer[num_buffers];
         BoundingBox<IntType> viewport_buffer[num_buffers];
-        typename Base::Fragment fragment_buffer[num_buffers][tile_width * tile_height];
+        Fragment fragment_buffer[num_buffers][tile_width * tile_height];
         RealType depth_buffer[num_buffers][tile_width * tile_height];
 
         // Pack the aggregate (newer pragma)
@@ -745,7 +753,7 @@ public:
             depthrendererhls_loop:
                 for (int i = 0; i < num_buffers; i++)
                 {
-                    Derived::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
+                    Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
                 }
             }
         }
@@ -793,19 +801,18 @@ public:
     {
         Base::Uniforms uniforms;
 
-        // linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
-        // opencv2opengl(1, 1) = -1.0;
-        // opencv2opengl(2, 2) = -1.0;
-        // uniforms.t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl * pose.matrix();
+        linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
 
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-    depthrenderer_opencv2opengl_loop:
-        for (int i = 0; i < 4; i++)
-        {
-            uniforms.view_matrix(1, i) = -uniforms.view_matrix(1, i);
-            uniforms.view_matrix(2, i) = -uniforms.view_matrix(2, i);
-        }
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        // depthrenderer_opencv2opengl_loop:
+        //     for (int i = 0; i < 4; i++)
+        //     {
+        //         uniforms.view_matrix(1, i) = -uniforms.view_matrix(1, i);
+        //         uniforms.view_matrix(2, i) = -uniforms.view_matrix(2, i);
+        //    }
 
         uniforms.out_lvl = out_lvl;
 
@@ -819,11 +826,11 @@ public:
         Base::InTextures intextures_ch4{0};
         Base::OutTextures outtextures{out_texture};
 
-        // RendererBaseHLS<DepthRendererHLS, Base>::RenderNaive(viewport, mesh, uniforms, intextures_ch1, outtextures);
+        RendererBaseHLS<DepthRendererHLS, Base>::RenderNaive(viewport, mesh, uniforms, intextures_ch1, outtextures);
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiled(viewport, mesh, uniforms, intextures_ch1, outtextures);
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledDualChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, outtextures_ch1, outtextures_ch2);
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuff(viewport, mesh, uniforms, intextures_ch1, outtextures);
-        RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuffInChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, intextures_ch3, intextures_ch4, outtextures);
+        // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuffInChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, intextures_ch3, intextures_ch4, outtextures);
     }
 };
 

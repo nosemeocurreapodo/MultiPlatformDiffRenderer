@@ -91,6 +91,7 @@ public:
 
     BufferCPU<float> vertex_buffer_;
     BufferCPU<int> ebo_buffer_;
+    
     int stride_;
     int pos_offset_;
     int tex_offset_;

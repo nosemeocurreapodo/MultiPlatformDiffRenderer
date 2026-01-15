@@ -2600,7 +2600,7 @@ public:
                 Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-                textures.je.set_texel_(jtra_out, y, x, uniforms.out_lvl);
+                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
                 textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
                 textures.jexp_texture.set_texel_(jexp_out, y, x, uniforms.out_lvl);
                 textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
