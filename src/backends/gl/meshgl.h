@@ -1,14 +1,7 @@
 #pragma once
-// #include <vector>
-// #include <cstdint>
-// #include <cassert>
-// #include <algorithm>
-// #include <cstring> // memcpy
 
-#include <Eigen/Core>
-#include <opencv2/opencv.hpp>
-// #include "backends/gl/devicegl_glad.h"
-// #include "core/delaunaytriangulation.h"
+#include <utility>
+
 #include "backends/gl/buffergl.h" // your BufferGL
 #include "backends/base/MappedView.h"
 
@@ -25,34 +18,36 @@ public:
 
         if (has_position)
         {
-            pos_offset_ = 0;
-            stride_ += 3 * 4;
+            pos_offset_ = stride_;
+            stride_ += 3;
         }
         else
         {
             pos_offset_ = -1;
         }
+
         if (has_texcoord)
         {
-            tex_offset_ = 3 * 4;
-            stride_ += 2 * 4;
+            tex_offset_ = stride_;
+            stride_ += 2;
         }
         else
         {
             tex_offset_ = -1;
         }
+
         if (has_normal)
         {
-            nor_offset_ = 5 * 4;
-            stride_ += 3 * 4;
+            nor_offset_ = stride_;
+            stride_ += 3;
         }
         else
         {
             nor_offset_ = -1;
         }
 
-        vbo_vertex_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(vertex.size(), vertex.data());
-        ebo_ = BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
+        vertex_buffer_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(vertex.size(), vertex.data());
+        ebo_buffer_ = BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
 
         create_vao_();
     }
@@ -62,8 +57,8 @@ public:
     // ---------- COPY CONSTRUCTOR ----------
     MeshGL(const MeshGL &other)
         : vao_(0),
-          vbo_vertex_(other.vbo_vertex_),
-          ebo_(other.ebo_),
+          vertex_buffer_(other.vertex_buffer_),
+          ebo_buffer_(other.ebo_buffer_),
           stride_(other.stride_),
           pos_offset_(other.pos_offset_),
           tex_offset_(other.tex_offset_),
@@ -79,8 +74,8 @@ public:
         {
             destroy_vao_();
 
-            vbo_vertex_ = other.vbo_vertex_;
-            ebo_ = other.ebo_;
+            vertex_buffer_ = other.vertex_buffer_;
+            ebo_buffer_ = other.ebo_buffer_;
 
             stride_ = other.stride_;
             pos_offset_ = other.pos_offset_;
@@ -102,8 +97,8 @@ public:
             destroy_vao_();
 
             vao_ = std::exchange(o.vao_, 0);
-            vbo_vertex_ = std::move(o.vbo_vertex_);
-            ebo_ = std::move(o.ebo_);
+            vertex_buffer_ = std::move(o.vertex_buffer_);
+            ebo_buffer_ = std::move(o.ebo_buffer_);
 
             stride_ = o.stride_;
             pos_offset_ = o.pos_offset_;
@@ -114,15 +109,15 @@ public:
     }
 
     // --- Info ---
-    std::size_t vertex_count() const noexcept { return vbo_vertex_.size() / stride_; }
-    std::size_t index_count() const noexcept { return ebo_.size(); }
+    std::size_t vertex_count() const noexcept { return vertex_buffer_.size() / stride_; }
+    std::size_t index_count() const noexcept { return ebo_buffer_.size(); }
     std::size_t triangle_count() const noexcept { return index_count() / 3; }
 
     void draw() const
     {
         glBindVertexArray(vao_);
         glDrawElements(GL_TRIANGLES,
-                       static_cast<GLsizei>(ebo_.size()),
+                       static_cast<GLsizei>(ebo_buffer_.size()),
                        GL_UNSIGNED_INT,
                        (void *)0);
         glBindVertexArray(0);
@@ -137,8 +132,8 @@ public:
 
     GLuint vao_ = 0;
 
-    BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vbo_vertex_;
-    BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_;
+    BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vertex_buffer_;
+    BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> ebo_buffer_;
 
     int stride_{};
     long int pos_offset_{-1};
@@ -151,31 +146,31 @@ private:
         glGenVertexArrays(1, &vao_);
         glBindVertexArray(vao_);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_.id());
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_.id());
 
         int attribute_index = 0;
         if (pos_offset_ >= 0)
         {
             glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_,
-                                  reinterpret_cast<void *>(pos_offset_));
+            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_ * 4,
+                                  reinterpret_cast<void *>(pos_offset_ * 4));
             attribute_index++;
         }
         if (tex_offset_ >= 0)
         {
             glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 2, GL_FLOAT, GL_FALSE, stride_,
-                                  reinterpret_cast<void *>(tex_offset_));
+            glVertexAttribPointer(attribute_index, 2, GL_FLOAT, GL_FALSE, stride_ * 4,
+                                  reinterpret_cast<void *>(tex_offset_ * 4));
             attribute_index++;
         }
         if (nor_offset_ >= 0)
         {
             glEnableVertexAttribArray(attribute_index);
-            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_,
-                                  reinterpret_cast<void *>(nor_offset_));
+            glVertexAttribPointer(attribute_index, 3, GL_FLOAT, GL_FALSE, stride_ * 4,
+                                  reinterpret_cast<void *>(nor_offset_ * 4));
         }
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_buffer_.id());
 
         glBindVertexArray(0);
     }

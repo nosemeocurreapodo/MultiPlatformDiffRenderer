@@ -165,6 +165,14 @@ private:
         {
             return vec3(v * exp(exposure.x), 1.0, 0.0);
         }
+
+        vec2 pointToPix(vec3 point, float fx, float fy, float cx, float cy)
+        {
+            vec2 pix;
+            pix.x = (point.x / point.z) * fx + cx;
+            pix.y = (point.y / point.z) * fy + cy;
+            return pix;
+        }
         )GLSL";
 
         const char *parts[] = {common, src};
@@ -303,6 +311,118 @@ private:
     GLint far_plane_loc_ = -1;
 };
 
+class PidsRendererGL : public BaseRendererGL
+{
+public:
+    PidsRendererGL() : BaseRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            layout (location = 0) in vec3 a_position;
+            layout (location = 1) in vec2 a_texcoord;
+
+            uniform mat4 view_matrix;
+            uniform mat4 pose_matrix;
+
+            flat out int v_vertexID;
+
+            void main() {
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                gl_Position = view_matrix * ver;
+                v_vertexID = gl_VertexID;
+            }
+            )Shader";
+
+        const char *geometry_shader = R"Shader(
+            layout(triangles) in;
+            layout(triangle_strip, max_vertices = 3) out;
+
+            flat in int v_vertexID[];
+
+            flat out ivec3 triIDs; 
+
+            void main() 
+            {
+                ivec3 ids = ivec3(v_vertexID[0], v_vertexID[1], v_vertexID[2]);
+
+                triIDs = ids;
+                for (int i = 0; i < 3; ++i) 
+                {
+                    gl_Position = gl_in[i].gl_Position;
+                    EmitVertex();
+                }
+                EndPrimitive();
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            layout(location = 0) out vec3 pids_output;
+
+            flat in ivec3 triIDs;
+
+            void main()
+            {
+                pids_output = triIDs;
+            }
+            )Shader";
+
+        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+
+        view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
+        pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
+    }
+
+    void Render(const MeshGL &mesh,
+                const SE3<float> &pose,
+                const PinholeCamera<float> &cam,
+                int out_lvl,
+                TextureGL<Vec3<PidType>> &pids_texture)
+    {
+        save_state();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, pids_texture.id(), out_lvl);
+
+        const GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_SCISSOR_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW); // was GL_CCW
+
+        const GLsizei W = static_cast<GLsizei>(pids_texture.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(pids_texture.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        float clear[4] = {pids_texture.nodata()(0), pids_texture.nodata()(1), pids_texture.nodata()(2), 1.f};
+
+        // #if defined(GL_VERSION_3_0)
+        //         glClearBufferfv(GL_COLOR, 0, clear);
+        // #else
+        glClearColor(clear[0], clear[1], clear[2], clear[3]);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glUseProgram(program_);
+
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> pose_matrix = pose.matrix();
+
+        glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
+        glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
+
+        mesh.draw();
+
+        restore_state();
+    }
+
+private:
+    GLint view_matrix_loc_ = -1;
+    GLint pose_matrix_loc_ = -1;
+};
+
 class ImageRendererGL : public BaseRendererGL
 {
 public:
@@ -315,27 +435,38 @@ public:
             uniform mat4 pose_matrix;
             uniform mat4 view_matrix;
 
-            out vec2 texcoord;
+            out vec3 kf_ver;
 
             void main() {
                 vec4 f_ver = pose_matrix * vec4(a_position, 1.0);
                 gl_Position = view_matrix * f_ver;
-                texcoord = a_texcoord;
+                kf_ver = a_position;
             }
             )Shader";
 
         const char *fragment_shader = R"Shader(
             layout(location = 0) out float a_output;
             
-            in vec2 texcoord;
+            in vec3 kf_ver;
 
             uniform sampler2D image;
             uniform float image_nodata;
             uniform int image_lvl;
             uniform vec2 exposure;
+            uniform float fx;
+            uniform float fy;
+            uniform float cx;
+            uniform float cy;
 
             void main()
             {
+                vec2 texcoord = pointToPix(kf_ver, fx, fy, cx, cy);
+
+                if(texcoord.x < 0.0 || texcoord.x > 1.0 || texcoord.y < 0.0 || texcoord.y > 1.0)
+                {
+                    discard;
+                }
+
                 float f = textureLod(image, texcoord, float(image_lvl)).r;
                 //float f = texture(image, texcoord).r;
 
@@ -357,6 +488,11 @@ public:
         image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
         in_lvl_loc_ = glGetUniformLocation(program_, "image_lvl");
         exposure_loc_ = glGetUniformLocation(program_, "exposure");
+
+        fx_loc_ = glGetUniformLocation(program_, "fx");
+        fy_loc_ = glGetUniformLocation(program_, "fy");
+        cx_loc_ = glGetUniformLocation(program_, "cx");
+        cy_loc_ = glGetUniformLocation(program_, "cy");
     }
 
     void Render(const MeshGL &mesh,
@@ -424,6 +560,10 @@ public:
         glUniform1f(image_nodata_loc_, diffuse_texture.nodata()); // **int**, not float
         glUniform1i(in_lvl_loc_, in_lvl);                         // **int**, not float
         glUniform2f(exposure_loc_, exposure(0), exposure(1));     // **int**, not float
+        glUniform1f(fx_loc_, cam.GetParams()(0));
+        glUniform1f(fy_loc_, cam.GetParams()(1));
+        glUniform1f(cx_loc_, cam.GetParams()(2));
+        glUniform1f(cy_loc_, cam.GetParams()(3));
 
         mesh.draw();
 
@@ -438,6 +578,11 @@ private:
     GLint image_nodata_loc_;
     GLint in_lvl_loc_;
     GLint exposure_loc_;
+
+    GLint fx_loc_;
+    GLint fy_loc_;
+    GLint cx_loc_;
+    GLint cy_loc_;
 };
 
 class ResidualRendererGL : public BaseRendererGL
@@ -452,18 +597,19 @@ public:
             uniform mat4 pose_matrix;
             uniform mat4 view_matrix;
 
-            out vec2 texcoord;
+            out vec3 kf_ver;
 
             void main() {
                 vec4 f_ver = pose_matrix * vec4(a_position, 1.0);
                 gl_Position = view_matrix * f_ver;
-                texcoord = a_texcoord;
+                kf_ver = a_position;
             }
             )Shader";
 
         const char *fragment_shader = R"Shader(
             layout(location = 0) out float a_output;
-            in vec2 texcoord;
+
+            in vec3 kf_ver;
 
             uniform sampler2D kf_image;
             uniform sampler2D f_image;
@@ -472,9 +618,19 @@ public:
             uniform int in_lvl;
             uniform int out_lvl;
             uniform vec2 exposure;
+            uniform float fx;
+            uniform float fy;
+            uniform float cx;
+            uniform float cy;
 
             void main()
             {
+                vec2 texcoord = pointToPix(kf_ver, fx, fy, cx, cy);
+                if(texcoord.x < 0.0 || texcoord.x > 1.0 || texcoord.y < 0.0 || texcoord.y > 1.0)
+                {
+                    discard;
+                }
+
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
 
@@ -502,6 +658,11 @@ public:
 
         in_lvl_loc_ = glGetUniformLocation(program_, "in_lvl");
         out_lvl_loc_ = glGetUniformLocation(program_, "out_lvl");
+
+        fx_loc_ = glGetUniformLocation(program_, "fx");
+        fy_loc_ = glGetUniformLocation(program_, "fy");
+        cx_loc_ = glGetUniformLocation(program_, "cx");
+        cy_loc_ = glGetUniformLocation(program_, "cy");
     }
 
     void Render(const MeshGL &mesh,
@@ -540,7 +701,7 @@ public:
         //         glClearBufferfv(GL_COLOR, 0, clear);
         // #else
         glClearColor(clear[0], clear[1], clear[2], clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // #endif
 
 #if defined(GL_VERSION_4_5)
@@ -574,6 +735,11 @@ public:
         glUniform1f(f_image_nodata_loc_, f_texture.nodata());
         glUniform1i(out_lvl_loc_, out_lvl);
 
+        glUniform1f(fx_loc_, cam.GetParams()(0));
+        glUniform1f(fy_loc_, cam.GetParams()(1));
+        glUniform1f(cx_loc_, cam.GetParams()(2));
+        glUniform1f(cy_loc_, cam.GetParams()(3));
+
         mesh.draw();
 
         restore_state();
@@ -591,6 +757,11 @@ private:
 
     GLint in_lvl_loc_;
     GLint out_lvl_loc_;
+
+    GLint fx_loc_;
+    GLint fy_loc_;
+    GLint cx_loc_;
+    GLint cy_loc_;
 };
 
 class DIDxyRendererGL : public BaseRendererGL
@@ -860,13 +1031,13 @@ public:
             uniform mat4 pose_matrix;
 
             out vec3 f_ver;
-            out vec2 texcoord;
+            out vec3 kf_ver;
 
             void main() {
                 vec4 ver = pose_matrix * vec4(a_position, 1.0);
                 gl_Position = view_matrix * ver;
                 f_ver = ver.xyz;
-                texcoord = a_texcoord;
+                kf_ver = a_position;
             }
             )Shader";
 
@@ -876,6 +1047,7 @@ public:
             layout(location = 2) out vec3 jexp_output;
             layout(location = 3) out float r_output;
 
+            in vec3 kf_ver;
             in vec3 f_ver;
             in vec2 texcoord;
 
@@ -893,6 +1065,8 @@ public:
 
             uniform float fx;
             uniform float fy;
+            uniform float cx;
+            uniform float cy;
 
             uniform int out_width;
             uniform int out_height;
@@ -902,6 +1076,12 @@ public:
             void main()
             {
                 // ivec2 tex_size = textureSize(f_image, in_lvl);
+
+                vec2 texcoord = pointToPix(kf_ver, fx, fy, cx, cy);
+                if(texcoord.x < 0.0 || texcoord.x > 1.0 || texcoord.y < 0.0 || texcoord.y > 1.0)
+                {
+                    discard;
+                }
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
@@ -943,6 +1123,8 @@ public:
 
         fx_loc_ = glGetUniformLocation(program_, "fx");
         fy_loc_ = glGetUniformLocation(program_, "fy");
+        cx_loc_ = glGetUniformLocation(program_, "cx");
+        cy_loc_ = glGetUniformLocation(program_, "cy");
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
@@ -1033,7 +1215,7 @@ public:
         const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
         glDrawBuffers(1, bufs3);
         glClearColor(r_clear[0], r_clear[1], r_clear[2], r_clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
@@ -1084,6 +1266,8 @@ public:
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
+        glUniform1f(cx_loc_, cam.GetParams()(2));
+        glUniform1f(cy_loc_, cam.GetParams()(3));
 
         glUniform2f(exposure_loc_, exposure(0), exposure(1));
 
@@ -1098,6 +1282,8 @@ private:
 
     GLint fx_loc_ = -1;
     GLint fy_loc_ = -1;
+    GLint cx_loc_ = -1;
+    GLint cy_loc_ = -1;
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
@@ -1129,9 +1315,9 @@ public:
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
 
+            out vec3 v_kf_ver;
             out vec3 v_f_ver;
             out vec3 v_kf_ray;
-            out vec2 v_texcoord;
             flat out int v_vertexID;
 
             void main() {
@@ -1140,7 +1326,7 @@ public:
                 gl_Position = view_matrix * ver;
                 v_f_ver = ver.xyz;
                 v_kf_ray = rray.xyz;
-                v_texcoord = a_texcoord;
+                v_kf_ver = a_position;
                 v_vertexID = gl_VertexID;
             }
             )Shader";
@@ -1149,16 +1335,16 @@ public:
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
+            in vec3 v_kf_ver[];
             in vec3 v_f_ver[];
             in vec3 v_kf_ray[];
-            in vec2 v_texcoord[];
             flat in int v_vertexID[];           // from VS (Option A)
 
+            out vec3 kf_ver;
             out vec3 f_ver;
             flat out vec3 kf_ray_0;
             flat out vec3 kf_ray_1;
             flat out vec3 kf_ray_2;
-            out vec2 texcoord;
             flat out ivec3 triIDs;         // to FS: the 3 vertex IDs of this triangle
             smooth out vec3  bc;           // perspective-correct barycentrics to FS
             // noperspective out vec3 bc;  // uncomment for screen-space-linear barycentrics
@@ -1182,11 +1368,11 @@ public:
                 kf_ray_0 = v_kf_ray[0];
                 kf_ray_1 = v_kf_ray[1];
                 kf_ray_2 = v_kf_ray[2];
+                triIDs = ids;
 
                 for (int i = 0; i < 3; ++i) {
+                    kf_ver = v_kf_ver[i];
                     f_ver = v_f_ver[i];
-                    texcoord = v_texcoord[i];
-                    triIDs = ids;
                     bc     = vec3(i == 0, i == 1, i == 2);
                     gl_Position = gl_in[i].gl_Position;
                     EmitVertex();
@@ -1201,11 +1387,11 @@ public:
             layout(location = 2) out vec3 pids_output;
             layout(location = 3) out float r_output;
 
+            in vec3 kf_ver;
             in vec3 f_ver;
             flat in vec3 kf_ray_0;
             flat in vec3 kf_ray_1;
             flat in vec3 kf_ray_2;
-            in vec2 texcoord;
 
             smooth in vec3  bc;          // or noperspective if chosen above
             flat   in ivec3 triIDs;
@@ -1227,12 +1413,20 @@ public:
 
             uniform float fx;
             uniform float fy;
+            uniform float cx;
+            uniform float cy;
 
             uniform vec2 exposure;
 
             void main()
             {
                 // ivec2 tex_size = textureSize(f_image, f_image_lvl);
+
+                vec2 texcoord = pointToPix(kf_ver, fx, fy, cx, cy);
+                if(texcoord.x < 0.0 || texcoord.x > 1.0 || texcoord.y < 0.0 || texcoord.y > 1.0)
+                {
+                    discard;
+                }
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
@@ -1286,6 +1480,8 @@ public:
 
         fx_loc_ = glGetUniformLocation(program_, "fx");
         fy_loc_ = glGetUniformLocation(program_, "fy");
+        cx_loc_ = glGetUniformLocation(program_, "cx");
+        cy_loc_ = glGetUniformLocation(program_, "cy");
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
@@ -1379,7 +1575,7 @@ public:
         const GLenum bufs3[1] = {GL_COLOR_ATTACHMENT3};
         glDrawBuffers(1, bufs3);
         glClearColor(r_clear[0], r_clear[1], r_clear[2], r_clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
@@ -1429,6 +1625,8 @@ public:
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
+        glUniform1f(cx_loc_, cam.GetParams()(2));
+        glUniform1f(cy_loc_, cam.GetParams()(3));
 
         glUniform2f(exposure_loc_, exposure(0), exposure(1));
 
@@ -1443,6 +1641,8 @@ private:
 
     GLint fx_loc_ = -1;
     GLint fy_loc_ = -1;
+    GLint cx_loc_ = -1;
+    GLint cy_loc_ = -1;
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
@@ -1474,18 +1674,18 @@ public:
             uniform mat4 view_matrix;
             uniform mat4 pose_matrix;
 
+            out vec3 v_kf_ver;
             out vec3 v_f_ver;
             out vec3 v_kf_ray;
-            out vec2 v_texcoord;
             flat out int v_vertexID;
 
             void main() {
                 vec4 ver = pose_matrix * vec4(a_position, 1.0);
                 vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
                 gl_Position = view_matrix * ver;
+                v_kf_ver = a_position;
                 v_f_ver = ver.xyz;
                 v_kf_ray = rray.xyz;
-                v_texcoord = a_texcoord;
                 v_vertexID = gl_VertexID;
             }
             )Shader";
@@ -1494,16 +1694,16 @@ public:
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
+            in vec3 v_kf_ver[];
             in vec3 v_f_ver[];
             in vec3 v_kf_ray[];
-            in vec2 v_texcoord[];
             flat in int v_vertexID[];           // from VS (Option A)
 
+            out vec3 kf_ver;
             out vec3 f_ver;
             flat out vec3 kf_ray_0;
             flat out vec3 kf_ray_1;
             flat out vec3 kf_ray_2;
-            out vec2 texcoord;
             flat out ivec3 triIDs;         // to FS: the 3 vertex IDs of this triangle
             smooth out vec3  bc;           // perspective-correct barycentrics to FS
             // noperspective out vec3 bc;  // uncomment for screen-space-linear barycentrics
@@ -1529,8 +1729,8 @@ public:
                 kf_ray_2 = v_kf_ray[2];
 
                 for (int i = 0; i < 3; ++i) {
+                    kf_ver = v_kf_ver[i];
                     f_ver = v_f_ver[i];
-                    texcoord = v_texcoord[i];
                     triIDs = ids;
                     bc     = vec3(i == 0, i == 1, i == 2);
                     gl_Position = gl_in[i].gl_Position;
@@ -1548,11 +1748,11 @@ public:
             layout(location = 4) out vec3 pids_output;
             layout(location = 5) out float r_output;
 
+            in vec3 kf_ver;
             in vec3 f_ver;
             flat in vec3 kf_ray_0;
             flat in vec3 kf_ray_1;
             flat in vec3 kf_ray_2;
-            in vec2 texcoord;
 
             smooth in vec3  bc;          // or noperspective if chosen above
             flat   in ivec3 triIDs;
@@ -1574,12 +1774,20 @@ public:
 
             uniform float fx;
             uniform float fy;
+            uniform float cx;
+            uniform float cy;
 
             uniform vec2 exposure;
 
             void main()
             {
                 // ivec2 tex_size = textureSize(f_image, f_image_lvl);
+
+                vec2 texcoord = pointToPix(kf_ver, fx, fy, cx, cy);
+                if(texcoord.x < 0.0 || texcoord.x > 1.0 || texcoord.y < 0.0 || texcoord.y > 1.0)
+                {
+                    discard;
+                }
 
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
                 float f = texelFetch(f_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).r;
@@ -1632,6 +1840,8 @@ public:
 
         fx_loc_ = glGetUniformLocation(program_, "fx");
         fy_loc_ = glGetUniformLocation(program_, "fy");
+        cx_loc_ = glGetUniformLocation(program_, "cx");
+        cy_loc_ = glGetUniformLocation(program_, "cy");
 
         kf_image_loc_ = glGetUniformLocation(program_, "kf_image");
         kf_image_nodata_loc_ = glGetUniformLocation(program_, "kf_image_nodata");
@@ -1745,7 +1955,7 @@ public:
         const GLenum bufs5[1] = {GL_COLOR_ATTACHMENT5};
         glDrawBuffers(1, bufs5);
         glClearColor(r_clear[0], r_clear[1], r_clear[2], r_clear[3]);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Restore glDrawBuffers for subsequent rendering.
         // This assumes the original setup was GL_COLOR_ATTACHMENT0 and GL_COLOR_ATTACHMENT1
         // as done in the clear_buffers function.
@@ -1796,6 +2006,8 @@ public:
 
         glUniform1f(fx_loc_, cam.GetParams()(0));
         glUniform1f(fy_loc_, cam.GetParams()(1));
+        glUniform1f(cx_loc_, cam.GetParams()(2));
+        glUniform1f(cy_loc_, cam.GetParams()(3));
 
         glUniform2f(exposure_loc_, exposure(0), exposure(1));
 
@@ -1810,6 +2022,8 @@ private:
 
     GLint fx_loc_ = -1;
     GLint fy_loc_ = -1;
+    GLint cx_loc_ = -1;
+    GLint cy_loc_ = -1;
 
     GLint kf_image_loc_ = -1;
     GLint kf_image_nodata_loc_ = -1;
