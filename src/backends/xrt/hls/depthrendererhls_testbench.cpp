@@ -67,7 +67,7 @@ int main()
                true,
                true);
 
-    linalg::SE3<float> pose;// = pose_dst * pose_src.inverse();
+    linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int lvl = 1;
 
@@ -91,7 +91,7 @@ int main()
     cv::Mat depth_out_cv = DownloadTextureToMat(depth_out_cpu, lvl);
     SaveDebugImage(depth_out_cv, "depthrenderhls_output.png");
 
-    cv::Mat depth_in_cv = DownloadTextureToMat(depth_src_cpu, lvl);
-    SaveDebugImage(depth_in_cv, "depthrenderhls_input.png");
+    cv::Mat depth_ref_cv = DownloadTextureToMat(depth_dst_cpu, lvl);
+    SaveDebugImage(depth_ref_cv, "depthrenderhls_reference.png");
 
 }

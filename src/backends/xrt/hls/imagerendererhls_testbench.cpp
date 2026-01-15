@@ -30,7 +30,8 @@ extern "C"
                         unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
-                        float fx, float fy, float cx, float cy);
+                        float fx, float fy, float cx, float cy,
+                        float exp_a, float exp_b);
 }
 
 int main()
@@ -46,23 +47,31 @@ int main()
     unsigned int w = dataset.GetWidth();
     unsigned int h = dataset.GetHeight();
 
-    float scale = 1.0f / depth_factor;
+    linalg::Vec2<float> exposure(0.0f, 0.0f);
+
+    TextureCPU<ImageType> image_src_cpu(w, h, 0);
+    TextureCPU<float> depth_src_cpu(w, h, 0);
+    TextureCPU<ImageType> image_dst_cpu(w, h, 0);
 
     cv::Mat image_src_cv = cv::imread(image_files[0], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_src_cv = cv::imread(depth_files[0], cv::IMREAD_GRAYSCALE);
     depth_src_cv.convertTo(depth_src_cv, CV_32FC1);
-    depth_src_cv = depth_src_cv * scale;
+    depth_src_cv = depth_src_cv / depth_factor;
     linalg::SE3<float> pose_src = poses[0];
 
     cv::Mat image_dst_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_dst_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
     depth_dst_cv.convertTo(depth_dst_cv, CV_32FC1);
-    depth_dst_cv = depth_dst_cv * scale;
+    depth_dst_cv = depth_dst_cv / depth_factor;
     linalg::SE3<float> pose_dst = poses[50];
+
+    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
+    UploadMatToTexture(image_src_cpu, 0, image_src_cv);
+    UploadMatToTexture(image_dst_cpu, 0, image_dst_cv);
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cv, cam, 32, vertex, indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices);
 
     std::vector<float> screen_vertex;
     std::vector<int> screen_indices;
@@ -72,9 +81,7 @@ int main()
 
     unsigned int lvl = 0;
 
-    TextureCPU<ImageType> diffuse_cpu(w, h, 0);
-    UploadMatToTexture(diffuse_cpu, 0, image_src_cv);
-    auto diffuse_map = diffuse_cpu.MapWrite(0);
+    auto diffuse_map = image_src_cpu.MapWrite(0);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
     auto image_out_map = image_out_cpu.MapWrite(0);
@@ -92,10 +99,12 @@ int main()
         w, h, 0, lvl,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
-        cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
+        cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
+        exposure(0), exposure(1));
 
     cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl);
-
-    // double depthError = ComputeImageError<float>(depth_dst_CV, output_depthCV, -1.0f);
     SaveDebugImage(image_out_cv, "imagerenderhls_output.png");
+
+    cv::Mat image_reference_cv = DownloadTextureToMat(image_dst_cpu, lvl);
+    SaveDebugImage(image_reference_cv, "imagerenderhls_reference.png");
 }
