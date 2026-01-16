@@ -14,72 +14,6 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
-static void DepthRendererRef(const TextureCPU<float> &depth_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             TextureCPU<float> &out_texture)
-{
-    out_texture.fill(out_lvl, out_texture.nodata());
-
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
-    {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
-            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
-                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
-        }
-    }
-}
-
-static void ImageRendererRef(const TextureCPU<float> &depth_texture,
-                             const TextureCPU<ImageType> &image_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             TextureCPU<ImageType> &out_texture)
-{
-    out_texture.fill(out_lvl, out_texture.nodata());
-
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
-    {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            ImageType kf = image_texture.texel_(y, x, out_lvl);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
-        }
-    }
-}
-
 template <class Base>
 class RendererBaseCPU : public RendererBase<Base>
 {
@@ -142,10 +76,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public RendererBaseCPU<DepthRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DepthRendererBase<TextureView>>
 {
 public:
-    using Base = DepthRendererBase<TextureCPU>;
+    using Base = DepthRendererBase<TextureView>;
 
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
@@ -170,7 +104,7 @@ public:
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::InTextures intextures{0};
-        Base::OutTextures outtextures{out_texture};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -189,10 +123,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBaseCPU<ImageRendererBase<TextureCPU>>
+    : public RendererBaseCPU<ImageRendererBase<TextureView>>
 {
 public:
-    using Base = ImageRendererBase<TextureCPU>;
+    using Base = ImageRendererBase<TextureView>;
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
@@ -222,8 +156,8 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{diffuse_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{diffuse_texture.MapWrite(out_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -242,10 +176,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class ResidualRendererCPU
-    : public RendererBaseCPU<ResidualRendererBase<TextureCPU>>
+    : public RendererBaseCPU<ResidualRendererBase<TextureView>>
 {
 public:
-    using Base = ResidualRendererBase<TextureCPU>;
+    using Base = ResidualRendererBase<TextureView>;
 
     ResidualRendererCPU() = default;
     ~ResidualRendererCPU() = default;
@@ -276,8 +210,8 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{kf_texture, f_texture};
-        Base::OutTextures outtextures{r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl), f_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -291,10 +225,10 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBaseCPU<DIDxyRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DIDxyRendererBase<TextureView>>
 {
 public:
-    using Base = DIDxyRendererBase<TextureCPU>;
+    using Base = DIDxyRendererBase<TextureView>;
 
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
@@ -313,8 +247,8 @@ public:
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
-        Base::InTextures intextures{in_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{in_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(in_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -328,10 +262,10 @@ private:
 };
 
 class DIDexpRendererCPU
-    : public RendererBaseCPU<DIDexpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DIDexpRendererBase<TextureView>>
 {
 public:
-    using Base = DIDexpRendererBase<TextureCPU>;
+    using Base = DIDexpRendererBase<TextureView>;
 
     DIDexpRendererCPU() = default;
     ~DIDexpRendererCPU() = default;
@@ -352,8 +286,8 @@ public:
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{in_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{in_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -473,10 +407,10 @@ private:
 };
 
 class JPoseExpRendererCPU
-    : public RendererBaseCPU<JPoseExpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseExpRendererBase<TextureView>>
 {
 public:
-    using Base = JPoseExpRendererBase<TextureCPU>;
+    using Base = JPoseExpRendererBase<TextureView>;
 
     JPoseExpRendererCPU() = default;
     ~JPoseExpRendererCPU() = default;
@@ -515,8 +449,13 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
+                                    f_texture.MapWrite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -530,10 +469,10 @@ private:
 };
 
 class JPoseVelExpRendererCPU
-    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureView>>
 {
 public:
-    using Base = JPoseVelExpRendererBase<TextureCPU>;
+    using Base = JPoseVelExpRendererBase<TextureView>;
 
     JPoseVelExpRendererCPU() = default;
     ~JPoseVelExpRendererCPU() = default;
@@ -578,8 +517,15 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jtravel_texture, jrotvel_texture, jexp_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
+                                    f_texture.MapWrite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jtravel_texture.MapWrite(out_lvl),
+                                      jrotvel_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -593,10 +539,10 @@ private:
 };
 
 class PidsRendererCPU
-    : public RendererBaseCPU<PidsRendererBase<TextureCPU>>
+    : public RendererBaseCPU<PidsRendererBase<TextureView>>
 {
 public:
-    using Base = PidsRendererBase<TextureCPU>;
+    using Base = PidsRendererBase<TextureView>;
 
     PidsRendererCPU() = default;
     ~PidsRendererCPU() = default;
@@ -621,7 +567,7 @@ public:
         uniforms.out_lvl = out_lvl;
 
         Base::InTextures intextures{0};
-        Base::OutTextures outtextures{pids_texture};
+        Base::OutTextures outtextures{pids_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -765,10 +711,10 @@ private:
 };
 
 class JMapExpRendererCPU
-    : public RendererBaseCPU<JMapExpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JMapExpRendererBase<TextureView>>
 {
 public:
-    using Base = JMapExpRendererBase<TextureCPU>;
+    using Base = JMapExpRendererBase<TextureView>;
 
     JMapExpRendererCPU() = default;
     ~JMapExpRendererCPU() = default;
@@ -807,8 +753,13 @@ public:
         uniforms.out_height = H;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jmap_texture, jexp_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
+                                    f_texture.MapWrite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jmap_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -822,10 +773,10 @@ private:
 };
 
 class JPoseExpMapRendererCPU
-    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureView>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureCPU>;
+    using Base = JPoseExpMapRendererBase<TextureView>;
 
     JPoseExpMapRendererCPU() = default;
     ~JPoseExpMapRendererCPU() = default;
@@ -866,8 +817,15 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
+                                    f_texture.MapWite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jmap_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -881,10 +839,10 @@ private:
 };
 
 class JPoseVelExpMapRendererCPU
-    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureView>>
 {
 public:
-    using Base = JPoseVelExpMapRendererBase<TextureCPU>;
+    using Base = JPoseVelExpMapRendererBase<TextureView>;
 
     JPoseVelExpMapRendererCPU() = default;
     ~JPoseVelExpMapRendererCPU() = default;
@@ -931,8 +889,17 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jtravel_texture, jrotvel_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
+                                    f_texture.MapWrite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jtravel_texture.MapWrite(out_lvl),
+                                      jrotvel_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jmap_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,

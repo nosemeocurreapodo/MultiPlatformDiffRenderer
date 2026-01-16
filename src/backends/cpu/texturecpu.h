@@ -108,18 +108,23 @@ public:
         }
     }
 
-    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(unsigned int lvl) const
+    [[nodiscard]] TextureView<const T, NoopReleaser> MapRead(unsigned int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureView<const T, NoopReleaser>(storage_.data() + L.offset, L.w,  L.h, nodata_);
     }
 
-    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(unsigned int lvl)
+    [[nodiscard]] TextureView<T, NoopReleaser> MapWrite(unsigned int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureView<T, NoopReleaser>(storage_.data() + L.offset, L.w, L.h, nodata_);
     }
 
+    // forbid mapping temporaries (view would dangle)
+    TextureView<const T> MapRead() const && = delete;
+    TextureView<T> MapWrite() && = delete;
+
+protected:
     // Read/Write a single texel (bounds-checked in debug)
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
@@ -145,7 +150,6 @@ public:
     //  storage_.data()[L.offset + address] = v;
     // }
 
-protected:
     struct Level
     {
         unsigned int offset; // element offset in storage_

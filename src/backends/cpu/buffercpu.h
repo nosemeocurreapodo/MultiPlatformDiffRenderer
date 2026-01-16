@@ -56,18 +56,19 @@ public:
 
     // -------- cross-backend style API --------
     // On CPU, Map* returns a view with a no-op releaser.
-    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead() const & noexcept
+    [[nodiscard]] BufferView<const T, NoopReleaser> MapRead() const & noexcept
     {
-        return MappedView<const T, NoopReleaser>(data_.get(), size_);
+        return BufferView<const T, NoopReleaser>(data_.get(), size_);
     }
-    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite() & noexcept
+    [[nodiscard]] BufferView<T, NoopReleaser> MapWrite() & noexcept
     {
-        return MappedView<T, NoopReleaser>(data_.get(), size_);
+        return BufferView<T, NoopReleaser>(data_.get(), size_);
     }
     // forbid mapping temporaries (view would dangle)
-    MappedView<const T> MapRead() const && = delete;
-    MappedView<T> MapWrite() && = delete;
+    BufferView<const T> MapRead() const && = delete;
+    BufferView<T> MapWrite() && = delete;
 
+private:
     T *data() noexcept { return data_.get(); }
     const T *data() const noexcept { return data_.get(); }
 
@@ -83,7 +84,6 @@ public:
         return data_.get()[i];
     }
 
-private:
     void swap(BufferCPU &o) noexcept
     {
         std::swap(data_, o.data_);

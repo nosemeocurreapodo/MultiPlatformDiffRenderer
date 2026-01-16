@@ -49,6 +49,74 @@ bool is_top_left(const Vec2<T> &v0, const Vec2<T> &v1)
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
+template <class Texture>
+static void DepthRendererRef(const Texture &depth_texture,
+                             const SE3<float> &pose,
+                             const PinholeCamera<float> &cam,
+                             int out_lvl,
+                             Texture &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
+            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            Vec3<float> kf_vec = kf_ray * kf_depth;
+            Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            Vec3<float> f_ray = f_vec / f_vec(2);
+            Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
+            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
+            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
+            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
+                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
+template <class DepthTexture, class ImageTexture>
+static void ImageRendererRef(const DepthTexture &depth_texture,
+                             const ImageTexture &image_texture,
+                             const SE3<float> &pose,
+                             const PinholeCamera<float> &cam,
+                             int out_lvl,
+                             ImageTexture &out_texture)
+{
+    out_texture.fill(out_lvl, out_texture.nodata());
+
+    for (int y = 0; y < out_texture.height(out_lvl); y++)
+    {
+        for (int x = 0; x < out_texture.width(out_lvl); x++)
+        {
+            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            ImageType kf = image_texture.texel_(y, x, out_lvl);
+            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
+            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
+            Vec3<float> kf_vec = kf_ray * kf_depth;
+            Vec3<float> f_vec = pose * kf_vec;
+            float f_depth = f_vec(2);
+            if (f_depth <= 0.0f)
+                continue;
+            Vec3<float> f_ray = f_vec / f_vec(2);
+            Vec2<float> f_pix = cam.RayToPix(f_ray);
+            if (!cam.IsPixVisible(f_pix))
+                continue;
+            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
+            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
+            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------
 // RendererBase
 // -----------------------------------------------------------------------------
@@ -563,7 +631,7 @@ public:
 //   Evout[0].screen(0)mple derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class DepthRendererBase
 {
 public:
@@ -577,7 +645,7 @@ public:
 
     struct OutTextures
     {
-        Texture<float> &out_texture;
+        TextureView<float> out_texture;
     };
 
     struct VertexData
@@ -707,7 +775,7 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class ImageRendererBase
 {
 public:
@@ -716,12 +784,12 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &in_texture;
+        const TextureView<ImageType> in_texture;
     };
 
     struct OutTextures
     {
-        Texture<ImageType> &out_texture;
+        TextureView<ImageType> out_texture;
     };
 
     struct VertexData
@@ -867,7 +935,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class ResidualRendererBase
 {
 public:
@@ -876,13 +944,13 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
     };
 
     struct OutTextures
     {
-        Texture<float> &r_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
@@ -1033,7 +1101,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class DIDxyRendererBase
 {
 public:
@@ -1042,11 +1110,11 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &in_texture;
+        const TextureView<ImageType> in_texture;
     };
     struct OutTextures
     {
-        Texture<Vec3<float>> &out_texture;
+        TextureView<Vec3<float>> out_texture;
     };
 
     struct VertexData
@@ -1332,7 +1400,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class DIDexpRendererBase
 {
 public:
@@ -1341,11 +1409,11 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &in_texture;
+        const TextureView<ImageType> in_texture;
     };
     struct OutTextures
     {
-        Texture<Vec3<float>> &out_texture;
+        TextureView<Vec3<float>> out_texture;
     };
 
     struct VertexData
@@ -1475,7 +1543,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class JPoseExpRendererBase
 {
 public:
@@ -1484,17 +1552,17 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<Vec3<float>> &dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        Texture<Vec3<float>> &jtra_texture;
-        Texture<Vec3<float>> &jrot_texture;
-        Texture<Vec3<float>> &jexp_texture;
-        Texture<float> &r_texture;
+        TextureView<Vec3<float>> jtra_texture;
+        TextureView<Vec3<float>> jrot_texture;
+        TextureView<Vec3<float>> jexp_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
@@ -1686,7 +1754,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class JPoseVelExpRendererBase
 {
 public:
@@ -1695,19 +1763,19 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<Vec3<float>> &dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        Texture<Vec3<float>> &jtra_texture;
-        Texture<Vec3<float>> &jrot_texture;
-        Texture<Vec3<float>> &jtravel_texture;
-        Texture<Vec3<float>> &jrotvel_texture;
-        Texture<Vec3<float>> &jexp_texture;
-        Texture<float> &r_texture;
+        TextureView<Vec3<float>> jtra_texture;
+        TextureView<Vec3<float>> jrot_texture;
+        TextureView<Vec3<float>> jtravel_texture;
+        TextureView<Vec3<float>> jrotvel_texture;
+        TextureView<Vec3<float>> jexp_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
@@ -1922,7 +1990,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class PidsRendererBase
 {
 public:
@@ -1936,7 +2004,7 @@ public:
 
     struct OutTextures
     {
-        Texture<Vec3<PidType>> &pids_texture;
+        TextureView<Vec3<PidType>> pids_texture;
     };
 
     struct VertexData
@@ -2053,7 +2121,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class JMapExpRendererBase
 {
 public:
@@ -2062,17 +2130,17 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<Vec3<float>> &dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        Texture<Vec3<float>> &jmap_texture;
-        Texture<Vec3<float>> &jexp_texture;
-        Texture<Vec3<PidType>> &pids_texture;
-        Texture<float> &r_texture;
+        TextureView<Vec3<float>> jmap_texture;
+        TextureView<Vec3<float>> jexp_texture;
+        TextureView<Vec3<PidType>> pids_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
@@ -2324,7 +2392,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class JPoseExpMapRendererBase
 {
 public:
@@ -2333,19 +2401,19 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<Vec3<float>> &dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        Texture<Vec3<float>> &jtra_texture;
-        Texture<Vec3<float>> &jrot_texture;
-        Texture<Vec3<float>> &jexp_texture;
-        Texture<Vec3<float>> &jmap_texture;
-        Texture<Vec3<PidType>> &pids_texture;
-        Texture<float> &r_texture;
+        TextureView<Vec3<float>> jtra_texture;
+        TextureView<Vec3<float>> jrot_texture;
+        TextureView<Vec3<float>> jexp_texture;
+        TextureView<Vec3<float>> jmap_texture;
+        TextureView<Vec3<PidType>> pids_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
@@ -2621,7 +2689,7 @@ public:
     }
 };
 
-template <template <class> class Texture>
+template <template <class> class TextureView>
 class JPoseVelExpMapRendererBase
 {
 public:
@@ -2630,21 +2698,21 @@ public:
 
     struct InTextures
     {
-        const Texture<ImageType> &kf_texture;
-        const Texture<ImageType> &f_texture;
-        const Texture<Vec3<float>> &dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        Texture<Vec3<float>> &jtra_texture;
-        Texture<Vec3<float>> &jrot_texture;
-        Texture<Vec3<float>> &jtravel_texture;
-        Texture<Vec3<float>> &jrotvel_texture;
-        Texture<Vec3<float>> &jexp_texture;
-        Texture<Vec3<float>> &jmap_texture;
-        Texture<Vec3<PidType>> &pids_texture;
-        Texture<float> &r_texture;
+        TextureView<Vec3<float>> jtra_texture;
+        TextureView<Vec3<float>> jrot_texture;
+        TextureView<Vec3<float>> jtravel_texture;
+        TextureView<Vec3<float>> jrotvel_texture;
+        TextureView<Vec3<float>> jexp_texture;
+        TextureView<Vec3<float>> jmap_texture;
+        TextureView<Vec3<PidType>> pids_texture;
+        TextureView<float> r_texture;
     };
 
     struct VertexData
