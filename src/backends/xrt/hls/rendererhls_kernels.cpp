@@ -81,11 +81,11 @@ extern "C"
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch1);
-        TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch2);
-        TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch3);
-        TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, diffuse_texture_data_ch4);
-        TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
+        TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
+        TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
+        TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
+        TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
 
         ImageRendererHLS renderer;
         renderer.Render(mesh, pose, exposure, cam, diffuse_lvl, out_lvl,
@@ -94,30 +94,30 @@ extern "C"
     }
 
     void JPoseExpMapRenderHLS(float *vertex_buffer_data,
-                                int *ebo_buffer_data,
-                                ap_uint<8> *kf_texture_data,
-                                ap_uint<8> *f_texture_data,
-                                ap_uint<8> *dkfdxy_texture_data,
-                                ap_uint<8> *jtra_texture_data,
-                                ap_uint<8> *jrot_texture_data,
-                                ap_uint<8> *jexp_texture_data,
-                                ap_uint<8> *jmap_texture_data,
-                                ap_uint<8> *pids_texture_data,   
-                                ap_uint<8> *r_texture_data,
-                                unsigned int vertex_buffer_size,
-                                unsigned int ebo_buffer_size,
-                                unsigned int in_texture_width,
-                                unsigned int in_texture_height,
-                                unsigned int in_lvl,
-                                unsigned int out_texture_width,
-                                unsigned int out_texture_height,
-                                unsigned int out_lvl,
-                                ImageType kf_nodata_value,
-                                ImageType f_nodata_value,
-                                float q_x, float q_y, float q_z, float q_w,
-                                float t_x, float t_y, float t_z,
-                                float fx, float fy, float cx, float cy,
-                                float exp_a, float exp_b)
+                              int *ebo_buffer_data,
+                              ap_uint<8> *kf_texture_data,
+                              ap_uint<8> *f_texture_data,
+                              ap_uint<8> *dkfdxy_texture_data,
+                              ap_uint<8> *jtra_texture_data,
+                              ap_uint<8> *jrot_texture_data,
+                              ap_uint<8> *jexp_texture_data,
+                              ap_uint<8> *jmap_texture_data,
+                              ap_uint<8> *pids_texture_data,
+                              ap_uint<8> *r_texture_data,
+                              unsigned int vertex_buffer_size,
+                              unsigned int ebo_buffer_size,
+                              unsigned int in_texture_width,
+                              unsigned int in_texture_height,
+                              unsigned int in_lvl,
+                              unsigned int out_texture_width,
+                              unsigned int out_texture_height,
+                              unsigned int out_lvl,
+                              ImageType kf_nodata_value,
+                              ImageType f_nodata_value,
+                              float q_x, float q_y, float q_z, float q_w,
+                              float t_x, float t_y, float t_z,
+                              float fx, float fy, float cx, float cy,
+                              float exp_a, float exp_b)
     {
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
@@ -144,15 +144,15 @@ extern "C"
         MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
                      ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> kf_texture(in_texture_width, in_texture_height, kf_nodata_value, kf_texture_data);
-        TextureRAM<ImageType> f_texture(in_texture_width, in_texture_height, f_nodata_value, f_texture_data);
-        TextureRAM<linalg::Vec3<float>> dkfdxy_texture(in_texture_width, in_texture_height, linalg::Vec3<float>(0, 0, 0), dkfdxy_texture_data);
-        TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), jtra_texture_data);
-        TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), jrot_texture_data);
-        TextureRAM<linalg::Vec3<float>> jexp_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), jexp_texture_data);
-        TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), jmap_texture_data);
-        TextureRAM<linalg::Vec3<float>> pids_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), pids_texture_data);
-        TextureRAM<float> r_texture(out_texture_width, out_texture_height, 0, r_texture_data);
+        TextureRAM<ImageType> kf_texture(in_texture_width, in_texture_height, kf_nodata_value, (ImageType *)kf_texture_data);
+        TextureRAM<ImageType> f_texture(in_texture_width, in_texture_height, f_nodata_value, (ImageType *)f_texture_data);
+        TextureRAM<linalg::Vec3<float>> dkfdxy_texture(in_texture_width, in_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)dkfdxy_texture_data);
+        TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jtra_texture_data);
+        TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jrot_texture_data);
+        TextureRAM<linalg::Vec3<float>> jexp_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jexp_texture_data);
+        TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jmap_texture_data);
+        TextureRAM<linalg::Vec3<float>> pids_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)pids_texture_data);
+        TextureRAM<float> r_texture(out_texture_width, out_texture_height, 0, (float *)r_texture_data);
 
         JPoseExpMapRendererHLS renderer;
         renderer.Render(mesh, pose, exposure, cam, in_lvl, out_lvl,

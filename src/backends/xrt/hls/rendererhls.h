@@ -115,7 +115,7 @@ public:
         renderbase_render_tiles_x_loop:
             for (int tile_x = 0; tile_x < num_tiles_x; tile_x++)
             {
-                int tile = tile_y * num_tiles_y + tile_x;
+                int tile = tile_y * num_tiles_x + tile_x;
 #pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
@@ -263,7 +263,7 @@ public:
         renderbase_render_tiles_x_loop:
             for (int tile_x = 0; tile_x < num_tiles_x; tile_x += num_buffers)
             {
-                int tile = tile_y * num_tiles_y + tile_x;
+                int tile = tile_y * num_tiles_x + tile_x;
 #pragma HLS loop_tripcount min = max_tiles_x / num_buffers max = max_tiles_x / num_buffers avg = max_tiles_x / num_buffers
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
@@ -832,11 +832,11 @@ public:
         Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
         Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
 
-         RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
-             viewport, mesh, uniforms, intextures, outtextures);
+        // RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
+        //     viewport, mesh, uniforms, intextures, outtextures);
 
-        //RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderTiledFragBuff(
-        //    viewport, mesh, uniforms, intextures, outtextures);
+        RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderTiledFragBuff(
+            viewport, mesh, uniforms, intextures, outtextures);
     }
 
 private:

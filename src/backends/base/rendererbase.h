@@ -82,6 +82,7 @@ public:
     //~RendererBase() = default;
 
 protected:
+    /*
     template <class Mesh, typename VertexData, typename Uniforms>
     static void get_vertex_data(const Mesh &mesh,
                                 VertexData *vertex_data,
@@ -112,12 +113,13 @@ protected:
             vertex_ids[i * 3 + 2] = vertexids_2;
         }
     }
+    */
 
     template <class Mesh, typename Uniforms>
     static void get_triangles(const Mesh &mesh,
                               const BoundingBox<IntType> &viewport,
                               const Uniforms &uniforms,
-                              Triangle *triangles,
+                              Triangle triangles[],
                               IntType max_num_triangles,
                               IntType &num_triangles)
     {
@@ -179,7 +181,7 @@ protected:
         }
     }
 
-    static void create_tile_viewports_(BoundingBox<IntType> *viewport_tiles, const BoundingBox<IntType> &viewport, IntType num_tiles_x, IntType num_tiles_y)
+    static void create_tile_viewports_(BoundingBox<IntType> viewport_tiles[], const BoundingBox<IntType> &viewport, IntType num_tiles_x, IntType num_tiles_y)
     {
         // #pragma HLS INLINE off
 
@@ -206,7 +208,7 @@ protected:
     }
 
     template <typename VertexData, typename Uniforms>
-    static void create_triangle_(const VertexData *vertexdata, const IntType *vertexids, const BoundingBox<IntType> &viewport, const Uniforms &uniforms, Triangle &triangle)
+    static void create_triangle_(const VertexData vertexdata[], const IntType vertexids[], const BoundingBox<IntType> &viewport, const Uniforms &uniforms, Triangle &triangle)
     {
         // #pragma HLS INLINE off
 
@@ -246,7 +248,7 @@ protected:
 
     // Triangle rasterizer (top-left rule, perspective correct)
     template <typename InTextures, typename Uniforms, typename Fragment>
-    static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
+    static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType depth_buffer[], const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[])
     {
 #pragma HLS inline
 
@@ -2412,6 +2414,8 @@ public:
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
+#pragma HLS INLINE
+
         VertexData vertexdata;
 
         IntType base = vertexid * mesh.stride_;
@@ -2431,6 +2435,8 @@ public:
                                          const Varyings &varying_px1,
                                          const Varyings &varying_px2)
     {
+#pragma HLS INLINE
+
         Varyings var_over_w_px;
         // var_over_w_px.texcoord =
         //     (w0 * varying_px0.texcoord +
@@ -2468,6 +2474,8 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
+#pragma HLS INLINE
+
         Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
                                                                      vertexdata.vertex(1),
                                                                      vertexdata.vertex(2),
@@ -2496,6 +2504,8 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
+#pragma HLS INLINE
+
         // if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
         //     in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
         //     return;
@@ -2571,7 +2581,7 @@ public:
 
     static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        // #pragma HLS INLINE
+#pragma HLS INLINE
 
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
@@ -2712,6 +2722,8 @@ public:
     template <class Mesh>
     static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
     {
+#pragma HLS inline
+
         VertexData vertexdata;
 
         IntType base = vertexid * mesh.stride_;

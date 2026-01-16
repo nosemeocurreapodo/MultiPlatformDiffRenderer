@@ -10,12 +10,11 @@ class TextureRAM
 public:
     TextureRAM() = default;
 
-    template <typename PointerType>
-    TextureRAM(unsigned int w, unsigned int h, T nodata, PointerType *base)
+    TextureRAM(unsigned int w, unsigned int h, T nodata, T *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = (T *)base;
+        storage_ = base;
     }
 
     template <typename BoundingBoxType>
