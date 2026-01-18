@@ -2,6 +2,7 @@
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/meshhls.h"
 #include "backends/xrt/hls/rendererhls.h"
+#include "backends/base/MappedView.h"
 #include "core/camera.h"
 
 extern "C"
@@ -14,7 +15,6 @@ extern "C"
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         float out_nodata_value,
-                        unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
                         float fx, float fy, float cx, float cy)
@@ -28,14 +28,18 @@ extern "C"
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
         // copy data to bram
-        MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-                     ebo_buffer_data, ebo_buffer_size);
+        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //             ebo_buffer_data, ebo_buffer_size);
+
+        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+        TextureView<float> out_texture(out_texture_data, out_texture_width, out_texture_height, out_nodata_value);
+        // TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererHLS renderer;
-        renderer.Render(mesh, pose, cam, out_lvl, out_texture);
+        renderer.Render(vertex_buffer, ebo_buffer, pose, cam, out_texture);
     }
 
     void ImageRenderHLS(float *vertex_buffer_data,
@@ -50,11 +54,9 @@ extern "C"
                         unsigned int diffuse_texture_width,
                         unsigned int diffuse_texture_height,
                         ImageType diffuse_nodata_value,
-                        unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         ImageType out_nodata_value,
-                        unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
                         float fx, float fy, float cx, float cy,
@@ -78,17 +80,41 @@ extern "C"
         linalg::Vec2<RealType> exposure(exp_a, exp_b);
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
-        MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-                     ebo_buffer_data, ebo_buffer_size);
+        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //             ebo_buffer_data, ebo_buffer_size);
+        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
-        TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
-        TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
-        TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
-        TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
+        // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
+        // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
+        // TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
+        // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
+        // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
+
+        TextureViewHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1,
+                                                   diffuse_texture_width,
+                                                   diffuse_texture_height,
+                                                   diffuse_nodata_value);
+
+        TextureViewHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2,
+                                                   diffuse_texture_width,
+                                                   diffuse_texture_height,
+                                                   diffuse_nodata_value);
+        TextureViewHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3,
+                                                   diffuse_texture_width,
+                                                   diffuse_texture_height,
+                                                   diffuse_nodata_value);
+        TextureViewHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4,
+                                                   diffuse_texture_width,
+                                                   diffuse_texture_height,
+                                                   diffuse_nodata_value);
+        TextureViewHLS<ImageType> out_texture((ImageType *)out_texture_data,
+                                           out_texture_width,
+                                           out_texture_height,
+                                           out_nodata_value);
 
         ImageRendererHLS renderer;
-        renderer.Render(mesh, pose, exposure, cam, diffuse_lvl, out_lvl,
+        renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
                         diffuse_texture_ch1, diffuse_texture_ch2, diffuse_texture_ch3, diffuse_texture_ch4,
                         out_texture);
     }
@@ -108,10 +134,8 @@ extern "C"
                               unsigned int ebo_buffer_size,
                               unsigned int in_texture_width,
                               unsigned int in_texture_height,
-                              unsigned int in_lvl,
                               unsigned int out_texture_width,
                               unsigned int out_texture_height,
-                              unsigned int out_lvl,
                               ImageType kf_nodata_value,
                               ImageType f_nodata_value,
                               float q_x, float q_y, float q_z, float q_w,
@@ -141,21 +165,23 @@ extern "C"
         linalg::Vec2<RealType> exposure(exp_a, exp_b);
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
-        MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-                     ebo_buffer_data, ebo_buffer_size);
+        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //             ebo_buffer_data, ebo_buffer_size);
+        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        TextureRAM<ImageType> kf_texture(in_texture_width, in_texture_height, kf_nodata_value, (ImageType *)kf_texture_data);
-        TextureRAM<ImageType> f_texture(in_texture_width, in_texture_height, f_nodata_value, (ImageType *)f_texture_data);
-        TextureRAM<linalg::Vec3<float>> dkfdxy_texture(in_texture_width, in_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)dkfdxy_texture_data);
-        TextureRAM<linalg::Vec3<float>> jtra_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jtra_texture_data);
-        TextureRAM<linalg::Vec3<float>> jrot_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jrot_texture_data);
-        TextureRAM<linalg::Vec3<float>> jexp_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jexp_texture_data);
-        TextureRAM<linalg::Vec3<float>> jmap_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)jmap_texture_data);
-        TextureRAM<linalg::Vec3<float>> pids_texture(out_texture_width, out_texture_height, linalg::Vec3<float>(0, 0, 0), (linalg::Vec3<float> *)pids_texture_data);
-        TextureRAM<float> r_texture(out_texture_width, out_texture_height, 0, (float *)r_texture_data);
+        TextureViewHLS<ImageType> kf_texture((ImageType *)kf_texture_data, in_texture_width, in_texture_height, kf_nodata_value);
+        TextureViewHLS<ImageType> f_texture((ImageType *)f_texture_data, in_texture_width, in_texture_height, f_nodata_value);
+        TextureViewHLS<linalg::Vec3<float>> dkfdxy_texture((linalg::Vec3<float> *)dkfdxy_texture_data, in_texture_width, in_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<linalg::Vec3<float>> jtra_texture((linalg::Vec3<float> *)jtra_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<linalg::Vec3<float>> jrot_texture((linalg::Vec3<float> *)jrot_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<linalg::Vec3<float>> jexp_texture((linalg::Vec3<float> *)jexp_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<linalg::Vec3<float>> jmap_texture((linalg::Vec3<float> *)jmap_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<linalg::Vec3<float>> pids_texture((linalg::Vec3<float> *)pids_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewHLS<float> r_texture((float *)r_texture_data, out_texture_width, out_texture_height, 0);
 
         JPoseExpMapRendererHLS renderer;
-        renderer.Render(mesh, pose, exposure, cam, in_lvl, out_lvl,
+        renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
                         kf_texture, f_texture, dkfdxy_texture,
                         jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture);
     }

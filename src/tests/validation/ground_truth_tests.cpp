@@ -65,7 +65,7 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
@@ -122,7 +122,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
@@ -187,7 +187,7 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceGTValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
@@ -246,7 +246,7 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
@@ -305,7 +305,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -375,7 +375,7 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceGTValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -440,7 +440,7 @@ TYPED_TEST_P(GroundTruthTests, ResidualValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -502,7 +502,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
     typename Traits::MeshT mesh_sceen(this->screen_vertex_, this->screen_indices_, true, true, false);
 
     typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);
@@ -625,7 +625,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, false);
     typename Traits::MeshT mesh_sceen(this->screen_vertex_, this->screen_indices_, true, true, false);
 
     typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);

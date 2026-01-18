@@ -23,11 +23,9 @@ extern "C"
                         unsigned int diffuse_texture_width,
                         unsigned int diffuse_texture_height,
                         ImageType diffuse_nodata_value,
-                        unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         ImageType out_nodata_value,
-                        unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
                         float fx, float fy, float cx, float cy,
@@ -71,7 +69,7 @@ int main()
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, true, false);
 
     std::vector<float> screen_vertex;
     std::vector<int> screen_indices;
@@ -81,10 +79,10 @@ int main()
 
     unsigned int lvl = 0;
 
-    auto diffuse_map = image_src_cpu.MapWrite(0);
+    auto diffuse_map = image_src_cpu.MapWrite(lvl);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
-    auto image_out_map = image_out_cpu.MapWrite(0);
+    auto image_out_map = image_out_cpu.MapWrite(lvl);
 
     ImageRenderHLS(
         vertex.data(),
@@ -95,8 +93,8 @@ int main()
         (ap_uint<8> *)diffuse_map.data(),
         (ap_uint<8> *)image_out_map.data(),
         vertex.size(), indices.size(),
-        w, h, 0, lvl,
-        w, h, 0, lvl,
+        image_src_cpu.width(lvl), image_src_cpu.height(lvl), 0,
+        image_out_cpu.width(lvl), image_out_cpu.height(lvl), 0,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),

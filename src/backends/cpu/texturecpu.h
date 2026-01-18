@@ -27,10 +27,11 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = BufferCPU<T>(total_size_);
-        // Fill base and all levels with nodata
-        // for (UInt lvl = 0; lvl < levels(); ++lvl)
-        //    fill(lvl, nodata);
+        data_ = std::make_unique<T[]>(total_size_);
+        // storage_ = BufferCPU<T>(total_size_);
+        //  Fill base and all levels with nodata
+        //  for (UInt lvl = 0; lvl < levels(); ++lvl)
+        //     fill(lvl, nodata);
     }
 
     // Create and upload base level
@@ -75,9 +76,24 @@ public:
         }
     }
 
+    TextureCPU(const TextureCPU &other) : TextureCPU(other.width(0), other.height(0), other.nodata())
+    {
+        std::copy_n(other.data_.get(), other.total_size_, data_.get());
+    }
+
+    TextureCPU &operator=(const TextureCPU &other)
+    {
+        if (this != &other)
+        {
+            TextureCPU tmp(other);
+            swap(tmp);
+        }
+        return *this;
+    }
+
     // Rule of 5
-    TextureCPU(const TextureCPU &) = default;
-    TextureCPU &operator=(const TextureCPU &) = default;
+    // TextureCPU(const TextureCPU &) = default;
+    // TextureCPU &operator=(const TextureCPU &) = default;
     TextureCPU(TextureCPU &&) noexcept = default;
     TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;
@@ -111,13 +127,13 @@ public:
     [[nodiscard]] TextureView<const T, NoopReleaser> MapRead(unsigned int lvl) const
     {
         const auto &L = levels_[lvl];
-        return TextureView<const T, NoopReleaser>(storage_.data() + L.offset, L.w,  L.h, nodata_);
+        return TextureView<const T, NoopReleaser>(data_.get() + L.offset, L.w, L.h, nodata_);
     }
 
     [[nodiscard]] TextureView<T, NoopReleaser> MapWrite(unsigned int lvl)
     {
         const auto &L = levels_[lvl];
-        return TextureView<T, NoopReleaser>(storage_.data() + L.offset, L.w, L.h, nodata_);
+        return TextureView<T, NoopReleaser>(data_.get() + L.offset, L.w, L.h, nodata_);
     }
 
     // forbid mapping temporaries (view would dangle)
@@ -126,6 +142,7 @@ public:
 
 protected:
     // Read/Write a single texel (bounds-checked in debug)
+    /*
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
@@ -141,6 +158,7 @@ protected:
         const auto &L = levels_[lvl];
         storage_.data()[L.offset + y * L.w + x] = v;
     }
+    */
 
     // void set_texel_(const T &v, unsigned int address, unsigned int lvl)
     // {
@@ -186,6 +204,7 @@ protected:
 
     unsigned int total_size_ = 0;
     std::vector<Level> levels_;
-    BufferCPU<T> storage_;
+    // BufferCPU<T> storage_;
+    std::unique_ptr<T[]> data_;
     T nodata_{};
 };

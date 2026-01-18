@@ -43,18 +43,21 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
+        auto vertex_map = mesh.vertex_buffer_.MapRead();
+        auto ebo_map = mesh.ebo_buffer_.MapRead();
+
         // Loop over triangles
-        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (unsigned int i = 0; i + 2 < ebo_map.size(); i += 3)
         {
             int vertexids[3];
-            vertexids[0] = mesh.ebo_buffer_[i + 0];
-            vertexids[1] = mesh.ebo_buffer_[i + 1];
-            vertexids[2] = mesh.ebo_buffer_[i + 2];
+            vertexids[0] = ebo_map[i + 0];
+            vertexids[1] = ebo_map[i + 1];
+            vertexids[2] = ebo_map[i + 2];
 
             typename Base::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(mesh, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
+            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
+            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
+            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
 
             typename RendererBase<Base>::Triangle triangle;
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
@@ -137,7 +140,7 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<ImageType> &diffuse_texture,
+                TextureCPU<ImageType> &diffuse_texture,
                 TextureCPU<ImageType> &out_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
@@ -210,7 +213,8 @@ public:
         const int H = static_cast<int>(r_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl), f_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    f_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
@@ -247,7 +251,7 @@ public:
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
-        Base::InTextures intextures{in_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{in_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{out_texture.MapWrite(in_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
@@ -286,7 +290,7 @@ public:
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{in_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{in_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
@@ -311,9 +315,9 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
-                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &kf_texture,
+                TextureCPU<ImageType> &f_texture,
+                TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<float> &r_texture)
@@ -327,6 +331,11 @@ public:
 
         TextureCPU<ImageType> image_1(W, H, 0);
         TextureCPU<ImageType> image_2(W, H, 0);
+
+        auto image_1_view = image_1.MapRead(in_lvl);
+        auto image_2_view = image_2.MapRead(in_lvl);
+        auto jtra_view = jtra_texture.MapWrite(out_lvl);
+        auto jrot_view = jrot_texture.MapWrite(out_lvl);
 
         residual_renderer.Render(mesh, pose,
                                  Vec2<float>(0.0, 0.0),
@@ -362,16 +371,16 @@ public:
                                   in_lvl, out_lvl,
                                   kf_texture, image_2);
 
-            for (int y = 0; y < image_1.height(out_lvl); y++)
+            for (int y = 0; y < image_1_view.height(); y++)
             {
-                for (int x = 0; x < image_1.width(out_lvl); x++)
+                for (int x = 0; x < image_1_view.width(); x++)
                 {
                     // ImageType kf = image_0.texel_(y, x, out_lvl);
                     // ImageType f = f_texture.texel_(y, x, out_lvl);
-                    ImageType data_1 = image_1.texel_(y, x, out_lvl);
-                    ImageType data_2 = image_2.texel_(y, x, out_lvl);
+                    ImageType data_1 = image_1_view(y, x);
+                    ImageType data_2 = image_2_view(y, x);
 
-                    if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    if (data_1 == image_1_view.nodata() || data_2 == image_2_view.nodata())
                         continue;
 
                     RealType der = -(RealType(data_1) - RealType(data_2)) / (2 * delta);
@@ -386,15 +395,15 @@ public:
 
                     if (i < 3)
                     {
-                        Vec3<float> data = jtra_texture.texel_(y, x, out_lvl);
+                        Vec3<float> data = jtra_view(y, x);
                         data(i) = der;
-                        jtra_texture.set_texel_(data, y, x, out_lvl);
+                        jtra_view(y, x) = data;
                     }
                     else
                     {
-                        Vec3<float> data = jrot_texture.texel_(y, x, out_lvl);
+                        Vec3<float> data = jrot_view(y, x);
                         data(i - 3) = der;
-                        jrot_texture.set_texel_(data, y, x, out_lvl);
+                        jrot_view(y, x) = data;
                     }
                 }
             }
@@ -449,10 +458,10 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
-        Base::OutTextures outtextures{jtra_texture.MapWite(out_lvl),
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    f_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       r_texture.MapWrite(out_lvl)};
@@ -517,9 +526,9 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    f_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jtravel_texture.MapWrite(out_lvl),
@@ -591,9 +600,9 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
-                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &kf_texture,
+                TextureCPU<ImageType> &f_texture,
+                TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture,
                 TextureCPU<float> &r_texture)
@@ -608,6 +617,11 @@ public:
         // TextureCPU<ImageType> image_0(W, H, 0);
         TextureCPU<ImageType> image_1(W, H, 0);
         TextureCPU<ImageType> image_2(W, H, 0);
+
+        auto image_1_view = image_1.MapRead(in_lvl);
+        auto image_2_view = image_2.MapRead(in_lvl);
+        auto jmap_view = jmap_texture.MapWrite(out_lvl);
+        auto pids_view = pids_texture.MapRead(out_lvl);
 
         // image_renderer.Render(mesh, pose, Vec2<float>(0.0, 0.0), cam, in_lvl, out_lvl, kf_texture, image_0);
         residual_renderer.Render(mesh,
@@ -665,16 +679,16 @@ public:
 
             set_vertices(mesh_delta, vertices);
 
-            for (int y = 0; y < image_1.height(out_lvl); y++)
+            for (int y = 0; y < image_1_view.height(); y++)
             {
-                for (int x = 0; x < image_1.width(out_lvl); x++)
+                for (int x = 0; x < image_1_view.width(); x++)
                 {
                     // ImageType f = f_texture.texel_(y, x, out_lvl);
                     // ImageType kf = image_0.texel_(y, x, out_lvl);
-                    ImageType data_1 = image_1.texel_(y, x, out_lvl);
-                    ImageType data_2 = image_2.texel_(y, x, out_lvl);
+                    ImageType data_1 = image_1_view(y, x);
+                    ImageType data_2 = image_2_view(y, x);
 
-                    if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    if (data_1 == image_1_view.nodata() || data_2 == image_2_view.nodata())
                         continue;
 
                     // RealType e = RealType(f) - RealType(kf);
@@ -686,9 +700,9 @@ public:
                     if (der == RealType(0.0))
                         continue;
 
-                    Vec3<float> data = jmap_texture.texel_(y, x, out_lvl);
+                    Vec3<float> data = jmap_view(y, x);
 
-                    Vec3<PidType> pids = pids_texture.texel_(y, x, out_lvl);
+                    Vec3<PidType> pids = pids_view(y, x);
 
                     for (int k = 0; k < 3; k++)
                     {
@@ -698,7 +712,7 @@ public:
                         }
                     }
 
-                    jmap_texture.set_texel_(data, y, x, out_lvl);
+                    jmap_view(y, x) = data;
                 }
             }
         }
@@ -753,9 +767,9 @@ public:
         uniforms.out_height = H;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    f_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jmap_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
@@ -787,9 +801,9 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
-                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &kf_texture,
+                TextureCPU<ImageType> &f_texture,
+                TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
@@ -818,7 +832,7 @@ public:
         uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWite(in_lvl),
+                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
@@ -889,9 +903,9 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    f_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jtravel_texture.MapWrite(out_lvl),

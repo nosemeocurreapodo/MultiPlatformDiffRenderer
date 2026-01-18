@@ -85,7 +85,7 @@ public:
     }
 
     // ---- Cross-backend style API ----
-    [[nodiscard]] MappedView<const T, GLUnmap> MapRead() const &
+    [[nodiscard]] BufferView<const T, GLUnmap> MapRead() const &
     {
         if (!id_)
             throw std::runtime_error("BufferGL::MapRead on empty buffer");
@@ -93,10 +93,10 @@ public:
         void *p = glMapBufferRange(Target, 0, size_ * sizeof(T), GL_MAP_READ_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(read) failed");
-        return MappedView<const T, GLUnmap>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
+        return BufferView<const T, GLUnmap>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
     }
 
-    [[nodiscard]] MappedView<T, GLUnmap> MapWrite() &
+    [[nodiscard]] BufferView<T, GLUnmap> MapWrite() &
     {
         if (!id_)
             throw std::runtime_error("BufferGL::MapWrite on empty buffer");
@@ -105,7 +105,7 @@ public:
                                    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(write) failed");
-        return MappedView<T, GLUnmap>(static_cast<T *>(p), size_, GLUnmap{id_, Target});
+        return BufferView<T, GLUnmap>(static_cast<T *>(p), size_, GLUnmap{id_, Target});
     }
 
     std::size_t size() const noexcept { return size_; }

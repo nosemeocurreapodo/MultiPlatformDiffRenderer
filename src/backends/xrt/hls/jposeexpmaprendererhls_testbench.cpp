@@ -26,10 +26,8 @@ extern "C"
                               unsigned int ebo_buffer_size,
                               unsigned int in_texture_width,
                               unsigned int in_texture_height,
-                              unsigned int in_lvl,
                               unsigned int out_texture_width,
                               unsigned int out_texture_height,
-                              unsigned int out_lvl,
                               ImageType kf_nodata_value,
                               ImageType f_nodata_value,
                               float q_x, float q_y, float q_z, float q_w,
@@ -54,7 +52,7 @@ int main()
     linalg::Vec2<float> exposure(0.0f, 0.0f);
 
     TextureCPU<ImageType> image_src_cpu(w, h, 0);
-    TextureCPU<Vec3<float>> didxy_src_cpu(w, h, Vec3<float>(1, 1, 1));
+    TextureCPU<Vec3<float>> didxy_src_cpu(w, h, Vec3<float>(0, 0, 0));
     TextureCPU<float> depth_src_cpu(w, h, 0);
     TextureCPU<ImageType> image_dst_cpu(w, h, 0);
 
@@ -76,15 +74,15 @@ int main()
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, true, false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int lvl = 0;
 
-    auto kf_map = image_src_cpu.MapWrite(0);
-    auto f_map = image_dst_cpu.MapWrite(0);
-    auto didxy_map = didxy_src_cpu.MapWrite(0);
+    auto kf_map = image_src_cpu.MapWrite(lvl);
+    auto f_map = image_dst_cpu.MapWrite(lvl);
+    auto didxy_map = didxy_src_cpu.MapWrite(lvl);
 
     TextureCPU<Vec3<float>> jtra_texture_cpu(w, h, Vec3<float>(0, 0, 0));
     TextureCPU<Vec3<float>> jrot_texture_cpu(w, h, Vec3<float>(0, 0, 0));
@@ -93,12 +91,12 @@ int main()
     TextureCPU<Vec3<float>> pids_texture_cpu(w, h, Vec3<float>(0, 0, 0));
     TextureCPU<float> r_texture_cpu(w, h, 0);
 
-    auto jtra_map = jtra_texture_cpu.MapWrite(0);
-    auto jrot_map = jrot_texture_cpu.MapWrite(0);
-    auto jexp_map = jexp_texture_cpu.MapWrite(0);
-    auto jmap_map = jmap_texture_cpu.MapWrite(0);
-    auto pids_map = pids_texture_cpu.MapWrite(0);
-    auto r_map = r_texture_cpu.MapWrite(0);
+    auto jtra_map = jtra_texture_cpu.MapWrite(lvl);
+    auto jrot_map = jrot_texture_cpu.MapWrite(lvl);
+    auto jexp_map = jexp_texture_cpu.MapWrite(lvl);
+    auto jmap_map = jmap_texture_cpu.MapWrite(lvl);
+    auto pids_map = pids_texture_cpu.MapWrite(lvl);
+    auto r_map = r_texture_cpu.MapWrite(lvl);
 
     JPoseExpMapRenderHLS(
         vertex.data(),
@@ -113,8 +111,8 @@ int main()
         (ap_uint<8> *)pids_map.data(),
         (ap_uint<8> *)r_map.data(),
         vertex.size(), indices.size(),
-        w, h, lvl,
-        w, h, lvl,
+        image_src_cpu.width(lvl), image_src_cpu.height(lvl),
+        image_src_cpu.width(lvl), image_src_cpu.height(lvl),
         image_src_cpu.nodata(),
         image_dst_cpu.nodata(),
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),

@@ -136,7 +136,7 @@ public:
     // TextureGL(const TextureGL &) = delete;
     // TextureGL &operator=(const TextureGL &) = delete;
 
-    [[nodiscard]] MappedView<const T, GLPboUnmap> MapRead(int lvl) const
+    [[nodiscard]] TextureView<const T, GLPboUnmap> MapRead(int lvl) const
     {
         const GLsizeiptr bytes = GLsizeiptr(width(lvl) * height(lvl)) * GLsizeiptr(sizeof(T));
         GLuint pbo = 0;
@@ -156,10 +156,10 @@ public:
             throw std::runtime_error("MapRead PBO failed");
         }
 
-        return {static_cast<const T *>(ptr), width(lvl) * height(lvl), GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
+        return {static_cast<const T *>(ptr), width(lvl), height(lvl), nodata_, GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
     }
 
-    [[nodiscard]] MappedView<T, GLPboUpload> MapWrite(int lvl)
+    [[nodiscard]] TextureView<T, GLPboUpload> MapWrite(int lvl)
     {
         const GLsizei w = GLsizei(width(lvl));
         const GLsizei h = GLsizei(height(lvl));
@@ -189,7 +189,7 @@ public:
             throw std::runtime_error("MapWrite PBO failed");
         }
 
-        return {static_cast<T *>(ptr), width(lvl) * height(lvl),
+        return {static_cast<T *>(ptr), width(lvl), height(lvl), nodata_,
                 GLPboUpload{tex_, GL_TEXTURE_2D, lvl, 0, 0, w, h, format_, T_, pbo}};
     }
 

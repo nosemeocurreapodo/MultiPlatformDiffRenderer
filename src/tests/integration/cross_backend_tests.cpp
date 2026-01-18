@@ -161,8 +161,8 @@ TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
@@ -228,8 +228,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
 
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<ImageType> input_cpu(w_, h_, 0);
     TextureCPU<ImageType> output_cpu(w_, h_, 0);
@@ -303,8 +303,8 @@ TEST_F(CrossBackendTests, ResidualRenderingComparison)
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
 
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<ImageType> input1_cpu(w_, h_, 0);
     TextureCPU<ImageType> input2_cpu(w_, h_, 0);
@@ -529,9 +529,9 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, true, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
     MeshGL mesh_img_gl(screen_vertex_, screen_indices_, true, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<ImageType> f_cpu(w_, h_, 0);
@@ -665,9 +665,9 @@ TEST_F(CrossBackendTests, JMapPipelineComparison)
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, true, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
     MeshGL mesh_img_gl(screen_vertex_, screen_indices_, true, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<ImageType> f_cpu(w_, h_, 0);
@@ -800,9 +800,9 @@ TEST_F(CrossBackendTests, JPoseMapPipelineComparison)
 
     // CPU pipeline
     MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, true, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, true, true);
+    MeshCPU mesh_cpu(vertex_, indices_, true, true, false);
     MeshGL mesh_img_gl(screen_vertex_, screen_indices_, true, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, true, true);
+    MeshGL mesh_gl(vertex_, indices_, true, true, false);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<ImageType> f_cpu(w_, h_, 0);

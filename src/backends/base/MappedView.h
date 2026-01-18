@@ -11,11 +11,14 @@ class BufferView
 {
 public:
     BufferView(T *p, std::size_t n, Releaser r = {}) noexcept
-        : ptr_(p), n_(n), rel_(std::move(r)) {}
-    BufferView(const BufferView &) = delete;
-    BufferView &operator=(const BufferView &) = delete;
-    BufferView(BufferView &&) noexcept = default;
-    BufferView &operator=(BufferView &&) noexcept = default;
+        //    : ptr_(p), n_(n), rel_(std::move(r)) {}
+        : ptr_(p), n_(n), rel_(r)
+    {
+    }
+    // BufferView(const BufferView &) = delete;
+    // BufferView &operator=(const BufferView &) = delete;
+    // BufferView(BufferView &&) noexcept = default;
+    // BufferView &operator=(BufferView &&) noexcept = default;
     ~BufferView() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
@@ -39,11 +42,14 @@ class TextureView
 {
 public:
     TextureView(T *p, std::size_t width, std::size_t height, T nodata, Releaser r = {}) noexcept
-        : ptr_(p), width_(width), height_(height), nodata_(nodata), rel_(std::move(r)) {}
-    TextureView(const TextureView &) = delete;
-    TextureView &operator=(const TextureView &) = delete;
-    TextureView(TextureView &&) noexcept = default;
-    TextureView &operator=(TextureView &&) noexcept = default;
+        //    : ptr_(p), width_(width), height_(height), nodata_(nodata), rel_(std::move(r)) {}
+        : ptr_(p), width_(width), height_(height), nodata_(nodata), rel_(r)
+    {
+    }
+    // TextureView(const TextureView &) = delete;
+    // TextureView &operator=(const TextureView &) = delete;
+    // TextureView(TextureView &&) noexcept = default;
+    // TextureView &operator=(TextureView &&) noexcept = default;
     ~TextureView() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
@@ -56,10 +62,11 @@ public:
     }
     T &operator()(std::size_t y, std::size_t x) const noexcept
     {
-        assert(y >= 0 && < y < height_ && x >= 0 && x < width_);
-        return ptr_[y * width + +x];
+        assert(y >= 0 && y < height_ && x >= 0 && x < width_);
+        return ptr_[y * width_ + +x];
     }
 
+    std::size_t size() const noexcept { return width_ * height_; }
     std::size_t width() const { return width_; }
     std::size_t height() const { return height_; }
     const T &nodata() const { return nodata_; }

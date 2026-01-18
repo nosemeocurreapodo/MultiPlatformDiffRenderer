@@ -1,5 +1,10 @@
 #pragma once
 
+#include "backends/base/MappedView.h"
+
+template <typename T>
+using BufferViewHLS = BufferView<T>;
+
 template <typename T>
 class BufferRAM
 {

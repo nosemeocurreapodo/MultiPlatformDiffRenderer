@@ -1,8 +1,12 @@
 #pragma once
 
 #include "backends/xrt/hls/bufferhls.h"
+#include "backends/base/MappedView.h"
 #include "core/boundingbox.h"
 #include <ap_int.h>
+
+template <typename T>
+using TextureViewHLS = TextureView<T>;
 
 template <class T>
 class TextureRAM

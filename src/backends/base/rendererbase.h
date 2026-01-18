@@ -58,11 +58,14 @@ static void DepthRendererRef(const Texture &depth_texture,
 {
     out_texture.fill(out_lvl, out_texture.nodata());
 
+    auto depth_map = depth_texture.MapRead(out_lvl);
+    auto out_map = out_texture.MapWrite(out_lvl);
+
     for (int y = 0; y < out_texture.height(out_lvl); y++)
     {
         for (int x = 0; x < out_texture.width(out_lvl); x++)
         {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
+            float kf_depth = depth_map(y, x);
             Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
             Vec3<float> kf_ray = cam.PixToRay(kf_pix);
             Vec3<float> kf_vec = kf_ray * kf_depth;
@@ -76,9 +79,9 @@ static void DepthRendererRef(const Texture &depth_texture,
                 continue;
             f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
             f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
+            float prev_depth = out_map(f_pix(1), f_pix(0));
             if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
-                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
+                out_map(f_pix(1), f_pix(0)) = f_depth;
         }
     }
 }
@@ -93,12 +96,16 @@ static void ImageRendererRef(const DepthTexture &depth_texture,
 {
     out_texture.fill(out_lvl, out_texture.nodata());
 
+    auto depth_map = depth_texture.MapRead(out_lvl);
+    auto image_map = image_texture.MapRead(out_lvl);
+    auto out_map = out_texture.MapWrite(out_lvl);
+
     for (int y = 0; y < out_texture.height(out_lvl); y++)
     {
         for (int x = 0; x < out_texture.width(out_lvl); x++)
         {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            ImageType kf = image_texture.texel_(y, x, out_lvl);
+            float kf_depth = depth_map(y, x);
+            ImageType kf = image_map(y, x);
             Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
             Vec3<float> kf_ray = cam.PixToRay(kf_pix);
             Vec3<float> kf_vec = kf_ray * kf_depth;
@@ -112,7 +119,7 @@ static void ImageRendererRef(const DepthTexture &depth_texture,
                 continue;
             f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
             f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
+            out_map(f_pix(1), f_pix(0)) = kf;
         }
     }
 }
@@ -183,13 +190,15 @@ protected:
     }
     */
 
-    template <class Mesh, typename Uniforms>
-    static void get_triangles(const Mesh &mesh,
-                              const BoundingBox<IntType> &viewport,
-                              const Uniforms &uniforms,
-                              Triangle triangles[],
-                              IntType max_num_triangles,
-                              IntType &num_triangles)
+    template <typename VertexBufferView, typename EboBufferView, typename Uniforms>
+    static void get_triangles_(const VertexBufferView &vertex_buffer,
+                               const EboBufferView &ebo_buffer,
+                               const BoundingBox<IntType> &viewport,
+                               const BoundingBox<IntType> &tile_viewport,
+                               const Uniforms &uniforms,
+                               Triangle triangles[],
+                               IntType max_num_triangles,
+                               IntType &num_triangles)
     {
         // #pragma HLS INLINE off
 
@@ -197,7 +206,7 @@ protected:
 
         // Loop over triangles
     renderbase_render_triangles_loop:
-        for (IntType i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (IntType i = 0; i + 2 < ebo_buffer.size(); i += 3)
         {
 
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
@@ -205,15 +214,15 @@ protected:
 
             IntType vertexids[3];
 
-            vertexids[0] = mesh.ebo_buffer_[i + 0];
-            vertexids[1] = mesh.ebo_buffer_[i + 1];
-            vertexids[2] = mesh.ebo_buffer_[i + 2];
+            vertexids[0] = ebo_buffer[i + 0];
+            vertexids[1] = ebo_buffer[i + 1];
+            vertexids[2] = ebo_buffer[i + 2];
 
             typename Derived::VertexData vertexdata[3];
 
-            vertexdata[0] = Derived::get_vertex_data(mesh, vertexids[0]);
-            vertexdata[1] = Derived::get_vertex_data(mesh, vertexids[1]);
-            vertexdata[2] = Derived::get_vertex_data(mesh, vertexids[2]);
+            vertexdata[0] = Derived::get_vertex_data(vertex_buffer, vertexids[0]);
+            vertexdata[1] = Derived::get_vertex_data(vertex_buffer, vertexids[1]);
+            vertexdata[2] = Derived::get_vertex_data(vertex_buffer, vertexids[2]);
 
             Triangle triangle;
 
@@ -229,18 +238,22 @@ protected:
             // Triangle bounding box (float → int, clamp to viewport)
             BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
+            if (tri_bb.max_x_ < tile_viewport.min_x_ || tri_bb.min_x_ > tile_viewport.max_x_ ||
+                tri_bb.max_y_ < tile_viewport.min_y_ || tri_bb.min_y_ > tile_viewport.max_y_)
+                continue;
+
             // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
             // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
             // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
             // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
-            IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(tri_bb.min_x_));
-            IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
-            IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(tri_bb.min_y_));
-            IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
+            // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(tri_bb.min_x_));
+            // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
+            // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(tri_bb.min_y_));
+            // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
 
-            if (viewport_min_x >= viewport_max_x || viewport_min_y >= viewport_max_y)
-                continue;
+            // if (viewport_min_x >= viewport_max_x || viewport_min_y >= viewport_max_y)
+            //     continue;
 
             triangles[num_triangles] = triangle;
             num_triangles++;
@@ -651,7 +664,7 @@ public:
     struct VertexData
     {
         Vec3<RealType> vertex;
-        Vec2<RealType> texcoord;
+        // Vec2<RealType> texcoord;
     };
 
     struct Uniforms
@@ -678,19 +691,19 @@ public:
         return Fragment{RealType(textures.out_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
 #pragma HLS INLINE
 
         VertexData vertexdata;
-        IntType base = vertexid * mesh.stride_ + mesh.pos_offset_;
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + 2];
+        IntType base = vertexid * 5;
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
+        // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
 
         return vertexdata;
     }
@@ -745,7 +758,7 @@ public:
         fragment.depth = depth;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment fragment_buffer[], const Uniforms &uniforms)
     {
         // #pragma HLS INLINE
 
@@ -764,7 +777,7 @@ public:
                 IntType address = iy * tex_bb.width_ + ix;
 
                 RealType depth = fragment_buffer[address].depth;
-                textures.out_texture.set_texel_(depth, y, x, uniforms.out_lvl);
+                textures.out_texture(y, x) = depth;
             }
         }
     }
@@ -784,7 +797,7 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> in_texture;
+        TextureView<ImageType> in_texture;
     };
 
     struct OutTextures
@@ -826,18 +839,18 @@ public:
         return Fragment{RealType(textures.out_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const unsigned int vertexid)
     {
 #pragma HLS inline
 
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -905,7 +918,7 @@ public:
             return;
         }
 
-        RealType pix = sample(intextures.in_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        RealType pix = sample<RealType, TextureView>(intextures.in_texture, texcoord(1), texcoord(0));
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -929,7 +942,7 @@ public:
                 IntType address = iy * tex_bb.width_ + ix;
 
                 ImageType color = fragment_buffer[address].color;
-                textures.out_texture.set_texel_(color, y, x, uniforms.out_lvl);
+                textures.out_texture(y, x) = color;
             }
         }
     }
@@ -944,8 +957,8 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
+        const TextureView<const ImageType> kf_texture;
+        const TextureView<const ImageType> f_texture;
     };
 
     struct OutTextures
@@ -988,16 +1001,16 @@ public:
         return Fragment{RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -1062,8 +1075,8 @@ public:
             return;
 
         // RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
         if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata())
@@ -1095,7 +1108,7 @@ public:
                 IntType address = iy * tex_bb.width_ + ix;
 
                 RealType error = fragment_buffer[address].error;
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.r_texture(y, x) = error;
             }
         }
     }
@@ -1110,7 +1123,7 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> in_texture;
+        const TextureView<const ImageType> in_texture;
     };
     struct OutTextures
     {
@@ -1145,15 +1158,15 @@ public:
         return Fragment{Vec3<RealType>(textures.out_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        vertexdata.texcoord(0) = vertex_buffer[base + 0];
+        vertexdata.texcoord(1) = vertex_buffer[base + 1];
 
         return vertexdata;
     }
@@ -1195,8 +1208,8 @@ public:
             in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
             return;
 
-        IntType height = intextures.in_texture.height(uniforms.in_lvl);
-        IntType width = intextures.in_texture.width(uniforms.in_lvl);
+        IntType height = intextures.in_texture.height();
+        IntType width = intextures.in_texture.width();
         ImageType nodata = intextures.in_texture.nodata();
 
         // if(in_varying.texcoord(0) > 0.5)
@@ -1222,11 +1235,11 @@ public:
             return;
         }
 
-        ImageType f = intextures.in_texture.texel_(y, x, uniforms.in_lvl);
-        ImageType f_y_p = intextures.in_texture.texel_(y_p, x, uniforms.in_lvl);
-        ImageType f_y_m = intextures.in_texture.texel_(y_m, x, uniforms.in_lvl);
-        ImageType f_x_p = intextures.in_texture.texel_(y, x_p, uniforms.in_lvl);
-        ImageType f_x_m = intextures.in_texture.texel_(y, x_m, uniforms.in_lvl);
+        ImageType f = intextures.in_texture(y, x);
+        ImageType f_y_p = intextures.in_texture(y_p, x);
+        ImageType f_y_m = intextures.in_texture(y_m, x);
+        ImageType f_x_p = intextures.in_texture(y, x_p);
+        ImageType f_x_m = intextures.in_texture(y, x_m);
         // ImageType f_y_pp = intextures.in_texture.texel_(y_pp, x, uniforms.in_lvl);
         // ImageType f_y_mm = intextures.in_texture.texel_(y_mm, x, uniforms.in_lvl);
         // mageType f_x_pp = intextures.in_texture.texel_(y, x_pp, uniforms.in_lvl);
@@ -1394,7 +1407,7 @@ public:
 
                 Vec3<RealType> didxy = fragment_buffer[address].didxy;
 
-                textures.out_texture.set_texel_(didxy, y, x, uniforms.out_lvl);
+                textures.out_texture(y, x) = didxy;
             }
         }
     }
@@ -1409,7 +1422,7 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> in_texture;
+        const TextureView<const ImageType> in_texture;
     };
     struct OutTextures
     {
@@ -1445,15 +1458,15 @@ public:
         return Fragment{Vec3<RealType>(textures.out_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
-        vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
+        vertexdata.texcoord(0) = vertex_buffer[base + 0];
+        vertexdata.texcoord(1) = vertex_buffer[base + 1];
 
         return vertexdata;
     }
@@ -1495,14 +1508,14 @@ public:
             in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
             return;
 
-        IntType height = intextures.in_texture.height(uniforms.in_lvl);
-        IntType width = intextures.in_texture.width(uniforms.in_lvl);
+        IntType height = intextures.in_texture.height();
+        IntType width = intextures.in_texture.width();
         ImageType nodata = intextures.in_texture.nodata();
 
         IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
         IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
 
-        ImageType f = intextures.in_texture.texel_(y, x, uniforms.in_lvl);
+        ImageType f = intextures.in_texture(y, x);
 
         if (f == intextures.in_texture.nodata())
             return;
@@ -1537,7 +1550,7 @@ public:
 
                 Vec3<RealType> didexp = fragment_buffer[address].didexp;
 
-                textures.out_texture.set_texel_(didexp, y, x, uniforms.out_lvl);
+                textures.out_texture(y, x) = didexp;
             }
         }
     }
@@ -1552,9 +1565,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureView<const ImageType> kf_texture;
+        const TextureView<const ImageType> f_texture;
+        const TextureView<const Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -1610,16 +1623,16 @@ public:
                         RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -1694,10 +1707,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1745,10 +1758,10 @@ public:
                 Vec3<RealType> jexp = fragment_buffer[address].jexp;
                 RealType error = fragment_buffer[address].r;
 
-                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
-                textures.jexp_texture.set_texel_(jexp, y, x, uniforms.out_lvl);
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.jtra_texture(y, x) = jtra;
+                textures.jrot_texture(y, x) = jrot;
+                textures.jexp_texture(y, x) = jexp;
+                textures.r_texture(y, x) = error;
             }
         }
     }
@@ -1763,9 +1776,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureView<const ImageType> kf_texture;
+        const TextureView<const ImageType> f_texture;
+        const TextureView<const Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -1830,16 +1843,16 @@ public:
                         RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -1921,10 +1934,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1979,12 +1992,12 @@ public:
                 Vec3<RealType> jexp = fragment_buffer[address].jexp;
                 RealType error = fragment_buffer[address].r;
 
-                textures.jtra_texture.set_texel_(jtra, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot, y, x, uniforms.out_lvl);
-                textures.jtravel_texture.set_texel_(jtravel, y, x, uniforms.out_lvl);
-                textures.jrotvel_texture.set_texel_(jrotvel, y, x, uniforms.out_lvl);
-                textures.jexp_texture.set_texel_(jexp, y, x, uniforms.out_lvl);
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.jtra_texture(y, x) = jtra;
+                textures.jrot_texture(y, x) = jrot;
+                textures.jtravel_texture(y, x) = jtravel;
+                textures.jrotvel_texture(y, x) = jrotvel;
+                textures.jexp_texture(y, x) = jexp;
+                textures.r_texture(y, x) = error;
             }
         }
     }
@@ -2042,16 +2055,16 @@ public:
         return Fragment{Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2))};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         return vertexdata;
     }
@@ -2115,7 +2128,7 @@ public:
 
                 Vec3<IntType> pids = fragment_buffer[address].pids;
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
+                textures.pids_texture(y, x) = pids_out;
             }
         }
     }
@@ -2130,9 +2143,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureView<const ImageType> kf_texture;
+        const TextureView<const ImageType> f_texture;
+        const TextureView<const Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -2200,16 +2213,16 @@ public:
                         RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -2313,10 +2326,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2383,10 +2396,10 @@ public:
                 Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
-                textures.jexp_texture.set_texel_(jexp_out, y, x, uniforms.out_lvl);
-                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.jmap_texture(y, x) = jmap_out;
+                textures.jexp_texture(y, x) = jexp_out;
+                textures.pids_texture(y, x) = pids_out;
+                textures.r_texture(y, x) = error;
             }
         }
     }
@@ -2401,9 +2414,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        TextureView<ImageType> kf_texture;
+        TextureView<ImageType> f_texture;
+        TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -2479,18 +2492,18 @@ public:
                         RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
     {
 #pragma HLS INLINE
 
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -2600,10 +2613,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample<RealType, TextureView>(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //    return;
@@ -2678,12 +2691,12 @@ public:
                 Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
-                textures.jexp_texture.set_texel_(jexp_out, y, x, uniforms.out_lvl);
-                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
-                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.jtra_texture(y, x) = jtra_out;
+                textures.jrot_texture(y, x) = jrot_out;
+                textures.jexp_texture(y, x) = jexp_out;
+                textures.jmap_texture(y, x) = jmap_out;
+                textures.pids_texture(y, x) = pids_out;
+                textures.r_texture(y, x) = error;
             }
         }
     }
@@ -2698,9 +2711,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<ImageType> f_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureView<const ImageType> kf_texture;
+        const TextureView<const ImageType> f_texture;
+        const TextureView<const Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -2787,18 +2800,18 @@ public:
                         RealType(textures.r_texture.nodata())};
     }
 
-    template <class Mesh>
-    static VertexData get_vertex_data(const Mesh &mesh, const IntType vertexid)
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &verte_buffer, const IntType vertexid)
     {
 #pragma HLS inline
 
         VertexData vertexdata;
 
-        IntType base = vertexid * mesh.stride_;
+        IntType base = vertexid * 5;
 
-        vertexdata.vertex(0) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[base + mesh.pos_offset_ + 2];
+        vertexdata.vertex(0) = verte_buffer[base + 0];
+        vertexdata.vertex(1) = verte_buffer[base + 1];
+        vertexdata.vertex(2) = verte_buffer[base + 2];
 
         // vertexdata.texcoord(0) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 0];
         // vertexdata.texcoord(1) = mesh.vertex_buffer_[base + mesh.tex_offset_ + 1];
@@ -2909,10 +2922,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
-        ImageType f = intextures.f_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0), uniforms.in_lvl);
+        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2996,14 +3009,14 @@ public:
                 Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
                 Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-                textures.jtra_texture.set_texel_(jtra_out, y, x, uniforms.out_lvl);
-                textures.jrot_texture.set_texel_(jrot_out, y, x, uniforms.out_lvl);
-                textures.jtravel_texture.set_texel_(jtravel_out, y, x, uniforms.out_lvl);
-                textures.jrotvel_texture.set_texel_(jrotvel_out, y, x, uniforms.out_lvl);
-                textures.jexp_texture.set_texel_(jexp_out, y, x, uniforms.out_lvl);
-                textures.jmap_texture.set_texel_(jmap_out, y, x, uniforms.out_lvl);
-                textures.pids_texture.set_texel_(pids_out, y, x, uniforms.out_lvl);
-                textures.r_texture.set_texel_(error, y, x, uniforms.out_lvl);
+                textures.jtra_texture(y, x) = jtra_out;
+                textures.jrot_texture(y, x) = jrot_out;
+                textures.jtravel_texture(y, x) = jtravel_out;
+                textures.jrotvel_texture(y, x) = jrotvel_out;
+                textures.jexp_texture(y, x) = jexp_out;
+                textures.jmap_texture(y, x) = jmap_out;
+                textures.pids_texture(y, x) = pids_out;
+                textures.r_texture(y, x) = error;
             }
         }
     }

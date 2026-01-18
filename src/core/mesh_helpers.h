@@ -78,9 +78,9 @@ static void CreateMesh(const Texture &depth,
                        PinholeCamera<float> &cam, int grid_size,
                        std::vector<float> &vertex,
                        std::vector<int> &indices,
-                       bool add_pos = true,
-                       bool add_tex = true,
-                       bool add_normal = true)
+                       bool add_pos,
+                       bool add_tex,
+                       bool add_normal)
 {
     std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, 0.0, 0.0, 1.0, 1.0);
 
@@ -222,9 +222,9 @@ static void CreateFlatMesh(float min_depth, float max_depth,
                            PinholeCamera<float> &cam, int grid_size,
                            std::vector<float> &vertex,
                            std::vector<int> &indices,
-                           bool add_pos = true,
-                           bool add_tex = true,
-                           bool add_normal = true)
+                           bool add_pos,
+                           bool add_tex,
+                           bool add_normal)
 {
     std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
 
