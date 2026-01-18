@@ -445,8 +445,8 @@ TYPED_TEST_P(GroundTruthTests, ResidualValidation)
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
 
-    typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
-    typename Traits::template TextureT<ImageType> reference(this->w_, this->h_, -1);
+    typename Traits::template TextureT<float> output(this->w_, this->h_, 0);
+    typename Traits::template TextureT<float> reference(this->w_, this->h_, -1);
 
     UploadMatToTexture(input_depth, 0, this->depth_src_cv_);
     UploadMatToTexture(input_image, 0, this->image_src_cv_);

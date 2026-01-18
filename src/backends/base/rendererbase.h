@@ -238,8 +238,10 @@ protected:
             // Triangle bounding box (float → int, clamp to viewport)
             BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
-            if (tri_bb.max_x_ < tile_viewport.min_x_ || tri_bb.min_x_ > tile_viewport.max_x_ ||
-                tri_bb.max_y_ < tile_viewport.min_y_ || tri_bb.min_y_ > tile_viewport.max_y_)
+            if (tri_bb.max_x_ < RealType(tile_viewport.min_x_) ||
+                tri_bb.min_x_ > RealType(tile_viewport.max_x_) ||
+                tri_bb.max_y_ < RealType(tile_viewport.min_y_) ||
+                tri_bb.min_y_ > RealType(tile_viewport.max_y_))
                 continue;
 
             // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
@@ -918,7 +920,10 @@ public:
             return;
         }
 
-        RealType pix = sample<RealType, TextureView>(intextures.in_texture, texcoord(1), texcoord(0));
+        RealType pix = sample<RealType, TextureView<ImageType>>(intextures.in_texture,
+                                                                texcoord(1), texcoord(0),
+                                                                AddressMode::Clamp,
+                                                                FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -957,8 +962,8 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> kf_texture;
-        const TextureView<const ImageType> f_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
     };
 
     struct OutTextures
@@ -1075,7 +1080,8 @@ public:
             return;
 
         // RealType kf = sample(intextures.kf_texture, in_varying.texcoord(1), in_varying.texcoord(0), uniforms.in_lvl);
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+                                                               texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // float f = f_texture_->sample_(screen_tevout[2].screen(0)oord(1), screen_tevout[2].screen(0)oord(0), in_lvl_);
 
@@ -1565,9 +1571,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> kf_texture;
-        const TextureView<const ImageType> f_texture;
-        const TextureView<const Vec3<float>> dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -1707,10 +1713,11 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+                                                               texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1776,9 +1783,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> kf_texture;
-        const TextureView<const ImageType> f_texture;
-        const TextureView<const Vec3<float>> dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -1934,10 +1941,11 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+                                                               texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2143,9 +2151,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> kf_texture;
-        const TextureView<const ImageType> f_texture;
-        const TextureView<const Vec3<float>> dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -2326,10 +2334,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2613,10 +2621,11 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView>(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+                                                               texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //    return;
@@ -2711,9 +2720,9 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> kf_texture;
-        const TextureView<const ImageType> f_texture;
-        const TextureView<const Vec3<float>> dfdxy_texture;
+        const TextureView<ImageType> kf_texture;
+        const TextureView<ImageType> f_texture;
+        const TextureView<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
@@ -2922,10 +2931,11 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+                                                               texcoord(1), texcoord(0));
         ImageType f = intextures.f_texture(gl_FragCoord(1), gl_FragCoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;

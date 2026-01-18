@@ -29,8 +29,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<IntType> &viewport,
-                     const BufferViewHLS<RealType> &vertex_buffer,
-                     const BufferViewHLS<IntType> &ebo_buffer,
+                     const BufferViewHLS<float> &vertex_buffer,
+                     const BufferViewHLS<int> &ebo_buffer,
                      const Uniforms &uniforms,
                      const InTextures &intextures,
                      OutTextures &outtextures)
@@ -81,8 +81,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff(const BoundingBox<IntType> &viewport,
-                             const BufferViewHLS<RealType> &vertex_buffer,
-                             const BufferViewHLS<IntType> &ebo_buffer,
+                             const BufferViewHLS<float> &vertex_buffer,
+                             const BufferViewHLS<int> &ebo_buffer,
                              const Uniforms &uniforms,
                              const InTextures &intextures,
                              OutTextures &outtextures)
@@ -191,8 +191,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff2(const BoundingBox<IntType> &viewport,
-                              const BufferViewHLS<RealType> &vertex_buffer,
-                              const BufferViewHLS<IntType> &ebo_buffer,
+                              const BufferViewHLS<float> &vertex_buffer,
+                              const BufferViewHLS<int> &ebo_buffer,
                               const Uniforms &uniforms,
                               const InTextures &intextures,
                               OutTextures &outtextures)
@@ -621,8 +621,8 @@ public:
     // DepthRendererHLS() = default;
     //~DepthRendererHLS() = default;
 
-    void Render(const BufferViewHLS<RealType> &vertex_buffer,
-                const BufferViewHLS<IntType> &ebo_buffer,
+    void Render(const BufferViewHLS<float> &vertex_buffer,
+                const BufferViewHLS<int> &ebo_buffer,
                 const linalg::SE3<RealType> &pose,
                 const PinholeCamera<RealType> &cam,
                 TextureViewHLS<float> &out_texture)
@@ -791,8 +791,8 @@ public:
     ImageRendererHLS() = default;
     ~ImageRendererHLS() = default;
 
-    void Render(const BufferViewHLS<RealType> &vertex_buffer,
-                const BufferViewHLS<IntType> &ebo_buffer,
+    void Render(const BufferViewHLS<float> &vertex_buffer,
+                const BufferViewHLS<int> &ebo_buffer,
                 const linalg::SE3<RealType> &pose,
                 const linalg::Vec2<RealType> &exposure,
                 const PinholeCamera<RealType> &cam,
@@ -860,11 +860,11 @@ public:
     JPoseExpMapRendererHLS() = default;
     ~JPoseExpMapRendererHLS() = default;
 
-    void Render(const BufferViewHLS<RealType> &vertex_buffer,
-                const BufferViewHLS<IntType> &ebo_buffer,
-                const SE3<float> &pose,
-                const Vec2<float> &exposure,
-                const PinholeCamera<float> &cam,
+    void Render(const BufferViewHLS<float> &vertex_buffer,
+                const BufferViewHLS<int> &ebo_buffer,
+                const SE3<RealType> &pose,
+                const Vec2<RealType> &exposure,
+                const PinholeCamera<RealType> &cam,
                 TextureViewHLS<ImageType> &kf_texture,
                 TextureViewHLS<ImageType> &f_texture,
                 TextureViewHLS<Vec3<float>> &dfdxy_texture,
@@ -875,13 +875,13 @@ public:
                 TextureViewHLS<Vec3<PidType>> &pids_texture,
                 TextureViewHLS<float> &r_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        Mat4<RealType> opencv2opengl = Mat4<RealType>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
         const int W = static_cast<int>(r_texture.width());
         const int H = static_cast<int>(r_texture.height());
-        BoundingBox<int> viewport(0, W, 0, H);
+        BoundingBox<IntType> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
         uniforms.fx = cam.GetParams()(0);
