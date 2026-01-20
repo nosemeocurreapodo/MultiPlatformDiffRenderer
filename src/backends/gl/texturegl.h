@@ -7,11 +7,15 @@
 // #include <vector>
 
 #include "backends/gl/devicegl_glad.h"
-#include "backends/base/MappedView.h"
+#include "backends/base/mappedviewbase.h"
 #include "backends/gl/format_converters.h"
 
 struct GLPboUnmap
 {
+    /*
+    GLPboUnmap() : pbo(0), target(0) {};
+    GLPboUnmap(GLuint _pbo, GLenum _target) : pbo(_pbo), target(_target) {};
+    */
     GLuint pbo{};
     GLenum target{}; // GL_PIXEL_PACK_BUFFER
     void operator()() const noexcept
@@ -27,6 +31,30 @@ struct GLPboUnmap
 
 struct GLPboUpload
 {
+    /*
+    GLPboUpload() : tex(0),
+                    texTarget(0),
+                    level(0),
+                    x(0), y(0),
+                    w(0), h(0),
+                    format(0), T(0),
+                    pbo(0) {};
+
+    GLPboUpload(GLuint _tex,
+                GLenum _texTarget,
+                GLint _level,
+                GLint _x, GLint _y,
+                GLsizei _w, GLsizei _h,
+                GLenum _format, GLenum _T,
+                GLuint _pbo) : tex(_tex),
+                               texTarget(_texTarget),
+                               level(_level),
+                               x(_x), y(_y),
+                               w(_w), h(_h),
+                               format(_format), T(_T),
+                               pbo(_pbo) {};
+                               */
+
     GLuint tex{};       // texture id
     GLenum texTarget{}; // GL_TEXTURE_2D
     GLint level{};
@@ -64,6 +92,12 @@ struct GLPboUpload
         glDeleteBuffers(1, &pbo);
     }
 };
+
+template <typename T>
+using TextureViewReadGL = TextureViewBase<T, GLPboUnmap>;
+
+template <typename T>
+using TextureViewWriteGL = TextureViewBase<T, GLPboUpload>;
 
 // ----------------- TextureGL -----------------
 template <typename T>
@@ -136,7 +170,7 @@ public:
     // TextureGL(const TextureGL &) = delete;
     // TextureGL &operator=(const TextureGL &) = delete;
 
-    [[nodiscard]] TextureView<const T, GLPboUnmap> MapRead(int lvl) const
+    [[nodiscard]] TextureViewReadGL<T> MapRead(int lvl) const
     {
         const GLsizeiptr bytes = GLsizeiptr(width(lvl) * height(lvl)) * GLsizeiptr(sizeof(T));
         GLuint pbo = 0;
@@ -156,10 +190,10 @@ public:
             throw std::runtime_error("MapRead PBO failed");
         }
 
-        return {static_cast<const T *>(ptr), width(lvl), height(lvl), nodata_, GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
+        return {static_cast<T *>(ptr), width(lvl), height(lvl), nodata_, GLPboUnmap{pbo, GL_PIXEL_PACK_BUFFER}};
     }
 
-    [[nodiscard]] TextureView<T, GLPboUpload> MapWrite(int lvl)
+    [[nodiscard]] TextureViewWriteGL<T> MapWrite(int lvl)
     {
         const GLsizei w = GLsizei(width(lvl));
         const GLsizei h = GLsizei(height(lvl));

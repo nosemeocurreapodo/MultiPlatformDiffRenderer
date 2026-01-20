@@ -786,7 +786,8 @@ public:
 //   Another evout[0].screen(0)mple derived class that might output color
 // -----------------------------------------------------------------------------
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class ImageRendererBase
 {
 public:
@@ -795,12 +796,12 @@ public:
 
     struct InTextures
     {
-        TextureView<ImageType> in_texture;
+        TextureViewRead<ImageType> in_texture;
     };
 
     struct OutTextures
     {
-        TextureView<ImageType> out_texture;
+        TextureViewWrite<ImageType> out_texture;
     };
 
     struct VertexData
@@ -902,8 +903,8 @@ public:
             return;
         }
 
-        RealType pix = sample<RealType, TextureView<ImageType>>(intextures.in_texture,
-                                                                texcoord(1), texcoord(0));
+        RealType pix = sample<RealType, TextureViewRead<ImageType>>(intextures.in_texture,
+                                                                    texcoord(1), texcoord(0));
         // AddressMode::Clamp,
         // FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
@@ -935,7 +936,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class DIDxyRendererBase
 {
 public:
@@ -944,11 +946,11 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> in_texture;
+        TextureViewRead<ImageType> in_texture;
     };
     struct OutTextures
     {
-        TextureView<Vec3<float>> out_texture;
+        TextureViewWrite<Vec3<float>> out_texture;
     };
 
     struct VertexData
@@ -1234,7 +1236,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class DIDexpRendererBase
 {
 public:
@@ -1243,11 +1246,11 @@ public:
 
     struct InTextures
     {
-        const TextureView<const ImageType> in_texture;
+        const TextureViewRead<ImageType> in_texture;
     };
     struct OutTextures
     {
-        TextureView<Vec3<float>> out_texture;
+        TextureViewWrite<Vec3<float>> out_texture;
     };
 
     struct VertexData
@@ -1377,7 +1380,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class JPoseExpRendererBase
 {
 public:
@@ -1386,16 +1390,16 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureViewRead<ImageType> kf_texture;
+        const TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jtra_texture;
-        TextureView<Vec3<float>> jrot_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jtra_texture;
+        TextureViewWrite<Vec3<float>> jrot_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -1506,10 +1510,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
-                                                               texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
+                                                                   texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1564,7 +1568,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class JPoseVelExpRendererBase
 {
 public:
@@ -1573,18 +1578,18 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureViewRead<ImageType> kf_texture;
+        const TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jtra_texture;
-        TextureView<Vec3<float>> jrot_texture;
-        TextureView<Vec3<float>> jtravel_texture;
-        TextureView<Vec3<float>> jrotvel_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jtra_texture;
+        TextureViewWrite<Vec3<float>> jrot_texture;
+        TextureViewWrite<Vec3<float>> jtravel_texture;
+        TextureViewWrite<Vec3<float>> jrotvel_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -1709,10 +1714,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1905,7 +1910,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class JMapExpRendererBase
 {
 public:
@@ -1914,16 +1920,16 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureViewRead<ImageType> kf_texture;
+        const TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jmap_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<Vec3<PidType>> pids_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jmap_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<Vec3<PidType>> pids_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -2074,9 +2080,9 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0));
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2150,7 +2156,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class JPoseExpMapRendererBase
 {
 public:
@@ -2159,18 +2166,18 @@ public:
 
     struct InTextures
     {
-        TextureView<ImageType> kf_texture;
-        TextureView<Vec3<float>> dfdxy_texture;
+        TextureViewRead<ImageType> kf_texture;
+        TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jtra_texture;
-        TextureView<Vec3<float>> jrot_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<Vec3<float>> jmap_texture;
-        TextureView<Vec3<PidType>> pids_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jtra_texture;
+        TextureViewWrite<Vec3<float>> jrot_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<Vec3<float>> jmap_texture;
+        TextureViewWrite<Vec3<PidType>> pids_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -2335,10 +2342,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //    return;
@@ -2422,7 +2429,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class JPoseVelExpMapRendererBase
 {
 public:
@@ -2431,20 +2439,20 @@ public:
 
     struct InTextures
     {
-        const TextureView<ImageType> kf_texture;
-        const TextureView<Vec3<float>> dfdxy_texture;
+        const TextureViewRead<ImageType> kf_texture;
+        const TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jtra_texture;
-        TextureView<Vec3<float>> jrot_texture;
-        TextureView<Vec3<float>> jtravel_texture;
-        TextureView<Vec3<float>> jrotvel_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<Vec3<float>> jmap_texture;
-        TextureView<Vec3<PidType>> pids_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jtra_texture;
+        TextureViewWrite<Vec3<float>> jrot_texture;
+        TextureViewWrite<Vec3<float>> jtravel_texture;
+        TextureViewWrite<Vec3<float>> jrotvel_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<Vec3<float>> jmap_texture;
+        TextureViewWrite<Vec3<PidType>> pids_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -2619,10 +2627,10 @@ public:
             texcoord(1) < RealType(0) || texcoord(1) > RealType(1))
             return;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.kf_texture,
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                texcoord(1), texcoord(0));
 
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -2717,7 +2725,8 @@ public:
     }
 };
 
-template <template <class> class TextureView>
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
 class DiffRendererBase
 {
 public:
@@ -2726,18 +2735,18 @@ public:
 
     struct InTextures
     {
-        TextureView<ImageType> diffuse_texture;
-        TextureView<Vec3<float>> dfdxy_texture;
+        TextureViewRead<ImageType> diffuse_texture;
+        TextureViewRead<Vec3<float>> dfdxy_texture;
     };
 
     struct OutTextures
     {
-        TextureView<Vec3<float>> jtra_texture;
-        TextureView<Vec3<float>> jrot_texture;
-        TextureView<Vec3<float>> jexp_texture;
-        TextureView<Vec3<float>> jmap_texture;
-        TextureView<Vec3<PidType>> pids_texture;
-        TextureView<ImageType> image_texture;
+        TextureViewWrite<Vec3<float>> jtra_texture;
+        TextureViewWrite<Vec3<float>> jrot_texture;
+        TextureViewWrite<Vec3<float>> jexp_texture;
+        TextureViewWrite<Vec3<float>> jmap_texture;
+        TextureViewWrite<Vec3<PidType>> pids_texture;
+        TextureViewWrite<ImageType> image_texture;
     };
 
     struct VertexData
@@ -2907,10 +2916,10 @@ public:
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
 
-        RealType kf = sample<RealType, TextureView<ImageType>>(intextures.diffuse_texture,
+        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.diffuse_texture,
                                                                texcoord(1), texcoord(0));
 
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureView<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //    return;

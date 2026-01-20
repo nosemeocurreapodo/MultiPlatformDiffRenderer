@@ -1,7 +1,6 @@
 #pragma once
 
 #include "backends/cpu/buffercpu.h"
-#include "backends/base/MappedView.h"
 #include "backends/base/meshbase.h"
 
 class MeshCPU

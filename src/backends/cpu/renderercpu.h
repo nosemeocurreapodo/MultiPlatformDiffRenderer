@@ -24,7 +24,7 @@ public:
     void RenderNaive(const BoundingBox<int> &viewport,
                      const Mesh &mesh,
                      const Uniforms &uniforms,
-                     InTextures &intextures,
+                     const InTextures &intextures,
                      OutTextures &outtextures)
     {
         const int W = viewport.width_;
@@ -79,10 +79,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public RendererBaseCPU<DepthRendererBase<TextureView>>
+    : public RendererBaseCPU<DepthRendererBase<TextureViewWriteCPU>>
 {
 public:
-    using Base = DepthRendererBase<TextureView>;
+    using Base = DepthRendererBase<TextureViewWriteCPU>;
 
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
@@ -125,10 +125,12 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBaseCPU<ImageRendererBase<TextureView>>
+    : public RendererBaseCPU<ImageRendererBase<TextureViewReadCPU,
+                                               TextureViewWriteCPU>>
 {
 public:
-    using Base = ImageRendererBase<TextureView>;
+    using Base = ImageRendererBase<TextureViewReadCPU,
+                                   TextureViewWriteCPU>;
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
@@ -139,7 +141,7 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &diffuse_texture,
+                const TextureCPU<ImageType> &diffuse_texture,
                 TextureCPU<ImageType> &out_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
@@ -158,7 +160,7 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{diffuse_texture.MapWrite(out_lvl)};
+        Base::InTextures intextures{diffuse_texture.MapRead(out_lvl)};
         Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
@@ -173,10 +175,12 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBaseCPU<DIDxyRendererBase<TextureView>>
+    : public RendererBaseCPU<DIDxyRendererBase<TextureViewReadCPU,
+                                               TextureViewWriteCPU>>
 {
 public:
-    using Base = DIDxyRendererBase<TextureView>;
+    using Base = DIDxyRendererBase<TextureViewReadCPU,
+                                   TextureViewWriteCPU>;
 
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
@@ -210,10 +214,12 @@ private:
 };
 
 class DIDexpRendererCPU
-    : public RendererBaseCPU<DIDexpRendererBase<TextureView>>
+    : public RendererBaseCPU<DIDexpRendererBase<TextureViewReadCPU,
+                                                TextureViewWriteCPU>>
 {
 public:
-    using Base = DIDexpRendererBase<TextureView>;
+    using Base = DIDexpRendererBase<TextureViewReadCPU,
+                                    TextureViewWriteCPU>;
 
     DIDexpRendererCPU() = default;
     ~DIDexpRendererCPU() = default;
@@ -259,8 +265,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture)
@@ -352,10 +358,12 @@ private:
 };
 
 class JPoseExpRendererCPU
-    : public RendererBaseCPU<JPoseExpRendererBase<TextureView>>
+    : public RendererBaseCPU<JPoseExpRendererBase<TextureViewReadCPU,
+                                                  TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseExpRendererBase<TextureView>;
+    using Base = JPoseExpRendererBase<TextureViewReadCPU,
+                                      TextureViewWriteCPU>;
 
     JPoseExpRendererCPU() = default;
     ~JPoseExpRendererCPU() = default;
@@ -366,8 +374,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
@@ -391,8 +399,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
@@ -410,10 +418,12 @@ private:
 };
 
 class JPoseVelExpRendererCPU
-    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureView>>
+    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureViewReadCPU,
+                                                     TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseVelExpRendererBase<TextureView>;
+    using Base = JPoseVelExpRendererBase<TextureViewReadCPU,
+                                         TextureViewWriteCPU>;
 
     JPoseVelExpRendererCPU() = default;
     ~JPoseVelExpRendererCPU() = default;
@@ -426,8 +436,8 @@ public:
                 const float readout_time,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
@@ -455,8 +465,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jtravel_texture.MapWrite(out_lvl),
@@ -476,10 +486,10 @@ private:
 };
 
 class PidsRendererCPU
-    : public RendererBaseCPU<PidsRendererBase<TextureView>>
+    : public RendererBaseCPU<PidsRendererBase<TextureViewWriteCPU>>
 {
 public:
-    using Base = PidsRendererBase<TextureView>;
+    using Base = PidsRendererBase<TextureViewWriteCPU>;
 
     PidsRendererCPU() = default;
     ~PidsRendererCPU() = default;
@@ -527,8 +537,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
@@ -645,10 +655,12 @@ private:
 };
 
 class JMapExpRendererCPU
-    : public RendererBaseCPU<JMapExpRendererBase<TextureView>>
+    : public RendererBaseCPU<JMapExpRendererBase<TextureViewReadCPU,
+                                                 TextureViewWriteCPU>>
 {
 public:
-    using Base = JMapExpRendererBase<TextureView>;
+    using Base = JMapExpRendererBase<TextureViewReadCPU,
+                                     TextureViewWriteCPU>;
 
     JMapExpRendererCPU() = default;
     ~JMapExpRendererCPU() = default;
@@ -659,8 +671,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
@@ -684,8 +696,8 @@ public:
         uniforms.out_height = H;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jmap_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
@@ -703,10 +715,12 @@ private:
 };
 
 class JPoseExpMapRendererCPU
-    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureView>>
+    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureViewReadCPU,
+                                                     TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureView>;
+    using Base = JPoseExpMapRendererBase<TextureViewReadCPU,
+                                         TextureViewWriteCPU>;
 
     JPoseExpMapRendererCPU() = default;
     ~JPoseExpMapRendererCPU() = default;
@@ -717,8 +731,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
@@ -744,8 +758,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
@@ -765,10 +779,12 @@ private:
 };
 
 class JPoseVelExpMapRendererCPU
-    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureView>>
+    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureViewReadCPU,
+                                                        TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseVelExpMapRendererBase<TextureView>;
+    using Base = JPoseVelExpMapRendererBase<TextureViewReadCPU,
+                                            TextureViewWriteCPU>;
 
     JPoseVelExpMapRendererCPU() = default;
     ~JPoseVelExpMapRendererCPU() = default;
@@ -781,8 +797,8 @@ public:
                 const float readout_time,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
@@ -812,8 +828,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jtravel_texture.MapWrite(out_lvl),
@@ -835,10 +851,12 @@ private:
 };
 
 class DiffRendererCPU
-    : public RendererBaseCPU<DiffRendererBase<TextureView>>
+    : public RendererBaseCPU<DiffRendererBase<TextureViewReadCPU,
+                                              TextureViewWriteCPU>>
 {
 public:
-    using Base = DiffRendererBase<TextureView>;
+    using Base = DiffRendererBase<TextureViewReadCPU,
+                                  TextureViewWriteCPU>;
 
     DiffRendererCPU() = default;
     ~DiffRendererCPU() = default;
@@ -849,8 +867,8 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                TextureCPU<ImageType> &diffuse_texture,
-                TextureCPU<Vec3<float>> &dfdxy_texture,
+                const TextureCPU<ImageType> &diffuse_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
@@ -875,8 +893,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{diffuse_texture.MapWrite(in_lvl),
-                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::InTextures intextures{diffuse_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),

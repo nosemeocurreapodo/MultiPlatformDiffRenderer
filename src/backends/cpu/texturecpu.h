@@ -12,6 +12,18 @@
 #include "core/boundingbox.h"
 #include "core/typeindex_common.h"
 
+// --- Minimal mapped view pieces (works with CPU/GL buffers too) ---
+struct TextureCPUNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using TextureViewReadCPU = TextureViewBase<T, TextureCPUNoopReleaser>;
+
+template <typename T>
+using TextureViewWriteCPU = TextureViewBase<T, TextureCPUNoopReleaser>;
+
 template <class T>
 class TextureCPU
 {
@@ -124,21 +136,21 @@ public:
         }
     }
 
-    [[nodiscard]] TextureView<const T, NoopReleaser> MapRead(unsigned int lvl) const
+    [[nodiscard]] TextureViewReadCPU<T> MapRead(unsigned int lvl) const
     {
         const auto &L = levels_[lvl];
-        return TextureView<const T, NoopReleaser>(data_.get() + L.offset, L.w, L.h, nodata_);
+        return TextureViewReadCPU<T>(data_.get() + L.offset, L.w, L.h, nodata_, TextureCPUNoopReleaser());
     }
 
-    [[nodiscard]] TextureView<T, NoopReleaser> MapWrite(unsigned int lvl)
+    [[nodiscard]] TextureViewWriteCPU<T> MapWrite(unsigned int lvl)
     {
         const auto &L = levels_[lvl];
-        return TextureView<T, NoopReleaser>(data_.get() + L.offset, L.w, L.h, nodata_);
+        return TextureViewWriteCPU<T>(data_.get() + L.offset, L.w, L.h, nodata_, TextureCPUNoopReleaser());
     }
 
     // forbid mapping temporaries (view would dangle)
-    TextureView<const T> MapRead() const && = delete;
-    TextureView<T> MapWrite() && = delete;
+    TextureViewReadCPU<const T> MapRead() const && = delete;
+    TextureViewWriteCPU<T> MapWrite() && = delete;
 
 protected:
     // Read/Write a single texel (bounds-checked in debug)
@@ -200,6 +212,14 @@ protected:
             w = std::max<unsigned int>(1, w >> 1);
             h = std::max<unsigned int>(1, h >> 1);
         }
+    }
+
+    void swap(TextureCPU &o) noexcept
+    {
+        std::swap(data_, o.data_);
+        std::swap(total_size_, o.total_size_);
+        std::swap(levels_, o.levels_);
+        std::swap(nodata_, o.nodata_);
     }
 
     unsigned int total_size_ = 0;

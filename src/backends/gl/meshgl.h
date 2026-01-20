@@ -3,7 +3,6 @@
 #include <utility>
 
 #include "backends/gl/buffergl.h" // your BufferGL
-#include "backends/base/MappedView.h"
 
 class MeshGL
 {

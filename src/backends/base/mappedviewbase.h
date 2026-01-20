@@ -1,16 +1,10 @@
 #pragma once
 
-// --- Minimal mapped view pieces (works with CPU/GL buffers too) ---
-struct NoopReleaser
-{
-    void operator()() const noexcept {}
-};
-
-template <class T, class Releaser = NoopReleaser>
-class BufferView
+template <class T, class Releaser>
+class BufferViewBase
 {
 public:
-    BufferView(T *p, std::size_t n, Releaser r = {}) noexcept
+    BufferViewBase(T *p, std::size_t n, Releaser r = {}) noexcept
         //    : ptr_(p), n_(n), rel_(std::move(r)) {}
         : ptr_(p), n_(n), rel_(r)
     {
@@ -19,7 +13,7 @@ public:
     // BufferView &operator=(const BufferView &) = delete;
     // BufferView(BufferView &&) noexcept = default;
     // BufferView &operator=(BufferView &&) noexcept = default;
-    ~BufferView() { rel_(); }
+    ~BufferViewBase() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
     std::size_t size() const noexcept { return n_; }
@@ -37,20 +31,21 @@ private:
     Releaser rel_{};
 };
 
-template <class T, class Releaser = NoopReleaser>
-class TextureView
+template <class T, class Releaser>
+class TextureViewBase
 {
 public:
-    TextureView(T *p, std::size_t width, std::size_t height, T nodata, Releaser r = {}) noexcept
+    TextureViewBase() {}
+    TextureViewBase(T *p, std::size_t width, std::size_t height, T _nodata, Releaser r = {}) noexcept
         //    : ptr_(p), width_(width), height_(height), nodata_(nodata), rel_(std::move(r)) {}
-        : ptr_(p), width_(width), height_(height), nodata_(nodata), rel_(r)
+        : ptr_(p), width_(width), height_(height), nodata_(_nodata), rel_(r)
     {
     }
     // TextureView(const TextureView &) = delete;
     // TextureView &operator=(const TextureView &) = delete;
     // TextureView(TextureView &&) noexcept = default;
     // TextureView &operator=(TextureView &&) noexcept = default;
-    ~TextureView() { rel_(); }
+    ~TextureViewBase() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
     T *begin() const noexcept { return ptr_; }

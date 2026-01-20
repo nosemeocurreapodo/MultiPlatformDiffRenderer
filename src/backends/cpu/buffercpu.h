@@ -7,7 +7,16 @@
 // #include <utility>
 #include <vector> // for vector
 
-#include "backends/base/MappedView.h" // your MappedView + NoopReleaser
+#include "backends/base/mappedviewbase.h" // your MappedView
+
+// --- Minimal mapped view pieces (works with CPU/GL buffers too) ---
+struct BufferCPUNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using BufferViewCPU = BufferViewBase<T, BufferCPUNoopReleaser>;
 
 template <typename T>
 class BufferCPU
@@ -56,17 +65,17 @@ public:
 
     // -------- cross-backend style API --------
     // On CPU, Map* returns a view with a no-op releaser.
-    [[nodiscard]] BufferView<const T, NoopReleaser> MapRead() const & noexcept
+    [[nodiscard]] BufferViewCPU<const T> MapRead() const & noexcept
     {
-        return BufferView<const T, NoopReleaser>(data_.get(), size_);
+        return BufferViewCPU<const T>(data_.get(), size_);
     }
-    [[nodiscard]] BufferView<T, NoopReleaser> MapWrite() & noexcept
+    [[nodiscard]] BufferViewCPU<T> MapWrite() & noexcept
     {
-        return BufferView<T, NoopReleaser>(data_.get(), size_);
+        return BufferViewCPU<T>(data_.get(), size_);
     }
     // forbid mapping temporaries (view would dangle)
-    BufferView<const T> MapRead() const && = delete;
-    BufferView<T> MapWrite() && = delete;
+    BufferViewCPU<const T> MapRead() const && = delete;
+    BufferViewCPU<T> MapWrite() && = delete;
 
 private:
     T *data() noexcept { return data_.get(); }
