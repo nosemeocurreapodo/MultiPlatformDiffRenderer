@@ -92,10 +92,10 @@ bool LoadAssimpMesh(const std::string &path,
         else
             has_texcoords = false;
 
-        if (mesh->HasNormals())
-            has_normals = true;
-        else
-            has_normals = false;
+        // if (mesh->HasNormals())
+        //     has_normals = true;
+        // else
+        has_normals = false;
 
         vertex.reserve(mesh->mNumVertices * 8);
         indices.reserve(mesh->mNumFaces * 3);

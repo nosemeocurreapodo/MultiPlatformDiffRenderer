@@ -23,7 +23,6 @@ struct CPUBackendTraits
     using TextureT = TextureCPU<T>;
     using DepthRendererT = DepthRendererCPU;
     using ImageRendererT = ImageRendererCPU;
-    using ResidualRendererT = ResidualRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseExpRendererT = JPoseExpRendererCPU;
     using JMapExpRendererT = JMapExpRendererCPU;
@@ -39,7 +38,6 @@ struct GLBackendTraits
     using TextureT = TextureGL<T>;
     using DepthRendererT = DepthRendererGL;
     using ImageRendererT = ImageRendererGL;
-    using ResidualRendererT = ResidualRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
     using JPoseExpRendererT = JPoseExpRendererGL;
     using JMapExpRendererT = JMapExpRendererGL;

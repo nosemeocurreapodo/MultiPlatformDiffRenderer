@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     const int out_lvl = 0;
 
 #ifdef COMPILE_CPU
-    JPoseExpMapRendererCPU renderercpu;
+    DiffRendererCPU renderercpu;
     DIDxyRendererCPU didxyrenderercpu;
 
     MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     UploadMatToTexture(diffusecpu, 0, diffuse_cv);
 
     TextureCPU<Vec3<float>> didxycpu(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
-    MeshCPU meshcpu_screen(screen_vertex, screen_indices, true, true, false);
+    MeshCPU meshcpu_screen(screen_vertex, screen_indices, false, true, false);
     didxyrenderercpu.Render(meshcpu_screen, in_lvl, in_lvl, diffusecpu, didxycpu);
 
     TextureCPU<ImageType> imagecpu(width, height, 0);
@@ -171,12 +171,11 @@ int main(int argc, char **argv)
     TextureCPU<Vec3<float>> jexpcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<float>> jmapcpu(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureCPU<Vec3<PidType>> pidscpu(width, height, Vec3<PidType>(-1, -1, -1));
-    TextureCPU<float> rcpu(width, height, 0.0f);
 
 #endif
 
 #ifdef COMPILE_GL
-    JPoseExpMapRendererGL renderergl;
+    DiffRendererGL renderergl;
     DIDxyRendererGL didxyrenderergl;
 
     MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
@@ -185,7 +184,7 @@ int main(int argc, char **argv)
     UploadMatToTexture(diffusegl, 0, diffuse_cv);
 
     TextureGL<Vec3<float>> didxygl(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
-    MeshGL meshgl_screen(screen_vertex, screen_indices, true, true, false);
+    MeshGL meshgl_screen(screen_vertex, screen_indices, false, true, false);
     didxyrenderergl.Render(meshgl_screen, in_lvl, in_lvl, diffusegl, didxygl);
 
     TextureGL<ImageType> imagegl(width, height, 0);
@@ -195,7 +194,6 @@ int main(int argc, char **argv)
     TextureGL<Vec3<float>> jexpgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<float>> jmapgl(width, height, Vec3<float>(0.0f, 0.0f, 0.0f));
     TextureGL<Vec3<PidType>> pidsgl(width, height, Vec3<PidType>(-1, -1, -1));
-    TextureGL<float> rgl(width, height, 0.0f);
 
 #endif
 
@@ -297,16 +295,14 @@ int main(int argc, char **argv)
                                in_lvl,
                                out_lvl,
                                diffusecpu,
-                               imagecpu,
                                didxycpu,
-                               // imagecpu,
+                               imagecpu,
                                // depthcpu,
                                jtracpu,
                                jrotcpu,
                                jexpcpu,
                                jmapcpu,
-                               pidscpu,
-                               rcpu);
+                               pidscpu);
 #endif
 #ifdef COMPILE_GL
         if (backend_names[backend] == "gl")
@@ -318,16 +314,14 @@ int main(int argc, char **argv)
                               in_lvl,
                               out_lvl,
                               diffusegl,
-                              imagegl,
                               didxygl,
-                              // imagegl,
+                              imagegl,
                               // depthgl,
                               jtragl,
                               jrotgl,
                               jexpgl,
                               jmapgl,
-                              pidsgl,
-                              rgl);
+                              pidsgl);
 #endif
 
 #ifdef COMPILE_GLES2

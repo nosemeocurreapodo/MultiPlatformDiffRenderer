@@ -100,7 +100,6 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.out_lvl = out_lvl;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
@@ -161,61 +160,6 @@ public:
 
         Base::InTextures intextures{diffuse_texture.MapWrite(out_lvl)};
         Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
-
-        RendererBaseCPU<Base>::RenderNaive(
-            viewport,
-            mesh,
-            uniforms,
-            intextures,
-            outtextures);
-    }
-
-private:
-};
-
-// -----------------------------------------------------------------------------
-// ResidualRendererCPU
-//   Example derived renderer that computes the residual between two frames.
-// -----------------------------------------------------------------------------
-
-class ResidualRendererCPU
-    : public RendererBaseCPU<ResidualRendererBase<TextureView>>
-{
-public:
-    using Base = ResidualRendererBase<TextureView>;
-
-    ResidualRendererCPU() = default;
-    ~ResidualRendererCPU() = default;
-
-    void Render(const MeshCPU &mesh,
-                const SE3<float> &pose,
-                const Vec2<float> &exposure,
-                const PinholeCamera<float> &cam,
-                int in_lvl,
-                int out_lvl,
-                TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
-                TextureCPU<float> &r_texture)
-    {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Base::Uniforms uniforms;
-        uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.camera = cam;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
-        uniforms.exposure = exposure;
-
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
-
-        Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl)};
-        Base::OutTextures outtextures{r_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -316,15 +260,14 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
-                TextureCPU<Vec3<float>> &jrot_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jrot_texture)
     {
         jtra_texture.fill(out_lvl, jtra_texture.nodata());
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        image_texture.fill(out_lvl, image_texture.nodata());
 
         int W = kf_texture.width(0);
         int H = kf_texture.height(0);
@@ -336,12 +279,6 @@ public:
         auto image_2_view = image_2.MapRead(in_lvl);
         auto jtra_view = jtra_texture.MapWrite(out_lvl);
         auto jrot_view = jrot_texture.MapWrite(out_lvl);
-
-        residual_renderer.Render(mesh, pose,
-                                 Vec2<float>(0.0, 0.0),
-                                 cam,
-                                 in_lvl, out_lvl,
-                                 kf_texture, f_texture, r_texture);
 
         for (int i = 0; i < 6; i++)
         {
@@ -412,7 +349,6 @@ public:
 
 private:
     ImageRendererCPU image_renderer;
-    ResidualRendererCPU residual_renderer;
 };
 
 class JPoseExpRendererCPU
@@ -431,19 +367,18 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
-                TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jexp_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -453,18 +388,15 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
-                                      r_texture.MapWrite(out_lvl)};
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -495,21 +427,20 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jtravel_texture,
                 TextureCPU<Vec3<float>> &jrotvel_texture,
-                TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jexp_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -521,20 +452,17 @@ public:
         uniforms.vel_matrix = vel;
         uniforms.exposure = exposure;
         uniforms.readout_time = readout_time;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jtravel_texture.MapWrite(out_lvl),
                                       jrotvel_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
-                                      r_texture.MapWrite(out_lvl)};
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -573,7 +501,6 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.out_lvl = out_lvl;
 
         Base::InTextures intextures{0};
         Base::OutTextures outtextures{pids_texture.MapWrite(out_lvl)};
@@ -601,15 +528,14 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         jmap_texture.fill(out_lvl, jmap_texture.nodata());
         pids_texture.fill(out_lvl, pids_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        image_texture.fill(out_lvl, image_texture.nodata());
 
         const int W = kf_texture.width(0);
         const int H = kf_texture.height(0);
@@ -624,12 +550,7 @@ public:
         auto pids_view = pids_texture.MapRead(out_lvl);
 
         // image_renderer.Render(mesh, pose, Vec2<float>(0.0, 0.0), cam, in_lvl, out_lvl, kf_texture, image_0);
-        residual_renderer.Render(mesh,
-                                 pose,
-                                 Vec2<float>(0.0, 0.0),
-                                 cam,
-                                 in_lvl, out_lvl,
-                                 kf_texture, f_texture, r_texture);
+
         pids_renderer.Render(mesh, pose, cam, out_lvl, pids_texture);
 
         std::vector<Vec3<float>> vertices = get_vertices(mesh);
@@ -720,7 +641,6 @@ public:
 
 private:
     ImageRendererCPU image_renderer;
-    ResidualRendererCPU residual_renderer;
     PidsRendererCPU pids_renderer;
 };
 
@@ -740,19 +660,18 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -761,19 +680,16 @@ public:
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
         uniforms.exposure = exposure;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jmap_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
-                                      r_texture.MapWrite(out_lvl)};
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -802,21 +718,20 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -826,20 +741,17 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       jmap_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
-                                      r_texture.MapWrite(out_lvl)};
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -870,23 +782,22 @@ public:
                 int in_lvl,
                 int out_lvl,
                 TextureCPU<ImageType> &kf_texture,
-                TextureCPU<ImageType> &f_texture,
                 TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jtravel_texture,
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -898,13 +809,10 @@ public:
         uniforms.vel_matrix = vel;
         uniforms.readout_time = readout_time;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
         Base::InTextures intextures{kf_texture.MapWrite(in_lvl),
-                                    f_texture.MapWrite(in_lvl),
                                     dfdxy_texture.MapWrite(in_lvl)};
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
@@ -913,7 +821,68 @@ public:
                                       jexp_texture.MapWrite(out_lvl),
                                       jmap_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
-                                      r_texture.MapWrite(out_lvl)};
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
+class DiffRendererCPU
+    : public RendererBaseCPU<DiffRendererBase<TextureView>>
+{
+public:
+    using Base = DiffRendererBase<TextureView>;
+
+    DiffRendererCPU() = default;
+    ~DiffRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                TextureCPU<ImageType> &diffuse_texture,
+                TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jtra_texture,
+                TextureCPU<Vec3<float>> &jrot_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.exposure = exposure;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+
+        Base::InTextures intextures{diffuse_texture.MapWrite(in_lvl),
+                                    dfdxy_texture.MapWrite(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jmap_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,

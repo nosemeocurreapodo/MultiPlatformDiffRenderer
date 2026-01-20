@@ -62,12 +62,18 @@ static void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vect
 static void CreateScreenQuad(std::vector<float> &vertex,
                              std::vector<int> &indices)
 {
-    vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
-              -1.f, -1.f, 1.f, 0.f, 0.f,
-              1.f, -1.f, 1.f, 1.f, 0.f,
-              -1.f, 1.f, 1.f, 0.f, 1.f,
-              1.f, -1.f, 1.f, 1.f, 0.f,
-              1.f, 1.f, 1.f, 1.f, 1.f};
+    // vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
+    //           -1.f, -1.f, 1.f, 0.f, 0.f,
+    //           1.f, -1.f, 1.f, 1.f, 0.f,
+    //           -1.f, 1.f, 1.f, 0.f, 1.f,
+    //           1.f, -1.f, 1.f, 1.f, 0.f,
+    //           1.f, 1.f, 1.f, 1.f, 1.f};
+    vertex = {0.f, 1.f,
+              0.f, 0.f,
+              1.f, 0.f,
+              0.f, 1.f,
+              1.f, 0.f,
+              1.f, 1.f};
     std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     // indices = {0, 1, 2, 0, 2, 3};
     BuildTriangles(uv, indices);
