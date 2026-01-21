@@ -53,9 +53,20 @@ T nearest(const TexView &tex, RealType y, RealType x)
 {
 #pragma HLS inline
 
-    const IntType xi = static_cast<IntType>(lround(x));
-    const IntType yi = static_cast<IntType>(lround(y));
-    return T(tex(yi, xi));
+    // const RealType xf = floor(x);
+    // const RealType yf = floor(y);
+    // const IntType x0 = static_cast<IntType>(xf < RealType(0) ? RealType(0) : xf);
+    // const IntType y0 = static_cast<IntType>(yf < RealType(0) ? RealType(0) : yf);
+
+    const IntType w = tex.width();
+    const IntType h = tex.height();
+
+    const IntType xf = IntType(lround(x));
+    const IntType yf = IntType(lround(y));
+    const IntType x0 = max(min(xf, w), IntType(0));
+    const IntType y0 = max(min(yf, h), IntType(0));
+
+    return T(tex(y0, x0));
 }
 
 template <class T, class TexView>

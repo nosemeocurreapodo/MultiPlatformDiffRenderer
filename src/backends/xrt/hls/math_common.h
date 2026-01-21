@@ -70,3 +70,9 @@ inline T fmod(T a, T b)
     return hls::fmod(a, b);
     // return a - b * floor(a / b);
 }
+
+template <typename T>
+inline T exp(T a)
+{
+    return hls::exp(a);
+}

@@ -337,15 +337,15 @@ protected:
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
-        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
-        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
-        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
+        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
+        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
+        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
+        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
 
         BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
 
@@ -362,13 +362,13 @@ protected:
         const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        // Vec2<RealType> p_tl;
-        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        Vec2<RealType> p_tl;
+        p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
 
-        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
-        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
-        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
+        RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
+        RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
+        RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
 
         // Step increments when moving +1 in X or +1 in Y
         // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
@@ -378,12 +378,12 @@ protected:
         // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
         // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
         // for y down, the - is needed
-        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+        const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
     // Rasterize
     draw_triangle_y_loop:
@@ -394,9 +394,9 @@ protected:
             IntType texture_y = iy + triangle_bb.min_y_;
             IntType tile_y = texture_y - tile_bb.min_y_;
 
-            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
+            const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
+            const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
+            const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
             for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
@@ -416,16 +416,16 @@ protected:
 
                 RealType prev_depth = depth_buffer[tile_address];
 
-                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+                const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
+                const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
+                const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
 
                 Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
                                  RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
 
-                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+                // RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+                // RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+                // RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
 
                 // Top-left rule adjustments (include pixels on top/left edges)
                 const bool inside =
@@ -904,9 +904,9 @@ public:
         }
 
         RealType pix = sample<RealType, TextureViewRead<ImageType>>(intextures.in_texture,
-                                                                    texcoord(1), texcoord(0));
-        // AddressMode::Clamp,
-        // FilterMode::Nearest);
+                                                                    texcoord(1), texcoord(0),
+                                                                    AddressMode::Clamp,
+                                                                    FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -1262,7 +1262,7 @@ public:
     {
         IntType in_lvl;
         IntType out_lvl;
-        Vec2<float> exposure;
+        Vec2<RealType> exposure;
     };
 
     struct Varyings
@@ -1715,7 +1715,7 @@ public:
             return;
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
-                                                               texcoord(1), texcoord(0));
+                                                                   texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
@@ -2343,7 +2343,7 @@ public:
             return;
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
-                                                               texcoord(1), texcoord(0));
+                                                                   texcoord(1), texcoord(0));
         // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
@@ -2628,7 +2628,7 @@ public:
             return;
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
-                                                               texcoord(1), texcoord(0));
+                                                                   texcoord(1), texcoord(0));
 
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
@@ -2917,7 +2917,7 @@ public:
         Vec3<IntType> vertexid = in_varying.pids;
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.diffuse_texture,
-                                                               texcoord(1), texcoord(0));
+                                                                   texcoord(1), texcoord(0));
 
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 

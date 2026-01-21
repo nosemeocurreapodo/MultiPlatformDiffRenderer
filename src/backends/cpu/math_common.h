@@ -45,3 +45,9 @@ inline T fmod(T a, T b)
 {
     return std::fmod(a, b);
 }
+
+template <typename T>
+inline T exp(T a)
+{
+    return std::exp(a);
+}
