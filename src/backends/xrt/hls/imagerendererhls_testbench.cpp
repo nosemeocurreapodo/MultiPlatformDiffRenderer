@@ -69,11 +69,7 @@ int main()
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, true, false);
-
-    std::vector<float> screen_vertex;
-    std::vector<int> screen_indices;
-    CreateScreenQuad(screen_vertex, screen_indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, false, false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 

@@ -1,12 +1,20 @@
 #pragma once
 
 #include "backends/xrt/hls/bufferhls.h"
-#include "backends/base/MappedView.h"
+#include "backends/base/mappedviewbase.h"
 #include "core/boundingbox.h"
 #include <ap_int.h>
 
+struct TextureHLSNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
 template <typename T>
-using TextureViewHLS = TextureView<T>;
+using TextureViewReadHLS = TextureViewBase<T, TextureHLSNoopReleaser>;
+
+template <typename T>
+using TextureViewWriteHLS = TextureViewBase<T, TextureHLSNoopReleaser>;
 
 template <class T>
 class TextureRAM

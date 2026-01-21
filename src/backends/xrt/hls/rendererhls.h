@@ -9,7 +9,6 @@
 #include "core/boundingbox.h"
 #include "core/render_constants.h"
 #include "backends/base/rendererbase.h"
-#include "backends/base/MappedView.h"
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/meshhls.h"
@@ -29,8 +28,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<IntType> &viewport,
-                     const BufferViewHLS<float> &vertex_buffer,
-                     const BufferViewHLS<int> &ebo_buffer,
+                     const BufferViewReadHLS<float> &vertex_buffer,
+                     const BufferViewReadHLS<int> &ebo_buffer,
                      const Uniforms &uniforms,
                      const InTextures &intextures,
                      OutTextures &outtextures)
@@ -81,8 +80,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff(const BoundingBox<IntType> &viewport,
-                             const BufferViewHLS<float> &vertex_buffer,
-                             const BufferViewHLS<int> &ebo_buffer,
+                             const BufferViewReadHLS<float> &vertex_buffer,
+                             const BufferViewReadHLS<int> &ebo_buffer,
                              const Uniforms &uniforms,
                              const InTextures &intextures,
                              OutTextures &outtextures)
@@ -191,8 +190,8 @@ public:
 
     template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff2(const BoundingBox<IntType> &viewport,
-                              const BufferViewHLS<float> &vertex_buffer,
-                              const BufferViewHLS<int> &ebo_buffer,
+                              const BufferViewReadHLS<float> &vertex_buffer,
+                              const BufferViewReadHLS<int> &ebo_buffer,
                               const Uniforms &uniforms,
                               const InTextures &intextures,
                               OutTextures &outtextures)
@@ -613,19 +612,20 @@ private:
 };
 
 class DepthRendererHLS
-    : public RendererBaseHLS<DepthRendererHLS, DepthRendererBase<TextureViewHLS>>
+    : public RendererBaseHLS<DepthRendererHLS,
+                             DepthRendererBase<TextureViewWriteHLS>>
 {
 public:
-    using Base = DepthRendererBase<TextureViewHLS>;
+    using Base = DepthRendererBase<TextureViewWriteHLS>;
 
     // DepthRendererHLS() = default;
     //~DepthRendererHLS() = default;
 
-    void Render(const BufferViewHLS<float> &vertex_buffer,
-                const BufferViewHLS<int> &ebo_buffer,
+    void Render(const BufferViewReadHLS<float> &vertex_buffer,
+                const BufferViewReadHLS<int> &ebo_buffer,
                 const linalg::SE3<RealType> &pose,
                 const PinholeCamera<RealType> &cam,
-                TextureViewHLS<float> &out_texture)
+                TextureViewWriteHLS<float> &out_texture)
     {
         Base::Uniforms uniforms;
 
@@ -783,24 +783,25 @@ private:
 */
 
 class ImageRendererHLS
-    : public RendererBaseHLS<ImageRendererHLS, ImageRendererBase<TextureViewHLS>>
+    : public RendererBaseHLS<ImageRendererHLS,
+                             ImageRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
-    using Base = ImageRendererBase<TextureViewHLS>;
+    using Base = ImageRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
 
     ImageRendererHLS() = default;
     ~ImageRendererHLS() = default;
 
-    void Render(const BufferViewHLS<float> &vertex_buffer,
-                const BufferViewHLS<int> &ebo_buffer,
+    void Render(const BufferViewReadHLS<float> &vertex_buffer,
+                const BufferViewReadHLS<int> &ebo_buffer,
                 const linalg::SE3<RealType> &pose,
                 const linalg::Vec2<RealType> &exposure,
                 const PinholeCamera<RealType> &cam,
-                TextureViewHLS<ImageType> &diffuse_texture_ch1,
-                TextureViewHLS<ImageType> &diffuse_texture_ch2,
-                TextureViewHLS<ImageType> &diffuse_texture_ch3,
-                TextureViewHLS<ImageType> &diffuse_texture_ch4,
-                TextureViewHLS<ImageType> &out_texture)
+                const TextureViewReadHLS<ImageType> &diffuse_texture_ch1,
+                const TextureViewReadHLS<ImageType> &diffuse_texture_ch2,
+                const TextureViewReadHLS<ImageType> &diffuse_texture_ch3,
+                const TextureViewReadHLS<ImageType> &diffuse_texture_ch4,
+                TextureViewWriteHLS<ImageType> &out_texture)
     {
         Base::Uniforms uniforms;
 
@@ -852,35 +853,35 @@ private:
 };
 
 class JPoseExpMapRendererHLS
-    : public RendererBaseHLS<JPoseExpMapRendererHLS, JPoseExpMapRendererBase<TextureViewHLS>>
+    : public RendererBaseHLS<JPoseExpMapRendererHLS,
+                             JPoseExpMapRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureViewHLS>;
+    using Base = JPoseExpMapRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
 
     JPoseExpMapRendererHLS() = default;
     ~JPoseExpMapRendererHLS() = default;
 
-    void Render(const BufferViewHLS<float> &vertex_buffer,
-                const BufferViewHLS<int> &ebo_buffer,
+    void Render(const BufferViewReadHLS<float> &vertex_buffer,
+                const BufferViewReadHLS<int> &ebo_buffer,
                 const SE3<RealType> &pose,
                 const Vec2<RealType> &exposure,
                 const PinholeCamera<RealType> &cam,
-                TextureViewHLS<ImageType> &kf_texture,
-                TextureViewHLS<ImageType> &f_texture,
-                TextureViewHLS<Vec3<float>> &dfdxy_texture,
-                TextureViewHLS<Vec3<float>> &jtra_texture,
-                TextureViewHLS<Vec3<float>> &jrot_texture,
-                TextureViewHLS<Vec3<float>> &jexp_texture,
-                TextureViewHLS<Vec3<float>> &jmap_texture,
-                TextureViewHLS<Vec3<PidType>> &pids_texture,
-                TextureViewHLS<float> &r_texture)
+                const TextureViewReadHLS<ImageType> &kf_texture,
+                const TextureViewReadHLS<Vec3<float>> &dfdxy_texture,
+                TextureViewWriteHLS<ImageType> &image_texture,
+                TextureViewWriteHLS<Vec3<float>> &jtra_texture,
+                TextureViewWriteHLS<Vec3<float>> &jrot_texture,
+                TextureViewWriteHLS<Vec3<float>> &jexp_texture,
+                TextureViewWriteHLS<Vec3<float>> &jmap_texture,
+                TextureViewWriteHLS<Vec3<PidType>> &pids_texture)
     {
         Mat4<RealType> opencv2opengl = Mat4<RealType>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width());
-        const int H = static_cast<int>(r_texture.height());
+        const int W = static_cast<int>(image_texture.width());
+        const int H = static_cast<int>(image_texture.height());
         BoundingBox<IntType> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -893,8 +894,8 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture, dfdxy_texture};
+        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, image_texture};
 
         // RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);

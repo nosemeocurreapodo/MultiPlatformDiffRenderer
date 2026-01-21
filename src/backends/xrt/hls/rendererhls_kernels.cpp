@@ -1,8 +1,8 @@
 #include "backends/xrt/hls/math_common.h"
+#include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/meshhls.h"
 #include "backends/xrt/hls/rendererhls.h"
-#include "backends/base/MappedView.h"
 #include "core/camera.h"
 
 extern "C"
@@ -31,11 +31,11 @@ extern "C"
         //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
         //             ebo_buffer_data, ebo_buffer_size);
 
-        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
-        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureView<float> out_texture(out_texture_data, out_texture_width, out_texture_height, out_nodata_value);
+        TextureViewWriteHLS<float> out_texture(out_texture_data, out_texture_width, out_texture_height, out_nodata_value);
         // TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererHLS renderer;
@@ -82,8 +82,8 @@ extern "C"
 
         //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
         //             ebo_buffer_data, ebo_buffer_size);
-        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
-        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
         // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
         // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
@@ -91,24 +91,24 @@ extern "C"
         // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
         // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
 
-        TextureViewHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1,
+        TextureViewReadHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1,
                                                    diffuse_texture_width,
                                                    diffuse_texture_height,
                                                    diffuse_nodata_value);
 
-        TextureViewHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2,
+        TextureViewReadHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2,
                                                    diffuse_texture_width,
                                                    diffuse_texture_height,
                                                    diffuse_nodata_value);
-        TextureViewHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3,
+        TextureViewReadHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3,
                                                    diffuse_texture_width,
                                                    diffuse_texture_height,
                                                    diffuse_nodata_value);
-        TextureViewHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4,
+        TextureViewReadHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4,
                                                    diffuse_texture_width,
                                                    diffuse_texture_height,
                                                    diffuse_nodata_value);
-        TextureViewHLS<ImageType> out_texture((ImageType *)out_texture_data,
+        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data,
                                            out_texture_width,
                                            out_texture_height,
                                            out_nodata_value);
@@ -122,22 +122,19 @@ extern "C"
     void JPoseExpMapRenderHLS(float *vertex_buffer_data,
                               int *ebo_buffer_data,
                               ap_uint<8> *kf_texture_data,
-                              ap_uint<8> *f_texture_data,
                               ap_uint<8> *dkfdxy_texture_data,
+                              ap_uint<8> *image_texture_data,
                               ap_uint<8> *jtra_texture_data,
                               ap_uint<8> *jrot_texture_data,
                               ap_uint<8> *jexp_texture_data,
                               ap_uint<8> *jmap_texture_data,
                               ap_uint<8> *pids_texture_data,
-                              ap_uint<8> *r_texture_data,
                               unsigned int vertex_buffer_size,
                               unsigned int ebo_buffer_size,
                               unsigned int in_texture_width,
                               unsigned int in_texture_height,
                               unsigned int out_texture_width,
                               unsigned int out_texture_height,
-                              ImageType kf_nodata_value,
-                              ImageType f_nodata_value,
                               float q_x, float q_y, float q_z, float q_w,
                               float t_x, float t_y, float t_z,
                               float fx, float fy, float cx, float cy,
@@ -146,15 +143,13 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = kf_texture_data bundle = gmem1 depth = 412800
-#pragma HLS INTERFACE m_axi port = f_texture_data bundle = gmem2 depth = 412800
 #pragma HLS INTERFACE m_axi port = dkfdxy_texture_data bundle = gmem3 depth = 412800
+#pragma HLS INTERFACE m_axi port = image_texture_data bundle = gmem2 depth = 412800
 #pragma HLS INTERFACE m_axi port = jtra_texture_data bundle = gmem4 depth = 412800
 #pragma HLS INTERFACE m_axi port = jrot_texture_data bundle = gmem5 depth = 412800
 #pragma HLS INTERFACE m_axi port = jexp_texture_data bundle = gmem5 depth = 412800
 #pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem5 depth = 412800
 #pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem5 depth = 412800
-#pragma HLS INTERFACE m_axi port = r_texture_data bundle = gmem5 depth = 412800
-        // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem2 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
         // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
         // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64
@@ -167,22 +162,21 @@ extern "C"
 
         //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
         //             ebo_buffer_data, ebo_buffer_size);
-        BufferViewHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
-        BufferViewHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        TextureViewHLS<ImageType> kf_texture((ImageType *)kf_texture_data, in_texture_width, in_texture_height, kf_nodata_value);
-        TextureViewHLS<ImageType> f_texture((ImageType *)f_texture_data, in_texture_width, in_texture_height, f_nodata_value);
-        TextureViewHLS<linalg::Vec3<float>> dkfdxy_texture((linalg::Vec3<float> *)dkfdxy_texture_data, in_texture_width, in_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<linalg::Vec3<float>> jtra_texture((linalg::Vec3<float> *)jtra_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<linalg::Vec3<float>> jrot_texture((linalg::Vec3<float> *)jrot_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<linalg::Vec3<float>> jexp_texture((linalg::Vec3<float> *)jexp_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<linalg::Vec3<float>> jmap_texture((linalg::Vec3<float> *)jmap_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<linalg::Vec3<float>> pids_texture((linalg::Vec3<float> *)pids_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewHLS<float> r_texture((float *)r_texture_data, out_texture_width, out_texture_height, 0);
+        TextureViewReadHLS<ImageType> kf_texture((ImageType *)kf_texture_data, in_texture_width, in_texture_height, 0);
+        TextureViewWriteHLS<linalg::Vec3<float>> dkfdxy_texture((linalg::Vec3<float> *)dkfdxy_texture_data, in_texture_width, in_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewReadHLS<ImageType> image_texture((ImageType *)image_texture_data, in_texture_width, in_texture_height, 0);
+        TextureViewWriteHLS<linalg::Vec3<float>> jtra_texture((linalg::Vec3<float> *)jtra_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<linalg::Vec3<float>> jrot_texture((linalg::Vec3<float> *)jrot_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<linalg::Vec3<float>> jexp_texture((linalg::Vec3<float> *)jexp_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<linalg::Vec3<float>> jmap_texture((linalg::Vec3<float> *)jmap_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<linalg::Vec3<float>> pids_texture((linalg::Vec3<float> *)pids_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(-1.0, -1.0, -1.0));
 
         JPoseExpMapRendererHLS renderer;
         renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
-                        kf_texture, f_texture, dkfdxy_texture,
-                        jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture);
+                        kf_texture, dkfdxy_texture,
+                        image_texture, jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture);
     }
 };

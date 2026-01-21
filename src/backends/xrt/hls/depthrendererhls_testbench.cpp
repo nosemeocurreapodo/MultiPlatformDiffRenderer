@@ -63,7 +63,7 @@ int main()
                vertex,
                indices,
                true,
-               true,
+               false,
                false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
