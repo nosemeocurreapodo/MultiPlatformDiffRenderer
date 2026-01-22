@@ -333,7 +333,7 @@ protected:
     template <typename InTextures, typename Uniforms, typename Fragment>
     static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType depth_buffer[], const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[])
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -362,13 +362,13 @@ protected:
         const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
 
         // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        Vec2<RealType> p_tl;
-        p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        // Vec2<RealType> p_tl;
+        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
 
-        RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
-        RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
-        RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
+        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
+        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
+        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
 
         // Step increments when moving +1 in X or +1 in Y
         // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
@@ -378,12 +378,12 @@ protected:
         // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
         // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
         // for y down, the - is needed
-        const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
 
     // Rasterize
     draw_triangle_y_loop:
@@ -394,9 +394,9 @@ protected:
             IntType texture_y = iy + triangle_bb.min_y_;
             IntType tile_y = texture_y - tile_bb.min_y_;
 
-            const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
+            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
+            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
+            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
         draw_triangle_x_loop:
             for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
@@ -405,10 +405,10 @@ protected:
 #pragma HLS loop_flatten
                 //    #pragma HLS PIPELINE II = 1
 
-#pragma HLS dependence variable = depth_buffer type = inter false
+//#pragma HLS dependence variable = depth_buffer type = inter false
                 //  #pragma HLS dependence variable = depth_buffer type = intra false
 
-#pragma HLS dependence variable = fragment_buffer type = inter false
+//#pragma HLS dependence variable = fragment_buffer type = inter false
 
                 IntType texture_x = ix + triangle_bb.min_x_;
                 IntType tile_x = texture_x - tile_bb.min_x_;
@@ -416,16 +416,16 @@ protected:
 
                 RealType prev_depth = depth_buffer[tile_address];
 
-                const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
+                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
+                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
 
                 Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
                                  RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
 
-                // RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-                // RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-                // RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
 
                 // Top-left rule adjustments (include pixels on top/left edges)
                 const bool inside =
@@ -831,7 +831,7 @@ public:
 
     static Fragment fragment_nodata(OutTextures &textures)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         return Fragment{RealType(textures.out_texture.nodata())};
     }
@@ -839,7 +839,7 @@ public:
     template <class BufferView>
     static VertexData get_vertex_data(const BufferView &vertex_buffer, const unsigned int vertexid)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         VertexData vertexdata;
 
@@ -857,7 +857,7 @@ public:
                                          const Varyings &varying_px1,
                                          const Varyings &varying_px2)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -876,7 +876,7 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
                                                                      vertexdata.vertex(1),
@@ -893,7 +893,7 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-#pragma HLS inline
+//#pragma HLS inline
 
         Vec2<RealType> texcoord = uniforms.camera.pointToPix(in_varying.kf_ver);
 
@@ -913,7 +913,7 @@ public:
 
     static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-        // #pragma HLS INLINE
+//#pragma HLS INLINE
 
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)

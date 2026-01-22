@@ -204,11 +204,11 @@ public:
         Fragment fragment_buffer[tile_width * tile_height];
         RealType depth_buffer[tile_width * tile_height];
 
-#pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
-#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+//#pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
+//#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
 
-#pragma HLS aggregate variable = fragment_buffer compact = bit
-#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
+//#pragma HLS aggregate variable = fragment_buffer compact = bit
+//#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
 
     renderbase_render_tiles_loop:
         for (int tile_y = 0; tile_y < num_tiles_y; tile_y++)
@@ -220,20 +220,20 @@ public:
             {
 #pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
-#pragma HLS dependence variable = fragment_buffer type = inter false
-#pragma HLS dependence variable = fragment_buffer type = intra false
+//#pragma HLS dependence variable = fragment_buffer type = inter false
+//#pragma HLS dependence variable = fragment_buffer type = intra false
 
-#pragma HLS dependence variable = depth_buffer type = inter false
-#pragma HLS dependence variable = depth_buffer type = intra false
+//#pragma HLS dependence variable = depth_buffer type = inter false
+//#pragma HLS dependence variable = depth_buffer type = intra false
 
-#pragma HLS dependence variable = triangle_buffer type = inter false
-#pragma HLS dependence variable = triangle_buffer type = intra false
+//#pragma HLS dependence variable = triangle_buffer type = inter false
+//#pragma HLS dependence variable = triangle_buffer type = intra false
 
-#pragma HLS dependence variable = intextures type = inter false
-#pragma HLS dependence variable = intextures type = intra false
+//#pragma HLS dependence variable = intextures type = inter false
+//#pragma HLS dependence variable = intextures type = intra false
 
-#pragma HLS dependence variable = outtextures type = inter false
-#pragma HLS dependence variable = outtextures type = intra false
+//#pragma HLS dependence variable = outtextures type = inter false
+//#pragma HLS dependence variable = outtextures type = intra false
 
             renderbase_reset_depth_buffer_loop:
                 for (int j = 0; j < tile_width * tile_height; j++)
@@ -597,7 +597,7 @@ private:
     template <typename Fragment, typename Uniforms, typename InTextures>
     void render_tile_(Fragment fragment_buffer[], RealType depth_buffer[], const Triangle triangles[], int num_triangles, const BoundingBox<IntType> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
     {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
     render_tile_loop:
         for (IntType tri = 0; tri < num_triangles; tri++)
@@ -808,9 +808,10 @@ public:
         linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
-
+        linalg::Mat4<RealType> projmat = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        linalg::Mat4<RealType> viewmat = projmat;// * opencv2opengl;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = viewmat;
         // imagerenderer_opencv2opengl_loop:
         //     for (int i = 0; i < 4; i++)
         //     {
