@@ -13,6 +13,7 @@ extern "C"
     void DepthRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
                         float *out_texture_data,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
@@ -71,12 +72,14 @@ int main()
     unsigned int lvl = 1;
 
     TextureCPU<float> depth_out_cpu(w, h, 0.0f);
-    auto depth_map = depth_out_cpu.MapWrite(lvl);
+    auto depth_map = depth_out_cpu.MapWrite(0);
+    Level level = depth_out_cpu.level(lvl);
 
     DepthRenderHLS(
         vertex.data(),
         indices.data(),
         depth_map.data(),
+        level.offset,
         vertex.size(), indices.size(),
         depth_out_cpu.width(lvl), depth_out_cpu.height(lvl), 0.0f,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),

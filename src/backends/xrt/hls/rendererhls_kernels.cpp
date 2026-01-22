@@ -10,6 +10,7 @@ extern "C"
     void DepthRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
                         float *out_texture_data,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
@@ -28,14 +29,14 @@ extern "C"
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
         // copy data to bram
-        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
         //             ebo_buffer_data, ebo_buffer_size);
 
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
         // data too large, has to be in ram
-        TextureViewWriteHLS<float> out_texture(out_texture_data, out_texture_width, out_texture_height, out_nodata_value);
+        TextureViewWriteHLS<float> out_texture(out_texture_data + out_texture_offset, out_texture_width, out_texture_height, out_nodata_value);
         // TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
 
         DepthRendererHLS renderer;
@@ -48,7 +49,9 @@ extern "C"
                         ImageType *diffuse_texture_data_ch2,
                         ImageType *diffuse_texture_data_ch3,
                         ImageType *diffuse_texture_data_ch4,
+                        int diffuse_texture_offset,
                         ImageType *out_texture_data,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
@@ -80,8 +83,8 @@ extern "C"
         linalg::Vec2<RealType> exposure(exp_a, exp_b);
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
-        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-        //             ebo_buffer_data, ebo_buffer_size);
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //              ebo_buffer_data, ebo_buffer_size);
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
@@ -91,27 +94,27 @@ extern "C"
         // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
         // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
 
-        TextureViewReadHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1,
-                                                   diffuse_texture_width,
-                                                   diffuse_texture_height,
-                                                   diffuse_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
 
-        TextureViewReadHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2,
-                                                   diffuse_texture_width,
-                                                   diffuse_texture_height,
-                                                   diffuse_nodata_value);
-        TextureViewReadHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3,
-                                                   diffuse_texture_width,
-                                                   diffuse_texture_height,
-                                                   diffuse_nodata_value);
-        TextureViewReadHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4,
-                                                   diffuse_texture_width,
-                                                   diffuse_texture_height,
-                                                   diffuse_nodata_value);
-        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data,
-                                           out_texture_width,
-                                           out_texture_height,
-                                           out_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data + out_texture_offset,
+                                                   out_texture_width,
+                                                   out_texture_height,
+                                                   out_nodata_value);
 
         ImageRendererHLS renderer;
         renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
@@ -160,8 +163,8 @@ extern "C"
         linalg::Vec2<RealType> exposure(exp_a, exp_b);
         PinholeCamera<RealType> cam(fx, fy, cx, cy);
 
-        //MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-        //             ebo_buffer_data, ebo_buffer_size);
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //              ebo_buffer_data, ebo_buffer_size);
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 

@@ -58,8 +58,8 @@ T nearest(const TexView &tex, RealType y, RealType x)
     // const IntType x0 = static_cast<IntType>(xf < RealType(0) ? RealType(0) : xf);
     // const IntType y0 = static_cast<IntType>(yf < RealType(0) ? RealType(0) : yf);
 
-    const IntType w = tex.width();
-    const IntType h = tex.height();
+    const IntType w = tex.width() - 1;
+    const IntType h = tex.height() - 1;
 
     const IntType xf = IntType(lround(x));
     const IntType yf = IntType(lround(y));

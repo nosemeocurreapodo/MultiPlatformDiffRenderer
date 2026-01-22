@@ -17,7 +17,9 @@ extern "C"
                         ImageType *diffuse_texture_data_ch2,
                         ImageType *diffuse_texture_data_ch3,
                         ImageType *diffuse_texture_data_ch4,
+                        int diffuse_texture_offset,
                         ImageType *out_texture_data,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
@@ -75,10 +77,12 @@ int main()
 
     unsigned int lvl = 0;
 
-    auto diffuse_map = image_src_cpu.MapWrite(lvl);
+    auto diffuse_map = image_src_cpu.MapWrite(0);
+    Level diffuse_lvl = image_src_cpu.level(lvl);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
-    auto image_out_map = image_out_cpu.MapWrite(lvl);
+    auto image_out_map = image_out_cpu.MapWrite(0);
+    Level image_out_lvl = image_out_cpu.level(lvl);
 
     ImageRenderHLS(
         vertex.data(),
@@ -87,7 +91,9 @@ int main()
         (ImageType *)diffuse_map.data(),
         (ImageType *)diffuse_map.data(),
         (ImageType *)diffuse_map.data(),
+        diffuse_lvl.offset,
         (ImageType *)image_out_map.data(),
+        image_out_lvl.offset,
         vertex.size(), indices.size(),
         image_src_cpu.width(lvl), image_src_cpu.height(lvl), 0,
         image_out_cpu.width(lvl), image_out_cpu.height(lvl), 0,

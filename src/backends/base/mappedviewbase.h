@@ -31,6 +31,13 @@ private:
     Releaser rel_{};
 };
 
+struct Level
+{
+    unsigned int offset; // element offset in storage_
+    int w, h;
+    // optional: UInt pitch; // elements per row if you pad rows
+};
+
 template <class T, class Releaser>
 class TextureViewBase
 {
