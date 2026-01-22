@@ -10,6 +10,17 @@
 #include "backends/xrt/bufferxrt.h"
 #include "backends/base/texturebase.h"
 
+struct TextureXRTNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using TextureViewReadXRT = TextureViewBase<T, TextureXRTNoopReleaser>;
+
+template <typename T>
+using TextureViewWriteXRT = TextureViewBase<T, TextureXRTNoopReleaser>;
+
 template <class T>
 class TextureXRT
 {
@@ -74,16 +85,16 @@ public:
         }
     }
 
-    MappedView<const T, NoopReleaser> MapRead(int lvl) const
+    TextureViewReadXRT<T> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewReadXRT<T>(storage_.data() + L.offset, L.w, L.h, nodata_);
     }
 
-    MappedView<T, NoopReleaser> MapWrite(int lvl)
+    TextureViewWriteXRT<T> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewWriteXRT<T>(storage_.data() + L.offset, L.w, L.h, nodata_);
     }
 
     // private:

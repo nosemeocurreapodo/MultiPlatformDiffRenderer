@@ -8,7 +8,15 @@
 // #include <vector>
 
 #include "backends/xrt/devicexrt.h"
-#include "backends/base/MappedView.h" // your MappedView + NoopReleaser
+#include "backends/base/mappedviewbase.h" // your MappedView + NoopReleaser
+
+struct BufferXRTNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using BufferViewXRT = BufferViewBase<T, BufferXRTNoopReleaser>;
 
 template <typename T>
 class BufferXRT
@@ -87,13 +95,13 @@ public:
     std::size_t size() const { return size_; }
 
     // -------- cross-backend style API --------
-    MappedView<const T, NoopReleaser> MapRead() const
+    BufferViewXRT<T> MapRead() const
     {
-        return MappedView<const T, NoopReleaser>(bo_map_, size_);
+        return BufferViewXRT<T>(bo_map_, size_);
     }
-    MappedView<T, NoopReleaser> MapWrite()
+    BufferViewXRT<T> MapWrite()
     {
-        return MappedView<T, NoopReleaser>(bo_map_, size_);
+        return BufferViewXRT<T>(bo_map_, size_);
     }
     // forbid mapping temporaries (view would dangle)
     // MappedView<const T> MapRead() const && = delete;

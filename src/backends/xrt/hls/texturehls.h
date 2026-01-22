@@ -49,6 +49,7 @@ public:
     unsigned int width(unsigned int lvl) const { return levels_[lvl].w; }
     unsigned int height(unsigned int lvl) const { return levels_[lvl].h; }
     unsigned int levels() const { return n_levels_; }
+    Level level(int lvl) const { return levels_[lvl]; }
     unsigned int size() const { return total_size_; }
     unsigned int type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
@@ -90,13 +91,6 @@ public:
     // const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
 
 private:
-    struct Level
-    {
-        unsigned int offset; // element offset in storage_
-        // UInt size;   // elements at this level (w*h*channels)
-        unsigned int w, h;
-        // optional: std::size_t pitch; // elements per row if you pad rows
-    };
 
     void build_pyramid_(unsigned int w, unsigned int h)
     {
