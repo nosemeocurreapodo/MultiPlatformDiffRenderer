@@ -33,9 +33,9 @@ public:
         kernel_ = xrt::kernel(device_xrt, uuid_xrt, "DepthRenderHLS");
     }
 
-    void Render(const MeshXRT &mesh,
+    void Render(MeshXRT &mesh,
                 const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
+                const PinholeCamera<float> &cam,
                 int out_lvl,
                 TextureXRT<float> &depth_texture)
     {
@@ -70,7 +70,7 @@ public:
         kernel_ = xrt::kernel(device_xrt, uuid_xrt, "ImageRenderHLS");
     }
 
-    void Render(const MeshXRT &mesh,
+    void Render(MeshXRT &mesh,
                 const linalg::SE3<float> &pose,
                 const Vec2<float> &exposure,
                 const PinholeCamera<float> &cam,
@@ -94,15 +94,16 @@ public:
                                diffuse_texture.storage_.bo_,
                                diffuse_texture.storage_.bo_,
                                diffuse_texture.storage_.bo_,
-                               diffuse_texture.level(in_lvl).offset,
+                               diffuse_texture.levels(in_lvl).offset,
                                out_texture.storage_.bo_,
-                               out_texture.level(out_lvl).offset,
+                               out_texture.levels(out_lvl).offset,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                diffuse_texture.width(0), diffuse_texture.height(0), diffuse_texture.nodata(), in_lvl,
                                out_texture.width(0), out_texture.height(0), out_texture.nodata(), out_lvl,
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
-                               cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
+                               cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
+                               exposure(0), exposure(1));
         run.wait();
         out_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
     }
