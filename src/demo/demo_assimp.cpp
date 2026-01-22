@@ -40,6 +40,8 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
+// #define SHOW_OPENCV
+
 int main(int argc, char **argv)
 {
 // Usage: demo_assimp <xclbin> <device_id> <model_path> [texture_override_path]
@@ -148,8 +150,8 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 2;
-    const int out_lvl = 0;
+    const int in_lvl = 4;
+    const int out_lvl = 2;
 
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
@@ -235,7 +237,9 @@ int main(int argc, char **argv)
     std::vector<double> times;
     times.reserve(max_frames);
 
+#ifdef SHOW_OPENCV
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
+#endif
 
     float dist = -5.5f;
     float fov_deg = 90.0f;
@@ -258,7 +262,7 @@ int main(int argc, char **argv)
     // for (int i = 0; i < max_frames; ++i)
     int i = 0;
     int toshow = 0;
-    int backend = 0;
+    int backend = backend_names.size() - 1;
     while (true)
     {
         i++;
@@ -483,11 +487,14 @@ int main(int argc, char **argv)
                     backend_names[backend] + "  " + output_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
+#ifdef OPENCV_SHOW
         cv::imshow("Rasterizer Demo", out_color);
-        // if (i % 60 == 0)
-        //{
-        //     SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
-        // }
+#else
+        if (i % 60 == 0)
+        {
+            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
+        }
+#endif
 
         int key = cv::waitKey(1);
         if (key == 27 || key == 'q')

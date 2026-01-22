@@ -75,14 +75,15 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 0;
+    unsigned int in_lvl = 0;
+    unsigned int out_lvl = 0;
 
     auto diffuse_map = image_src_cpu.MapWrite(0);
-    Level diffuse_lvl = image_src_cpu.level(lvl);
+    Level diffuse_lvl = image_src_cpu.level(in_lvl);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
     auto image_out_map = image_out_cpu.MapWrite(0);
-    Level image_out_lvl = image_out_cpu.level(lvl);
+    Level image_out_lvl = image_out_cpu.level(out_lvl);
 
     ImageRenderHLS(
         vertex.data(),
@@ -91,8 +92,8 @@ int main()
         (ImageType *)diffuse_map.data(),
         (ImageType *)diffuse_map.data(),
         (ImageType *)diffuse_map.data(),
-        diffuse_lvl.offset,
         (ImageType *)image_out_map.data(),
+        diffuse_lvl.offset,
         image_out_lvl.offset,
         vertex.size(), indices.size(),
         image_src_cpu.width(lvl), image_src_cpu.height(lvl), 0,

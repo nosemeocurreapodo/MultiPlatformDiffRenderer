@@ -35,7 +35,11 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = BufferXRT<T>(total_size_, group_id);
+        //storage_ = BufferXRT<T>(total_size_, group_id);
+        bo_ = xrt::bo(device_xrt, total_size_ * sizeof(T), group_id);
+        group_id_ = group_id;
+        bo_map_ = bo_.map<T *>();
+
         // Fill base and all levels with nodata
         // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
         //    fill(lvl, nodata_);
@@ -88,16 +92,16 @@ public:
         }
     }
 
-    TextureViewReadXRT<T> MapRead(int lvl)
+    TextureViewReadXRT<T> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        return TextureViewReadXRT<T>(storage_.data() + L.offset, L.w, L.h, nodata_);
+        return TextureViewReadXRT<T>(bo_map_ + L.offset, L.w, L.h, nodata_);
     }
 
     TextureViewWriteXRT<T> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        return TextureViewWriteXRT<T>(storage_.data() + L.offset, L.w, L.h, nodata_);
+        return TextureViewWriteXRT<T>(bo_map_ + L.offset, L.w, L.h, nodata_);
     }
 
     // private:
@@ -137,9 +141,12 @@ public:
         }
     }
 
-    BufferXRT<T> storage_;
+    //BufferXRT<T> storage_;
+    xrt::bo bo_;
     std::vector<Level> levels_;
     unsigned int total_size_;
+    int group_id_;
+    T *bo_map_;
     // std::vector<Level> lvls_;
     T nodata_{};
 };
