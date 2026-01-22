@@ -72,16 +72,16 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "hls_math.h"
 #include "ap_int.h"
 #include "ap_fixed.h"
-//using ImageType = float;
+// using ImageType = float;
 using ImageType = float;
-using RealType = float;
-//using RealType = half;
+// using RealType = float;
+using RealType = half;
 //   using RealType = Posit<16, 1>;
 // using RealType = ap_fixed<32, 16>;
 // using RealType = ap_float<16, 8>;
-  using IntType = int;
+//  using IntType = int;
 //  using IntType = short int;
-//using IntType = ap_int<16>;
+using IntType = ap_int<16>;
 using PidType = float;
 #else
 using ImageType = float;

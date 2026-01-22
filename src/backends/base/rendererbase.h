@@ -333,7 +333,7 @@ protected:
     template <typename InTextures, typename Uniforms, typename Fragment>
     static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType depth_buffer[], const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[])
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -393,6 +393,7 @@ protected:
 
             IntType texture_y = iy + triangle_bb.min_y_;
             IntType tile_y = texture_y - tile_bb.min_y_;
+            IntType tile_address_base = tile_y * tile_bb.width_;
 
             // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
             // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
@@ -405,14 +406,13 @@ protected:
 #pragma HLS loop_flatten
                 //    #pragma HLS PIPELINE II = 1
 
-//#pragma HLS dependence variable = depth_buffer type = inter false
-                //  #pragma HLS dependence variable = depth_buffer type = intra false
+#pragma HLS dependence variable = depth_buffer type = inter false
 
-//#pragma HLS dependence variable = fragment_buffer type = inter false
+                // #pragma HLS dependence variable = fragment_buffer type = inter false
 
                 IntType texture_x = ix + triangle_bb.min_x_;
                 IntType tile_x = texture_x - tile_bb.min_x_;
-                IntType tile_address = tile_y * tile_bb.width_ + tile_x;
+                IntType tile_address = tile_address_base + tile_x;
 
                 RealType prev_depth = depth_buffer[tile_address];
 
@@ -831,7 +831,7 @@ public:
 
     static Fragment fragment_nodata(OutTextures &textures)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         return Fragment{RealType(textures.out_texture.nodata())};
     }
@@ -839,7 +839,7 @@ public:
     template <class BufferView>
     static VertexData get_vertex_data(const BufferView &vertex_buffer, const unsigned int vertexid)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         VertexData vertexdata;
 
@@ -857,7 +857,7 @@ public:
                                          const Varyings &varying_px1,
                                          const Varyings &varying_px2)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -876,7 +876,7 @@ public:
                               Vec4<RealType> &gl_Position,
                               Varyings &outVarying)
     {
-//#pragma HLS inline
+        // #pragma HLS inline
 
         Vec4<RealType> f_ver = uniforms.pose_matrix * Vec4<RealType>(vertexdata.vertex(0),
                                                                      vertexdata.vertex(1),
@@ -893,7 +893,7 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-//#pragma HLS inline
+#pragma HLS inline
 
         Vec2<RealType> texcoord = uniforms.camera.pointToPix(in_varying.kf_ver);
 
@@ -913,7 +913,7 @@ public:
 
     static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
     {
-//#pragma HLS INLINE
+        // #pragma HLS INLINE
 
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
