@@ -76,7 +76,7 @@ public:
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureXRT<ImageType> &diffuse_texture,
+                TextureXRT<ImageType> &diffuse_texture,
                 TextureXRT<ImageType> &out_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
@@ -94,9 +94,9 @@ public:
                                diffuse_texture.storage_.bo_,
                                diffuse_texture.storage_.bo_,
                                diffuse_texture.storage_.bo_,
-                               diffuse_texture.levels(in_lvl).offset,
+                               diffuse_texture.level(in_lvl).offset,
                                out_texture.storage_.bo_,
-                               out_texture.levels(out_lvl).offset,
+                               out_texture.level(out_lvl).offset,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                diffuse_texture.width(0), diffuse_texture.height(0), diffuse_texture.nodata(), in_lvl,
                                out_texture.width(0), out_texture.height(0), out_texture.nodata(), out_lvl,

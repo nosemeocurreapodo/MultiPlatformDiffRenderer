@@ -61,6 +61,8 @@ public:
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
     std::size_t levels() const { return levels_.size(); }
+    Level level(int lvl) const { return levels_[lvl]; }
+
     // std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
@@ -105,14 +107,6 @@ public:
     //     friend class DIDxyRendererXRT;
     //     friend class JPoseRendererXRT;
     //     friend class JMapRendererXRT;
-
-    struct Level
-    {
-        std::size_t offset; // element offset in storage_
-        // std::size_t size;   // elements at this level (w*h*channels)
-        int w, h;
-        // optional: std::size_t pitch; // elements per row if you pad rows
-    };
 
     void build_pyramid_(std::size_t w, std::size_t h)
     {
