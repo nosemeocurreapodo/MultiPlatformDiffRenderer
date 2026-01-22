@@ -17,7 +17,7 @@ public:
     //  using size_type = std::size_t;
 
     MeshXRT(const std::vector<float> &vertex,
-            const std::vector<unsigned int> &indices,
+            const std::vector<int> &indices,
             bool has_position,
             bool has_texcoord,
             bool has_normal,

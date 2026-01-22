@@ -326,13 +326,13 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_GLES2
         if (backend_names[backend] == "gles2")
-            renderergles2.Render(meshgles2, transform, camera, in_lvl, out_lvl, diffusegles2, imagegles2);
+            renderergles2.Render(meshgles2, transform, exposure, camera, in_lvl, out_lvl, diffusegles2, imagegles2);
 
 #endif
 
 #ifdef COMPILE_XRT
         if (backend_names[backend] == "xrt")
-            rendererxrt.Render(meshxrt, transform, camera, in_lvl, out_lvl, diffusexrt, imagexrt);
+            rendererxrt.Render(meshxrt, transform, exposure, camera, in_lvl, out_lvl, diffusexrt, imagexrt);
 
 #endif
 

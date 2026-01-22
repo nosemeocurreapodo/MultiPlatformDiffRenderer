@@ -65,6 +65,7 @@ public:
 
     // std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
+    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
