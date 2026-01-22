@@ -55,7 +55,7 @@ public:
         }
 
         vertex_buffer_ = BufferXRT<float>(vertex.size(), vertex.data(), vertex_group_id);
-        ebo_buffer_ = BufferXRT<unsigned int>(indices.size(), indices.data(), indices_group_id);
+        ebo_buffer_ = BufferXRT<int>(indices.size(), indices.data(), indices_group_id);
     }
 
     // Copy/move
@@ -137,7 +137,7 @@ public:
         */
 
     BufferXRT<float> vertex_buffer_;
-    BufferXRT<unsigned int> ebo_buffer_;
+    BufferXRT<int> ebo_buffer_;
     int stride_;
     int pos_offset_;
     int tex_offset_;

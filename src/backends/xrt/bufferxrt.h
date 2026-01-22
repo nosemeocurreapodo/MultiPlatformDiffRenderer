@@ -95,10 +95,11 @@ public:
     std::size_t size() const { return size_; }
 
     // -------- cross-backend style API --------
-    BufferViewXRT<T> MapRead() const
+    BufferViewXRT<T> MapRead()
     {
         return BufferViewXRT<T>(bo_map_, size_);
     }
+    
     BufferViewXRT<T> MapWrite()
     {
         return BufferViewXRT<T>(bo_map_, size_);

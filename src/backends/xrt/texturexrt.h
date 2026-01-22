@@ -88,7 +88,7 @@ public:
         }
     }
 
-    TextureViewReadXRT<T> MapRead(int lvl) const
+    TextureViewReadXRT<T> MapRead(int lvl)
     {
         const auto &L = levels_[lvl];
         return TextureViewReadXRT<T>(storage_.data() + L.offset, L.w, L.h, nodata_);
