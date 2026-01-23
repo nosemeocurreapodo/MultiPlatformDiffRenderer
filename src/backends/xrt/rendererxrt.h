@@ -47,7 +47,8 @@ public:
 
         mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_,
+                               mesh.ebo_buffer_.bo_,
                                depth_texture.bo_,
                                depth_texture.level(out_lvl).offset,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
@@ -95,8 +96,8 @@ public:
                                diffuse_texture.bo_,
                                diffuse_texture.bo_,
                                diffuse_texture.bo_,
-                               diffuse_texture.level(in_lvl).offset,
                                out_texture.bo_,
+                               diffuse_texture.level(in_lvl).offset,
                                out_texture.level(out_lvl).offset,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                diffuse_texture.width(in_lvl), diffuse_texture.height(in_lvl), diffuse_texture.nodata(),
