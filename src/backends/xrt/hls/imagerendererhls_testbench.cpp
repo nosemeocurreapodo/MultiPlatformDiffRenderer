@@ -75,7 +75,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int in_lvl = 0;
+    unsigned int in_lvl = 2;
     unsigned int out_lvl = 0;
 
     auto diffuse_map = image_src_cpu.MapWrite(0);
@@ -96,16 +96,16 @@ int main()
         diffuse_lvl.offset,
         image_out_lvl.offset,
         vertex.size(), indices.size(),
-        image_src_cpu.width(lvl), image_src_cpu.height(lvl), 0,
-        image_out_cpu.width(lvl), image_out_cpu.height(lvl), 0,
+        image_src_cpu.width(in_lvl), image_src_cpu.height(in_lvl), 0,
+        image_out_cpu.width(out_lvl), image_out_cpu.height(out_lvl), 0,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
         exposure(0), exposure(1));
 
-    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, out_lvl);
     SaveDebugImage(image_out_cv, "imagerenderhls_output.png");
 
-    cv::Mat image_reference_cv = DownloadTextureToMat(image_dst_cpu, lvl);
+    cv::Mat image_reference_cv = DownloadTextureToMat(image_dst_cpu, out_lvl);
     SaveDebugImage(image_reference_cv, "imagerenderhls_reference.png");
 }

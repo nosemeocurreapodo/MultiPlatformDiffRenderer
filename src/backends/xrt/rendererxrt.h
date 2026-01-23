@@ -114,7 +114,6 @@ public:
     xrt::kernel kernel_;
 };
 
-/*
 class DiffRendererXRT
 {
 public:
@@ -123,17 +122,20 @@ public:
         kernel_ = xrt::kernel(device_xrt, uuid_xrt, "DiffRenderHLS");
     }
 
-    void Render(MeshXRT &mesh,
-                const linalg::SE3<float> &pose,
-                const Camera<float> &cam,
-                unsigned int in_lvl,
-                unsigned int out_lvl,
-                TextureXRT<float> &image_texture,
-                TextureXRT<float> &depth_texture,
-                TextureXRT<linalg::Vec3<float>> &jtra_texture,
-                TextureXRT<linalg::Vec3<float>> &jrot_texture,
-                TextureXRT<linalg::Vec3<float>> &jmap_texture,
-                TextureXRT<linalg::Vec3<float>> &pids_texture)
+    void Render(const MeshXRT &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureXRT<ImageType> &diffuse_texture,
+                const TextureXRT<Vec3<float>> &dfdxy_texture,
+                TextureXRT<ImageType> &image_texture,
+                TextureXRT<Vec3<float>> &jtra_texture,
+                TextureXRT<Vec3<float>> &jrot_texture,
+                TextureXRT<Vec3<float>> &jexp_texture,
+                TextureXRT<Vec3<float>> &jmap_texture,
+                TextureXRT<Vec3<PidType>> &pids_texture)
     {
         // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
         // assert(kernel_.group_id(1) == mesh.pos.bo_.get_memory_group());
@@ -143,27 +145,36 @@ public:
 
         mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
         mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        mesh.diffuse_.storage_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-        xrt::run run = kernel_(mesh.vertex_buffer_.bo_, mesh.ebo_buffer_.bo_,
-                               mesh.diffuce_.storage_.bo_, image_texture.storage_.bo_, depth_texture.storage_.bo_, jtra_texture.storage_.bo_, jrot_texture.storage_.bo_, pids_texture.storage_.bo_,
-                               mesh.pos_buffer_.size(), mesh.tex_buffer_.size(), mesh.wei_buffer_.size(), mesh.ebo_buffer_.size(),
-                               f_texture.width(0), f_texture.height(0), f_texture.nodata(), in_lvl,
-                               image_texture.width(0), image_texture.height(0),
-                               image_texture.nodata(), depth_texture.nodata(), jtra_texture.nodata(), jrot_texture.nodata(), pids_texture.nodata(),
-                               out_lvl,
+        diffuse_texture.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        dfdxy_texture.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_,
+                               mesh.ebo_buffer_.bo_,
+                               diffuse_texture.bo_,
+                               dfdxy_texture.bo_,
+                               image_texture.bo_,
+                               jtra_texture.bo_,
+                               jrot_texture.bo_,
+                               jexp_texture.bo_,
+                               jmap_texture.bo_,
+                               pids_texture.bo_,
+                               diffuse_texture.level(in_lvl).offset,
+                               image_texture.level(out_lvl).offset,
+                               mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
+                               diffuse_texture.width(in_lvl), diffuse_texture.height(in_lvl),
+                               out_texture.width(out_lvl), out_texture.height(out_lvl),
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
-                               cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));
+                               cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
+                               exposure(0), exposure(1));
         run.wait();
-        image_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        depth_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        jtra_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        jrot_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        jmap_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-        pids_texture.storage_.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        image_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jtra_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jrot_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jexp_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        jmap_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+        pids_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
     }
 
     // private:
     xrt::kernel kernel_;
 };
-*/

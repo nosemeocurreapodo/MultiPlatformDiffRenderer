@@ -132,6 +132,8 @@ extern "C"
                        ap_uint<8> *jexp_texture_data,
                        ap_uint<8> *jmap_texture_data,
                        ap_uint<8> *pids_texture_data,
+                       int in_texture_offset,
+                       int out_texture_offset,
                        unsigned int vertex_buffer_size,
                        unsigned int ebo_buffer_size,
                        unsigned int in_texture_width,
@@ -168,14 +170,32 @@ extern "C"
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        TextureViewReadHLS<ImageType> kf_texture((ImageType *)kf_texture_data, in_texture_width, in_texture_height, 0);
-        TextureViewWriteHLS<linalg::Vec3<float>> dkfdxy_texture((linalg::Vec3<float> *)dkfdxy_texture_data, in_texture_width, in_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewReadHLS<ImageType> image_texture((ImageType *)image_texture_data, in_texture_width, in_texture_height, 0);
-        TextureViewWriteHLS<linalg::Vec3<float>> jtra_texture((linalg::Vec3<float> *)jtra_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewWriteHLS<linalg::Vec3<float>> jrot_texture((linalg::Vec3<float> *)jrot_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewWriteHLS<linalg::Vec3<float>> jexp_texture((linalg::Vec3<float> *)jexp_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewWriteHLS<linalg::Vec3<float>> jmap_texture((linalg::Vec3<float> *)jmap_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
-        TextureViewWriteHLS<linalg::Vec3<float>> pids_texture((linalg::Vec3<float> *)pids_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(-1.0, -1.0, -1.0));
+        ImageType* kf_pointer = (ImageType *)kf_texture_data;
+        kf_pointer += in_texture_offset;
+        Vec3<float>* dkfdxy_pointer = (Vec3<float> *)dkfdxy_texture_data;
+        dkfdxy_pointer += in_texture_offset;
+
+        ImageType* image_pointer = (ImageType *)image_texture_data;
+        image_pointer += out_texture_offset;
+        Vec3<float>* jtra_pointer = (Vec3<float> *)jtra_texture_data;
+        jtra_pointer += out_texture_offset;
+        Vec3<float>* jrot_pointer = (Vec3<float> *)jrot_texture_data;
+        jrot_pointer += out_texture_offset;
+        Vec3<float>* jexp_pointer = (Vec3<float> *)jexp_texture_data;
+        jexp_pointer += out_texture_offset;
+        Vec3<float>* jmap_pointer = (Vec3<float> *)jmap_texture_data;
+        jmap_pointer += out_texture_offset;
+        Vec3<float>* pids_pointer = (Vec3<float> *)pids_texture_data;
+        pids_pointer += out_texture_offset;
+
+        TextureViewReadHLS<ImageType> kf_texture(kf_pointer, in_texture_width, in_texture_height, 0);
+        TextureViewWriteHLS<Vec3<float>> dkfdxy_texture(dkfdxy_pointer, in_texture_width, in_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewReadHLS<ImageType> image_texture(image_pointer, out_texture_width, out_texture_height, 0);
+        TextureViewWriteHLS<Vec3<float>> jtra_texture(jtra_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jrot_texture(jrot_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jexp_texture(jexp_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jmap_texture(jmap_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> pids_texture(pids_pointer, out_texture_width, out_texture_height, Vec3<float>(-1.0, -1.0, -1.0));
 
         DiffRendererHLS renderer;
         renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,

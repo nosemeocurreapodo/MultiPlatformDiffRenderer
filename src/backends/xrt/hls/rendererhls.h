@@ -894,7 +894,6 @@ public:
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.out_width = W;
         uniforms.out_height = H;

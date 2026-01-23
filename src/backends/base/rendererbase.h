@@ -2771,11 +2771,9 @@ public:
         Vec2<RealType> texcoord;
         Vec3<RealType> kf_ver;
         Vec3<RealType> f_ver;
-        Vec3<RealType> kf_ray;
         Vec3<RealType> kf_ray_0;
         Vec3<RealType> kf_ray_1;
         Vec3<RealType> kf_ray_2;
-        RealType depth;
         Vec3<RealType> baricentric;
         IntType vertexId;
         Vec3<IntType> pids;
@@ -2848,9 +2846,9 @@ public:
             (w0 * varying_px0.f_ver +
              w1 * varying_px1.f_ver +
              w2 * varying_px2.f_ver);
-        var_over_w_px.kf_ray_0 = varying_px0.kf_ray;
-        var_over_w_px.kf_ray_1 = varying_px1.kf_ray;
-        var_over_w_px.kf_ray_2 = varying_px2.kf_ray;
+        var_over_w_px.kf_ray_0 = varying_px0.kf_ray_0;
+        var_over_w_px.kf_ray_1 = varying_px1.kf_ray_0;
+        var_over_w_px.kf_ray_2 = varying_px2.kf_ray_0;
         // var_over_w_px.barvout[2].screen(1)entric = Vec3<MathType>(w0 * invW0 * varying_px0.depth,
         //                                  w1 * invW1 * varying_px1.depth,
         //                                  w2 * invW2 * varying_px2.depth) *
@@ -2889,8 +2887,7 @@ public:
         Vec3<RealType> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_(0), d_f_ver_d_kf_depth_(1), d_f_ver_d_kf_depth_(2));
 
         outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
-        outVarying.kf_ray = d_f_ver_d_kf_depth;
-        outVarying.depth = vertexdata.vertex(2);
+        outVarying.kf_ray_0 = d_f_ver_d_kf_depth;
         outVarying.vertexId = vertexid;
         outVarying.texcoord = vertexdata.texcoord;
         outVarying.kf_ver = vertexdata.vertex;
