@@ -857,15 +857,15 @@ public:
 private:
 };
 
-class JPoseExpMapRendererHLS
-    : public RendererBaseHLS<JPoseExpMapRendererHLS,
-                             JPoseExpMapRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
+class DiffRendererHLS
+    : public RendererBaseHLS<DiffRendererHLS,
+                             DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
+    using Base = DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
 
-    JPoseExpMapRendererHLS() = default;
-    ~JPoseExpMapRendererHLS() = default;
+    DiffRendererHLS() = default;
+    ~DiffRendererHLS() = default;
 
     void Render(const BufferViewReadHLS<float> &vertex_buffer,
                 const BufferViewReadHLS<int> &ebo_buffer,
@@ -905,7 +905,7 @@ public:
         // RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
 
-        RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderTiledFragBuff2(
+        RendererBaseHLS<DiffRendererHLS, Base>::RenderTiledFragBuff2(
             viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 

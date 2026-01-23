@@ -122,26 +122,26 @@ extern "C"
                         out_texture);
     }
 
-    void JPoseExpMapRenderHLS(float *vertex_buffer_data,
-                              int *ebo_buffer_data,
-                              ap_uint<8> *kf_texture_data,
-                              ap_uint<8> *dkfdxy_texture_data,
-                              ap_uint<8> *image_texture_data,
-                              ap_uint<8> *jtra_texture_data,
-                              ap_uint<8> *jrot_texture_data,
-                              ap_uint<8> *jexp_texture_data,
-                              ap_uint<8> *jmap_texture_data,
-                              ap_uint<8> *pids_texture_data,
-                              unsigned int vertex_buffer_size,
-                              unsigned int ebo_buffer_size,
-                              unsigned int in_texture_width,
-                              unsigned int in_texture_height,
-                              unsigned int out_texture_width,
-                              unsigned int out_texture_height,
-                              float q_x, float q_y, float q_z, float q_w,
-                              float t_x, float t_y, float t_z,
-                              float fx, float fy, float cx, float cy,
-                              float exp_a, float exp_b)
+    void DiffRenderHLS(float *vertex_buffer_data,
+                       int *ebo_buffer_data,
+                       ap_uint<8> *kf_texture_data,
+                       ap_uint<8> *dkfdxy_texture_data,
+                       ap_uint<8> *image_texture_data,
+                       ap_uint<8> *jtra_texture_data,
+                       ap_uint<8> *jrot_texture_data,
+                       ap_uint<8> *jexp_texture_data,
+                       ap_uint<8> *jmap_texture_data,
+                       ap_uint<8> *pids_texture_data,
+                       unsigned int vertex_buffer_size,
+                       unsigned int ebo_buffer_size,
+                       unsigned int in_texture_width,
+                       unsigned int in_texture_height,
+                       unsigned int out_texture_width,
+                       unsigned int out_texture_height,
+                       float q_x, float q_y, float q_z, float q_w,
+                       float t_x, float t_y, float t_z,
+                       float fx, float fy, float cx, float cy,
+                       float exp_a, float exp_b)
     {
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
@@ -177,7 +177,7 @@ extern "C"
         TextureViewWriteHLS<linalg::Vec3<float>> jmap_texture((linalg::Vec3<float> *)jmap_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(0.0, 0.0, 0.0));
         TextureViewWriteHLS<linalg::Vec3<float>> pids_texture((linalg::Vec3<float> *)pids_texture_data, out_texture_width, out_texture_height, linalg::Vec3<float>(-1.0, -1.0, -1.0));
 
-        JPoseExpMapRendererHLS renderer;
+        DiffRendererHLS renderer;
         renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
                         kf_texture, dkfdxy_texture,
                         image_texture, jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture);

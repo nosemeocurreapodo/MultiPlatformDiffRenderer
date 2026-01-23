@@ -11,26 +11,26 @@
 
 extern "C"
 {
-    void JPoseExpMapRenderHLS(float *vertex_buffer_data,
-                              int *ebo_buffer_data,
-                              ap_uint<8> *kf_texture_data,
-                              ap_uint<8> *dfdxy_texture_data,
-                              ap_uint<8> *image_texture_data,
-                              ap_uint<8> *jtra_texture_data,
-                              ap_uint<8> *jrot_texture_data,
-                              ap_uint<8> *jexp_texture_data,
-                              ap_uint<8> *jmap_texture_data,
-                              ap_uint<8> *pids_texture_data,
-                              unsigned int vertex_buffer_size,
-                              unsigned int ebo_buffer_size,
-                              unsigned int in_texture_width,
-                              unsigned int in_texture_height,
-                              unsigned int out_texture_width,
-                              unsigned int out_texture_height,
-                              float q_x, float q_y, float q_z, float q_w,
-                              float t_x, float t_y, float t_z,
-                              float fx, float fy, float cx, float cy,
-                              float exp_a, float exp_b);
+    void DiffRenderHLS(float *vertex_buffer_data,
+                       int *ebo_buffer_data,
+                       ap_uint<8> *kf_texture_data,
+                       ap_uint<8> *dfdxy_texture_data,
+                       ap_uint<8> *image_texture_data,
+                       ap_uint<8> *jtra_texture_data,
+                       ap_uint<8> *jrot_texture_data,
+                       ap_uint<8> *jexp_texture_data,
+                       ap_uint<8> *jmap_texture_data,
+                       ap_uint<8> *pids_texture_data,
+                       unsigned int vertex_buffer_size,
+                       unsigned int ebo_buffer_size,
+                       unsigned int in_texture_width,
+                       unsigned int in_texture_height,
+                       unsigned int out_texture_width,
+                       unsigned int out_texture_height,
+                       float q_x, float q_y, float q_z, float q_w,
+                       float t_x, float t_y, float t_z,
+                       float fx, float fy, float cx, float cy,
+                       float exp_a, float exp_b);
 }
 
 int main()
@@ -51,7 +51,7 @@ int main()
     TextureCPU<ImageType> image_src_cpu(w, h, 0);
     TextureCPU<Vec3<float>> didxy_src_cpu(w, h, Vec3<float>(1, 1, 1));
     TextureCPU<float> depth_src_cpu(w, h, 0);
-    //TextureCPU<ImageType> image_dst_cpu(w, h, 0);
+    // TextureCPU<ImageType> image_dst_cpu(w, h, 0);
 
     cv::Mat image_src_cv = cv::imread(image_files[0], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_src_cv = cv::imread(depth_files[0], cv::IMREAD_GRAYSCALE);
@@ -59,10 +59,10 @@ int main()
     depth_src_cv = depth_src_cv / depth_factor;
     linalg::SE3<float> pose_src = poses[0];
 
-    //cv::Mat image_dst_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
-    //cv::Mat depth_dst_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
-    //depth_dst_cv.convertTo(depth_dst_cv, CV_32FC1);
-    //depth_dst_cv = depth_dst_cv / depth_factor;
+    // cv::Mat image_dst_cv = cv::imread(image_files[50], cv::IMREAD_GRAYSCALE);
+    // cv::Mat depth_dst_cv = cv::imread(depth_files[50], cv::IMREAD_GRAYSCALE);
+    // depth_dst_cv.convertTo(depth_dst_cv, CV_32FC1);
+    // depth_dst_cv = depth_dst_cv / depth_factor;
     linalg::SE3<float> pose_dst = poses[50];
 
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
@@ -70,7 +70,7 @@ int main()
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, false, false);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, true, false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
