@@ -148,13 +148,13 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = kf_texture_data bundle = gmem1 depth = 412800
-#pragma HLS INTERFACE m_axi port = dkfdxy_texture_data bundle = gmem3 depth = 412800
-#pragma HLS INTERFACE m_axi port = image_texture_data bundle = gmem2 depth = 412800
+#pragma HLS INTERFACE m_axi port = dkfdxy_texture_data bundle = gmem2 depth = 412800
+#pragma HLS INTERFACE m_axi port = image_texture_data bundle = gmem3 depth = 412800
 #pragma HLS INTERFACE m_axi port = jtra_texture_data bundle = gmem4 depth = 412800
 #pragma HLS INTERFACE m_axi port = jrot_texture_data bundle = gmem5 depth = 412800
-#pragma HLS INTERFACE m_axi port = jexp_texture_data bundle = gmem5 depth = 412800
-#pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem5 depth = 412800
-#pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem5 depth = 412800
+#pragma HLS INTERFACE m_axi port = jexp_texture_data bundle = gmem6 depth = 412800
+#pragma HLS INTERFACE m_axi port = jmap_texture_data bundle = gmem7 depth = 412800
+#pragma HLS INTERFACE m_axi port = pids_texture_data bundle = gmem8 depth = 412800
 
         // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
         // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64

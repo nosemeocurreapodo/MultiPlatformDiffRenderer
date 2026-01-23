@@ -2913,10 +2913,17 @@ public:
         Vec3<RealType> baricentric = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
 
-        RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.diffuse_texture,
-                                                                   texcoord(1), texcoord(0));
+        RealType kf = sample<RealType,
+                             TextureViewRead<ImageType>>(intextures.diffuse_texture,
+                                                         texcoord(1), texcoord(0),
+                                                         AddressMode::Clamp,
+                                                         FilterMode::Nearest);
 
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>,
+                                         TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture,
+                                                                       texcoord(1), texcoord(0),
+                                                                       AddressMode::Clamp,
+                                                                       FilterMode::Nearest);
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //    return;

@@ -211,7 +211,7 @@ public:
         //  #pragma HLS array_partition variable = depth_buffer type = complete
 
         // #pragma HLS aggregate variable = fragment_buffer compact = bit
-        // #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
+        #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
         // #pragma HLS array_partition variable = fragment_buffer type = cyclic factor = 1 dim = 0
 
     renderbase_render_tiles_loop:

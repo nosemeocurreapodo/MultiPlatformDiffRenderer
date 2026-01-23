@@ -8,8 +8,10 @@ ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 #NAME = depthrendererhls
 #TOP_NAME = DepthRenderHLS
-NAME = imagerendererhls
-TOP_NAME = ImageRenderHLS
+#NAME = imagerendererhls
+#TOP_NAME = ImageRenderHLS
+NAME = diffrendererhls
+TOP_NAME = DiffRenderHLS
 
 PLATFORMS_PATH ?= /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
@@ -63,7 +65,7 @@ $(XCLBIN_PATH):
 	@echo "Making xclbin"
 	mkdir -p $(XCLBIN_PATH)
 #	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
-	cd $(XCLBIN_PATH) && v++ --jobs 4 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
+	cd $(XCLBIN_PATH) && v++ --jobs 4 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --config $(ROOT_DIR)/diffrenderer_connectivity.cfg -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:
