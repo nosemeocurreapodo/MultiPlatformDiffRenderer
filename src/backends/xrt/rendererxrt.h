@@ -122,14 +122,14 @@ public:
         kernel_ = xrt::kernel(device_xrt, uuid_xrt, "DiffRenderHLS");
     }
 
-    void Render(const MeshXRT &mesh,
+    void Render(MeshXRT &mesh,
                 const SE3<float> &pose,
                 const Vec2<float> &exposure,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
                 int out_lvl,
-                const TextureXRT<ImageType> &diffuse_texture,
-                const TextureXRT<Vec3<float>> &dfdxy_texture,
+                TextureXRT<ImageType> &diffuse_texture,
+                TextureXRT<Vec3<float>> &dfdxy_texture,
                 TextureXRT<ImageType> &image_texture,
                 TextureXRT<Vec3<float>> &jtra_texture,
                 TextureXRT<Vec3<float>> &jrot_texture,
@@ -161,7 +161,7 @@ public:
                                image_texture.level(out_lvl).offset,
                                mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
                                diffuse_texture.width(in_lvl), diffuse_texture.height(in_lvl),
-                               out_texture.width(out_lvl), out_texture.height(out_lvl),
+                               image_texture.width(out_lvl), image_texture.height(out_lvl),
                                pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
                                pose.translation()(0), pose.translation()(1), pose.translation()(2),
                                cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),

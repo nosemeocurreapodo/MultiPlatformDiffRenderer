@@ -150,8 +150,8 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 4;
-    const int out_lvl = 2;
+    const int in_lvl = 0;
+    const int out_lvl = 0;
 
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
@@ -216,20 +216,35 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef COMPILE_XRT
+    /*
     ImageRendererXRT rendererxrt;
+
+        MeshXRT meshxrt(vertex, indices,
+                        has_positions, has_texcoords, has_normals,
+                        rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
+
+        TextureXRT<ImageType> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
+        UploadMatToTexture(diffusexrt, 0, diffuse_cv);
+
+        TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
+    */
+    DiffRendererXRT rendererxrt;
 
     MeshXRT meshxrt(vertex, indices,
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
 
     TextureXRT<ImageType> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
+    TextureXRT<Vec3<float>> didxyxrt(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(3));
+
     UploadMatToTexture(diffusexrt, 0, diffuse_cv);
 
-    TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
-    // TextureXRT<linalg::Vec3<float>> jtraxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    // TextureXRT<linalg::Vec3<float>> jrotxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    // TextureXRT<linalg::Vec3<float>> jmapxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
-    // TextureXRT<linalg::Vec3<float>> pidsxrt(width, height, linalg::Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(4));
+    TextureXRT<Vec3<float>> jtraxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(5));
+    TextureXRT<Vec3<float>> jrotxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(6));
+    TextureXRT<Vec3<float>> jexpxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(7));
+    TextureXRT<Vec3<float>> jmapxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(8));
+    TextureXRT<Vec3<float>> pidsxrt(width, height, Vec3<float>(-1.0f, -1.0f, -1.0f), rendererxrt.kernel_.group_id(9));
 #endif
 
     // Turntable loop
@@ -253,7 +268,7 @@ int main(int argc, char **argv)
 
     std::vector<std::string> output_names;
     output_names.push_back("image");
-    output_names.push_back("depth");
+    // output_names.push_back("depth");
     output_names.push_back("jtra");
     output_names.push_back("jrot");
     output_names.push_back("jmap");
@@ -336,8 +351,22 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_XRT
         if (backend_names[backend] == "xrt")
-            rendererxrt.Render(meshxrt, transform, exposure, camera, in_lvl, out_lvl, diffusexrt, imagexrt);
-
+            // rendererxrt.Render(meshxrt, transform, exposure, camera, in_lvl, out_lvl, diffusexrt, imagexrt);
+            rendererxrt.Render(meshxrt,
+                               transform,
+                               exposure,
+                               camera,
+                               in_lvl,
+                               out_lvl,
+                               diffusexrt,
+                               didxyxrt,
+                               imagexrt,
+                               // depthgl,
+                               jtraxrt,
+                               jrotxrt,
+                               jexpxrt,
+                               jmapxrt,
+                               pidsxrt);
 #endif
 
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -382,7 +411,7 @@ int main(int argc, char **argv)
 #endif
             // #ifdef COMPILE_XRT
             //             if (backend_names[backend] == "xrt")
-            //                out_f = DownloadTextureToMat(depthxrt, out_lvl);
+            //                 out_f = DownloadTextureToMat(depthxrt, out_lvl);
             // #endif
         }
 
@@ -400,10 +429,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jtragles2, out_lvl);
 #endif
-            // #ifdef COMPILE_XRT
-            //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jtraxrt, out_lvl);
-            // #endif
+#ifdef COMPILE_XRT
+            if (backend_names[backend] == "xrt")
+                out_f = DownloadTextureToMat(jtraxrt, out_lvl);
+#endif
         }
 
         if (output_names[toshow] == "jrot")
@@ -420,10 +449,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jrotgles2, out_lvl);
 #endif
-            // #ifdef COMPILE_XRT
-            //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jrotxrt, out_lvl);
-            // #endif
+#ifdef COMPILE_XRT
+            if (backend_names[backend] == "xrt")
+                out_f = DownloadTextureToMat(jrotxrt, out_lvl);
+#endif
         }
 
         if (output_names[toshow] == "jmap")
@@ -440,10 +469,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(jmapgles2, out_lvl);
 #endif
-            // #ifdef COMPILE_XRT
-            //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(jmapxrt, out_lvl);
-            // #endif
+#ifdef COMPILE_XRT
+            if (backend_names[backend] == "xrt")
+                out_f = DownloadTextureToMat(jmapxrt, out_lvl);
+#endif
         }
 
         if (output_names[toshow] == "pids")
@@ -460,10 +489,10 @@ int main(int argc, char **argv)
             if (backend_names[backend] == "gles2")
                 out_f = DownloadTextureToMat(pidsgles2, out_lvl);
 #endif
-            // #ifdef COMPILE_XRT
-            //             if (backend_names[backend] == "xrt")
-            //                 out_f = DownloadTextureToMat(pidsxrt, out_lvl);
-            // #endif
+#ifdef COMPILE_XRT
+            if (backend_names[backend] == "xrt")
+                out_f = DownloadTextureToMat(pidsxrt, out_lvl);
+#endif
         }
 
         // Pretty up the single-channel output
