@@ -25,8 +25,8 @@ struct CPUBackendTraits
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseFDRendererT = JPoseFDRendererCPU;
     using JPoseExpRendererT = JPoseExpRendererCPU;
-    using JMapFDRendererT = JMapFDRendererCPU;
-    using JMapExpRendererT = JMapExpRendererCPU;
+    using JDepthFDRendererT = JDepthFDRendererCPU;
+    using JDepthExpRendererT = JDepthExpRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -40,7 +40,7 @@ struct GLBackendTraits
     using ImageRendererT = ImageRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
     using JPoseExpRendererT = JPoseExpRendererGL;
-    using JMapExpRendererT = JMapExpRendererGL;
+    using JDepthExpRendererT = JDepthExpRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
@@ -558,12 +558,12 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 
         double rmse_jtra = RMSEV(output_jtra, reference_jtra, lvl);
         double rmse_jrot = RMSEV(output_jrot, reference_jrot, lvl);
-        double rmse_r = RMSE(output_image, reference_image, lvl);
+        double rmse_image = RMSE(output_image, reference_image, lvl);
 
         std::cout << "JPoseReference RMSE " << lvl << " " << rmse_jtra << " " << rmse_jrot << std::endl;
         EXPECT_LT(rmse_jtra, this->thresholds_.ref_max_jtra_error) << "RMSE error: " << rmse_jtra;
         EXPECT_LT(rmse_jrot, this->thresholds_.ref_max_jrot_error) << "RMSE error: " << rmse_jrot;
-        EXPECT_LT(rmse_r, this->thresholds_.ref_max_r_error) << "RMSE error: " << rmse_r;
+        EXPECT_LT(rmse_image, this->thresholds_.ref_max_image_error) << "RMSE error: " << rmse_image;
     }
 
     cv::Mat result_jtra = DownloadTextureToMat(output_jtra, lvl);
@@ -611,7 +611,7 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 }
 
 // Test image renderer against ground truth
-TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
+TYPED_TEST_P(GroundTruthTests, JDepthReferenceValidation)
 {
     using Traits = TypeParam;
 
@@ -622,11 +622,11 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     typename Traits::template TextureT<ImageType> kf_image(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> kf_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
 
-    typename Traits::template TextureT<Vec3<float>> reference_jmap(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<Vec3<float>> reference_jdepth(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<PidType>> reference_pids(this->w_, this->h_, Vec3<PidType>(-1, -1, -1));
     typename Traits::template TextureT<ImageType> reference_image(this->w_, this->h_, 0);
 
-    typename Traits::template TextureT<Vec3<float>> output_jmap(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<Vec3<float>> output_jdepth(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> output_jexp(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<PidType>> output_pids(this->w_, this->h_, Vec3<PidType>(-1, -1, -1));
     typename Traits::template TextureT<ImageType> output_image(this->w_, this->h_, 0);
@@ -636,8 +636,8 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
 
     typename Traits::ImageRendererT image_renderer;
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JMapExpRendererT jmap_renderer;
-    typename Traits::JMapFDRendererT jmapfd_renderer;
+    typename Traits::JDepthExpRendererT jmap_renderer;
+    typename Traits::JDepthFDRendererT jmapfd_renderer;
 
     // didxy_renderer.Render(mesh_sceen, 0, 0, f_image, f_didxy);
     // f_didxy.generate_mipmaps(0);
@@ -645,7 +645,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     // didxy_renderer.Render(mesh_sceen, 0, 0, kf_image, kf_didxy);
     // kf_didxy.generate_mipmaps(0);
 
-    for (int lvl = 0; lvl < output_jmap.levels(); lvl++)
+    for (int lvl = 0; lvl < output_image.levels(); lvl++)
     {
         didxy_renderer.Render(mesh_sceen, lvl, lvl, kf_image, kf_didxy);
     }
@@ -659,7 +659,7 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
         // if (lvl > 0)
         //     continue;
 
-        reference_jmap.fill(lvl, reference_jmap.nodata());
+        reference_jdepth.fill(lvl, reference_jdepth.nodata());
 
         PerformanceTimer timer;
         timer.Start();
@@ -671,29 +671,29 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
                              this->cam_,
                              lvl, lvl,
                              kf_image, kf_didxy,
-                             output_image, output_jmap, output_jexp, output_pids);
+                             output_image, output_jdepth, output_jexp, output_pids);
         jmapfd_renderer.Render(mesh,
                                pose_transform,
                                this->cam_,
                                lvl, lvl,
                                kf_image, kf_didxy,
-                               reference_image, reference_jmap, reference_pids);
+                               reference_image, reference_jdepth, reference_pids);
 
         // Performance validation
         double duration = timer.Stop();
         // EXPECT_LT(duration, 1000.0) << "Rendering should complete within 1 second";
 
-        double rmse_jmap = RMSEV(output_jmap, reference_jmap, lvl);
+        double rmse_jdepth = RMSEV(output_jdepth, reference_jdepth, lvl);
 
-        std::cout << "JMapReference RMSE " << lvl << " " << rmse_jmap << std::endl;
-        EXPECT_LT(rmse_jmap, this->thresholds_.ref_max_jmap_error) << "RMSE error: " << rmse_jmap;
+        std::cout << "JMapReference RMSE " << lvl << " " << rmse_jdepth << std::endl;
+        EXPECT_LT(rmse_jdepth, this->thresholds_.ref_max_jdepth_error) << "RMSE error: " << rmse_jdepth;
     }
 
-    cv::Mat result_jmap = DownloadTextureToMat(output_jmap, lvl);
-    cv::Mat ref_jmap = DownloadTextureToMat(reference_jmap, lvl);
+    cv::Mat result_jdepth = DownloadTextureToMat(output_jdepth, lvl);
+    cv::Mat ref_jdepth = DownloadTextureToMat(reference_jdepth, lvl);
 
     // cv::Mat mask = (result != 0.0f);
-    cv::Mat diff_jmap = result_jmap - ref_jmap;
+    cv::Mat diff_jdepth = result_jdepth - ref_jdepth;
     // cv::Mat masked_diff;
     // diff.copyTo(masked_diff, mask);
 
@@ -709,10 +709,10 @@ TYPED_TEST_P(GroundTruthTests, JMapReferenceValidation)
     // EXPECT_LT(mean_val[0], 100.0) << "Mean depth should be reasonable";
     // EXPECT_GT(std_val[0], 0.0) << "Depth should have variation";
 
-    SaveDebugImageColor(diff_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_diff.png");
+    SaveDebugImageColor(diff_jdepth, std::string(typeid(typename Traits::JDepthExpRendererT).name()) + "_jmap_diff.png");
 
-    SaveDebugImageColor(result_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_result.png");
-    SaveDebugImageColor(ref_jmap, std::string(typeid(typename Traits::JMapExpRendererT).name()) + "_jmap_reference.png");
+    SaveDebugImageColor(result_jdepth, std::string(typeid(typename Traits::JDepthExpRendererT).name()) + "_jmap_result.png");
+    SaveDebugImageColor(ref_jdepth, std::string(typeid(typename Traits::JDepthExpRendererT).name()) + "_jmap_reference.png");
 
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
@@ -727,7 +727,7 @@ REGISTER_TYPED_TEST_SUITE_P(
     ImageReferenceGTValidation,
     ImageValidation,
     JPoseReferenceValidation,
-    JMapReferenceValidation);
+    JDepthReferenceValidation);
 
 using TestBackends = ::testing::Types<CPUBackendTraits
                                       // #ifdef COMPILE_GL

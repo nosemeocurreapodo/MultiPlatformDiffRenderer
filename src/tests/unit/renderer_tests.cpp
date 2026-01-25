@@ -22,7 +22,7 @@ struct CPUBackendTraits
     using ImageRendererT = ImageRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseExpRendererT = JPoseExpRendererCPU;
-    using JMapExpRendererT = JMapExpRendererCPU;
+    using JDepthExpRendererT = JDepthExpRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -36,7 +36,7 @@ struct GLBackendTraits
     using ImageRendererT = ImageRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
     using JPoseExpRendererT = JPoseExpRendererGL;
-    using JMapExpRendererT = JMapExpRendererGL;
+    using JDepthExpRendererT = JDepthExpRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif
@@ -218,7 +218,7 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
 }
 
 // Jtra renderer depends on DIDxy
-TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
+TYPED_TEST_P(RendererTypedTests, JDepthRendererBasicFunctionality)
 {
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
@@ -229,28 +229,28 @@ TYPED_TEST_P(RendererTypedTests, JMapRendererBasicFunctionality)
     typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<ImageType> image_tex(this->w_, this->h_, 0);
-    typename Traits::template TextureT<Vec3<float>> jmap_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    typename Traits::template TextureT<Vec3<float>> jdepth_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<float>> jexp_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
     typename Traits::template TextureT<Vec3<PidType>> pids_tex(this->w_, this->h_, Vec3<float>(-1, -1, -1));
 
     UploadMatToTexture(kf_tex, 0, this->image_src_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
-    typename Traits::JMapExpRendererT jmap_renderer;
+    typename Traits::JDepthExpRendererT jdepth_renderer;
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, kf_tex, dfdxy_tex));
-    ASSERT_NO_THROW(jmap_renderer.Render(mesh,
+    ASSERT_NO_THROW(jdepth_renderer.Render(mesh,
                                          pose_transform,
                                          exposure,
                                          this->cam_,
                                          in_lvl, out_lvl,
                                          kf_tex, dfdxy_tex,
-                                         image_tex, jmap_tex, jexp_tex, pids_tex));
+                                         image_tex, jdepth_tex, jexp_tex, pids_tex));
 
-    cv::Mat result = DownloadTextureToMat(jmap_tex, out_lvl);
+    cv::Mat result = DownloadTextureToMat(jdepth_tex, out_lvl);
 
     cv::Mat channels[3];
     cv::split(result, channels);
@@ -336,7 +336,7 @@ REGISTER_TYPED_TEST_SUITE_P(
     ImageRendererBasicFunctionality,
     DIDxyRendererBasicFunctionality,
     JPoseRendererBasicFunctionality,
-    JMapRendererBasicFunctionality,
+    JDepthRendererBasicFunctionality,
     ErrorHandlingAndEdgeCases,
     ResourceManagement,
     VaryingTextureSizes);

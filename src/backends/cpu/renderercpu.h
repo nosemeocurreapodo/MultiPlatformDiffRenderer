@@ -526,11 +526,11 @@ public:
 private:
 };
 
-class JMapFDRendererCPU
+class JDepthFDRendererCPU
 {
 public:
-    JMapFDRendererCPU() = default;
-    ~JMapFDRendererCPU() = default;
+    JDepthFDRendererCPU() = default;
+    ~JDepthFDRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -540,10 +540,10 @@ public:
                 const TextureCPU<ImageType> &kf_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        jdepth_texture.fill(out_lvl, jdepth_texture.nodata());
         pids_texture.fill(out_lvl, pids_texture.nodata());
         image_texture.fill(out_lvl, image_texture.nodata());
 
@@ -556,7 +556,7 @@ public:
 
         auto image_1_view = image_1.MapRead(in_lvl);
         auto image_2_view = image_2.MapRead(in_lvl);
-        auto jmap_view = jmap_texture.MapWrite(out_lvl);
+        auto jdepth_view = jdepth_texture.MapWrite(out_lvl);
         auto pids_view = pids_texture.MapRead(out_lvl);
 
         // image_renderer.Render(mesh, pose, Vec2<float>(0.0, 0.0), cam, in_lvl, out_lvl, kf_texture, image_0);
@@ -631,7 +631,7 @@ public:
                     if (der == RealType(0.0))
                         continue;
 
-                    Vec3<float> data = jmap_view(y, x);
+                    Vec3<float> data = jdepth_view(y, x);
 
                     Vec3<PidType> pids = pids_view(y, x);
 
@@ -643,7 +643,7 @@ public:
                         }
                     }
 
-                    jmap_view(y, x) = data;
+                    jdepth_view(y, x) = data;
                 }
             }
         }
@@ -654,16 +654,16 @@ private:
     PidsRendererCPU pids_renderer;
 };
 
-class JMapExpRendererCPU
-    : public RendererBaseCPU<JMapExpRendererBase<TextureViewReadCPU,
-                                                 TextureViewWriteCPU>>
+class JDepthExpRendererCPU
+    : public RendererBaseCPU<JDepthExpRendererBase<TextureViewReadCPU,
+                                                   TextureViewWriteCPU>>
 {
 public:
-    using Base = JMapExpRendererBase<TextureViewReadCPU,
-                                     TextureViewWriteCPU>;
+    using Base = JDepthExpRendererBase<TextureViewReadCPU,
+                                       TextureViewWriteCPU>;
 
-    JMapExpRendererCPU() = default;
-    ~JMapExpRendererCPU() = default;
+    JDepthExpRendererCPU() = default;
+    ~JDepthExpRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -674,7 +674,7 @@ public:
                 const TextureCPU<ImageType> &kf_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
                 TextureCPU<ImageType> &image_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
@@ -698,7 +698,7 @@ public:
 
         Base::InTextures intextures{kf_texture.MapRead(in_lvl),
                                     dfdxy_texture.MapRead(in_lvl)};
-        Base::OutTextures outtextures{jmap_texture.MapWrite(out_lvl),
+        Base::OutTextures outtextures{jdepth_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
                                       image_texture.MapWrite(out_lvl)};
@@ -714,16 +714,81 @@ public:
 private:
 };
 
-class JPoseExpMapRendererCPU
-    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureViewReadCPU,
+class JVertexExpRendererCPU
+    : public RendererBaseCPU<JVertexExpRendererBase<TextureViewReadCPU,
+                                                    TextureViewWriteCPU>>
+{
+public:
+    using Base = JVertexExpRendererBase<TextureViewReadCPU,
+                                        TextureViewWriteCPU>;
+
+    JVertexExpRendererCPU() = default;
+    ~JVertexExpRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jv0_texture,
+                TextureCPU<Vec3<float>> &jv1_texture,
+                TextureCPU<Vec3<float>> &jv2_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.inv_rot_matrix = pose.so3().matrix().transpose();
+        uniforms.camera = cam;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+        uniforms.exposure = exposure;
+
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jv0_texture.MapWrite(out_lvl),
+                                      jv1_texture.MapWrite(out_lvl),
+                                      jv2_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
+class JPoseExpDepthRendererCPU
+    : public RendererBaseCPU<JPoseExpDepthRendererBase<TextureViewReadCPU,
                                                      TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureViewReadCPU,
+    using Base = JPoseExpDepthRendererBase<TextureViewReadCPU,
                                          TextureViewWriteCPU>;
 
-    JPoseExpMapRendererCPU() = default;
-    ~JPoseExpMapRendererCPU() = default;
+    JPoseExpDepthRendererCPU() = default;
+    ~JPoseExpDepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -737,7 +802,7 @@ public:
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
@@ -763,7 +828,7 @@ public:
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
-                                      jmap_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
                                       image_texture.MapWrite(out_lvl)};
 
@@ -778,16 +843,16 @@ public:
 private:
 };
 
-class JPoseVelExpMapRendererCPU
-    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureViewReadCPU,
+class JPoseVelExpDepthRendererCPU
+    : public RendererBaseCPU<JPoseVelExpDepthRendererBase<TextureViewReadCPU,
                                                         TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseVelExpMapRendererBase<TextureViewReadCPU,
+    using Base = JPoseVelExpDepthRendererBase<TextureViewReadCPU,
                                             TextureViewWriteCPU>;
 
-    JPoseVelExpMapRendererCPU() = default;
-    ~JPoseVelExpMapRendererCPU() = default;
+    JPoseVelExpDepthRendererCPU() = default;
+    ~JPoseVelExpDepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -805,7 +870,7 @@ public:
                 TextureCPU<Vec3<float>> &jtravel_texture,
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
@@ -835,7 +900,7 @@ public:
                                       jtravel_texture.MapWrite(out_lvl),
                                       jrotvel_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
-                                      jmap_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
                                       image_texture.MapWrite(out_lvl)};
 
@@ -873,7 +938,7 @@ public:
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
@@ -898,7 +963,7 @@ public:
         Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
                                       jrot_texture.MapWrite(out_lvl),
                                       jexp_texture.MapWrite(out_lvl),
-                                      jmap_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
                                       pids_texture.MapWrite(out_lvl),
                                       image_texture.MapWrite(out_lvl)};
 
