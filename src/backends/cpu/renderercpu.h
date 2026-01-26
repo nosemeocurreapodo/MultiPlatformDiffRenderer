@@ -714,6 +714,72 @@ public:
 private:
 };
 
+class JRayDepthExpRendererCPU
+    : public RendererBaseCPU<JRayDepthExpRendererBase<TextureViewReadCPU,
+                                                      TextureViewWriteCPU>>
+{
+public:
+    using Base = JRayDepthExpRendererBase<TextureViewReadCPU,
+                                          TextureViewWriteCPU>;
+
+    JRayDepthExpRendererCPU() = default;
+    ~JRayDepthExpRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<float>> &jray0_texture,
+                TextureCPU<Vec3<float>> &jray1_texture,
+                TextureCPU<Vec3<float>> &jray2_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+        uniforms.exposure = exposure;
+
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jdepth_texture.MapWrite(out_lvl),
+                                      jray0_texture.MapWrite(out_lvl),
+                                      jray1_texture.MapWrite(out_lvl),
+                                      jray2_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
 class JVertexExpRendererCPU
     : public RendererBaseCPU<JVertexExpRendererBase<TextureViewReadCPU,
                                                     TextureViewWriteCPU>>
@@ -781,11 +847,11 @@ private:
 
 class JPoseExpDepthRendererCPU
     : public RendererBaseCPU<JPoseExpDepthRendererBase<TextureViewReadCPU,
-                                                     TextureViewWriteCPU>>
+                                                       TextureViewWriteCPU>>
 {
 public:
     using Base = JPoseExpDepthRendererBase<TextureViewReadCPU,
-                                         TextureViewWriteCPU>;
+                                           TextureViewWriteCPU>;
 
     JPoseExpDepthRendererCPU() = default;
     ~JPoseExpDepthRendererCPU() = default;
@@ -845,11 +911,11 @@ private:
 
 class JPoseVelExpDepthRendererCPU
     : public RendererBaseCPU<JPoseVelExpDepthRendererBase<TextureViewReadCPU,
-                                                        TextureViewWriteCPU>>
+                                                          TextureViewWriteCPU>>
 {
 public:
     using Base = JPoseVelExpDepthRendererBase<TextureViewReadCPU,
-                                            TextureViewWriteCPU>;
+                                              TextureViewWriteCPU>;
 
     JPoseVelExpDepthRendererCPU() = default;
     ~JPoseVelExpDepthRendererCPU() = default;

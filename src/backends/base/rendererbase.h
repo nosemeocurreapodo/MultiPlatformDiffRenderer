@@ -2227,16 +2227,16 @@ public:
 #pragma HLS inline
 
         Vec3<float> jdepth_nodata(textures.jdepth_texture.nodata());
-        Vec3<float> jrayx_nodata(textures.jrayx_texture.nodata());
-        Vec3<float> jrayy_nodata(textures.jrayy_texture.nodata());
-        Vec3<float> jrayz_nodata(textures.jrayz_texture.nodata());
+        Vec3<float> jray0_nodata(textures.jray0_texture.nodata());
+        Vec3<float> jray1_nodata(textures.jray1_texture.nodata());
+        Vec3<float> jray2_nodata(textures.jray2_texture.nodata());
         Vec3<float> jexp_nodata(textures.jexp_texture.nodata());
         Vec3<PidType> pids_nodata(textures.pids_texture.nodata());
 
         return Fragment{Vec3<RealType>(jdepth_nodata(0), jdepth_nodata(1), jdepth_nodata(2)),
-                        Vec3<RealType>(jrayx_nodata(0), jrayx_nodata(1), jrayx_nodata(2)),
-                        Vec3<RealType>(jrayy_nodata(0), jrayy_nodata(1), jrayy_nodata(2)),
-                        Vec3<RealType>(jrayz_nodata(0), jrayz_nodata(1), jrayz_nodata(2)),
+                        Vec3<RealType>(jray0_nodata(0), jray0_nodata(1), jray0_nodata(2)),
+                        Vec3<RealType>(jray1_nodata(0), jray1_nodata(1), jray1_nodata(2)),
+                        Vec3<RealType>(jray2_nodata(0), jray2_nodata(1), jray2_nodata(2)),
                         Vec3<RealType>(jexp_nodata(0), jexp_nodata(1), jexp_nodata(2)),
                         Vec3<IntType>(pids_nodata(0), pids_nodata(1), pids_nodata(2)),
                         RealType(textures.image_texture.nodata())};
@@ -2308,7 +2308,7 @@ public:
         outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
         outVarying.kf_ver = vertexdata.vertex;
         outVarying.kf_ray_0 = kf_ray;
-        outVarying.depth = vertexdata.vertex(2);
+        outVarying.kf_depth_0 = vertexdata.vertex(2);
         outVarying.vertexId = vertexid;
     }
 
@@ -2329,7 +2329,7 @@ public:
         RealType kf_depth_0 = in_varying.kf_depth_0;
         RealType kf_depth_1 = in_varying.kf_depth_1;
         RealType kf_depth_2 = in_varying.kf_depth_2;
-        Vec3<RealType> baricentric = in_varying.baricentric;
+        Vec3<RealType> bc = in_varying.baricentric;
         Vec3<IntType> vertexid = in_varying.pids;
 
         Vec2<RealType> texcoord = uniforms.camera.pointToPix(kf_ver);
@@ -2357,24 +2357,24 @@ public:
         // Vec3<MathType>d_f_i_d_tra = Vec3<MathType>(v0, v1, v2);
         // Vec3<MathType>d_f_i_d_rot = Vec3<MathType>(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-        Vec3<RealType> dI_d_fver = Vec3<RealType>(v0, v1, v2);
+        Vec3<RealType> dI_d_kf = Vec3<RealType>(v0, v1, v2);
 
-        Vec3<RealType> dI_d_k = uniforms.inv_rot_matrix * dI_d_fver;
+        // Vec3<RealType> dI_d_k = uniforms.inv_rot_matrix * dI_d_fver;
 
         // Depth jacobians: bc_i * (dI/dk · ray_i)
-        RealType j_d0 = bc.x * dot(dI_d_k, kf_ray_0);
-        RealType j_d1 = bc.y * dot(dI_d_k, kf_ray_1);
-        RealType j_d2 = bc.z * dot(dI_d_k, kf_ray_2);
+        RealType j_d0 = bc(0) * dI_d_kf.dot(kf_ray_0);
+        RealType j_d1 = bc(1) * dI_d_kf.dot(kf_ray_1);
+        RealType j_d2 = bc(2) * dI_d_kf.dot(kf_ray_2);
         Vec3<RealType> j_depth_012(j_d0, j_d1, j_d2);
 
         // Ray jacobians: bc_i * d_i * dI/dk  (component-wise)
-        Vec3<RealType> j_r0 = bc(0) * kf_depth_0 * dI_d_k;
-        Vec3<RealType> j_r1 = bc(1) * kf_depth_1 * dI_d_k;
-        Vec3<RealType> j_r2 = bc(2) * kf_depth_2 * dI_d_k;
+        Vec3<RealType> j_r0 = bc(0) * kf_depth_0 * dI_d_kf;
+        Vec3<RealType> j_r1 = bc(1) * kf_depth_1 * dI_d_kf;
+        Vec3<RealType> j_r2 = bc(2) * kf_depth_2 * dI_d_kf;
 
-        //Vec3<RealType> j_rayx_012(j_r0.x, j_r1.x, j_r2.x);
-        //Vec3<RealType> j_rayy_012(j_r0.y, j_r1.y, j_r2.y);
-        //Vec3<RealType> j_rayz_012(j_r0.z, j_r1.z, j_r2.z);
+        // Vec3<RealType> j_rayx_012(j_r0.x, j_r1.x, j_r2.x);
+        // Vec3<RealType> j_rayy_012(j_r0.y, j_r1.y, j_r2.y);
+        // Vec3<RealType> j_rayz_012(j_r0.z, j_r1.z, j_r2.z);
 
         Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
 
