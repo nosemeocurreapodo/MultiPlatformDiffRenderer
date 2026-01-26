@@ -23,11 +23,10 @@ struct CPUBackendTraits
     using TextureT = TextureCPU<T>;
     using DepthRendererT = DepthRendererCPU;
     using ImageRendererT = ImageRendererCPU;
-    using ResidualRendererT = ResidualRendererCPU;
     using DIDxyRendererT = DIDxyRendererCPU;
     using JPoseExpRendererT = JPoseExpRendererCPU;
-    using JMapExpRendererT = JMapExpRendererCPU;
-    using JPoseExpMapRendererT = JPoseExpMapRendererCPU;
+    using JDepthExpRendererT = JDepthExpRendererCPU;
+    using JPoseExpDepthRendererT = JPoseExpDepthRendererCPU;
     static const char *Name() { return "CPU"; }
 };
 
@@ -39,11 +38,10 @@ struct GLBackendTraits
     using TextureT = TextureGL<T>;
     using DepthRendererT = DepthRendererGL;
     using ImageRendererT = ImageRendererGL;
-    using ResidualRendererT = ResidualRendererGL;
     using DIDxyRendererT = DIDxyRendererGL;
     using JPoseExpRendererT = JPoseExpRendererGL;
-    using JMapExpRendererT = JMapExpRendererGL;
-    using JPoseExpMapRendererT = JPoseExpMapRendererGL;
+    using JDepthExpRendererT = JDepthExpRendererGL;
+    using JPoseExpDepthRendererT = JPoseExpDepthRendererGL;
     static const char *Name() { return "GL"; }
 };
 #endif

@@ -1,5 +1,5 @@
 #pragma once
-#include "backends/base/MappedView.h"
+#include "backends/base/mappedviewbase.h"
 #include "backends/gl/devicegl_glad.h"
 // #include <cstddef>
 // #include <utility>
@@ -9,6 +9,9 @@
 // Releaser for mapped GL buffers (binds, unmaps on destruction)
 struct GLUnmap
 {
+    GLUnmap() : id(0), target(0) {};
+    GLUnmap(GLuint _id, GLenum _target) : id(_id), target(_target) {}
+
     GLuint id{};
     GLenum target{};
     void operator()() const noexcept
@@ -19,6 +22,9 @@ struct GLUnmap
         glUnmapBuffer(target);
     }
 };
+
+template <typename T>
+using BufferViewGL = BufferViewBase<T, GLUnmap>;
 
 template <typename T, GLenum Target = GL_ARRAY_BUFFER, GLenum Usage = GL_STATIC_DRAW>
 class BufferGL
@@ -85,7 +91,7 @@ public:
     }
 
     // ---- Cross-backend style API ----
-    [[nodiscard]] MappedView<const T, GLUnmap> MapRead() const &
+    [[nodiscard]] BufferViewGL<const T> MapRead() const &
     {
         if (!id_)
             throw std::runtime_error("BufferGL::MapRead on empty buffer");
@@ -93,10 +99,10 @@ public:
         void *p = glMapBufferRange(Target, 0, size_ * sizeof(T), GL_MAP_READ_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(read) failed");
-        return MappedView<const T, GLUnmap>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
+        return BufferViewGL<const T>(static_cast<const T *>(p), size_, GLUnmap{id_, Target});
     }
 
-    [[nodiscard]] MappedView<T, GLUnmap> MapWrite() &
+    [[nodiscard]] BufferViewGL<T> MapWrite() &
     {
         if (!id_)
             throw std::runtime_error("BufferGL::MapWrite on empty buffer");
@@ -105,7 +111,7 @@ public:
                                    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         if (!p)
             throw std::runtime_error("glMapBufferRange(write) failed");
-        return MappedView<T, GLUnmap>(static_cast<T *>(p), size_, GLUnmap{id_, Target});
+        return BufferViewGL<T>(static_cast<T *>(p), size_, GLUnmap{id_, Target});
     }
 
     std::size_t size() const noexcept { return size_; }

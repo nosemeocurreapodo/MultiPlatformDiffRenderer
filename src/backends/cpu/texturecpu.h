@@ -12,6 +12,18 @@
 #include "core/boundingbox.h"
 #include "core/typeindex_common.h"
 
+// --- Minimal mapped view pieces (works with CPU/GL buffers too) ---
+struct TextureCPUNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using TextureViewReadCPU = TextureViewBase<T, TextureCPUNoopReleaser>;
+
+template <typename T>
+using TextureViewWriteCPU = TextureViewBase<T, TextureCPUNoopReleaser>;
+
 template <class T>
 class TextureCPU
 {
@@ -27,10 +39,11 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = BufferCPU<T>(total_size_);
-        // Fill base and all levels with nodata
-        // for (UInt lvl = 0; lvl < levels(); ++lvl)
-        //    fill(lvl, nodata);
+        data_ = std::make_unique<T[]>(total_size_);
+        // storage_ = BufferCPU<T>(total_size_);
+        //  Fill base and all levels with nodata
+        //  for (UInt lvl = 0; lvl < levels(); ++lvl)
+        //     fill(lvl, nodata);
     }
 
     // Create and upload base level
@@ -75,9 +88,24 @@ public:
         }
     }
 
+    TextureCPU(const TextureCPU &other) : TextureCPU(other.width(0), other.height(0), other.nodata())
+    {
+        std::copy_n(other.data_.get(), other.total_size_, data_.get());
+    }
+
+    TextureCPU &operator=(const TextureCPU &other)
+    {
+        if (this != &other)
+        {
+            TextureCPU tmp(other);
+            swap(tmp);
+        }
+        return *this;
+    }
+
     // Rule of 5
-    TextureCPU(const TextureCPU &) = default;
-    TextureCPU &operator=(const TextureCPU &) = default;
+    // TextureCPU(const TextureCPU &) = default;
+    // TextureCPU &operator=(const TextureCPU &) = default;
     TextureCPU(TextureCPU &&) noexcept = default;
     TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;
@@ -86,6 +114,7 @@ public:
     unsigned int width(unsigned int lvl) const { return levels_[lvl].w; }
     unsigned int height(unsigned int lvl) const { return levels_[lvl].h; }
     unsigned int levels() const { return levels_.size(); }
+    Level level(int lvl) const { return levels_[lvl]; }
     // UInt size() const { return total_size_; }
     unsigned int type_size() const { return sizeof(T); };
     std::type_index get_type_index() const { return GetTypeIndex<T>(); };
@@ -108,19 +137,25 @@ public:
         }
     }
 
-    [[nodiscard]] MappedView<const T, NoopReleaser> MapRead(unsigned int lvl) const
+    [[nodiscard]] TextureViewReadCPU<T> MapRead(unsigned int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewReadCPU<T>(data_.get() + L.offset, L.w, L.h, nodata_, TextureCPUNoopReleaser());
     }
 
-    [[nodiscard]] MappedView<T, NoopReleaser> MapWrite(unsigned int lvl)
+    [[nodiscard]] TextureViewWriteCPU<T> MapWrite(unsigned int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewWriteCPU<T>(data_.get() + L.offset, L.w, L.h, nodata_, TextureCPUNoopReleaser());
     }
 
+    // forbid mapping temporaries (view would dangle)
+    TextureViewReadCPU<const T> MapRead() const && = delete;
+    TextureViewWriteCPU<T> MapWrite() && = delete;
+
+protected:
     // Read/Write a single texel (bounds-checked in debug)
+    /*
     T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
     {
         assert(x < width(lvl) && y < height(lvl));
@@ -136,6 +171,7 @@ public:
         const auto &L = levels_[lvl];
         storage_.data()[L.offset + y * L.w + x] = v;
     }
+    */
 
     // void set_texel_(const T &v, unsigned int address, unsigned int lvl)
     // {
@@ -144,14 +180,6 @@ public:
     //   const auto &L = levels_[lvl];
     //  storage_.data()[L.offset + address] = v;
     // }
-
-protected:
-    struct Level
-    {
-        unsigned int offset; // element offset in storage_
-        int w, h;
-        // optional: UInt pitch; // elements per row if you pad rows
-    };
 
     void build_pyramid_(unsigned int w, unsigned int h)
     {
@@ -180,8 +208,17 @@ protected:
         }
     }
 
+    void swap(TextureCPU &o) noexcept
+    {
+        std::swap(data_, o.data_);
+        std::swap(total_size_, o.total_size_);
+        std::swap(levels_, o.levels_);
+        std::swap(nodata_, o.nodata_);
+    }
+
     unsigned int total_size_ = 0;
     std::vector<Level> levels_;
-    BufferCPU<T> storage_;
+    // BufferCPU<T> storage_;
+    std::unique_ptr<T[]> data_;
     T nodata_{};
 };

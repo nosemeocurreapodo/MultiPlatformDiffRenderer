@@ -1,5 +1,18 @@
 #pragma once
 
+#include "backends/base/mappedviewbase.h"
+
+struct BufferHLSNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using BufferViewReadHLS = BufferViewBase<T, BufferHLSNoopReleaser>;
+
+template <typename T>
+using BufferViewWriteHLS = BufferViewBase<T, BufferHLSNoopReleaser>;
+
 template <typename T>
 class BufferRAM
 {

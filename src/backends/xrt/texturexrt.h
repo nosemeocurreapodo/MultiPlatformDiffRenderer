@@ -10,6 +10,17 @@
 #include "backends/xrt/bufferxrt.h"
 #include "backends/base/texturebase.h"
 
+struct TextureXRTNoopReleaser
+{
+    void operator()() const noexcept {}
+};
+
+template <typename T>
+using TextureViewReadXRT = TextureViewBase<T, TextureXRTNoopReleaser>;
+
+template <typename T>
+using TextureViewWriteXRT = TextureViewBase<T, TextureXRTNoopReleaser>;
+
 template <class T>
 class TextureXRT
 {
@@ -24,7 +35,11 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        storage_ = BufferXRT<T>(total_size_, group_id);
+        //storage_ = BufferXRT<T>(total_size_, group_id);
+        bo_ = xrt::bo(device_xrt, total_size_ * sizeof(T), group_id);
+        group_id_ = group_id;
+        bo_map_ = bo_.map<T *>();
+
         // Fill base and all levels with nodata
         // for (std::size_t lvl = 0; lvl < levels(); ++lvl)
         //    fill(lvl, nodata_);
@@ -50,8 +65,11 @@ public:
     std::size_t width(std::size_t lvl) const { return levels_[lvl].w; }
     std::size_t height(std::size_t lvl) const { return levels_[lvl].h; }
     std::size_t levels() const { return levels_.size(); }
+    Level level(int lvl) const { return levels_[lvl]; }
+
     // std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
+    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
@@ -74,16 +92,16 @@ public:
         }
     }
 
-    MappedView<const T, NoopReleaser> MapRead(int lvl) const
+    TextureViewReadXRT<T> MapRead(int lvl) const
     {
         const auto &L = levels_[lvl];
-        return MappedView<const T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewReadXRT<T>(bo_map_ + L.offset, L.w, L.h, nodata_);
     }
 
-    MappedView<T, NoopReleaser> MapWrite(int lvl)
+    TextureViewWriteXRT<T> MapWrite(int lvl)
     {
         const auto &L = levels_[lvl];
-        return MappedView<T, NoopReleaser>(storage_.data() + L.offset, L.w * L.h);
+        return TextureViewWriteXRT<T>(bo_map_ + L.offset, L.w, L.h, nodata_);
     }
 
     // private:
@@ -94,14 +112,6 @@ public:
     //     friend class DIDxyRendererXRT;
     //     friend class JPoseRendererXRT;
     //     friend class JMapRendererXRT;
-
-    struct Level
-    {
-        std::size_t offset; // element offset in storage_
-        // std::size_t size;   // elements at this level (w*h*channels)
-        int w, h;
-        // optional: std::size_t pitch; // elements per row if you pad rows
-    };
 
     void build_pyramid_(std::size_t w, std::size_t h)
     {
@@ -131,9 +141,12 @@ public:
         }
     }
 
-    BufferXRT<T> storage_;
+    //BufferXRT<T> storage_;
+    xrt::bo bo_;
     std::vector<Level> levels_;
     unsigned int total_size_;
+    int group_id_;
+    T *bo_map_;
     // std::vector<Level> lvls_;
     T nodata_{};
 };

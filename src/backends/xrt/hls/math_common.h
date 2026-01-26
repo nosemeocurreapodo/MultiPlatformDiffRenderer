@@ -17,7 +17,7 @@
 
 // taken from the planet dataset
 #define max_num_tri 4096 // 768;
-#define max_tri_per_tile max_num_tri / (max_tiles_x * max_tiles_y * 2)
+#define max_tri_per_tile 4 * max_num_tri / (max_tiles_x * max_tiles_y)
 
 template <typename T>
 inline T min(T a, T b)
@@ -69,4 +69,10 @@ inline T fmod(T a, T b)
 {
     return hls::fmod(a, b);
     // return a - b * floor(a / b);
+}
+
+template <typename T>
+inline T exp(T a)
+{
+    return hls::exp(a);
 }

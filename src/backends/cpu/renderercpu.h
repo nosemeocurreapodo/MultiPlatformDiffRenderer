@@ -14,72 +14,6 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
-static void DepthRendererRef(const TextureCPU<float> &depth_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             TextureCPU<float> &out_texture)
-{
-    out_texture.fill(out_lvl, out_texture.nodata());
-
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
-    {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            float prev_depth = out_texture.texel_(f_pix(1), f_pix(0), out_lvl);
-            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
-                out_texture.set_texel_(f_depth, f_pix(1), f_pix(0), out_lvl);
-        }
-    }
-}
-
-static void ImageRendererRef(const TextureCPU<float> &depth_texture,
-                             const TextureCPU<ImageType> &image_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             TextureCPU<ImageType> &out_texture)
-{
-    out_texture.fill(out_lvl, out_texture.nodata());
-
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
-    {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_texture.texel_(y, x, out_lvl);
-            ImageType kf = image_texture.texel_(y, x, out_lvl);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            out_texture.set_texel_(kf, f_pix(1), f_pix(0), out_lvl);
-        }
-    }
-}
-
 template <class Base>
 class RendererBaseCPU : public RendererBase<Base>
 {
@@ -90,7 +24,7 @@ public:
     void RenderNaive(const BoundingBox<int> &viewport,
                      const Mesh &mesh,
                      const Uniforms &uniforms,
-                     InTextures &intextures,
+                     const InTextures &intextures,
                      OutTextures &outtextures)
     {
         const int W = viewport.width_;
@@ -109,18 +43,21 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
+        auto vertex_map = mesh.vertex_buffer_.MapRead();
+        auto ebo_map = mesh.ebo_buffer_.MapRead();
+
         // Loop over triangles
-        for (unsigned int i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
+        for (unsigned int i = 0; i + 2 < ebo_map.size(); i += 3)
         {
             int vertexids[3];
-            vertexids[0] = mesh.ebo_buffer_[i + 0];
-            vertexids[1] = mesh.ebo_buffer_[i + 1];
-            vertexids[2] = mesh.ebo_buffer_[i + 2];
+            vertexids[0] = ebo_map[i + 0];
+            vertexids[1] = ebo_map[i + 1];
+            vertexids[2] = ebo_map[i + 2];
 
             typename Base::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(mesh, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(mesh, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(mesh, vertexids[2]);
+            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
+            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
+            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
 
             typename RendererBase<Base>::Triangle triangle;
             this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
@@ -142,10 +79,10 @@ private:
 // -----------------------------------------------------------------------------
 
 class DepthRendererCPU
-    : public RendererBaseCPU<DepthRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DepthRendererBase<TextureViewWriteCPU>>
 {
 public:
-    using Base = DepthRendererBase<TextureCPU>;
+    using Base = DepthRendererBase<TextureViewWriteCPU>;
 
     DepthRendererCPU() = default;
     ~DepthRendererCPU() = default;
@@ -163,14 +100,13 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.out_lvl = out_lvl;
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::InTextures intextures{0};
-        Base::OutTextures outtextures{out_texture};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -189,10 +125,12 @@ private:
 // -----------------------------------------------------------------------------
 
 class ImageRendererCPU
-    : public RendererBaseCPU<ImageRendererBase<TextureCPU>>
+    : public RendererBaseCPU<ImageRendererBase<TextureViewReadCPU,
+                                               TextureViewWriteCPU>>
 {
 public:
-    using Base = ImageRendererBase<TextureCPU>;
+    using Base = ImageRendererBase<TextureViewReadCPU,
+                                   TextureViewWriteCPU>;
 
     ImageRendererCPU() = default;
     ~ImageRendererCPU() = default;
@@ -222,62 +160,8 @@ public:
         const int H = static_cast<int>(out_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{diffuse_texture};
-        Base::OutTextures outtextures{out_texture};
-
-        RendererBaseCPU<Base>::RenderNaive(
-            viewport,
-            mesh,
-            uniforms,
-            intextures,
-            outtextures);
-    }
-
-private:
-};
-
-// -----------------------------------------------------------------------------
-// ResidualRendererCPU
-//   Example derived renderer that computes the residual between two frames.
-// -----------------------------------------------------------------------------
-
-class ResidualRendererCPU
-    : public RendererBaseCPU<ResidualRendererBase<TextureCPU>>
-{
-public:
-    using Base = ResidualRendererBase<TextureCPU>;
-
-    ResidualRendererCPU() = default;
-    ~ResidualRendererCPU() = default;
-
-    void Render(const MeshCPU &mesh,
-                const SE3<float> &pose,
-                const Vec2<float> &exposure,
-                const PinholeCamera<float> &cam,
-                int in_lvl,
-                int out_lvl,
-                const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
-                TextureCPU<float> &r_texture)
-    {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
-        Base::Uniforms uniforms;
-        uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.camera = cam;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
-        uniforms.exposure = exposure;
-
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
-
-        Base::InTextures intextures{kf_texture, f_texture};
-        Base::OutTextures outtextures{r_texture};
+        Base::InTextures intextures{diffuse_texture.MapRead(out_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -291,10 +175,12 @@ private:
 };
 
 class DIDxyRendererCPU
-    : public RendererBaseCPU<DIDxyRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DIDxyRendererBase<TextureViewReadCPU,
+                                               TextureViewWriteCPU>>
 {
 public:
-    using Base = DIDxyRendererBase<TextureCPU>;
+    using Base = DIDxyRendererBase<TextureViewReadCPU,
+                                   TextureViewWriteCPU>;
 
     DIDxyRendererCPU() = default;
     ~DIDxyRendererCPU() = default;
@@ -313,8 +199,8 @@ public:
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
 
-        Base::InTextures intextures{in_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{in_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(in_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -328,10 +214,12 @@ private:
 };
 
 class DIDexpRendererCPU
-    : public RendererBaseCPU<DIDexpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<DIDexpRendererBase<TextureViewReadCPU,
+                                                TextureViewWriteCPU>>
 {
 public:
-    using Base = DIDexpRendererBase<TextureCPU>;
+    using Base = DIDexpRendererBase<TextureViewReadCPU,
+                                    TextureViewWriteCPU>;
 
     DIDexpRendererCPU() = default;
     ~DIDexpRendererCPU() = default;
@@ -352,8 +240,8 @@ public:
         uniforms.out_lvl = out_lvl;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{in_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{in_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -378,15 +266,14 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
-                TextureCPU<Vec3<float>> &jrot_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jrot_texture)
     {
         jtra_texture.fill(out_lvl, jtra_texture.nodata());
         jrot_texture.fill(out_lvl, jrot_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        image_texture.fill(out_lvl, image_texture.nodata());
 
         int W = kf_texture.width(0);
         int H = kf_texture.height(0);
@@ -394,11 +281,10 @@ public:
         TextureCPU<ImageType> image_1(W, H, 0);
         TextureCPU<ImageType> image_2(W, H, 0);
 
-        residual_renderer.Render(mesh, pose,
-                                 Vec2<float>(0.0, 0.0),
-                                 cam,
-                                 in_lvl, out_lvl,
-                                 kf_texture, f_texture, r_texture);
+        auto image_1_view = image_1.MapRead(in_lvl);
+        auto image_2_view = image_2.MapRead(in_lvl);
+        auto jtra_view = jtra_texture.MapWrite(out_lvl);
+        auto jrot_view = jrot_texture.MapWrite(out_lvl);
 
         for (int i = 0; i < 6; i++)
         {
@@ -428,16 +314,16 @@ public:
                                   in_lvl, out_lvl,
                                   kf_texture, image_2);
 
-            for (int y = 0; y < image_1.height(out_lvl); y++)
+            for (int y = 0; y < image_1_view.height(); y++)
             {
-                for (int x = 0; x < image_1.width(out_lvl); x++)
+                for (int x = 0; x < image_1_view.width(); x++)
                 {
                     // ImageType kf = image_0.texel_(y, x, out_lvl);
                     // ImageType f = f_texture.texel_(y, x, out_lvl);
-                    ImageType data_1 = image_1.texel_(y, x, out_lvl);
-                    ImageType data_2 = image_2.texel_(y, x, out_lvl);
+                    ImageType data_1 = image_1_view(y, x);
+                    ImageType data_2 = image_2_view(y, x);
 
-                    if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    if (data_1 == image_1_view.nodata() || data_2 == image_2_view.nodata())
                         continue;
 
                     RealType der = -(RealType(data_1) - RealType(data_2)) / (2 * delta);
@@ -452,15 +338,15 @@ public:
 
                     if (i < 3)
                     {
-                        Vec3<float> data = jtra_texture.texel_(y, x, out_lvl);
+                        Vec3<float> data = jtra_view(y, x);
                         data(i) = der;
-                        jtra_texture.set_texel_(data, y, x, out_lvl);
+                        jtra_view(y, x) = data;
                     }
                     else
                     {
-                        Vec3<float> data = jrot_texture.texel_(y, x, out_lvl);
+                        Vec3<float> data = jrot_view(y, x);
                         data(i - 3) = der;
-                        jrot_texture.set_texel_(data, y, x, out_lvl);
+                        jrot_view(y, x) = data;
                     }
                 }
             }
@@ -469,14 +355,15 @@ public:
 
 private:
     ImageRendererCPU image_renderer;
-    ResidualRendererCPU residual_renderer;
 };
 
 class JPoseExpRendererCPU
-    : public RendererBaseCPU<JPoseExpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseExpRendererBase<TextureViewReadCPU,
+                                                  TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseExpRendererBase<TextureCPU>;
+    using Base = JPoseExpRendererBase<TextureViewReadCPU,
+                                      TextureViewWriteCPU>;
 
     JPoseExpRendererCPU() = default;
     ~JPoseExpRendererCPU() = default;
@@ -488,19 +375,18 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
-                TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jexp_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -510,13 +396,15 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -530,10 +418,12 @@ private:
 };
 
 class JPoseVelExpRendererCPU
-    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureCPU>>
+    : public RendererBaseCPU<JPoseVelExpRendererBase<TextureViewReadCPU,
+                                                     TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseVelExpRendererBase<TextureCPU>;
+    using Base = JPoseVelExpRendererBase<TextureViewReadCPU,
+                                         TextureViewWriteCPU>;
 
     JPoseVelExpRendererCPU() = default;
     ~JPoseVelExpRendererCPU() = default;
@@ -547,21 +437,20 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jtravel_texture,
                 TextureCPU<Vec3<float>> &jrotvel_texture,
-                TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jexp_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -573,13 +462,17 @@ public:
         uniforms.vel_matrix = vel;
         uniforms.exposure = exposure;
         uniforms.readout_time = readout_time;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jtravel_texture, jrotvel_texture, jexp_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jtravel_texture.MapWrite(out_lvl),
+                                      jrotvel_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -593,10 +486,10 @@ private:
 };
 
 class PidsRendererCPU
-    : public RendererBaseCPU<PidsRendererBase<TextureCPU>>
+    : public RendererBaseCPU<PidsRendererBase<TextureViewWriteCPU>>
 {
 public:
-    using Base = PidsRendererBase<TextureCPU>;
+    using Base = PidsRendererBase<TextureViewWriteCPU>;
 
     PidsRendererCPU() = default;
     ~PidsRendererCPU() = default;
@@ -618,10 +511,9 @@ public:
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
-        uniforms.out_lvl = out_lvl;
 
         Base::InTextures intextures{0};
-        Base::OutTextures outtextures{pids_texture};
+        Base::OutTextures outtextures{pids_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -634,11 +526,11 @@ public:
 private:
 };
 
-class JMapFDRendererCPU
+class JDepthFDRendererCPU
 {
 public:
-    JMapFDRendererCPU() = default;
-    ~JMapFDRendererCPU() = default;
+    JDepthFDRendererCPU() = default;
+    ~JDepthFDRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -646,15 +538,14 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        jmap_texture.fill(out_lvl, jmap_texture.nodata());
+        jdepth_texture.fill(out_lvl, jdepth_texture.nodata());
         pids_texture.fill(out_lvl, pids_texture.nodata());
-        r_texture.fill(out_lvl, r_texture.nodata());
+        image_texture.fill(out_lvl, image_texture.nodata());
 
         const int W = kf_texture.width(0);
         const int H = kf_texture.height(0);
@@ -663,13 +554,13 @@ public:
         TextureCPU<ImageType> image_1(W, H, 0);
         TextureCPU<ImageType> image_2(W, H, 0);
 
+        auto image_1_view = image_1.MapRead(in_lvl);
+        auto image_2_view = image_2.MapRead(in_lvl);
+        auto jdepth_view = jdepth_texture.MapWrite(out_lvl);
+        auto pids_view = pids_texture.MapRead(out_lvl);
+
         // image_renderer.Render(mesh, pose, Vec2<float>(0.0, 0.0), cam, in_lvl, out_lvl, kf_texture, image_0);
-        residual_renderer.Render(mesh,
-                                 pose,
-                                 Vec2<float>(0.0, 0.0),
-                                 cam,
-                                 in_lvl, out_lvl,
-                                 kf_texture, f_texture, r_texture);
+
         pids_renderer.Render(mesh, pose, cam, out_lvl, pids_texture);
 
         std::vector<Vec3<float>> vertices = get_vertices(mesh);
@@ -719,16 +610,16 @@ public:
 
             set_vertices(mesh_delta, vertices);
 
-            for (int y = 0; y < image_1.height(out_lvl); y++)
+            for (int y = 0; y < image_1_view.height(); y++)
             {
-                for (int x = 0; x < image_1.width(out_lvl); x++)
+                for (int x = 0; x < image_1_view.width(); x++)
                 {
                     // ImageType f = f_texture.texel_(y, x, out_lvl);
                     // ImageType kf = image_0.texel_(y, x, out_lvl);
-                    ImageType data_1 = image_1.texel_(y, x, out_lvl);
-                    ImageType data_2 = image_2.texel_(y, x, out_lvl);
+                    ImageType data_1 = image_1_view(y, x);
+                    ImageType data_2 = image_2_view(y, x);
 
-                    if (data_1 == image_1.nodata() || data_2 == image_2.nodata())
+                    if (data_1 == image_1_view.nodata() || data_2 == image_2_view.nodata())
                         continue;
 
                     // RealType e = RealType(f) - RealType(kf);
@@ -740,9 +631,9 @@ public:
                     if (der == RealType(0.0))
                         continue;
 
-                    Vec3<float> data = jmap_texture.texel_(y, x, out_lvl);
+                    Vec3<float> data = jdepth_view(y, x);
 
-                    Vec3<PidType> pids = pids_texture.texel_(y, x, out_lvl);
+                    Vec3<PidType> pids = pids_view(y, x);
 
                     for (int k = 0; k < 3; k++)
                     {
@@ -752,7 +643,7 @@ public:
                         }
                     }
 
-                    jmap_texture.set_texel_(data, y, x, out_lvl);
+                    jdepth_view(y, x) = data;
                 }
             }
         }
@@ -760,18 +651,19 @@ public:
 
 private:
     ImageRendererCPU image_renderer;
-    ResidualRendererCPU residual_renderer;
     PidsRendererCPU pids_renderer;
 };
 
-class JMapExpRendererCPU
-    : public RendererBaseCPU<JMapExpRendererBase<TextureCPU>>
+class JDepthExpRendererCPU
+    : public RendererBaseCPU<JDepthExpRendererBase<TextureViewReadCPU,
+                                                   TextureViewWriteCPU>>
 {
 public:
-    using Base = JMapExpRendererBase<TextureCPU>;
+    using Base = JDepthExpRendererBase<TextureViewReadCPU,
+                                       TextureViewWriteCPU>;
 
-    JMapExpRendererCPU() = default;
-    ~JMapExpRendererCPU() = default;
+    JDepthExpRendererCPU() = default;
+    ~JDepthExpRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -780,19 +672,18 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -801,14 +692,16 @@ public:
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
         uniforms.exposure = exposure;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jmap_texture, jexp_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jdepth_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -821,14 +714,16 @@ public:
 private:
 };
 
-class JPoseExpMapRendererCPU
-    : public RendererBaseCPU<JPoseExpMapRendererBase<TextureCPU>>
+class JRayDepthExpRendererCPU
+    : public RendererBaseCPU<JRayDepthExpRendererBase<TextureViewReadCPU,
+                                                      TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseExpMapRendererBase<TextureCPU>;
+    using Base = JRayDepthExpRendererBase<TextureViewReadCPU,
+                                          TextureViewWriteCPU>;
 
-    JPoseExpMapRendererCPU() = default;
-    ~JPoseExpMapRendererCPU() = default;
+    JRayDepthExpRendererCPU() = default;
+    ~JRayDepthExpRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -837,21 +732,151 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<float>> &jray0_texture,
+                TextureCPU<Vec3<float>> &jray1_texture,
+                TextureCPU<Vec3<float>> &jray2_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.camera = cam;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+        uniforms.exposure = exposure;
+
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jdepth_texture.MapWrite(out_lvl),
+                                      jray0_texture.MapWrite(out_lvl),
+                                      jray1_texture.MapWrite(out_lvl),
+                                      jray2_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
+class JVertexExpRendererCPU
+    : public RendererBaseCPU<JVertexExpRendererBase<TextureViewReadCPU,
+                                                    TextureViewWriteCPU>>
+{
+public:
+    using Base = JVertexExpRendererBase<TextureViewReadCPU,
+                                        TextureViewWriteCPU>;
+
+    JVertexExpRendererCPU() = default;
+    ~JVertexExpRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jv0_texture,
+                TextureCPU<Vec3<float>> &jv1_texture,
+                TextureCPU<Vec3<float>> &jv2_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.inv_rot_matrix = pose.so3().matrix().transpose();
+        uniforms.camera = cam;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+        uniforms.exposure = exposure;
+
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jv0_texture.MapWrite(out_lvl),
+                                      jv1_texture.MapWrite(out_lvl),
+                                      jv2_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
+class JPoseExpDepthRendererCPU
+    : public RendererBaseCPU<JPoseExpDepthRendererBase<TextureViewReadCPU,
+                                                       TextureViewWriteCPU>>
+{
+public:
+    using Base = JPoseExpDepthRendererBase<TextureViewReadCPU,
+                                           TextureViewWriteCPU>;
+
+    JPoseExpDepthRendererCPU() = default;
+    ~JPoseExpDepthRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureCPU<ImageType> &kf_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -861,13 +886,17 @@ public:
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
         uniforms.camera = cam;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
@@ -880,14 +909,16 @@ public:
 private:
 };
 
-class JPoseVelExpMapRendererCPU
-    : public RendererBaseCPU<JPoseVelExpMapRendererBase<TextureCPU>>
+class JPoseVelExpDepthRendererCPU
+    : public RendererBaseCPU<JPoseVelExpDepthRendererBase<TextureViewReadCPU,
+                                                          TextureViewWriteCPU>>
 {
 public:
-    using Base = JPoseVelExpMapRendererBase<TextureCPU>;
+    using Base = JPoseVelExpDepthRendererBase<TextureViewReadCPU,
+                                              TextureViewWriteCPU>;
 
-    JPoseVelExpMapRendererCPU() = default;
-    ~JPoseVelExpMapRendererCPU() = default;
+    JPoseVelExpDepthRendererCPU() = default;
+    ~JPoseVelExpDepthRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -898,23 +929,22 @@ public:
                 int in_lvl,
                 int out_lvl,
                 const TextureCPU<ImageType> &kf_texture,
-                const TextureCPU<ImageType> &f_texture,
                 const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
                 TextureCPU<Vec3<float>> &jtra_texture,
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jtravel_texture,
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture,
-                TextureCPU<Vec3<float>> &jmap_texture,
-                TextureCPU<Vec3<PidType>> &pids_texture,
-                TextureCPU<float> &r_texture)
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
     {
         Mat4<float> opencv2opengl = Mat4<float>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
 
-        const int W = static_cast<int>(r_texture.width(out_lvl));
-        const int H = static_cast<int>(r_texture.height(out_lvl));
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
@@ -926,13 +956,82 @@ public:
         uniforms.vel_matrix = vel;
         uniforms.readout_time = readout_time;
         uniforms.exposure = exposure;
-        uniforms.in_lvl = in_lvl;
-        uniforms.out_lvl = out_lvl;
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, f_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jtravel_texture, jrotvel_texture, jexp_texture, jmap_texture, pids_texture, r_texture};
+        Base::InTextures intextures{kf_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jtravel_texture.MapWrite(out_lvl),
+                                      jrotvel_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
+class DiffRendererCPU
+    : public RendererBaseCPU<DiffRendererBase<TextureViewReadCPU,
+                                              TextureViewWriteCPU>>
+{
+public:
+    using Base = DiffRendererBase<TextureViewReadCPU,
+                                  TextureViewWriteCPU>;
+
+    DiffRendererCPU() = default;
+    ~DiffRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const Vec2<float> &exposure,
+                const PinholeCamera<float> &cam,
+                int in_lvl,
+                int out_lvl,
+                const TextureCPU<ImageType> &diffuse_texture,
+                const TextureCPU<Vec3<float>> &dfdxy_texture,
+                TextureCPU<ImageType> &image_texture,
+                TextureCPU<Vec3<float>> &jtra_texture,
+                TextureCPU<Vec3<float>> &jrot_texture,
+                TextureCPU<Vec3<float>> &jexp_texture,
+                TextureCPU<Vec3<float>> &jdepth_texture,
+                TextureCPU<Vec3<PidType>> &pids_texture)
+    {
+        Mat4<float> opencv2opengl = Mat4<float>::Identity();
+        opencv2opengl(1, 1) = -1.0;
+        opencv2opengl(2, 2) = -1.0;
+
+        const int W = static_cast<int>(image_texture.width(out_lvl));
+        const int H = static_cast<int>(image_texture.height(out_lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.fx = cam.GetParams()(0);
+        uniforms.fy = cam.GetParams()(1);
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.exposure = exposure;
+        uniforms.out_width = W;
+        uniforms.out_height = H;
+
+        Base::InTextures intextures{diffuse_texture.MapRead(in_lvl),
+                                    dfdxy_texture.MapRead(in_lvl)};
+        Base::OutTextures outtextures{jtra_texture.MapWrite(out_lvl),
+                                      jrot_texture.MapWrite(out_lvl),
+                                      jexp_texture.MapWrite(out_lvl),
+                                      jdepth_texture.MapWrite(out_lvl),
+                                      pids_texture.MapWrite(out_lvl),
+                                      image_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,

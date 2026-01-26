@@ -13,12 +13,12 @@ extern "C"
     void DepthRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
                         float *out_texture_data,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         float out_nodata_value,
-                        unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
                         float fx, float fy, float cx, float cy);
@@ -64,8 +64,8 @@ int main()
                vertex,
                indices,
                true,
-               true,
-               true);
+               false,
+               false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
@@ -73,13 +73,15 @@ int main()
 
     TextureCPU<float> depth_out_cpu(w, h, 0.0f);
     auto depth_map = depth_out_cpu.MapWrite(0);
+    Level level = depth_out_cpu.level(lvl);
 
     DepthRenderHLS(
         vertex.data(),
         indices.data(),
         depth_map.data(),
+        level.offset,
         vertex.size(), indices.size(),
-        w, h, 0.0f, lvl,
+        depth_out_cpu.width(lvl), depth_out_cpu.height(lvl), 0.0f,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3));

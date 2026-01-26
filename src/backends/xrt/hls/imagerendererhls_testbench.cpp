@@ -13,21 +13,21 @@ extern "C"
 {
     void ImageRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
-                        ap_uint<8> *diffuse_texture_data_ch1,
-                        ap_uint<8> *diffuse_texture_data_ch2,
-                        ap_uint<8> *diffuse_texture_data_ch3,
-                        ap_uint<8> *diffuse_texture_data_ch4,
-                        ap_uint<8> *out_texture_data,
+                        ImageType *diffuse_texture_data_ch1,
+                        ImageType *diffuse_texture_data_ch2,
+                        ImageType *diffuse_texture_data_ch3,
+                        ImageType *diffuse_texture_data_ch4,
+                        ImageType *out_texture_data,
+                        int diffuse_texture_offset,
+                        int out_texture_offset,
                         unsigned int vertex_buffer_size,
                         unsigned int ebo_buffer_size,
                         unsigned int diffuse_texture_width,
                         unsigned int diffuse_texture_height,
                         ImageType diffuse_nodata_value,
-                        unsigned int diffuse_lvl,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
                         ImageType out_nodata_value,
-                        unsigned int out_lvl,
                         float q_x, float q_y, float q_z, float q_w,
                         float t_x, float t_y, float t_z,
                         float fx, float fy, float cx, float cy,
@@ -71,40 +71,41 @@ int main()
 
     std::vector<float> vertex;
     std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices);
-
-    std::vector<float> screen_vertex;
-    std::vector<int> screen_indices;
-    CreateScreenQuad(screen_vertex, screen_indices);
+    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, false, false);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 0;
+    unsigned int in_lvl = 2;
+    unsigned int out_lvl = 0;
 
     auto diffuse_map = image_src_cpu.MapWrite(0);
+    Level diffuse_lvl = image_src_cpu.level(in_lvl);
 
     TextureCPU<ImageType> image_out_cpu(w, h, 0);
     auto image_out_map = image_out_cpu.MapWrite(0);
+    Level image_out_lvl = image_out_cpu.level(out_lvl);
 
     ImageRenderHLS(
         vertex.data(),
         indices.data(),
-        (ap_uint<8> *)diffuse_map.data(),
-        (ap_uint<8> *)diffuse_map.data(),
-        (ap_uint<8> *)diffuse_map.data(),
-        (ap_uint<8> *)diffuse_map.data(),
-        (ap_uint<8> *)image_out_map.data(),
+        (ImageType *)diffuse_map.data(),
+        (ImageType *)diffuse_map.data(),
+        (ImageType *)diffuse_map.data(),
+        (ImageType *)diffuse_map.data(),
+        (ImageType *)image_out_map.data(),
+        diffuse_lvl.offset,
+        image_out_lvl.offset,
         vertex.size(), indices.size(),
-        w, h, 0, lvl,
-        w, h, 0, lvl,
+        image_src_cpu.width(in_lvl), image_src_cpu.height(in_lvl), 0,
+        image_out_cpu.width(out_lvl), image_out_cpu.height(out_lvl), 0,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),
         cam.GetParams()(0), cam.GetParams()(1), cam.GetParams()(2), cam.GetParams()(3),
         exposure(0), exposure(1));
 
-    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, lvl);
+    cv::Mat image_out_cv = DownloadTextureToMat(image_out_cpu, out_lvl);
     SaveDebugImage(image_out_cv, "imagerenderhls_output.png");
 
-    cv::Mat image_reference_cv = DownloadTextureToMat(image_dst_cpu, lvl);
+    cv::Mat image_reference_cv = DownloadTextureToMat(image_dst_cpu, out_lvl);
     SaveDebugImage(image_reference_cv, "imagerenderhls_reference.png");
 }

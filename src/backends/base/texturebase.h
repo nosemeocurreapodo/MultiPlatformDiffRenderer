@@ -48,23 +48,34 @@ T wrap(T t, AddressMode addr)
     return t; // unreachable
 };
 
-template <class T, template <class> class Tex>
-T nearest(const Tex<T> &tex, RealType y, RealType x, IntType lvl)
+template <class T, class TexView>
+T nearest(const TexView &tex, RealType y, RealType x)
 {
 #pragma HLS inline
 
-    const IntType xi = static_cast<IntType>(lround(x));
-    const IntType yi = static_cast<IntType>(lround(y));
-    return tex.texel_(yi, xi, lvl);
+    // const RealType xf = floor(x);
+    // const RealType yf = floor(y);
+    // const IntType x0 = static_cast<IntType>(xf < RealType(0) ? RealType(0) : xf);
+    // const IntType y0 = static_cast<IntType>(yf < RealType(0) ? RealType(0) : yf);
+
+    const IntType w = tex.width() - 1;
+    const IntType h = tex.height() - 1;
+
+    const IntType xf = IntType(lround(x));
+    const IntType yf = IntType(lround(y));
+    const IntType x0 = max(min(xf, w), IntType(0));
+    const IntType y0 = max(min(yf, h), IntType(0));
+
+    return T(tex(y0, x0));
 }
 
-template <class T, template <class> class Tex>
-T bilinear(const Tex<T> &tex, RealType y, RealType x, IntType lvl)
+template <class T, class TexView>
+T bilinear(const TexView &tex, RealType y, RealType x)
 {
 #pragma HLS inline
 
-    const IntType w = tex.width(lvl);
-    const IntType h = tex.height(lvl);
+    const IntType w = tex.width();
+    const IntType h = tex.height();
 
     const RealType xf = floor(x);
     const RealType yf = floor(y);
@@ -76,31 +87,30 @@ T bilinear(const Tex<T> &tex, RealType y, RealType x, IntType lvl)
     const RealType dx = x - static_cast<RealType>(x0);
     const RealType dy = y - static_cast<RealType>(y0);
 
-    const T tl = tex.texel_(y0, x0, lvl);
-    const T tr = tex.texel_(y0, x1, lvl);
-    const T bl = tex.texel_(y1, x0, lvl);
-    const T br = tex.texel_(y1, x1, lvl);
+    const T tl = T(tex(y0, x0));
+    const T tr = T(tex(y0, x1));
+    const T bl = T(tex(y1, x0));
+    const T br = T(tex(y1, x1));
 
     // if (tex.nodata() == tl || tex.nodata() == tr || tex.nodata() == bl || tex.nodata() == br)
     //     return T(tex.nodata());
 
-    const T Cx0 = tl * (RealType(1) - dx) + tr * dx;
-    const T Cx1 = bl * (RealType(1) - dx) + br * dx;
-    return Cx0 * (RealType(1) - dy) + Cx1 * dy;
+    const T Cx0 = tl * RealType(RealType(1) - dx) + tr * dx;
+    const T Cx1 = bl * RealType(RealType(1) - dx) + br * dx;
+    return Cx0 * RealType(RealType(1) - dy) + Cx1 * dy;
 }
 
 // Normalized sampling in [0,1] (allows outside depending on address mode)
-template <class T, template <class> class Tex>
-T sample(const Tex<T> &tex,
+template <class T, class TexView>
+T sample(const TexView &tex,
          RealType v, RealType u,
-         IntType lvl = 0,
          AddressMode addr = AddressMode::Clamp,
          FilterMode filt = FilterMode::Bilinear)
 {
 #pragma HLS inline
 
-    const RealType w = static_cast<RealType>(tex.width(lvl));
-    const RealType h = static_cast<RealType>(tex.height(lvl));
+    const RealType w = static_cast<RealType>(tex.width());
+    const RealType h = static_cast<RealType>(tex.height());
 
     const RealType uu = wrap(u, addr);
     const RealType vv = wrap(v, addr);
@@ -109,8 +119,8 @@ T sample(const Tex<T> &tex,
     const RealType y = vv * h - RealType(0.5f);
 
     return (filt == FilterMode::Nearest)
-               ? nearest<T, Tex>(tex, y, x, lvl)
-               : bilinear<T, Tex>(tex, y, x, lvl);
+               ? nearest<T, TexView>(tex, y, x)
+               : bilinear<T, TexView>(tex, y, x);
 }
 
 template <class T, template <class> class V, class Tex>

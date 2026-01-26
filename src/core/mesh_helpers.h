@@ -62,12 +62,18 @@ static void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vect
 static void CreateScreenQuad(std::vector<float> &vertex,
                              std::vector<int> &indices)
 {
-    vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
-              -1.f, -1.f, 1.f, 0.f, 0.f,
-              1.f, -1.f, 1.f, 1.f, 0.f,
-              -1.f, 1.f, 1.f, 0.f, 1.f,
-              1.f, -1.f, 1.f, 1.f, 0.f,
-              1.f, 1.f, 1.f, 1.f, 1.f};
+    // vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
+    //           -1.f, -1.f, 1.f, 0.f, 0.f,
+    //           1.f, -1.f, 1.f, 1.f, 0.f,
+    //           -1.f, 1.f, 1.f, 0.f, 1.f,
+    //           1.f, -1.f, 1.f, 1.f, 0.f,
+    //           1.f, 1.f, 1.f, 1.f, 1.f};
+    vertex = {0.f, 1.f,
+              0.f, 0.f,
+              1.f, 0.f,
+              0.f, 1.f,
+              1.f, 0.f,
+              1.f, 1.f};
     std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     // indices = {0, 1, 2, 0, 2, 3};
     BuildTriangles(uv, indices);
@@ -78,9 +84,9 @@ static void CreateMesh(const Texture &depth,
                        PinholeCamera<float> &cam, int grid_size,
                        std::vector<float> &vertex,
                        std::vector<int> &indices,
-                       bool add_pos = true,
-                       bool add_tex = true,
-                       bool add_normal = true)
+                       bool add_pos,
+                       bool add_tex,
+                       bool add_normal)
 {
     std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, 0.0, 0.0, 1.0, 1.0);
 
@@ -222,11 +228,11 @@ static void CreateFlatMesh(float min_depth, float max_depth,
                            PinholeCamera<float> &cam, int grid_size,
                            std::vector<float> &vertex,
                            std::vector<int> &indices,
-                           bool add_pos = true,
-                           bool add_tex = true,
-                           bool add_normal = true)
+                           bool add_pos,
+                           bool add_tex,
+                           bool add_normal)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.25, -0.25, 1.25, 1.25);
 
     int gridsize = grid_uv.size();
 

@@ -17,7 +17,7 @@ public:
     //  using size_type = std::size_t;
 
     MeshXRT(const std::vector<float> &vertex,
-            const std::vector<unsigned int> &indices,
+            const std::vector<int> &indices,
             bool has_position,
             bool has_texcoord,
             bool has_normal,
@@ -55,7 +55,7 @@ public:
         }
 
         vertex_buffer_ = BufferXRT<float>(vertex.size(), vertex.data(), vertex_group_id);
-        ebo_buffer_ = BufferXRT<unsigned int>(indices.size(), indices.data(), indices_group_id);
+        ebo_buffer_ = BufferXRT<int>(indices.size(), indices.data(), indices_group_id);
     }
 
     // Copy/move
@@ -137,7 +137,7 @@ public:
         */
 
     BufferXRT<float> vertex_buffer_;
-    BufferXRT<unsigned int> ebo_buffer_;
+    BufferXRT<int> ebo_buffer_;
     int stride_;
     int pos_offset_;
     int tex_offset_;

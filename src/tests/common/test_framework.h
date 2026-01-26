@@ -144,7 +144,7 @@ protected:
         TextureCPU<float> depth_src_cpu(depth_src_cv_.cols, depth_src_cv_.rows, 0.0f);
         UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_);
+        CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_, true, false, false);
         // float meanDepth = cv::mean(depth_src_cv_)[0];
         // CreateFlatMesh(meanDepth * 0.5, meanDepth * 1.5, cam_, 16, vertex_, indices_, true, true, true);
 
@@ -272,8 +272,10 @@ struct ValidationThresholds
     double ref_max_residual_error = 0.0034;
     double ref_max_jtra_error = 18.31;
     double ref_max_jrot_error = 27.2;
-    double ref_max_r_error = 14.0;
-    double ref_max_jmap_error = 2.4;
+    double ref_max_jdepth_error = 2.4;
+    double ref_max_jv0_error = 2.4;
+    double ref_max_jv1_error = 2.4;
+    double ref_max_jv2_error = 2.4;
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;
@@ -285,8 +287,10 @@ struct ValidationThresholds
     double cr_max_jtra_error = 0.19;
     double cr_max_jrot_error = 0.34;
     double cr_max_jexp_error = 0.0069;
-    double cr_max_r_error = 0.63;
-    double cr_max_jmap_error = 0.063;
+    double cr_max_jdepth_error = 0.063;
+    double cr_max_jv0_error = 0.063;
+    double cr_max_jv1_error = 0.063;
+    double cr_max_jv2_error = 0.063;
     double cr_max_pids_error = 0.11;
     double max_cpu_depth_time_ms = 53.0;
     double max_gl_depth_time_ms = 5.0;

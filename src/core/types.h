@@ -68,14 +68,28 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "linalg/ldlt_solver.h"
 #include "linalg/ldlt_solverx.h"
 
-#ifndef USE_VITIS
-#include "linalg/ldlt_solverx_lapack.h"
-#endif
-
+#ifdef USE_VITIS
+#include "hls_math.h"
+#include "ap_int.h"
+#include "ap_fixed.h"
+// using ImageType = float;
+using ImageType = float;
+using RealType = float;
+//using RealType = half;
+//   using RealType = Posit<16, 1>;
+// using RealType = ap_fixed<32, 16>;
+// using RealType = ap_float<16, 8>;
+ using IntType = int;
+//  using IntType = short int;
+//using IntType = ap_int<16>;
+using PidType = float;
+#else
 using ImageType = float;
 using RealType = float;
 using IntType = int;
 using PidType = float;
+#include "linalg/ldlt_solverx_lapack.h"
+#endif
 
 template <typename T>
 using Vecx = linalg::Vecx<T>;

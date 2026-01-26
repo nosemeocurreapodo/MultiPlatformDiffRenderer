@@ -8,8 +8,12 @@ ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 #NAME = depthrendererhls
 #TOP_NAME = DepthRenderHLS
-NAME = imagerendererhls
-TOP_NAME = ImageRenderHLS
+#NAME = imagerendererhls
+#TOP_NAME = ImageRenderHLS
+NAME_1 = diffrendererhls
+TOP_NAME_1 = DiffRenderHLS
+NAME_2 = didxyrendererhls
+TOP_NAME_2 = DIDxyRenderHLS
 
 PLATFORMS_PATH ?= /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
@@ -57,13 +61,15 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 12 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) --freqhz=200MHz -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
+	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_1) -o $(XO_PATH)/$(NAME_1).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
+# --freqhz=100MHz
+	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_2) -o $(XO_PATH)/$(NAME_2).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"
 	mkdir -p $(XCLBIN_PATH)
 #	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
-	cd $(XCLBIN_PATH) && v++ --jobs 12 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
+	cd $(XCLBIN_PATH) && v++ --jobs 4 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --config $(ROOT_DIR)/diffrenderer_connectivity.cfg -o $(XCLBIN_PATH)/system.xclbin $(XO_PATH)/$(NAME_1).xo $(XO_PATH)/$(NAME_2).xo
 
 emconfig:$(EMCONFIG_DIR)/emconfig.json
 $(EMCONFIG_DIR)/emconfig.json:
@@ -77,7 +83,7 @@ $(PACKAGE_PATH): create_json
 	mkdir -p $(PACKAGE_PATH)
 	cp $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/dtb/pl.dtbo $(PACKAGE_PATH)
 	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
-	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
+	cp $(XCLBIN_PATH)/system.xclbin $(PACKAGE_PATH)/system.bin
 # cp -r $(MULTIPLATFORMRENDERER_PATH)/tests/data $(PACKAGE_PATH)
 	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
 	@echo "then use xmutil to load hardware."
