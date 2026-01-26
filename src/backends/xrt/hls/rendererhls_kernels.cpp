@@ -122,6 +122,55 @@ extern "C"
                         out_texture);
     }
 
+    void DIDxyRenderHLS(float *vertex_buffer_data,
+                        int *ebo_buffer_data,
+                        ImageType *in_texture_data,
+                        ImageType *out_texture_data,
+                        int in_texture_offset,
+                        int out_texture_offset,
+                        unsigned int vertex_buffer_size,
+                        unsigned int ebo_buffer_size,
+                        unsigned int in_texture_width,
+                        unsigned int in_texture_height,
+                        ImageType in_nodata_value,
+                        unsigned int out_texture_width,
+                        unsigned int out_texture_height,
+                        ImageType out_nodata_value)
+    {
+#pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
+#pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem1 depth = 412800
+#pragma HLS INTERFACE m_axi port = in_texture_data bundle = gmem2 depth = 412800
+#pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem3 depth = 412800
+        // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem2 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
+
+        // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
+        // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64
+
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //              ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+
+        // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
+        // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
+        // TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
+        // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
+        // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
+
+        TextureViewReadHLS<ImageType> in_texture((ImageType *)in_texture_data + in_texture_offset,
+                                                 in_texture_width,
+                                                 in_texture_height,
+                                                 in_nodata_value);
+
+        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data + out_texture_offset,
+                                                   out_texture_width,
+                                                   out_texture_height,
+                                                   out_nodata_value);
+
+        DIDxyRendererHLS renderer;
+        renderer.Render(vertex_buffer, ebo_buffer, in_texture, out_texture);
+    }
+
     void DiffRenderHLS(float *vertex_buffer_data,
                        int *ebo_buffer_data,
                        ap_uint<8> *kf_texture_data,
@@ -170,22 +219,22 @@ extern "C"
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        ImageType* kf_pointer = (ImageType *)kf_texture_data;
+        ImageType *kf_pointer = (ImageType *)kf_texture_data;
         kf_pointer += in_texture_offset;
-        Vec3<float>* dkfdxy_pointer = (Vec3<float> *)dkfdxy_texture_data;
+        Vec3<float> *dkfdxy_pointer = (Vec3<float> *)dkfdxy_texture_data;
         dkfdxy_pointer += in_texture_offset;
 
-        ImageType* image_pointer = (ImageType *)image_texture_data;
+        ImageType *image_pointer = (ImageType *)image_texture_data;
         image_pointer += out_texture_offset;
-        Vec3<float>* jtra_pointer = (Vec3<float> *)jtra_texture_data;
+        Vec3<float> *jtra_pointer = (Vec3<float> *)jtra_texture_data;
         jtra_pointer += out_texture_offset;
-        Vec3<float>* jrot_pointer = (Vec3<float> *)jrot_texture_data;
+        Vec3<float> *jrot_pointer = (Vec3<float> *)jrot_texture_data;
         jrot_pointer += out_texture_offset;
-        Vec3<float>* jexp_pointer = (Vec3<float> *)jexp_texture_data;
+        Vec3<float> *jexp_pointer = (Vec3<float> *)jexp_texture_data;
         jexp_pointer += out_texture_offset;
-        Vec3<float>* jmap_pointer = (Vec3<float> *)jmap_texture_data;
+        Vec3<float> *jmap_pointer = (Vec3<float> *)jmap_texture_data;
         jmap_pointer += out_texture_offset;
-        Vec3<float>* pids_pointer = (Vec3<float> *)pids_texture_data;
+        Vec3<float> *pids_pointer = (Vec3<float> *)pids_texture_data;
         pids_pointer += out_texture_offset;
 
         TextureViewReadHLS<ImageType> kf_texture(kf_pointer, in_texture_width, in_texture_height, 0);

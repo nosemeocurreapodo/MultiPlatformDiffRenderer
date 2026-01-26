@@ -857,6 +857,54 @@ public:
 private:
 };
 
+class DIDxyRendererHLS
+    : public RendererBaseHLS<DIDxyRendererHLS,
+                             DIDxyRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
+{
+public:
+    using Base = DIDxyRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
+
+    DIDxyRendererHLS() = default;
+    ~DIDxyRendererHLS() = default;
+
+    void Render(const BufferViewReadHLS<float> &vertex_buffer,
+                const BufferViewReadHLS<int> &ebo_buffer,
+                const TextureViewReadHLS<ImageType> &in_texture,
+                TextureViewWriteHLS<Vec3<float>> &out_texture)
+    {
+        Base::Uniforms uniforms;
+
+        uniforms.in_lvl = 0;
+        uniforms.out_lvl = 0;
+
+        const int W = static_cast<int>(out_texture.width());
+        const int H = static_cast<int>(out_texture.height());
+        BoundingBox<IntType> viewport(0, W, 0, H);
+
+        Base::InTextures intextures_ch1{in_texture};
+        Base::OutTextures outtextures{out_texture};
+
+        // RendererBaseHLS<ImageRendererHLS, Base>::RenderNaive(
+        //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
+
+        RendererBaseHLS<DIDxyRendererHLS, Base>::RenderTiledFragBuff2(
+            viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
+        /*
+        RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuffInChannels(
+            viewport,
+            mesh,
+            uniforms,
+            intextures_ch1,
+            intextures_ch2,
+            intextures_ch3,
+            intextures_ch4,
+            outtextures);
+        */
+    }
+
+private:
+};
+
 class DiffRendererHLS
     : public RendererBaseHLS<DiffRendererHLS,
                              DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>

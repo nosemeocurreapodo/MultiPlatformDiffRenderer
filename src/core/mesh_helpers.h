@@ -232,7 +232,7 @@ static void CreateFlatMesh(float min_depth, float max_depth,
                            bool add_tex,
                            bool add_normal)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.25, -0.25, 1.25, 1.25);
 
     int gridsize = grid_uv.size();
 
