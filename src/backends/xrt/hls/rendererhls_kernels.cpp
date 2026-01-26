@@ -124,8 +124,8 @@ extern "C"
 
     void DIDxyRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
-                        ImageType *in_texture_data,
-                        ImageType *out_texture_data,
+                        ap_uint<8> *in_texture_data,
+                        ap_uint<8> *out_texture_data,
                         int in_texture_offset,
                         int out_texture_offset,
                         unsigned int vertex_buffer_size,
@@ -135,7 +135,9 @@ extern "C"
                         ImageType in_nodata_value,
                         unsigned int out_texture_width,
                         unsigned int out_texture_height,
-                        ImageType out_nodata_value)
+                        float out_nodata_value_x,
+                        float out_nodata_value_y,
+                        float out_nodata_value_z)
     {
 #pragma HLS INTERFACE m_axi port = vertex_buffer_data bundle = gmem0 depth = 412800
 #pragma HLS INTERFACE m_axi port = ebo_buffer_data bundle = gmem1 depth = 412800
@@ -162,10 +164,10 @@ extern "C"
                                                  in_texture_height,
                                                  in_nodata_value);
 
-        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data + out_texture_offset,
+        TextureViewWriteHLS<Vec3<float>> out_texture((Vec3<float> *)out_texture_data + out_texture_offset,
                                                    out_texture_width,
                                                    out_texture_height,
-                                                   out_nodata_value);
+                                                   Vec3<float>(out_nodata_value_x, out_nodata_value_y, out_nodata_value_z));
 
         DIDxyRendererHLS renderer;
         renderer.Render(vertex_buffer, ebo_buffer, in_texture, out_texture);

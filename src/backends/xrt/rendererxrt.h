@@ -114,6 +114,48 @@ public:
     xrt::kernel kernel_;
 };
 
+class DIDxyRendererXRT
+{
+public:
+    DIDxyRendererXRT()
+    {
+        kernel_ = xrt::kernel(device_xrt, uuid_xrt, "ImageRenderHLS");
+    }
+
+    void Render(MeshXRT &mesh,
+                int in_lvl,
+                int out_lvl,
+                TextureXRT<ImageType> &in_texture,
+                TextureXRT<Vec3<float>> &out_texture)
+    {
+        // assert(kernel_.group_id(0) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(1) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(2) == mesh.pos.bo_.get_memory_group());
+        // assert(kernel_.group_id(3) == mesh.ebo.bo_.get_memory_group());
+        // assert(kernel_.group_id(4) == depth_texture.storage_.bo_.get_memory_group());
+
+        mesh.vertex_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        mesh.ebo_buffer_.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        in_texture.bo_.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+        xrt::run run = kernel_(mesh.vertex_buffer_.bo_,
+                               mesh.ebo_buffer_.bo_,
+                               in_texture.bo_,
+                               out_texture.bo_,
+                               in_texture.level(in_lvl).offset,
+                               out_texture.level(out_lvl).offset,
+                               mesh.vertex_buffer_.size(), mesh.ebo_buffer_.size(),
+                               in_texture.width(in_lvl), in_texture.height(in_lvl),
+                               in_texture.nodata(),
+                               out_texture.width(out_lvl), out_texture.height(out_lvl),
+                               out_texture.nodata()(0), out_texture.nodata()(1), out_texture.nodata()(2));
+        run.wait();
+        out_texture.bo_.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+    }
+
+    // private:
+    xrt::kernel kernel_;
+};
+
 class DiffRendererXRT
 {
 public:

@@ -63,11 +63,6 @@ $(XO_PATH):
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
 	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_1) -o $(XO_PATH)/$(NAME_1).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
 # --freqhz=100MHz
-
-$(XO_PATH):
-	@echo "Making xo"
-	mkdir -p $(XO_PATH)
-#	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
 	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_2) -o $(XO_PATH)/$(NAME_2).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
