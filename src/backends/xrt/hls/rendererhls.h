@@ -204,14 +204,14 @@ public:
         Fragment fragment_buffer[tile_width * tile_height];
         RealType depth_buffer[tile_width * tile_height];
 
-        // #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
-        // #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
-        // #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = bram
-        //  #pragma HLS array_partition variable = depth_buffer type = cyclic factor = tile_width * 2
-        //  #pragma HLS array_partition variable = depth_buffer type = complete
+// #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
+// #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
+// #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = bram
+//  #pragma HLS array_partition variable = depth_buffer type = cyclic factor = tile_width * 2
+//  #pragma HLS array_partition variable = depth_buffer type = complete
 
-        // #pragma HLS aggregate variable = fragment_buffer compact = bit
-        #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
+// #pragma HLS aggregate variable = fragment_buffer compact = bit
+#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
         // #pragma HLS array_partition variable = fragment_buffer type = cyclic factor = 1 dim = 0
 
     renderbase_render_tiles_loop:
@@ -625,12 +625,33 @@ public:
     // DepthRendererHLS() = default;
     //~DepthRendererHLS() = default;
 
-    void Render(const BufferViewReadHLS<float> &vertex_buffer,
-                const BufferViewReadHLS<int> &ebo_buffer,
-                const linalg::SE3<RealType> &pose,
-                const PinholeCamera<RealType> &cam,
-                TextureViewWriteHLS<float> &out_texture)
+    void Render(float *vertex_buffer_data,
+                int *ebo_buffer_data,
+                float *out_texture_data,
+                int out_texture_offset,
+                unsigned int vertex_buffer_size,
+                unsigned int ebo_buffer_size,
+                unsigned int out_texture_width,
+                unsigned int out_texture_height,
+                float out_nodata_value,
+                float q_x, float q_y, float q_z, float q_w,
+                float t_x, float t_y, float t_z,
+                float fx, float fy, float cx, float cy)
     {
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)), linalg::Vec3<RealType>(t_x, t_y, t_z));
+        PinholeCamera<RealType> cam(fx, fy, cx, cy);
+
+        // copy data to bram
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //             ebo_buffer_data, ebo_buffer_size);
+
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+
+        // data too large, has to be in ram
+        TextureViewWriteHLS<float> out_texture(out_texture_data + out_texture_offset, out_texture_width, out_texture_height, out_nodata_value);
+        // TextureRAM<float> out_texture(out_texture_width, out_texture_height, out_nodata_value, out_texture_data);
+
         Base::Uniforms uniforms;
 
         linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
@@ -650,14 +671,12 @@ public:
         const int H = static_cast<int>(out_texture.height());
         BoundingBox<IntType> viewport(0, W, 0, H);
 
-        Base::InTextures intextures_ch1{0};
-        Base::InTextures intextures_ch2{0};
-        Base::InTextures intextures_ch3{0};
-        Base::InTextures intextures_ch4{0};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures{0};
+        Base::OutTextures outtextures{
+            TextureViewWriteHLS<float>(out_texture_data + out_texture_offset, out_texture_width, out_texture_height, out_nodata_value)};
 
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderNaive(viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
-        RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuff2(viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
+        RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuff2(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
         // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuffInChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, intextures_ch3, intextures_ch4, outtextures);
     }
 };
@@ -796,17 +815,70 @@ public:
     ImageRendererHLS() = default;
     ~ImageRendererHLS() = default;
 
-    void Render(const BufferViewReadHLS<float> &vertex_buffer,
-                const BufferViewReadHLS<int> &ebo_buffer,
-                const linalg::SE3<RealType> &pose,
-                const linalg::Vec2<RealType> &exposure,
-                const PinholeCamera<RealType> &cam,
-                const TextureViewReadHLS<ImageType> &diffuse_texture_ch1,
-                const TextureViewReadHLS<ImageType> &diffuse_texture_ch2,
-                const TextureViewReadHLS<ImageType> &diffuse_texture_ch3,
-                const TextureViewReadHLS<ImageType> &diffuse_texture_ch4,
-                TextureViewWriteHLS<ImageType> &out_texture)
+    void Render(float *vertex_buffer_data,
+                int *ebo_buffer_data,
+                ImageType *diffuse_texture_data_ch1,
+                ImageType *diffuse_texture_data_ch2,
+                ImageType *diffuse_texture_data_ch3,
+                ImageType *diffuse_texture_data_ch4,
+                ImageType *out_texture_data,
+                int diffuse_texture_offset,
+                int out_texture_offset,
+                unsigned int vertex_buffer_size,
+                unsigned int ebo_buffer_size,
+                unsigned int diffuse_texture_width,
+                unsigned int diffuse_texture_height,
+                ImageType diffuse_nodata_value,
+                unsigned int out_texture_width,
+                unsigned int out_texture_height,
+                ImageType out_nodata_value,
+                float q_x, float q_y, float q_z, float q_w,
+                float t_x, float t_y, float t_z,
+                float fx, float fy, float cx, float cy,
+                float exp_a, float exp_b)
     {
+        // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
+        // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64
+
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(
+                                       linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)),
+                                   linalg::Vec3<RealType>(t_x, t_y, t_z));
+        linalg::Vec2<RealType> exposure(exp_a, exp_b);
+        PinholeCamera<RealType> cam(fx, fy, cx, cy);
+
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //              ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+
+        // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
+        // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
+        // TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
+        // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
+        // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
+
+        TextureViewReadHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+
+        TextureViewReadHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewReadHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4 + diffuse_texture_offset,
+                                                          diffuse_texture_width,
+                                                          diffuse_texture_height,
+                                                          diffuse_nodata_value);
+        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data + out_texture_offset,
+                                                   out_texture_width,
+                                                   out_texture_height,
+                                                   out_nodata_value);
+
         Base::Uniforms uniforms;
 
         linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
