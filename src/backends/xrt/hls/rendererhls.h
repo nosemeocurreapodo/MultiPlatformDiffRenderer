@@ -817,10 +817,7 @@ public:
 
     void Render(float *vertex_buffer_data,
                 int *ebo_buffer_data,
-                ImageType *diffuse_texture_data_ch1,
-                ImageType *diffuse_texture_data_ch2,
-                ImageType *diffuse_texture_data_ch3,
-                ImageType *diffuse_texture_data_ch4,
+                ImageType *diffuse_texture_data,
                 ImageType *out_texture_data,
                 int diffuse_texture_offset,
                 int out_texture_offset,
@@ -851,34 +848,6 @@ public:
         BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
         BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
 
-        // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
-        // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
-        // TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
-        // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
-        // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
-
-        TextureViewReadHLS<ImageType> diffuse_texture_ch1((ImageType *)diffuse_texture_data_ch1 + diffuse_texture_offset,
-                                                          diffuse_texture_width,
-                                                          diffuse_texture_height,
-                                                          diffuse_nodata_value);
-
-        TextureViewReadHLS<ImageType> diffuse_texture_ch2((ImageType *)diffuse_texture_data_ch2 + diffuse_texture_offset,
-                                                          diffuse_texture_width,
-                                                          diffuse_texture_height,
-                                                          diffuse_nodata_value);
-        TextureViewReadHLS<ImageType> diffuse_texture_ch3((ImageType *)diffuse_texture_data_ch3 + diffuse_texture_offset,
-                                                          diffuse_texture_width,
-                                                          diffuse_texture_height,
-                                                          diffuse_nodata_value);
-        TextureViewReadHLS<ImageType> diffuse_texture_ch4((ImageType *)diffuse_texture_data_ch4 + diffuse_texture_offset,
-                                                          diffuse_texture_width,
-                                                          diffuse_texture_height,
-                                                          diffuse_nodata_value);
-        TextureViewWriteHLS<ImageType> out_texture((ImageType *)out_texture_data + out_texture_offset,
-                                                   out_texture_width,
-                                                   out_texture_height,
-                                                   out_nodata_value);
-
         Base::Uniforms uniforms;
 
         linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
@@ -897,22 +866,23 @@ public:
         uniforms.camera = cam;
         uniforms.exposure = exposure;
 
-        const int W = static_cast<int>(out_texture.width());
-        const int H = static_cast<int>(out_texture.height());
-        BoundingBox<IntType> viewport(0, W, 0, H);
+        BoundingBox<IntType> viewport(0, out_texture_width, 0, out_texture_height);
 
-        Base::InTextures intextures_ch1{diffuse_texture_ch1};
-        Base::InTextures intextures_ch2{diffuse_texture_ch2};
-        Base::InTextures intextures_ch3{diffuse_texture_ch3};
-        Base::InTextures intextures_ch4{diffuse_texture_ch4};
+        Base::InTextures intextures{TextureViewReadHLS<ImageType>((ImageType *)diffuse_texture_data + diffuse_texture_offset,
+                                                                  diffuse_texture_width,
+                                                                  diffuse_texture_height,
+                                                                  diffuse_nodata_value)};
 
-        Base::OutTextures outtextures{out_texture};
+        Base::OutTextures outtextures{TextureViewWriteHLS<ImageType>((ImageType *)out_texture_data + out_texture_offset,
+                                                                     out_texture_width,
+                                                                     out_texture_height,
+                                                                     out_nodata_value)};
 
         // RendererBaseHLS<ImageRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
 
         RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuff2(
-            viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
+            viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
         /*
         RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuffInChannels(
             viewport,
@@ -939,22 +909,41 @@ public:
     DIDxyRendererHLS() = default;
     ~DIDxyRendererHLS() = default;
 
-    void Render(const BufferViewReadHLS<float> &vertex_buffer,
-                const BufferViewReadHLS<int> &ebo_buffer,
-                const TextureViewReadHLS<ImageType> &in_texture,
-                TextureViewWriteHLS<Vec3<float>> &out_texture)
+    void Render(float *vertex_buffer_data,
+                int *ebo_buffer_data,
+                ap_uint<8> *in_texture_data,
+                ap_uint<8> *out_texture_data,
+                int in_texture_offset,
+                int out_texture_offset,
+                unsigned int vertex_buffer_size,
+                unsigned int ebo_buffer_size,
+                unsigned int in_texture_width,
+                unsigned int in_texture_height,
+                ImageType in_nodata_value,
+                unsigned int out_texture_width,
+                unsigned int out_texture_height,
+                float out_nodata_value_x,
+                float out_nodata_value_y,
+                float out_nodata_value_z)
     {
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+
         Base::Uniforms uniforms;
 
         uniforms.in_lvl = 0;
         uniforms.out_lvl = 0;
 
-        const int W = static_cast<int>(out_texture.width());
-        const int H = static_cast<int>(out_texture.height());
-        BoundingBox<IntType> viewport(0, W, 0, H);
+        BoundingBox<IntType> viewport(0, out_texture_width, 0, out_texture_height);
 
-        Base::InTextures intextures_ch1{in_texture};
-        Base::OutTextures outtextures{out_texture};
+        Base::InTextures intextures_ch1{TextureViewReadHLS<ImageType>((ImageType *)in_texture_data + in_texture_offset,
+                                                                      in_texture_width,
+                                                                      in_texture_height,
+                                                                      in_nodata_value)};
+        Base::OutTextures outtextures{TextureViewWriteHLS<Vec3<float>>((Vec3<float> *)out_texture_data + out_texture_offset,
+                                                                       out_texture_width,
+                                                                       out_texture_height,
+                                                                       Vec3<float>(out_nodata_value_x, out_nodata_value_y, out_nodata_value_z))};
 
         // RendererBaseHLS<ImageRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
@@ -987,20 +976,67 @@ public:
     DiffRendererHLS() = default;
     ~DiffRendererHLS() = default;
 
-    void Render(const BufferViewReadHLS<float> &vertex_buffer,
-                const BufferViewReadHLS<int> &ebo_buffer,
-                const SE3<RealType> &pose,
-                const Vec2<RealType> &exposure,
-                const PinholeCamera<RealType> &cam,
-                const TextureViewReadHLS<ImageType> &kf_texture,
-                const TextureViewReadHLS<Vec3<float>> &dfdxy_texture,
-                TextureViewWriteHLS<ImageType> &image_texture,
-                TextureViewWriteHLS<Vec3<float>> &jtra_texture,
-                TextureViewWriteHLS<Vec3<float>> &jrot_texture,
-                TextureViewWriteHLS<Vec3<float>> &jexp_texture,
-                TextureViewWriteHLS<Vec3<float>> &jmap_texture,
-                TextureViewWriteHLS<Vec3<PidType>> &pids_texture)
+    void Render(float *vertex_buffer_data,
+                int *ebo_buffer_data,
+                ap_uint<8> *kf_texture_data,
+                ap_uint<8> *dkfdxy_texture_data,
+                ap_uint<8> *image_texture_data,
+                ap_uint<8> *jtra_texture_data,
+                ap_uint<8> *jrot_texture_data,
+                ap_uint<8> *jexp_texture_data,
+                ap_uint<8> *jmap_texture_data,
+                ap_uint<8> *pids_texture_data,
+                int in_texture_offset,
+                int out_texture_offset,
+                unsigned int vertex_buffer_size,
+                unsigned int ebo_buffer_size,
+                unsigned int in_texture_width,
+                unsigned int in_texture_height,
+                unsigned int out_texture_width,
+                unsigned int out_texture_height,
+                float q_x, float q_y, float q_z, float q_w,
+                float t_x, float t_y, float t_z,
+                float fx, float fy, float cx, float cy,
+                float exp_a, float exp_b)
     {
+        linalg::SE3<RealType> pose(linalg::SO3<RealType>(
+                                       linalg::Quaternion<RealType>(q_w, q_x, q_y, q_z)),
+                                   linalg::Vec3<RealType>(t_x, t_y, t_z));
+        linalg::Vec2<RealType> exposure(exp_a, exp_b);
+        PinholeCamera<RealType> cam(fx, fy, cx, cy);
+
+        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
+        //              ebo_buffer_data, ebo_buffer_size);
+        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
+        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
+
+        ImageType *kf_pointer = (ImageType *)kf_texture_data;
+        kf_pointer += in_texture_offset;
+        Vec3<float> *dkfdxy_pointer = (Vec3<float> *)dkfdxy_texture_data;
+        dkfdxy_pointer += in_texture_offset;
+
+        ImageType *image_pointer = (ImageType *)image_texture_data;
+        image_pointer += out_texture_offset;
+        Vec3<float> *jtra_pointer = (Vec3<float> *)jtra_texture_data;
+        jtra_pointer += out_texture_offset;
+        Vec3<float> *jrot_pointer = (Vec3<float> *)jrot_texture_data;
+        jrot_pointer += out_texture_offset;
+        Vec3<float> *jexp_pointer = (Vec3<float> *)jexp_texture_data;
+        jexp_pointer += out_texture_offset;
+        Vec3<float> *jmap_pointer = (Vec3<float> *)jmap_texture_data;
+        jmap_pointer += out_texture_offset;
+        Vec3<float> *pids_pointer = (Vec3<float> *)pids_texture_data;
+        pids_pointer += out_texture_offset;
+
+        TextureViewReadHLS<ImageType> kf_texture(kf_pointer, in_texture_width, in_texture_height, 0);
+        TextureViewWriteHLS<Vec3<float>> dkfdxy_texture(dkfdxy_pointer, in_texture_width, in_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewReadHLS<ImageType> image_texture(image_pointer, out_texture_width, out_texture_height, 0);
+        TextureViewWriteHLS<Vec3<float>> jtra_texture(jtra_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jrot_texture(jrot_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jexp_texture(jexp_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> jmap_texture(jmap_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
+        TextureViewWriteHLS<Vec3<float>> pids_texture(pids_pointer, out_texture_width, out_texture_height, Vec3<float>(-1.0, -1.0, -1.0));
+
         Mat4<RealType> opencv2opengl = Mat4<RealType>::Identity();
         opencv2opengl(1, 1) = -1.0;
         opencv2opengl(2, 2) = -1.0;
@@ -1018,8 +1054,14 @@ public:
         uniforms.out_width = W;
         uniforms.out_height = H;
 
-        Base::InTextures intextures{kf_texture, dfdxy_texture};
-        Base::OutTextures outtextures{jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture, image_texture};
+        Base::InTextures intextures{TextureViewReadHLS<ImageType>(kf_pointer, in_texture_width, in_texture_height, 0),
+                                    TextureViewWriteHLS<Vec3<float>>(dkfdxy_pointer, in_texture_width, in_texture_height, Vec3<float>(0.0, 0.0, 0.0))};
+        Base::OutTextures outtextures{TextureViewWriteHLS<Vec3<float>>(jtra_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0)),
+                                      TextureViewWriteHLS<Vec3<float>>(jrot_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0)),
+                                      TextureViewWriteHLS<Vec3<float>>(jexp_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0)),
+                                      TextureViewWriteHLS<Vec3<float>>(jmap_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0)),
+                                      TextureViewWriteHLS<Vec3<float>>(pids_pointer, out_texture_width, out_texture_height, Vec3<float>(-1.0, -1.0, -1.0)),
+                                      TextureViewReadHLS<ImageType>(image_pointer, out_texture_width, out_texture_height, 0)};
 
         // RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);

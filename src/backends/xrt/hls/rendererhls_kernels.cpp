@@ -112,29 +112,23 @@ extern "C"
         // #pragma HLS cache port = diffuse_texture_data_ch1 lines = 64 depth = 64
         // #pragma HLS cache port = diffuse_texture_data_ch2 lines = 64 depth = 64
 
-        // MeshHLS mesh(vertex_buffer_data, vertex_buffer_size,
-        //              ebo_buffer_data, ebo_buffer_size);
-        BufferViewReadHLS<float> vertex_buffer(vertex_buffer_data, vertex_buffer_size);
-        BufferViewReadHLS<int> ebo_buffer(ebo_buffer_data, ebo_buffer_size);
-
-        // TextureRAM<ImageType> diffuse_texture_ch1(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch1);
-        // TextureRAM<ImageType> diffuse_texture_ch2(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch2);
-        // TextureRAM<ImageType> diffuse_texture_ch3(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch3);
-        // TextureRAM<ImageType> diffuse_texture_ch4(diffuse_texture_width, diffuse_texture_height, diffuse_nodata_value, (ImageType *)diffuse_texture_data_ch4);
-        // TextureRAM<ImageType> out_texture(out_texture_width, out_texture_height, out_nodata_value, (ImageType *)out_texture_data);
-
-        TextureViewReadHLS<ImageType> in_texture((ImageType *)in_texture_data + in_texture_offset,
-                                                 in_texture_width,
-                                                 in_texture_height,
-                                                 in_nodata_value);
-
-        TextureViewWriteHLS<Vec3<float>> out_texture((Vec3<float> *)out_texture_data + out_texture_offset,
-                                                     out_texture_width,
-                                                     out_texture_height,
-                                                     Vec3<float>(out_nodata_value_x, out_nodata_value_y, out_nodata_value_z));
-
         DIDxyRendererHLS renderer;
-        renderer.Render(vertex_buffer, ebo_buffer, in_texture, out_texture);
+        renderer.Render(vertex_buffer_data,
+                        ebo_buffer_data,
+                        in_texture_data,
+                        out_texture_data,
+                        in_texture_offset,
+                        out_texture_offset,
+                        vertex_buffer_size,
+                        ebo_buffer_size,
+                        in_texture_width,
+                        in_texture_height,
+                        in_nodata_value,
+                        out_texture_width,
+                        out_texture_height,
+                        out_nodata_value_x,
+                        out_nodata_value_y,
+                        out_nodata_value_z);
     }
 
     void DiffRenderHLS(float *vertex_buffer_data,
@@ -213,8 +207,27 @@ extern "C"
         TextureViewWriteHLS<Vec3<float>> pids_texture(pids_pointer, out_texture_width, out_texture_height, Vec3<float>(-1.0, -1.0, -1.0));
 
         DiffRendererHLS renderer;
-        renderer.Render(vertex_buffer, ebo_buffer, pose, exposure, cam,
-                        kf_texture, dkfdxy_texture,
-                        image_texture, jtra_texture, jrot_texture, jexp_texture, jmap_texture, pids_texture);
+        renderer.Render(vertex_buffer_data,
+                       ebo_buffer_data,
+                       kf_texture_data,
+                       dkfdxy_texture_data,
+                       image_texture_data,
+                       jtra_texture_data,
+                       jrot_texture_data,
+                       jexp_texture_data,
+                       jmap_texture_data,
+                       pids_texture_data,
+                       in_texture_offset,
+                       out_texture_offset,
+                       vertex_buffer_size,
+                       ebo_buffer_size,
+                       in_texture_width,
+                       in_texture_height,
+                       out_texture_width,
+                       out_texture_height,
+                       q_x, q_y, q_z, q_w,
+                       t_x, t_y, t_z,
+                       fx, fy, cx, cy,
+                       exp_a, exp_b);
     }
 };

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 template <class T, class Releaser>
 class BufferViewBase
 {
@@ -42,7 +44,7 @@ template <class T, class Releaser>
 class TextureViewBase
 {
 public:
-    TextureViewBase() noexcept = default;
+    //TextureViewBase() noexcept = default;
 
     TextureViewBase(T *p, std::size_t width, std::size_t height, T nodata, Releaser r = {}) noexcept
         : ptr_(p),

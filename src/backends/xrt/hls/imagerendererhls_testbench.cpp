@@ -13,10 +13,7 @@ extern "C"
 {
     void ImageRenderHLS(float *vertex_buffer_data,
                         int *ebo_buffer_data,
-                        ImageType *diffuse_texture_data_ch1,
-                        ImageType *diffuse_texture_data_ch2,
-                        ImageType *diffuse_texture_data_ch3,
-                        ImageType *diffuse_texture_data_ch4,
+                        ImageType *diffuse_texture_data,
                         ImageType *out_texture_data,
                         int diffuse_texture_offset,
                         int out_texture_offset,
@@ -88,9 +85,6 @@ int main()
     ImageRenderHLS(
         vertex.data(),
         indices.data(),
-        (ImageType *)diffuse_map.data(),
-        (ImageType *)diffuse_map.data(),
-        (ImageType *)diffuse_map.data(),
         (ImageType *)diffuse_map.data(),
         (ImageType *)image_out_map.data(),
         diffuse_lvl.offset,
