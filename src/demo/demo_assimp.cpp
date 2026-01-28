@@ -40,7 +40,7 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
-// #define SHOW_OPENCV
+#define SHOW_OPENCV
 
 int main(int argc, char **argv)
 {
@@ -150,8 +150,8 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 2;
-    const int out_lvl = 0;
+    const int in_lvl = 1;
+    const int out_lvl = 1;
 
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
@@ -379,6 +379,8 @@ int main(int argc, char **argv)
 
         double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
         times.push_back(ms);
+        if (times.size() > max_frames)
+            times.erase(times.begin());
 
         cv::Mat out_f;
         if (output_names[toshow] == "image")
@@ -518,12 +520,15 @@ int main(int argc, char **argv)
         avg /= times.size();
         // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
         double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
-        cv::putText(out_color,
-                    backend_names[backend] + "  " + output_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
-                    cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
 
-#ifdef OPENCV_SHOW
-        cv::imshow("Rasterizer Demo", out_color);
+#ifdef SHOW_OPENCV
+        cv::Mat out_color_resized;
+        cv::resize(out_color, out_color_resized, cv::Size(1024, 768), cv::INTER_LINEAR);
+        cv::putText(out_color_resized,
+                    backend_names[backend] + "  " + output_names[toshow] + "  " + std::to_string(int(ms)) + " ms  (" + std::to_string(int(fps)) + " fps avg)",
+                    cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+
+        cv::imshow("Rasterizer Demo", out_color_resized);
 
         int key = cv::waitKey(1);
         if (key == 27 || key == 'q')
@@ -541,11 +546,18 @@ int main(int argc, char **argv)
 #else
         if (i % 60 == 0)
         {
+            cv::putText(out_color,
+                        backend_names[backend] + "  " + output_names[toshow] + std::to_string(int(ms)) + " ms  (" + std::to_string(int(fps)) + " fps avg)",
+                        cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
             SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
+        }
+#endif
+
+        if (i % 90 == 0)
+        {
             toshow++;
             toshow %= output_names.size();
         }
-#endif
     }
 
     // Stats
