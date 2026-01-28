@@ -255,8 +255,10 @@ int main(int argc, char **argv)
 
     // Turntable loop
     const int max_frames = 600; // ~20 seconds at 30 FPS
-    std::vector<double> times;
-    times.reserve(max_frames);
+    std::vector<double> process_times;
+    process_times.reserve(max_frames);
+    std::vector<double> download_times;
+    download_times.reserve(max_frames);
 
 #ifdef SHOW_OPENCV
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
@@ -309,7 +311,7 @@ int main(int argc, char **argv)
 
         Vec2<float> exposure(0.0, 0.0);
 
-        auto t0 = std::chrono::high_resolution_clock::now();
+        auto process_t0 = std::chrono::high_resolution_clock::now();
 #ifdef COMPILE_CPU
         if (backend_names[backend] == "cpu")
             // renderercpu.Render(meshcpu, transform, camera, in_lvl, out_lvl, imagecpu);
@@ -375,12 +377,14 @@ int main(int argc, char **argv)
                                pidsxrt);
 #endif
 
-        auto t1 = std::chrono::high_resolution_clock::now();
+        auto process_t1 = std::chrono::high_resolution_clock::now();
 
-        double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        times.push_back(ms);
-        if (times.size() > max_frames)
-            times.erase(times.begin());
+        double process_ms = std::chrono::duration<double, std::milli>(process_t1 - process_t0).count();
+        process_times.push_back(process_ms);
+        if (process_times.size() > max_frames)
+            process_times.erase(process_times.begin());
+
+        auto download_t0 = std::chrono::high_resolution_clock::now();
 
         cv::Mat out_f;
         if (output_names[toshow] == "image")
@@ -503,6 +507,13 @@ int main(int argc, char **argv)
 #endif
         }
 
+        auto download_t1 = std::chrono::high_resolution_clock::now();
+
+        double download_ms = std::chrono::duration<double, std::milli>(download_t1 - download_t0).count();
+        download_times.push_back(download_ms);
+        if (download_times.size() > max_frames)
+            download_times.erase(download_times.begin());
+
         // Pretty up the single-channel output
         cv::Mat out_norm, out_u8, out_color;
         cv::normalize(out_f, out_norm, 0, 255, cv::NORM_MINMAX);
@@ -512,22 +523,27 @@ int main(int argc, char **argv)
         // cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
 
         // Overlay FPS
-        double avg = 0.0;
-        for (auto time : times)
+        double proc_avg = 0.0;
+        for (auto time : process_times)
         {
-            avg += time;
+            proc_avg += time;
         }
-        avg /= times.size();
+        proc_avg /= process_times.size();
         // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
-        double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
+        double proc_fps = (proc_avg > 1e-6) ? (1000.0 / proc_avg) : 0.0;
 
 #ifdef SHOW_OPENCV
         cv::Mat out_color_resized;
         cv::resize(out_color, out_color_resized, cv::Size(1024, 768), cv::INTER_LINEAR);
         cv::putText(out_color_resized,
-                    backend_names[backend] + "  " + output_names[toshow] + "  " + std::to_string(int(ms)) + " ms  (" + std::to_string(int(fps)) + " fps avg)",
+                    backend_names[backend] + "  " + output_names[toshow],
                     cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
-
+        cv::putText(out_color_resized,
+                    "process time  " + std::to_string(int(process_ms)) + " ms",
+                    cv::Point(18, 64), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+        cv::putText(out_color_resized,
+                    "download time  " + std::to_string(int(download_ms)) + " ms",
+                    cv::Point(18, 96), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
         cv::imshow("Rasterizer Demo", out_color_resized);
 
         int key = cv::waitKey(1);
@@ -561,20 +577,20 @@ int main(int argc, char **argv)
     }
 
     // Stats
-    std::sort(times.begin(), times.end());
+    std::sort(process_times.begin(), process_times.end());
     // double sum = std::accumulate(times.begin(), times.end(), 0.0);
     double sum = 0.0;
-    for (auto time : times)
+    for (auto time : process_times)
     {
         sum += time;
     }
-    double avg = (times.empty() ? 0.0 : sum / times.size());
-    double med = (times.empty() ? 0.0 : times[times.size() / 2]);
-    double minv = (times.empty() ? 0.0 : times.front());
-    double maxv = (times.empty() ? 0.0 : times.back());
+    double avg = (process_times.empty() ? 0.0 : sum / process_times.size());
+    double med = (process_times.empty() ? 0.0 : process_times[process_times.size() / 2]);
+    double minv = (process_times.empty() ? 0.0 : process_times.front());
+    double maxv = (process_times.empty() ? 0.0 : process_times.back());
 
     std::cout << "CPU Rasterizer Performance:\n";
-    std::cout << "  Frames:  " << times.size() << "\n";
+    std::cout << "  Frames:  " << process_times.size() << "\n";
     std::cout << "  Average: " << avg << " ms\n";
     std::cout << "  Median:  " << med << " ms\n";
     std::cout << "  Min:     " << minv << " ms\n";
