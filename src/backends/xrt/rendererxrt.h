@@ -119,7 +119,7 @@ class DIDxyRendererXRT
 public:
     DIDxyRendererXRT()
     {
-        kernel_ = xrt::kernel(device_xrt, uuid_xrt, "ImageRenderHLS");
+        kernel_ = xrt::kernel(device_xrt, uuid_xrt, "DIDxyRenderHLS");
     }
 
     void Render(MeshXRT &mesh,

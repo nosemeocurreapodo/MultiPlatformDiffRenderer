@@ -150,7 +150,7 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 0;
+    const int in_lvl = 2;
     const int out_lvl = 0;
 
 #ifdef COMPILE_CPU
@@ -229,15 +229,21 @@ int main(int argc, char **argv)
         TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
     */
     DiffRendererXRT rendererxrt;
+    DIDxyRendererXRT didxyrendererxrt;
 
     MeshXRT meshxrt(vertex, indices,
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
 
     TextureXRT<ImageType> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
-    TextureXRT<Vec3<float>> didxyxrt(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(3));
+    TextureXRT<Vec3<float>> didxyxrt(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0), rendererxrt.kernel_.group_id(3));
 
     UploadMatToTexture(diffusexrt, 0, diffuse_cv);
+
+    MeshXRT meshxrt_screen(screen_vertex, screen_indices,
+                           false, true, false,
+                           didxyrendererxrt.kernel_.group_id(0), didxyrendererxrt.kernel_.group_id(1));
+    didxyrendererxrt.Render(meshxrt_screen, in_lvl, in_lvl, diffusexrt, didxyxrt);
 
     TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(4));
     TextureXRT<Vec3<float>> jtraxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(5));
@@ -518,12 +524,6 @@ int main(int argc, char **argv)
 
 #ifdef OPENCV_SHOW
         cv::imshow("Rasterizer Demo", out_color);
-#else
-        if (i % 60 == 0)
-        {
-            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
-        }
-#endif
 
         int key = cv::waitKey(1);
         if (key == 27 || key == 'q')
@@ -538,6 +538,14 @@ int main(int argc, char **argv)
             backend++;
             backend %= backend_names.size();
         }
+#else
+        if (i % 60 == 0)
+        {
+            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
+            toshow++;
+            toshow %= output_names.size();
+        }
+#endif
     }
 
     // Stats
