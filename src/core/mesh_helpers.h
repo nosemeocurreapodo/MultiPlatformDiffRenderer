@@ -88,7 +88,7 @@ static void CreateMesh(const Texture &depth,
                        bool add_tex,
                        bool add_normal)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, 0.0, 0.0, 1.0, 1.0);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
 
     int stride = 0;
     if (add_pos)
@@ -119,20 +119,26 @@ static void CreateMesh(const Texture &depth,
         // u = clamp01(u);
         // v = clamp01(v);
 
-        if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
-            return false;
-
         const float ix = u * float(w - 1);
         const float iy = v * float(h - 1);
         const int x = static_cast<int>(ix + 0.5f); // nearest; switch to bilinear if you like
         const int y = static_cast<int>(iy + 0.5f);
 
-        float z = depth_mm[y * w + x];
-        if (z == depth.nodata())
+        float z;
+        if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
         {
-            return false;
-            // z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
-            // z = 1.0f;
+            // return false;
+            z = 1.0f;
+        }
+        else
+        {
+            z = depth_mm[y * w + x];
+            if (z == depth.nodata())
+            {
+                // return false;
+                //  z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
+                z = 1.0f;
+            }
         }
 
         if (z < RenderConstants::NEAR_PLANE)
@@ -232,7 +238,7 @@ static void CreateFlatMesh(float min_depth, float max_depth,
                            bool add_tex,
                            bool add_normal)
 {
-    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.25, -0.25, 1.25, 1.25);
+    std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
 
     int gridsize = grid_uv.size();
 

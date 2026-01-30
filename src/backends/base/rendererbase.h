@@ -904,9 +904,9 @@ public:
         }
 
         RealType pix = sample<RealType, TextureViewRead<ImageType>>(intextures.in_texture,
-                                                                    texcoord(1), texcoord(0),
-                                                                    AddressMode::Clamp,
-                                                                    FilterMode::Nearest);
+                                                                    texcoord(1), texcoord(0));
+        // AddressMode::Clamp,
+        // FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -1096,12 +1096,16 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        IntType height = intextures.in_texture.height(uniforms.in_lvl);
-        IntType width = intextures.in_texture.width(uniforms.in_lvl);
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
+        IntType height = intextures.in_texture.height();
+        IntType width = intextures.in_texture.width();
         ImageType nodata = intextures.in_texture.nodata();
 
-        //IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
-        //IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
+        // IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
+        // IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
         IntType x = IntType(gl_FragCoord(0));
         IntType y = IntType(gl_FragCoord(1));
 
@@ -1135,7 +1139,7 @@ public:
         for (int j = 0; j < 3; j++)
             for (int i = 0; i < 3; i++)
             {
-                ImageType val = intextures.in_texture.texel_(y + j - 1, x + i - 1, uniforms.in_lvl);
+                ImageType val = intextures.in_texture(y + j - 1, x + i - 1);
                 out_fragment(0) += sobel_x[j][i] * RealType(val);
                 out_fragment(1) += sobel_y[j][i] * RealType(val);
             }
