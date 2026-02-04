@@ -763,12 +763,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -918,12 +918,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1221,12 +1221,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1365,12 +1365,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1548,12 +1548,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1757,12 +1757,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1896,12 +1896,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2131,12 +2131,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2400,12 +2400,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2643,12 +2643,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2917,12 +2917,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -3207,12 +3207,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -3495,12 +3495,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;

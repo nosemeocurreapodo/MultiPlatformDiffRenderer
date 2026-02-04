@@ -4,6 +4,7 @@
 // #include <cmath>
 // #include <cstdint>
 // #include "core/types.h"
+#include "backends/xrt/hls/math_common.h"
 #include "linalg/linalg.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
@@ -35,17 +36,19 @@ public:
                      OutTextures &outtextures)
     {
         // MathType depth_buffer[viewport.width_ * viewport.height_] = {MathType(-1)};
-        Fragment fragment_buffer[max_width * max_height];
-        RealType depth_buffer[max_width * max_height];
+        Fragment fragment_buffer[MAX_WIDTH * MAX_HEIGHT];
+        RealType depth_buffer[MAX_WIDTH * MAX_HEIGHT];
 #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
 #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
 
         for (int y = viewport.min_y_; y < viewport.max_y_; y++)
         {
+            int base_address = y * viewport.width_;
             for (int x = viewport.min_x_; x < viewport.max_x_; x++)
             {
-                fragment_buffer[y * viewport.width_ + x] = Base::fragment_nodata(outtextures);
-                depth_buffer[y * viewport.width_ + x] = RealType(-1);
+                int address = base_address + x;
+                fragment_buffer[address] = Base::fragment_nodata(outtextures);
+                depth_buffer[address] = RealType(-1);
             }
         }
 
@@ -86,22 +89,21 @@ public:
                              const InTextures &intextures,
                              OutTextures &outtextures)
     {
-        Triangle triangles[max_num_tri];
+        Triangle triangles[MAX_NUM_TRI];
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         int num_triangles;
-        this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, max_num_tri, num_triangles);
+        this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, MAX_NUM_TRI, num_triangles);
 
-        IntType num_tiles_x = IntType(ceil(RealType(viewport.width_) / tile_width));
-        IntType num_tiles_y = IntType(ceil(RealType(viewport.height_) / tile_height));
-        IntType num_tiles = num_tiles_x * num_tiles_y;
+        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
+        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
 
         IntType triangle_count;
         Uniforms uniforms_buffer;
         BoundingBox<IntType> viewport_buffer;
-        Triangle triangle_buffer[max_tri_per_tile];
-        Fragment fragment_buffer[tile_width * tile_height];
-        RealType depth_buffer[tile_width * tile_height];
+        Triangle triangle_buffer[MAX_TRI_PER_TILE];
+        Fragment fragment_buffer[MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
+        RealType depth_buffer[MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
 
 #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
 #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
@@ -110,15 +112,15 @@ public:
 #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
 
     renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < num_tiles_y; tile_y++)
+        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < num_tiles_x; tile_x++)
+            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x++)
             {
-                int tile = tile_y * num_tiles_x + tile_x;
-#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
+                int tile = tile_y * NUM_TILES_X + tile_x;
+//#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
 #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -141,10 +143,10 @@ public:
 #pragma HLS dependence variable = outtextures type = inter false
 #pragma HLS dependence variable = outtextures type = intra false
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(num_tiles_y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
 
                 viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 triangle_count = 0;
@@ -172,7 +174,7 @@ public:
                         continue;
 
                     triangle_buffer[triangle_count] = triangle;
-                    triangle_count = min(IntType(triangle_count + 1), IntType(max_tri_per_tile - 1));
+                    triangle_count = min(IntType(triangle_count + 1), IntType(MAX_TRI_PER_TILE - 1));
                 }
 
             renderbase_reset_depth_buffer_loop:
@@ -196,13 +198,13 @@ public:
                               const InTextures &intextures,
                               OutTextures &outtextures)
     {
-        IntType num_tiles_x = IntType(ceil(RealType(viewport.width_) / tile_width));
-        IntType num_tiles_y = IntType(ceil(RealType(viewport.height_) / tile_height));
+        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
+        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
         // IntType num_tiles = num_tiles_x * num_tiles_y;
 
-        Triangle triangle_buffer[max_tri_per_tile];
-        Fragment fragment_buffer[tile_width * tile_height];
-        RealType depth_buffer[tile_width * tile_height];
+        Triangle triangle_buffer[MAX_TRI_PER_TILE];
+        Fragment fragment_buffer[MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
+        RealType depth_buffer[MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
 
 // #pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
 // #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
@@ -215,14 +217,14 @@ public:
         // #pragma HLS array_partition variable = fragment_buffer type = cyclic factor = 1 dim = 0
 
     renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < num_tiles_y; tile_y++)
+        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < num_tiles_x; tile_x++)
+            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x++)
             {
-#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
+//#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
                 // #pragma HLS dependence variable = fragment_buffer type = inter false
                 // #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -239,22 +241,31 @@ public:
                 // #pragma HLS dependence variable = outtextures type = inter false
                 // #pragma HLS dependence variable = outtextures type = intra false
 
-            renderbase_reset_depth_buffer_loop:
-                for (int j = 0; j < tile_width * tile_height; j++)
+            renderbase_reset_depth_buffer_loop_y:
+                for (int y = 0; y < tile_height; y++)
                 {
-                    fragment_buffer[j] = Base::fragment_nodata(outtextures);
-                    depth_buffer[j] = RealType(-1);
+                    #pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+
+                    int base_address = y * tile_width;
+                    for(int x = 0; x < tile_width; x++)
+                    {
+                                            #pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+
+                        int address = x + base_address;
+                        fragment_buffer[address] = Base::fragment_nodata(outtextures);
+                        depth_buffer[address] = RealType(-1);
+                    }
                 }
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(num_tiles_y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
 
                 BoundingBox<IntType> viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 IntType triangle_count = 0;
 
-                this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport_buffer, uniforms, triangle_buffer, max_tri_per_tile, triangle_count);
+                this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport_buffer, uniforms, triangle_buffer, MAX_TRI_PER_TILE, triangle_count);
 
                 render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms, intextures);
                 Base::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms);
@@ -277,7 +288,7 @@ public:
 
         // this->get_vertex_data(mesh, vertex_data);
 
-        Triangle triangles[max_num_tri];
+        Triangle triangles[MAX_NUM_TRI];
         // Pack the aggregate (newer pragma)
 // #pragma HLS aggregate variable = triangles compact = bit
 //  or, in some versions:
@@ -285,18 +296,17 @@ public:
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         IntType num_triangles;
-        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(max_num_tri), num_triangles);
+        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(MAX_NUM_TRI), num_triangles);
 
-        IntType num_tiles_x = IntType(ceil(RealType(viewport.width_) / tile_width));
-        IntType num_tiles_y = IntType(ceil(RealType(viewport.height_) / tile_height));
-        IntType num_tiles = num_tiles_x * num_tiles_y;
+        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
+        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
 
-        IntType triangle_count[num_buffers];
-        Uniforms uniforms_buffer[num_buffers];
-        BoundingBox<IntType> viewport_buffer[num_buffers];
-        Triangle triangle_buffer[num_buffers][max_tri_per_tile];
-        Fragment fragment_buffer[num_buffers][tile_width * tile_height];
-        RealType depth_buffer[num_buffers][tile_width * tile_height];
+        IntType triangle_count[NUM_BUFFERS];
+        Uniforms uniforms_buffer[NUM_BUFFERS];
+        BoundingBox<IntType> viewport_buffer[NUM_BUFFERS];
+        Triangle triangle_buffer[NUM_BUFFERS][MAX_TRI_PER_TILE];
+        Fragment fragment_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
+        RealType depth_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
 
 #pragma HLS array_partition variable = triangle_count complete dim = 1
 
@@ -332,15 +342,15 @@ public:
         //   #pragma HLS array_partition variable = fragment_buffer cyclic factor = 2 dim = 2
 
     renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < num_tiles_y; tile_y++)
+        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < num_tiles_x; tile_x += num_buffers)
+            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x += NUM_BUFFERS)
             {
-                int tile = tile_y * num_tiles_x + tile_x;
-#pragma HLS loop_tripcount min = max_tiles_x / num_buffers max = max_tiles_x / num_buffers avg = max_tiles_x / num_buffers
+                int tile = tile_y * NUM_TILES_X + tile_x;
+#pragma HLS loop_tripcount min = NUM_TILES_X / NUM_BUFFERS max = NUM_TILES_X / NUM_BUFFERS avg = NUM_TILES_X / NUM_BUFFERS
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
 #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -370,14 +380,14 @@ public:
 #pragma HLS dependence variable = intextures_ch4 type = intra false
 
             renderbasehls_reset:
-                for (int j = 0; j < num_buffers; j++)
+                for (int j = 0; j < NUM_BUFFERS; j++)
                 {
                     // viewport_buffer[j] = viewport_tiles[tile + j];
                     IntType ttile_x = tile_x + j;
-                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(num_tiles_x)) + viewport.min_x_;
-                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(num_tiles_y)) + viewport.min_y_;
-                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
 
                     viewport_buffer[j] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                     triangle_count[j] = 0;
@@ -397,7 +407,7 @@ public:
                     BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
                 renderbase_triangle_tile_loop:
-                    for (int i = 0; i < num_buffers; i++)
+                    for (int i = 0; i < NUM_BUFFERS; i++)
                     {
                         // IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
                         // IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
@@ -413,7 +423,7 @@ public:
                             continue;
 
                         triangle_buffer[i][triangle_count[i]] = triangle;
-                        triangle_count[i] = min(IntType(triangle_count[i] + 1), IntType(max_tri_per_tile - 1));
+                        triangle_count[i] = min(IntType(triangle_count[i] + 1), IntType(MAX_TRI_PER_TILE - 1));
                     }
                 }
 
@@ -422,7 +432,7 @@ public:
                 {
                 // #pragma HLS pipeline II = 1
                 renderbase_reset_depth_buffer_i_loop:
-                    for (int i = 0; i < num_buffers; i++)
+                    for (int i = 0; i < NUM_BUFFERS; i++)
                     {
                         // #pragma HLS unroll
                         fragment_buffer[i][j] = Base::fragment_nodata(outtextures);
@@ -431,7 +441,7 @@ public:
                 }
 
             renderbase_render_tile_loop:
-                for (int i = 0; i < num_buffers; i++)
+                for (int i = 0; i < NUM_BUFFERS; i++)
                 {
 #pragma HLS unroll
                     if (i == 0)
@@ -445,7 +455,7 @@ public:
                 }
 
             depthrendererhls_loop:
-                for (int i = 0; i < num_buffers; i++)
+                for (int i = 0; i < NUM_BUFFERS; i++)
                 {
                     Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
                 }
@@ -463,7 +473,7 @@ public:
                                         const InTextures &intextures_ch4,
                                         OutTextures &outtextures)
     {
-        Triangle triangles[max_num_tri];
+        Triangle triangles[MAX_NUM_TRI];
         // Pack the aggregate (newer pragma)
 // #pragma HLS aggregate variable = triangles compact = bit
 //  or, in some versions:
@@ -471,16 +481,16 @@ public:
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         IntType num_triangles;
-        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(max_num_tri), num_triangles);
+        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(MAX_NUM_TRI), num_triangles);
 
-        IntType num_tiles_x = IntType(ceil(RealType(viewport.width_) / tile_width));
-        IntType num_tiles_y = IntType(ceil(RealType(viewport.height_) / tile_height));
-        IntType num_tiles = num_tiles_x * num_tiles_y;
+        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
+        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
+        //IntType num_tiles = num_tiles_x * num_tiles_y;
 
-        Uniforms uniforms_buffer[num_buffers];
-        BoundingBox<IntType> viewport_buffer[num_buffers];
-        Fragment fragment_buffer[num_buffers][tile_width * tile_height];
-        RealType depth_buffer[num_buffers][tile_width * tile_height];
+        Uniforms uniforms_buffer[NUM_BUFFERS];
+        BoundingBox<IntType> viewport_buffer[NUM_BUFFERS];
+        Fragment fragment_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
+        RealType depth_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
 
         // Pack the aggregate (newer pragma)
 // #pragma HLS aggregate variable = uniforms_buffer compact = bit
@@ -507,15 +517,15 @@ public:
         //   #pragma HLS array_partition variable = fragment_buffer cyclic factor = 2 dim = 2
 
     renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < num_tiles_y; tile_y++)
+        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < num_tiles_x; tile_x += num_buffers)
+            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x += NUM_BUFFERS)
             {
-                int tile = tile_y * num_tiles_y + tile_x;
-#pragma HLS loop_tripcount min = max_tiles_x / num_buffers max = max_tiles_x / num_buffers avg = max_tiles_x / num_buffers
+                int tile = tile_y * NUM_TILES_Y + tile_x;
+#pragma HLS loop_tripcount min = NUM_TILES_X / NUM_BUFFERS max = NUM_TILES_X / NUM_BUFFERS avg = NUM_TILES_X / NUM_BUFFERS
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
 #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -536,7 +546,7 @@ public:
                 {
                 // #pragma HLS pipeline II = 1
                 renderbase_reset_depth_buffer_i_loop:
-                    for (int i = 0; i < num_buffers; i++)
+                    for (int i = 0; i < NUM_BUFFERS; i++)
                     {
                         // #pragma HLS unroll
                         fragment_buffer[i][j] = Base::fragment_nodata(outtextures);
@@ -545,30 +555,30 @@ public:
                 }
 
             renderbasehls_reset:
-                for (int j = 0; j < num_buffers; j++)
+                for (int j = 0; j < NUM_BUFFERS; j++)
                 {
                     // viewport_buffer[j] = viewport_tiles[tile + j];
                     IntType ttile_x = tile_x + j;
-                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(num_tiles_x)) + viewport.min_x_;
-                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(num_tiles_y)) + viewport.min_y_;
-                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
+                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
 
                     viewport_buffer[j] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                     uniforms_buffer[j] = uniforms;
                 }
 
-                hls::stream<Triangle> triangles_streams[num_buffers];
+                hls::stream<Triangle> triangles_streams[NUM_BUFFERS];
 
             renderbase_triangle_buffer_loop:
                 for (int j = 0; j < num_triangles; j++)
                 {
-                    for (int i = 0; i < num_buffers; i++)
+                    for (int i = 0; i < NUM_BUFFERS; i++)
                         triangles_streams[i].write(triangles[j]);
                 }
 
             renderbase_triangle_tile_loop:
-                for (int i = 0; i < num_buffers; i++)
+                for (int i = 0; i < NUM_BUFFERS; i++)
                 {
 #pragma HLS unroll
                     if (i == 0)
@@ -582,7 +592,7 @@ public:
                 }
 
             depthrendererhls_loop:
-                for (int i = 0; i < num_buffers; i++)
+                for (int i = 0; i < NUM_BUFFERS; i++)
                 {
                     Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
                 }
@@ -607,7 +617,7 @@ private:
         for (IntType tri = 0; tri < num_triangles; tri++)
         {
 // #pragma HLS pipeline off
-#pragma HLS loop_tripcount min = max_tri_per_tile max = max_tri_per_tile avg = max_tri_per_tile
+#pragma HLS loop_tripcount min = MAX_TRI_PER_TILE max = MAX_TRI_PER_TILE avg = MAX_TRI_PER_TILE
 
             Triangle triangle = triangles[tri];
             this->draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, fragment_buffer);
