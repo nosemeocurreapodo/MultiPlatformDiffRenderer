@@ -9,6 +9,7 @@
 // #include <cmath>
 #include "backends/xrt/bufferxrt.h"
 #include "backends/base/texturebase.h"
+#include "core/cv_converters.h"
 
 struct TextureXRTNoopReleaser
 {
@@ -35,7 +36,7 @@ public:
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
-        //storage_ = BufferXRT<T>(total_size_, group_id);
+        // storage_ = BufferXRT<T>(total_size_, group_id);
         bo_ = xrt::bo(device_xrt, total_size_ * sizeof(T), group_id);
         group_id_ = group_id;
         bo_map_ = bo_.map<T *>();
@@ -69,7 +70,11 @@ public:
 
     // std::size_t size() const { return total_size_; }
     std::size_t type_size() const { return sizeof(T); };
-    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    // std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    int getOpenCVType() const
+    {
+        return GetOpenCVFormat<T>();
+    }
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
@@ -141,7 +146,7 @@ public:
         }
     }
 
-    //BufferXRT<T> storage_;
+    // BufferXRT<T> storage_;
     xrt::bo bo_;
     std::vector<Level> levels_;
     unsigned int total_size_;

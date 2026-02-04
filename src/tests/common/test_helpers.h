@@ -24,7 +24,8 @@ inline void SaveDebugImageColor(const cv::Mat &image, const std::string &filenam
 template <typename Texture>
 inline void UploadMatToTexture(Texture &tex, int lvl, cv::Mat &mat)
 {
-    int cv_type = GetOpenCVFormat(tex.get_type_index());
+    //int cv_type = GetOpenCVFormat(tex.get_type_index());
+    int cv_type = tex.getOpenCVType();
     mat.convertTo(mat, cv_type, 1.0); // / 255.0);
 
     assert(tex.width(lvl) == mat.cols && tex.height(lvl) == mat.rows);
@@ -40,7 +41,8 @@ inline void UploadMatToTexture(Texture &tex, int lvl, cv::Mat &mat)
 template <typename Texture>
 inline cv::Mat DownloadTextureToMat(const Texture &tex, int lvl)
 {
-    int cv_type = GetOpenCVFormat(tex.get_type_index());
+    //int cv_type = GetOpenCVFormat(tex.get_type_index());
+    int cv_type = tex.getOpenCVType();
 
     cv::Mat result(tex.height(lvl), tex.width(lvl), cv_type);
 
