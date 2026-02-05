@@ -763,12 +763,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -904,9 +904,9 @@ public:
         }
 
         RealType pix = sample<RealType, TextureViewRead<ImageType>>(intextures.in_texture,
-                                                                    texcoord(1), texcoord(0),
-                                                                    AddressMode::Clamp,
-                                                                    FilterMode::Nearest);
+                                                                    texcoord(1), texcoord(0));
+        // AddressMode::Clamp,
+        // FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
     }
@@ -918,12 +918,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1051,8 +1051,8 @@ public:
         IntType y_m = y - 1;
         IntType y_mm = y - 2;
 
-        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0) // ||
-                                                                 // x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
+        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0 ||
+            x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
         {
             //  No need to explicitly set to nodata, it is already in the background color
             return;
@@ -1063,10 +1063,10 @@ public:
         ImageType f_y_m = intextures.in_texture(y_m, x);
         ImageType f_x_p = intextures.in_texture(y, x_p);
         ImageType f_x_m = intextures.in_texture(y, x_m);
-        // ImageType f_y_pp = intextures.in_texture.texel_(y_pp, x, uniforms.in_lvl);
-        // ImageType f_y_mm = intextures.in_texture.texel_(y_mm, x, uniforms.in_lvl);
-        // mageType f_x_pp = intextures.in_texture.texel_(y, x_pp, uniforms.in_lvl);
-        // ImageType f_x_mm = intextures.in_texture.texel_(y, x_mm, uniforms.in_lvl);
+        ImageType f_y_pp = intextures.in_texture(y_pp, x);
+        ImageType f_y_mm = intextures.in_texture(y_mm, x);
+        ImageType f_x_pp = intextures.in_texture(y, x_pp);
+        ImageType f_x_mm = intextures.in_texture(y, x_mm);
 
         // if (f_x_p == nodata || f_x_m == nodata ||
         //     f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -1076,11 +1076,11 @@ public:
         //}
 
         Vec3<RealType> out_fragment;
-        // out_fragment(0) = (-RealType(f_x_pp) + RealType(8) * RealType(f_x_p) - RealType(8) * RealType(f_x_m) + RealType(f_x_mm)) / RealType(12);
-        // out_fragment(1) = (-RealType(f_y_pp) + RealType(8) * RealType(f_y_p) - RealType(8) * RealType(f_y_m) + RealType(f_y_mm)) / RealType(12);
+        out_fragment(0) = (-RealType(f_x_pp) + RealType(8) * RealType(f_x_p) - RealType(8) * RealType(f_x_m) + RealType(f_x_mm)) / RealType(12);
+        out_fragment(1) = (-RealType(f_y_pp) + RealType(8) * RealType(f_y_p) - RealType(8) * RealType(f_y_m) + RealType(f_y_mm)) / RealType(12);
         // out_fragment(2) = RealType(f);
-        out_fragment(0) = (RealType(f_x_p) - RealType(f_x_m)) / RealType(2);
-        out_fragment(1) = (RealType(f_y_p) - RealType(f_y_m)) / RealType(2);
+        // out_fragment(0) = (RealType(f_x_p) - RealType(f_x_m)) / RealType(2);
+        // out_fragment(1) = (RealType(f_y_p) - RealType(f_y_m)) / RealType(2);
         out_fragment(2) = RealType(0); // f; // save the projected frame for later processing
 
         // if(out_fragment.norm() < RealType(50))
@@ -1096,12 +1096,16 @@ public:
                                 const InTextures &intextures,
                                 Fragment &fragment)
     {
-        IntType height = intextures.in_texture.height(uniforms.in_lvl);
-        IntType width = intextures.in_texture.width(uniforms.in_lvl);
+        if (in_varying.texcoord(0) < RealType(0) || in_varying.texcoord(0) > RealType(1) ||
+            in_varying.texcoord(1) < RealType(0) || in_varying.texcoord(1) > RealType(1))
+            return;
+
+        IntType height = intextures.in_texture.height();
+        IntType width = intextures.in_texture.width();
         ImageType nodata = intextures.in_texture.nodata();
 
-        //IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
-        //IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
+        // IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
+        // IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
         IntType x = IntType(gl_FragCoord(0));
         IntType y = IntType(gl_FragCoord(1));
 
@@ -1135,7 +1139,7 @@ public:
         for (int j = 0; j < 3; j++)
             for (int i = 0; i < 3; i++)
             {
-                ImageType val = intextures.in_texture.texel_(y + j - 1, x + i - 1, uniforms.in_lvl);
+                ImageType val = intextures.in_texture(y + j - 1, x + i - 1);
                 out_fragment(0) += sobel_x[j][i] * RealType(val);
                 out_fragment(1) += sobel_y[j][i] * RealType(val);
             }
@@ -1217,12 +1221,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1361,12 +1365,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1512,8 +1516,8 @@ public:
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                    texcoord(1), texcoord(0));
-        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
-        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture(gl_FragCoord(1), gl_FragCoord(0));
+        // Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;
@@ -1521,7 +1525,8 @@ public:
         RealType f_exp = apply_exposure(RealType(kf), uniforms.exposure);
         RealType d_fexp_d_f = d_f_exp_d_f(RealType(kf), uniforms.exposure);
         Vec3<RealType> d_fexp_d_exp = d_f_exp_d_exp(RealType(kf), uniforms.exposure);
-        Vec3<RealType> d_fexp_d_xy = d_fexp_d_f * d_f_d_xy;
+        // Vec3<RealType> d_fexp_d_xy = d_fexp_d_f * d_f_d_xy;
+        Vec3<RealType> d_fexp_d_xy = d_f_d_xy;
 
         RealType v0 = d_fexp_d_xy(0) * uniforms.fx * RealType(out_width) / f_ver(2);
         RealType v1 = d_fexp_d_xy(1) * uniforms.fy * RealType(out_height) / f_ver(2);
@@ -1543,12 +1548,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1752,12 +1757,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -1891,12 +1896,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2081,7 +2086,7 @@ public:
             return;
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture, texcoord(1), texcoord(0));
-        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture(gl_FragCoord(1), gl_FragCoord(0));
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
@@ -2090,7 +2095,8 @@ public:
         RealType f_exp = apply_exposure(RealType(kf), uniforms.exposure);
         RealType d_fexp_df = d_f_exp_d_f(RealType(kf), uniforms.exposure);
         Vec3<RealType> d_fexp_d_exp = d_f_exp_d_exp(RealType(kf), uniforms.exposure);
-        Vec3<RealType> d_fexp_d_xy = d_fexp_df * d_f_d_xy;
+        // Vec3<RealType> d_fexp_d_xy = d_fexp_df * d_f_d_xy;
+        Vec3<RealType> d_fexp_d_xy = d_f_d_xy;
 
         Vec3<RealType> d_f_i_d_f_ver;
 
@@ -2125,12 +2131,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2394,12 +2400,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2637,12 +2643,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -2860,7 +2866,7 @@ public:
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                    texcoord(1), texcoord(0));
-        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture.texel_(gl_FragCoord(1), gl_FragCoord(0), uniforms.out_lvl);
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture(gl_FragCoord(1), gl_FragCoord(0));
         Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
@@ -2870,6 +2876,7 @@ public:
         RealType d_fexp_df = d_f_exp_d_f(RealType(kf), uniforms.exposure);
         Vec3<RealType> d_fexp_d_exp = d_f_exp_d_exp(RealType(kf), uniforms.exposure);
         Vec3<RealType> d_fexp_d_xy = d_fexp_df * d_f_d_xy;
+        // Vec3<RealType> d_fexp_d_xy = d_f_d_xy;
 
         Vec3<RealType> d_f_i_d_f_ver;
 
@@ -2910,12 +2917,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -3200,12 +3207,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;
@@ -3488,12 +3495,12 @@ public:
     depthrendererbase_sync_outtexture_y_loop:
         for (IntType iy = 0; iy < tex_bb.height_; iy++)
         {
-#pragma HLS loop_tripcount min = tile_height max = tile_height avg = tile_height
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
         depthrendererbase_sync_outtexture_x_loop:
             for (IntType ix = 0; ix < tex_bb.width_; ix++)
             {
-#pragma HLS loop_tripcount min = tile_width max = tile_width avg = tile_width
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                 IntType x = ix + tex_bb.min_x_;
                 IntType y = iy + tex_bb.min_y_;

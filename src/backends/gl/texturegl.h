@@ -9,6 +9,7 @@
 #include "backends/gl/devicegl_glad.h"
 #include "backends/base/mappedviewbase.h"
 #include "backends/gl/format_converters.h"
+#include "core/cv_converters.h"
 
 struct GLPboUnmap
 {
@@ -232,7 +233,12 @@ public:
     std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
     std::size_t levels() const { return static_cast<std::size_t>(widths_.size()); }
     std::size_t type_size() const { return sizeof(T); };
-    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    // std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    int getOpenCVType() const
+    {
+        return GetOpenCVFormat<T>();
+    }
+
     T nodata() const { return nodata_; }
 
     void generate_mipmaps(int base_lvl)
@@ -274,9 +280,11 @@ private:
         nodata_ = nodata_val;
 
         const int channels = getChannels<T>();
-        internal_ = GetGLInternalFormat(GetTypeIndex<T>());
+        //internal_ = GetGLInternalFormat(GetTypeIndex<T>());
+        internal_ = GetGLInternalFormat<T>();
         format_ = GetGLFormat(channels);
-        T_ = GetGLType(GetTypeIndex<T>());
+        //T_ = GetGLType(GetTypeIndex<T>());
+        T_ = GetGLType<T>();
 
         compute_dims_(w, h);
 

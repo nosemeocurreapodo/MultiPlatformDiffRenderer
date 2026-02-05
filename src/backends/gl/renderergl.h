@@ -1637,6 +1637,9 @@ public:
                 const TextureGL<Vec3<float>> &dfdxy_texture,
                 TextureGL<ImageType> &image_texture,
                 TextureGL<Vec3<float>> &jdepth_texture,
+                TextureGL<Vec3<float>> &jray0_texture,
+                TextureGL<Vec3<float>> &jray1_texture,
+                TextureGL<Vec3<float>> &jray2_texture,
                 TextureGL<Vec3<float>> &jexp_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 #include "core/types.h"
@@ -10,40 +11,49 @@ inline std::type_index GetTypeIndex()
     return std::type_index(typeid(T));
 }
 
+// Helper to make a dependent false for static_assert
+template <class>
+inline constexpr bool dependent_false_v = false;
+
 template <typename T>
-inline int getChannels()
+struct Channels
 {
-    if constexpr (std::is_same_v<T, unsigned char>)
-    {
-        return 1;
-    }
-    else if constexpr (std::is_same_v<T, int>)
-    {
-        return 1;
-    }
-    else if constexpr (std::is_same_v<T, float>)
-    {
-        return 1;
-    }
-    else if constexpr (std::is_same_v<T, Vec2<float>>)
-    {
-        return 2;
-    }
-    else if constexpr (std::is_same_v<T, Vec3<float>>)
-    {
-        return 3;
-    }
-    else if constexpr (std::is_same_v<T, Vec3<int>>)
-    {
-        return 3;
-    }
-    else if constexpr (std::is_same_v<T, Vec4<float>>)
-    {
-        return 4;
-    }
-    else
-    {
-        assert(false);
-        return 0; // Unreachable
-    }
+    static_assert(dependent_false_v<T>, "Channels<T>: unsupported type");
+};
+
+// Specializations:
+template <>
+struct Channels<unsigned char> : std::integral_constant<int, 1>
+{
+};
+template <>
+struct Channels<int> : std::integral_constant<int, 1>
+{
+};
+template <>
+struct Channels<float> : std::integral_constant<int, 1>
+{
+};
+
+template <>
+struct Channels<Vec2<float>> : std::integral_constant<int, 2>
+{
+};
+template <>
+struct Channels<Vec3<float>> : std::integral_constant<int, 3>
+{
+};
+template <>
+struct Channels<Vec3<int>> : std::integral_constant<int, 3>
+{
+};
+template <>
+struct Channels<Vec4<float>> : std::integral_constant<int, 4>
+{
+};
+
+template <typename T>
+constexpr int getChannels()
+{
+    return Channels<T>::value;
 }

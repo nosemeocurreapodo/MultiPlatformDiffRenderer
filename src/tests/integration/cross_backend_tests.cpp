@@ -543,12 +543,12 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     cv::Mat cpu_jtra = DownloadTextureToMat(jtra_cpu, 0);
     cv::Mat cpu_jrot = DownloadTextureToMat(jrot_cpu, 0);
     cv::Mat cpu_jexp = DownloadTextureToMat(jexp_cpu, 0);
-    cv::Mat cpu_r = DownloadTextureToMat(image_cpu, 0);
+    cv::Mat cpu_image = DownloadTextureToMat(image_cpu, 0);
 
     cv::Mat gl_jtra = DownloadTextureToMat(jtra_gl, 0);
     cv::Mat gl_jrot = DownloadTextureToMat(jrot_gl, 0);
     cv::Mat gl_jexp = DownloadTextureToMat(jexp_gl, 0);
-    cv::Mat gl_r = DownloadTextureToMat(image_gl, 0);
+    cv::Mat gl_image = DownloadTextureToMat(image_gl, 0);
 
     SaveDebugImageColor(cpu_jtra, "cross_jpose_jtra_cpu.png");
     SaveDebugImageColor(gl_jtra, "cross_jpose_jtra_gl.png");
@@ -556,8 +556,8 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     SaveDebugImageColor(gl_jrot, "cross_jpose_jrot_gl.png");
     SaveDebugImageColor(cpu_jexp, "cross_jpose_jexp_cpu.png");
     SaveDebugImageColor(gl_jexp, "cross_jpose_jexp_gl.png");
-    SaveDebugImageColor(cpu_r, "cross_jpose_r_cpu.png");
-    SaveDebugImageColor(gl_r, "cross_jpose_r_gl.png");
+    SaveDebugImageColor(cpu_image, "cross_jpose_image_cpu.png");
+    SaveDebugImageColor(gl_image, "cross_jpose_image_gl.png");
 
     std::cout << "Jacobian Pipeline Cross-Backend Comparison:\n";
     std::cout << "  Jtra L2 Error: " << acc_jtra_error << "\n";

@@ -11,6 +11,7 @@
 #include "backends/cpu/buffercpu.h"
 #include "core/boundingbox.h"
 #include "core/typeindex_common.h"
+#include "core/cv_converters.h"
 
 // --- Minimal mapped view pieces (works with CPU/GL buffers too) ---
 struct TextureCPUNoopReleaser
@@ -117,7 +118,12 @@ public:
     Level level(int lvl) const { return levels_[lvl]; }
     // UInt size() const { return total_size_; }
     unsigned int type_size() const { return sizeof(T); };
-    std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    // std::type_index get_type_index() const { return GetTypeIndex<T>(); };
+    int getOpenCVType() const
+    {
+        return GetOpenCVFormat<T>();
+    }
+    
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant

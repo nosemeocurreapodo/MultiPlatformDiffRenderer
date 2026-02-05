@@ -40,7 +40,7 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
-// #define SHOW_OPENCV
+#define SHOW_OPENCV
 
 int main(int argc, char **argv)
 {
@@ -150,8 +150,8 @@ int main(int argc, char **argv)
     }
 
     // Renderer + device resources
-    const int in_lvl = 0;
-    const int out_lvl = 0;
+    const int in_lvl = 1;
+    const int out_lvl = 1;
 
 #ifdef COMPILE_CPU
     DiffRendererCPU renderercpu;
@@ -229,15 +229,21 @@ int main(int argc, char **argv)
         TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(6));
     */
     DiffRendererXRT rendererxrt;
+    DIDxyRendererXRT didxyrendererxrt;
 
     MeshXRT meshxrt(vertex, indices,
                     has_positions, has_texcoords, has_normals,
                     rendererxrt.kernel_.group_id(0), rendererxrt.kernel_.group_id(1));
 
     TextureXRT<ImageType> diffusexrt(diffuse_cv.cols, diffuse_cv.rows, 0, rendererxrt.kernel_.group_id(2));
-    TextureXRT<Vec3<float>> didxyxrt(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(3));
+    TextureXRT<Vec3<float>> didxyxrt(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0), rendererxrt.kernel_.group_id(3));
 
     UploadMatToTexture(diffusexrt, 0, diffuse_cv);
+
+    MeshXRT meshxrt_screen(screen_vertex, screen_indices,
+                           false, true, false,
+                           didxyrendererxrt.kernel_.group_id(0), didxyrendererxrt.kernel_.group_id(1));
+    didxyrendererxrt.Render(meshxrt_screen, in_lvl, in_lvl, diffusexrt, didxyxrt);
 
     TextureXRT<ImageType> imagexrt(width, height, 0, rendererxrt.kernel_.group_id(4));
     TextureXRT<Vec3<float>> jtraxrt(width, height, Vec3<float>(0.0f, 0.0f, 0.0f), rendererxrt.kernel_.group_id(5));
@@ -249,8 +255,10 @@ int main(int argc, char **argv)
 
     // Turntable loop
     const int max_frames = 600; // ~20 seconds at 30 FPS
-    std::vector<double> times;
-    times.reserve(max_frames);
+    std::vector<double> process_times;
+    process_times.reserve(max_frames);
+    std::vector<double> download_times;
+    download_times.reserve(max_frames);
 
 #ifdef SHOW_OPENCV
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
@@ -303,7 +311,7 @@ int main(int argc, char **argv)
 
         Vec2<float> exposure(0.0, 0.0);
 
-        auto t0 = std::chrono::high_resolution_clock::now();
+        auto process_t0 = std::chrono::high_resolution_clock::now();
 #ifdef COMPILE_CPU
         if (backend_names[backend] == "cpu")
             // renderercpu.Render(meshcpu, transform, camera, in_lvl, out_lvl, imagecpu);
@@ -369,10 +377,14 @@ int main(int argc, char **argv)
                                pidsxrt);
 #endif
 
-        auto t1 = std::chrono::high_resolution_clock::now();
+        auto process_t1 = std::chrono::high_resolution_clock::now();
 
-        double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        times.push_back(ms);
+        double process_ms = std::chrono::duration<double, std::milli>(process_t1 - process_t0).count();
+        process_times.push_back(process_ms);
+        if (process_times.size() > max_frames)
+            process_times.erase(process_times.begin());
+
+        auto download_t0 = std::chrono::high_resolution_clock::now();
 
         cv::Mat out_f;
         if (output_names[toshow] == "image")
@@ -495,6 +507,13 @@ int main(int argc, char **argv)
 #endif
         }
 
+        auto download_t1 = std::chrono::high_resolution_clock::now();
+
+        double download_ms = std::chrono::duration<double, std::milli>(download_t1 - download_t0).count();
+        download_times.push_back(download_ms);
+        if (download_times.size() > max_frames)
+            download_times.erase(download_times.begin());
+
         // Pretty up the single-channel output
         cv::Mat out_norm, out_u8, out_color;
         cv::normalize(out_f, out_norm, 0, 255, cv::NORM_MINMAX);
@@ -504,26 +523,28 @@ int main(int argc, char **argv)
         // cv::applyColorMap(out_u8, out_color, cv::COLORMAP_TURBO);
 
         // Overlay FPS
-        double avg = 0.0;
-        for (auto time : times)
+        double proc_avg = 0.0;
+        for (auto time : process_times)
         {
-            avg += time;
+            proc_avg += time;
         }
-        avg /= times.size();
+        proc_avg /= process_times.size();
         // double avg = std::accumulate(times.begin(), times.end(), 0.0) / (double)times.size();
-        double fps = (avg > 1e-6) ? (1000.0 / avg) : 0.0;
-        cv::putText(out_color,
-                    backend_names[backend] + "  " + output_names[toshow] + " frame " + std::to_string(i) + "  " + std::to_string(ms) + " ms  (" + std::to_string(fps) + " fps avg)",
-                    cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
+        double proc_fps = (proc_avg > 1e-6) ? (1000.0 / proc_avg) : 0.0;
 
-#ifdef OPENCV_SHOW
-        cv::imshow("Rasterizer Demo", out_color);
-#else
-        if (i % 60 == 0)
-        {
-            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
-        }
-#endif
+#ifdef SHOW_OPENCV
+        cv::Mat out_color_resized;
+        cv::resize(out_color, out_color_resized, cv::Size(1024, 768), cv::INTER_LINEAR);
+        cv::putText(out_color_resized,
+                    backend_names[backend] + "  " + output_names[toshow],
+                    cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+        cv::putText(out_color_resized,
+                    "process time  " + std::to_string(int(process_ms)) + " ms",
+                    cv::Point(18, 64), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+        cv::putText(out_color_resized,
+                    "download time  " + std::to_string(int(download_ms)) + " ms",
+                    cv::Point(18, 96), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+        cv::imshow("Rasterizer Demo", out_color_resized);
 
         int key = cv::waitKey(1);
         if (key == 27 || key == 'q')
@@ -538,23 +559,38 @@ int main(int argc, char **argv)
             backend++;
             backend %= backend_names.size();
         }
+#else
+        if (i % 60 == 0)
+        {
+            cv::putText(out_color,
+                        backend_names[backend] + "  " + output_names[toshow] + std::to_string(int(ms)) + " ms  (" + std::to_string(int(fps)) + " fps avg)",
+                        cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+            SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
+        }
+#endif
+
+        if (i % 90 == 0)
+        {
+            toshow++;
+            toshow %= output_names.size();
+        }
     }
 
     // Stats
-    std::sort(times.begin(), times.end());
+    std::sort(process_times.begin(), process_times.end());
     // double sum = std::accumulate(times.begin(), times.end(), 0.0);
     double sum = 0.0;
-    for (auto time : times)
+    for (auto time : process_times)
     {
         sum += time;
     }
-    double avg = (times.empty() ? 0.0 : sum / times.size());
-    double med = (times.empty() ? 0.0 : times[times.size() / 2]);
-    double minv = (times.empty() ? 0.0 : times.front());
-    double maxv = (times.empty() ? 0.0 : times.back());
+    double avg = (process_times.empty() ? 0.0 : sum / process_times.size());
+    double med = (process_times.empty() ? 0.0 : process_times[process_times.size() / 2]);
+    double minv = (process_times.empty() ? 0.0 : process_times.front());
+    double maxv = (process_times.empty() ? 0.0 : process_times.back());
 
     std::cout << "CPU Rasterizer Performance:\n";
-    std::cout << "  Frames:  " << times.size() << "\n";
+    std::cout << "  Frames:  " << process_times.size() << "\n";
     std::cout << "  Average: " << avg << " ms\n";
     std::cout << "  Median:  " << med << " ms\n";
     std::cout << "  Min:     " << minv << " ms\n";

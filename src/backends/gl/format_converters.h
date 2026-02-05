@@ -1,60 +1,189 @@
 #pragma once
 
-#include <map>
+#include <type_traits>
+#include <typeindex>
+#include <stdexcept>
 #include "core/types.h"
 #include "core/typeindex_common.h"
 #include "backends/gl/devicegl_glad.h"
 
-inline GLint GetGLInternalFormat(std::type_index tindex)
+// ---- Internal format trait ----
+template <typename T>
+struct GLInternalFormat
 {
-    // static std::map<std::pair<std::type_index, int>, GLint> internal_format_map;
-    static std::map<std::type_index, GLint> internal_format_map;
-    // internal_format_map[GetTypeIndex<float>()] = GL_R32F;
-    // internal_format_map[GetTypeIndex<ImageType>()] = GL_R32F;
-    internal_format_map[GetTypeIndex<float>()] = GL_R32F;
-    internal_format_map[GetTypeIndex<Vec2<float>>()] = GL_RG32F;
-    internal_format_map[GetTypeIndex<Vec3<float>>()] = GL_RGB32F;
-    internal_format_map[GetTypeIndex<Vec4<float>>()] = GL_RGBA32F;
+    static_assert(dependent_false_v<T>, "GLInternalFormat<T>: unsupported type");
+};
 
-    internal_format_map[GetTypeIndex<int>()] = GL_R32I;
-    internal_format_map[GetTypeIndex<Vec2<int>>()] = GL_RG32I;
-    internal_format_map[GetTypeIndex<Vec3<int>>()] = GL_RGB32F; // GL_RGB32I;
-    internal_format_map[GetTypeIndex<Vec4<int>>()] = GL_RGBA32I;
+// float
+template <>
+struct GLInternalFormat<float> : std::integral_constant<GLint, GL_R32F>
+{
+};
+template <>
+struct GLInternalFormat<Vec2<float>> : std::integral_constant<GLint, GL_RG32F>
+{
+};
+template <>
+struct GLInternalFormat<Vec3<float>> : std::integral_constant<GLint, GL_RGB32F>
+{
+};
+template <>
+struct GLInternalFormat<Vec4<float>> : std::integral_constant<GLint, GL_RGBA32F>
+{
+};
 
-    internal_format_map[GetTypeIndex<unsigned char>()] = GL_R8;
-    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 2)] = GL_RG8;
-    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 3)] = GL_RGB8;
-    // internal_format_map[std::make_pair(GetTypeIndex<unsigned char>(), 4)] = GL_RGBA8;
+// int
+template <>
+struct GLInternalFormat<int> : std::integral_constant<GLint, GL_R32I>
+{
+};
+template <>
+struct GLInternalFormat<Vec2<int>> : std::integral_constant<GLint, GL_RG32I>
+{
+};
+// NOTE: you had GL_RGB32F here (commented GL_RGB32I). Keep exactly what you had:
+template <>
+struct GLInternalFormat<Vec3<int>> : std::integral_constant<GLint, GL_RGB32F>
+{
+};
+template <>
+struct GLInternalFormat<Vec4<int>> : std::integral_constant<GLint, GL_RGBA32I>
+{
+};
 
-    // return internal_format_map[std::make_pair(tindex, channels)];
-    return internal_format_map[tindex];
+// unsigned char
+template <>
+struct GLInternalFormat<unsigned char> : std::integral_constant<GLint, GL_R8>
+{
+};
+// If you want Vec2/Vec3/Vec4<unsigned char> later, add:
+// template <> struct GLInternalFormat<Vec2<unsigned char>> : std::integral_constant<GLint, GL_RG8> {};
+// template <> struct GLInternalFormat<Vec3<unsigned char>> : std::integral_constant<GLint, GL_RGB8> {};
+// template <> struct GLInternalFormat<Vec4<unsigned char>> : std::integral_constant<GLint, GL_RGBA8> {};
+
+template <typename T>
+constexpr GLint GetGLInternalFormat()
+{
+    return GLInternalFormat<T>::value;
+}
+
+// Optional runtime wrapper (keeps your old signature)
+inline GLint GetGLInternalFormat(std::type_index ti)
+{
+    static const std::pair<std::type_index, GLint> table[] = {
+        {GetTypeIndex<float>(), GetGLInternalFormat<float>()},
+        {GetTypeIndex<Vec2<float>>(), GetGLInternalFormat<Vec2<float>>()},
+        {GetTypeIndex<Vec3<float>>(), GetGLInternalFormat<Vec3<float>>()},
+        {GetTypeIndex<Vec4<float>>(), GetGLInternalFormat<Vec4<float>>()},
+
+        {GetTypeIndex<int>(), GetGLInternalFormat<int>()},
+        {GetTypeIndex<Vec2<int>>(), GetGLInternalFormat<Vec2<int>>()},
+        {GetTypeIndex<Vec3<int>>(), GetGLInternalFormat<Vec3<int>>()},
+        {GetTypeIndex<Vec4<int>>(), GetGLInternalFormat<Vec4<int>>()},
+
+        {GetTypeIndex<unsigned char>(), GetGLInternalFormat<unsigned char>()},
+    };
+
+    for (auto &[k, v] : table)
+        if (k == ti)
+            return v;
+
+    throw std::invalid_argument("GetGLInternalFormat: unsupported type_index");
 }
 
 inline GLenum GetGLFormat(int channels)
 {
-    static std::map<int, GLenum> format_map;
-    format_map[1] = GL_RED;
-    format_map[2] = GL_RG;
-    format_map[3] = GL_RGB;
-    format_map[4] = GL_RGBA;
-
-    return format_map[channels];
+    switch (channels)
+    {
+    case 1:
+        return GL_RED;
+    case 2:
+        return GL_RG;
+    case 3:
+        return GL_RGB;
+    case 4:
+        return GL_RGBA;
+    default:
+        throw std::invalid_argument("GetGLFormat: channels must be 1..4");
+    }
 }
 
-inline GLenum GetGLType(std::type_index tindex)
+// ---- GL type trait ----
+template <typename T>
+struct GLType
 {
-    static std::map<std::type_index, GLenum> type_map;
-    // type_map[GetTypeIndex<float>()] = GL_FLOAT;
-    // type_map[GetTypeIndex<ImageType>()] = GL_FLOAT;
-    type_map[GetTypeIndex<float>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec2<float>>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec3<float>>()] = GL_FLOAT;
-    type_map[GetTypeIndex<Vec4<float>>()] = GL_FLOAT;
-    type_map[GetTypeIndex<int>()] = GL_INT;
-    type_map[GetTypeIndex<Vec2<int>>()] = GL_INT;
-    type_map[GetTypeIndex<Vec3<int>>()] = GL_FLOAT; // GL_INT;
-    type_map[GetTypeIndex<Vec4<int>>()] = GL_INT;
-    type_map[GetTypeIndex<unsigned char>()] = GL_UNSIGNED_BYTE;
+    static_assert(dependent_false_v<T>, "GLType<T>: unsupported type");
+};
 
-    return type_map[tindex];
+// float family
+template <>
+struct GLType<float> : std::integral_constant<GLenum, GL_FLOAT>
+{
+};
+template <>
+struct GLType<Vec2<float>> : std::integral_constant<GLenum, GL_FLOAT>
+{
+};
+template <>
+struct GLType<Vec3<float>> : std::integral_constant<GLenum, GL_FLOAT>
+{
+};
+template <>
+struct GLType<Vec4<float>> : std::integral_constant<GLenum, GL_FLOAT>
+{
+};
+
+// int family
+template <>
+struct GLType<int> : std::integral_constant<GLenum, GL_INT>
+{
+};
+template <>
+struct GLType<Vec2<int>> : std::integral_constant<GLenum, GL_INT>
+{
+};
+// NOTE: you had GL_FLOAT here (commented GL_INT). Keep exactly what you had:
+template <>
+struct GLType<Vec3<int>> : std::integral_constant<GLenum, GL_FLOAT>
+{
+};
+template <>
+struct GLType<Vec4<int>> : std::integral_constant<GLenum, GL_INT>
+{
+};
+
+// unsigned char
+template <>
+struct GLType<unsigned char> : std::integral_constant<GLenum, GL_UNSIGNED_BYTE>
+{
+};
+
+template <typename T>
+constexpr GLenum GetGLType()
+{
+    return GLType<T>::value;
+}
+
+// Optional runtime wrapper
+inline GLenum GetGLType(std::type_index ti)
+{
+    static const std::pair<std::type_index, GLenum> table[] = {
+        {GetTypeIndex<float>(), GetGLType<float>()},
+        {GetTypeIndex<Vec2<float>>(), GetGLType<Vec2<float>>()},
+        {GetTypeIndex<Vec3<float>>(), GetGLType<Vec3<float>>()},
+        {GetTypeIndex<Vec4<float>>(), GetGLType<Vec4<float>>()},
+
+        {GetTypeIndex<int>(), GetGLType<int>()},
+        {GetTypeIndex<Vec2<int>>(), GetGLType<Vec2<int>>()},
+        {GetTypeIndex<Vec3<int>>(), GetGLType<Vec3<int>>()},
+        {GetTypeIndex<Vec4<int>>(), GetGLType<Vec4<int>>()},
+
+        {GetTypeIndex<unsigned char>(), GetGLType<unsigned char>()},
+    };
+
+    for (auto &[k, v] : table)
+        if (k == ti)
+            return v;
+
+    throw std::invalid_argument("GetGLType: unsupported type_index");
 }
