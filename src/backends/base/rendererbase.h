@@ -1516,8 +1516,8 @@ public:
 
         RealType kf = sample<RealType, TextureViewRead<ImageType>>(intextures.kf_texture,
                                                                    texcoord(1), texcoord(0));
-        Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture(gl_FragCoord(1), gl_FragCoord(0));
-        // Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
+        // Vec3<RealType> d_f_d_xy = intextures.dfdxy_texture(gl_FragCoord(1), gl_FragCoord(0));
+        Vec3<RealType> d_f_d_xy = sample<Vec3<RealType>, TextureViewRead<Vec3<float>>>(intextures.dfdxy_texture, texcoord(1), texcoord(0));
 
         // if (kf == intextures.kf_texture.nodata() || f == intextures.f_texture.nodata() || d_f_d_xy == intextures.dfdxy_texture.nodata())
         //     return;

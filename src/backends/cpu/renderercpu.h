@@ -93,13 +93,9 @@ public:
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
@@ -144,13 +140,9 @@ public:
                 const TextureCPU<ImageType> &diffuse_texture,
                 TextureCPU<ImageType> &out_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
@@ -381,10 +373,6 @@ public:
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -393,7 +381,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.out_width = W;
@@ -445,10 +433,6 @@ public:
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -457,7 +441,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.exposure = exposure;
@@ -500,17 +484,13 @@ public:
                 int out_lvl,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(pids_texture.width(out_lvl));
         const int H = static_cast<int>(pids_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         Base::InTextures intextures{0};
         Base::OutTextures outtextures{pids_texture.MapWrite(out_lvl)};
@@ -678,10 +658,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -690,7 +666,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.out_width = W;
         uniforms.out_height = H;
@@ -741,10 +717,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -753,7 +725,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.out_width = W;
         uniforms.out_height = H;
@@ -806,10 +778,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -818,7 +786,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.inv_rot_matrix = pose.so3().matrix().transpose();
         uniforms.camera = cam;
         uniforms.out_width = W;
@@ -871,10 +839,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -883,7 +847,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.out_width = W;
@@ -939,10 +903,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -951,7 +911,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.readout_time = readout_time;
@@ -1007,10 +967,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -1019,7 +975,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.exposure = exposure;
         uniforms.out_width = W;
         uniforms.out_height = H;

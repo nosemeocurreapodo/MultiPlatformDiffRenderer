@@ -664,12 +664,9 @@ public:
 
         Base::Uniforms uniforms;
 
-        linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE,
+             RenderConstants::FAR_PLANE);
         // depthrenderer_opencv2opengl_loop:
         //     for (int i = 0; i < 4; i++)
         //     {
@@ -860,11 +857,8 @@ public:
 
         Base::Uniforms uniforms;
 
-        linalg::Mat4<RealType> opencv2opengl = linalg::Mat4<RealType>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
         linalg::Mat4<RealType> projmat = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-        linalg::Mat4<RealType> viewmat = projmat * opencv2opengl;
+        linalg::Mat4<RealType> viewmat = projmat;
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = viewmat;
         // imagerenderer_opencv2opengl_loop:
@@ -1047,10 +1041,6 @@ public:
         TextureViewWriteHLS<Vec3<float>> jmap_texture(jmap_pointer, out_texture_width, out_texture_height, Vec3<float>(0.0, 0.0, 0.0));
         TextureViewWriteHLS<Vec3<float>> pids_texture(pids_pointer, out_texture_width, out_texture_height, Vec3<float>(-1.0, -1.0, -1.0));
 
-        Mat4<RealType> opencv2opengl = Mat4<RealType>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width());
         const int H = static_cast<int>(image_texture.height());
         BoundingBox<IntType> viewport(0, W, 0, H);
@@ -1059,7 +1049,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.exposure = exposure;
         uniforms.out_width = W;
         uniforms.out_height = H;
