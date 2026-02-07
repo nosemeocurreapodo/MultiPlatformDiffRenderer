@@ -162,7 +162,10 @@ public:
 
             layout(location=0) in vec4 in_pos_clip;
 
+            flat out int vInstanceID;
+
             void main() {
+                vInstanceID = gl_InstanceID;   // VALID here
                 gl_Position = in_pos_clip;
             }
             )Shader";
@@ -172,6 +175,8 @@ public:
 
             layout(triangles) in;
             layout(triangle_strip, max_vertices=3) out;
+
+            flat in int vInstanceID[];   // one per incoming vertex (but constant per instance)
 
             layout(location=0) flat out vec4 g_p0;
             layout(location=1) flat out vec4 g_p1;
@@ -187,8 +192,11 @@ public:
                 vec4 p1 = gl_in[1].gl_Position;
                 vec4 p2 = gl_in[2].gl_Position;
 
+                int inst = vInstanceID[0];     // same for all 3 verts in the triangle
+
                 int triId1 = gl_PrimitiveIDIn + u_triBase + 1;
-                int layer  = gl_InstanceID + u_layerBase;
+                //int layer  = gl_InstanceID + u_layerBase;
+                int layer  = inst + u_layerBase;
 
                 for (int i = 0; i < 3; ++i) {
                     g_p0 = p0;
