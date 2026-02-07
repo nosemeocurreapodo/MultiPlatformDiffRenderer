@@ -237,6 +237,8 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     TextureGL<ImageType> input_gl(w_, h_, 0);
     TextureGL<ImageType> output_gl(w_, h_, 0);
 
+    ResidualReducerGL reducer_gl;
+
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
 
@@ -261,6 +263,10 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, input_gl, output_gl);
             acc_gl_time += timer_.Stop();
+
+            float error_gl;
+            reducer_gl.Render(out_lvl, input_gl, output_gl, error_gl);
+            float error_cpu = RMSE(input_gl, output_gl, out_lvl);
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
             int valid_gl = CountValid(output_gl, out_lvl);
@@ -1009,6 +1015,69 @@ TEST_F(CrossBackendTests, JPoseDepthPipelineComparison)
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
+// Compare CPU vs GL image rendering
+TEST_F(CrossBackendTests, NVDiffRastComparison)
+{
+    SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+
+    TextureCPU<Vec4<float>> rast_output_cpu(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
+    TextureGL<Vec4<float>> rast_output_gl(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
+
+    TextureCPU<ImageType> depth_src_cpu(w_, h_, 0);
+    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
+
+    std::vector<float> vertex;
+    std::vector<int> indices;
+
+    CreateMesh(depth_src_cpu, cam_, 32, vertex, indices, true, false, false);
+
+    MeshCPU mesh_cpu(vertex, indices, true, false, false);
+    MeshGL mesh_gl(vertex, indices, true, false, false);
+
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
+    for (int out_lvl = 0; out_lvl < rast_output_cpu.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            if (in_lvl > 3)
+                continue;
+            if (out_lvl > 3)
+                continue;
+
+            //ImageRendererCPU renderer_cpu;
+            //timer_.Start();
+            //renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            //acc_cpu_time += timer_.Stop();
+
+            RasterFWRendererGL renderer_gl;
+            timer_.Start();
+            renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, rast_output_gl);
+            acc_gl_time += timer_.Stop();
+        }
+    }
+
+    cv::Mat cpu_rast_result = DownloadTextureToMat(rast_output_cpu, 0);
+    cv::Mat gl_rast_result = DownloadTextureToMat(rast_output_gl, 0);
+
+    SaveDebugImage(cpu_rast_result, "cross_nvdiffrast_rast_cpu.png");
+    SaveDebugImage(gl_rast_result, "cross_nvdiffrast_rast_gl.png");
+
+    std::cout << "NVDiffRast Rendering Cross-Backend Comparison:\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // Cross-backend validation
+    // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 /*
