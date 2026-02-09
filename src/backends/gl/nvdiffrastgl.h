@@ -1602,46 +1602,61 @@ public:
                 return vec3(vbuf[base+0], vbuf[base+1], vbuf[base+2]);
             }
 
-            float atomicAddFloatBits(inout uint bits, float v)
+            float atomicAddFloatBitsAtV(int idx, float v)
             {
-                uint oldBits = bits;
+                uint oldBits = gVbits[idx];
                 for (;;)
                 {
-                    float oldVal = uintBitsToFloat(oldBits);
-                    float newVal = oldVal + v;
+                    float oldVal  = uintBitsToFloat(oldBits);
+                    float newVal  = oldVal + v;
                     uint  newBits = floatBitsToUint(newVal);
 
-                    uint prev = atomicCompSwap(bits, oldBits, newBits);
-                    if (prev == oldBits)
-                        return oldVal;       // success
-                    oldBits = prev;          // retry with updated value
+                    uint prev = atomicCompSwap(gVbits[idx], oldBits, newBits);
+                    if (prev == oldBits) return oldVal;
+                    oldBits = prev;
+                }
+            }
+
+            float atomicAddFloatBitsAtC(int idx, float v)
+            {
+                uint oldBits = gCbits[idx];
+                for (;;)
+                {
+                    float oldVal  = uintBitsToFloat(oldBits);
+                    float newVal  = oldVal + v;
+                    uint  newBits = floatBitsToUint(newVal);
+
+                    uint prev = atomicCompSwap(gCbits[idx], oldBits, newBits);
+                    if (prev == oldBits) return oldVal;
+                    oldBits = prev;
                 }
             }
 
             void atomicAddPos(int vid, vec3 gP)
             {
                 int base = vid * 3;
-                atomicAddFloatBits(gV[base+0], gP.x);
-                atomicAddFloatBits(gV[base+1], gP.y);
-                atomicAddFloatBits(gV[base+2], gP.z);
+                atomicAddFloatBitsAtV(base+0, gP.x);
+                atomicAddFloatBitsAtV(base+1, gP.y);
+                atomicAddFloatBitsAtV(base+2, gP.z);
             }
 
-            // gC layout: [t(3), w(3), intr(4)]
             void atomicAddPoseT(vec3 gt) {
-                atomicAddFloatBits(gC[0], gt.x);
-                atomicAddFloatBits(gC[1], gt.y);
-                atomicAddFloatBits(gC[2], gt.z);
+                atomicAddFloatBitsAtC(0, gt.x);
+                atomicAddFloatBitsAtC(1, gt.y);
+                atomicAddFloatBitsAtC(2, gt.z);
             }
+
             void atomicAddPoseW(vec3 gw) {
-                atomicAddFloatBits(gC[3], gw.x);
-                atomicAddFloatBits(gC[4], gw.y);
-                atomicAddFloatBits(gC[5], gw.z);
+                atomicAddFloatBitsAtC(3, gw.x);
+                atomicAddFloatBitsAtC(4, gw.y);
+                atomicAddFloatBitsAtC(5, gw.z);
             }
-            void atomicAddIntr(vec4 gintr) {
-                atomicAddFloatBits(gC[6], gintr.x);
-                atomicAddFloatBits(gC[7], gintr.y);
-                atomicAddFloatBits(gC[8], gintr.z);
-                atomicAddFloatBits(gC[9], gintr.w);
+                
+            void atomicAddIntr(vec4 gi) {
+                atomicAddFloatBitsAtC(6, gi.x);
+                atomicAddFloatBitsAtC(7, gi.y);
+                atomicAddFloatBitsAtC(8, gi.z);
+                atomicAddFloatBitsAtC(9, gi.w);
             }
 
             mat3 R_wc() { return mat3(u_pose); }           // world->cam rotation
@@ -2249,45 +2264,59 @@ public:
                 return vec3(vpos[base+0], vpos[base+1], vpos[base+2]);
             }
 
-            float atomicAddFloatBits(inout uint bits, float v)
+            float atomicAddFloatBitsAtV(int idx, float v)
             {
-                uint oldBits = bits;
+                uint oldBits = gVbits[idx];
                 for (;;)
                 {
-                    float oldVal = uintBitsToFloat(oldBits);
-                    float newVal = oldVal + v;
+                    float oldVal  = uintBitsToFloat(oldBits);
+                    float newVal  = oldVal + v;
                     uint  newBits = floatBitsToUint(newVal);
 
-                    uint prev = atomicCompSwap(bits, oldBits, newBits);
-                    if (prev == oldBits)
-                        return oldVal;       // success
-                    oldBits = prev;          // retry with updated value
+                    uint prev = atomicCompSwap(gVbits[idx], oldBits, newBits);
+                    if (prev == oldBits) return oldVal;
+                    oldBits = prev;
+                }
+            }
+
+            float atomicAddFloatBitsAtC(int idx, float v)
+            {
+                uint oldBits = gCbits[idx];
+                for (;;)
+                {
+                    float oldVal  = uintBitsToFloat(oldBits);
+                    float newVal  = oldVal + v;
+                    uint  newBits = floatBitsToUint(newVal);
+
+                    uint prev = atomicCompSwap(gCbits[idx], oldBits, newBits);
+                    if (prev == oldBits) return oldVal;
+                    oldBits = prev;
                 }
             }
 
             void atomicAddPos(int vid, vec3 gP)
             {
                 int base = vid * 3;
-                atomicAddFloatBits(gV[base+0], gP.x);
-                atomicAddFloatBits(gV[base+1], gP.y);
-                atomicAddFloatBits(gV[base+2], gP.z);
+                atomicAddFloatBitsAtV(base+0, gP.x);
+                atomicAddFloatBitsAtV(base+1, gP.y);
+                atomicAddFloatBitsAtV(base+2, gP.z);
             }
 
             void atomicAddPoseT(vec3 gt) {
-                atomicAddFloatBits(gC[0], gt.x);
-                atomicAddFloatBits(gC[1], gt.y);
-                atomicAddFloatBits(gC[2], gt.z);
+                atomicAddFloatBitsAtC(0, gt.x);
+                atomicAddFloatBitsAtC(1, gt.y);
+                atomicAddFloatBitsAtC(2, gt.z);
             }
             void atomicAddPoseW(vec3 gw) {
-                atomicAddFloatBits(gC[3], gw.x);
-                atomicAddFloatBits(gC[4], gw.y);
-                atomicAddFloatBits(gC[5], gw.z);
+                atomicAddFloatBitsAtC(3, gw.x);
+                atomicAddFloatBitsAtC(4, gw.y);
+                atomicAddFloatBitsAtC(5, gw.z);
             }
             void atomicAddIntr(vec4 gi) {
-                atomicAddFloatBits(gC[6], gi.x);
-                atomicAddFloatBits(gC[7], gi.y);
-                atomicAddFloatBits(gC[8], gi.z);
-                atomicAddFloatBits(gC[9], gi.w);
+                atomicAddFloatBitsAtC(6, gi.x);
+                atomicAddFloatBitsAtC(7, gi.y);
+                atomicAddFloatBitsAtC(8, gi.z);
+                atomicAddFloatBitsAtC(9, gi.w);
             }
 
             mat3 R_wc() { return mat3(u_pose); }
