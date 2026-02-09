@@ -1532,6 +1532,10 @@ public:
 
         mesh.draw();
 
+        glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT |
+                GL_TEXTURE_FETCH_BARRIER_BIT |
+                GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
@@ -1559,7 +1563,7 @@ public:
             //  0: rast (RGBA32F) = (u,v,depth,triIdBits OR float(triId1))
             //  1: dy   (RG32F)   = (dL/dbase, unused)
             layout(binding=0, rgba32f) readonly uniform image2D rastImg;
-            layout(binding=1, rg32f)   readonly uniform image2D dyImg;
+            layout(binding=1, r32f)   readonly uniform image2D dyImg;
 
             // Sampler uses texture unit 0
             layout(binding=0) uniform sampler2D diffuseTex;
@@ -1576,11 +1580,11 @@ public:
             layout(std430, binding=1) readonly buffer TriBuf     { int tbuf[]; };
 
             // binding=2: vertex position grads: [dpx,dpy,dpz] * N
-            layout(std430, binding=2) buffer GradVertPosBuf      { coherent uint gV[]; };
+            layout(std430, binding=2) buffer GradVertPosBuf      { coherent uint gVbits[]; };
 
             // binding=3: pose+intr grads (10 floats):
             // [dtx,dty,dtz, dωx,dωy,dωz, dfx,dfy,dcx,dcy]
-            layout(std430, binding=3) buffer GradCamBuf          { coherent uint gC[]; };
+            layout(std430, binding=3) buffer GradCamBuf          { coherent uint gCbits[]; };
 
             // ---------- helpers ----------
             float cross2(vec2 a, vec2 b) { return a.x*b.y - a.y*b.x; }
@@ -1667,7 +1671,7 @@ public:
                 return (u_pose * vec4(Pw, 1.0)).xyz;
             }
 
-            vec2 projectPix(vec3 Pc, vec4 intr)
+            vec2 pointToPix(vec3 Pc, vec4 intr)
             {
                 float invZ = 1.0 / Pc.z;
                 return vec2(intr.x * (Pc.x * invZ) + intr.z,
@@ -1762,12 +1766,12 @@ public:
                 vec3 PcP = worldToCam(P);
                 if (PcP.z <= 1e-6) return;
 
-                vec2 texcoord = projectPix(PcP, intr);
+                vec2 uvNorm = pointToPix(PcP, intr);
 
                 // sampler2D uses normalized UV
-                ivec2 tsI = textureSize(diffuseTex, u_texLod);
-                vec2 ts = vec2(max(tsI.x,1), max(tsI.y,1));
-                vec2 uvNorm = (texcoord + vec2(0.5, 0.5)) / ts;
+                //ivec2 tsI = textureSize(diffuseTex, u_texLod);
+                //vec2 ts = vec2(max(tsI.x,1), max(tsI.y,1));
+                //vec2 uvNorm = (texcoord + vec2(0.5, 0.5)) / sz;
 
                 float dA_dUn, dA_dVn;
                 texGradR_norm(uvNorm, dA_dUn, dA_dVn);
@@ -1775,7 +1779,8 @@ public:
                 // dL/d(uvNorm)
                 vec2 g_uvNorm = g_base * vec2(dA_dUn, dA_dVn);
                 // uvNorm = (texcoord+0.5)/ts
-                vec2 g_texcoord = g_uvNorm / ts;
+                //vec2 g_texcoord = g_uvNorm / ts;
+                vec2 g_texcoord = g_uvNorm;
 
                 // Backprop projection at P
                 vec3 gPcP = vec3(0.0);
@@ -1804,11 +1809,11 @@ public:
                 vec3 Pc1 = worldToCam(P1); if (Pc1.z <= 1e-6) return;
                 vec3 Pc2 = worldToCam(P2); if (Pc2.z <= 1e-6) return;
 
-                vec2 V0p = projectPix(Pc0, intr);
-                vec2 V1p = projectPix(Pc1, intr);
-                vec2 V2p = projectPix(Pc2, intr);
+                vec2 V0p = pointToPix(Pc0, intr);
+                vec2 V1p = pointToPix(Pc1, intr);
+                vec2 V2p = pointToPix(Pc2, intr);
 
-                vec2 Ppix = vec2(p) + vec2(0.5, 0.5);
+                vec2 Ppix = (vec2(p) + vec2(0.5, 0.5)) / sz;
 
                 float A  = cross2(V1p - V0p, V2p - V0p);
                 if (abs(A) < 1e-12) return;
@@ -1894,8 +1899,8 @@ public:
                 const TextureGL<Vec4<float>> &rast_texture, // RGBA32F
                 const TextureGL<float> &dy_texture,         // RG32F (dy.x = dL/dbase)
                 const TextureGL<float> &diffuse_texture,    // sampler2D
-                BufferGL<float> &grad_vertex_pos_buffer,    // [dpx,dpy,dpz]...
-                BufferGL<float> &grad_pose_intr_buffer)     // 10 floats: [dt,dw,dintr]
+                BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> &grad_vertex_pos_buffer,           // [dpx,dpy,dpz]...
+                BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> &grad_pose_intr_buffer)     // 10 floats: [dt,dw,dintr]
     {
         const int width = rast_texture.width(lvl);
         const int height = rast_texture.height(lvl);
@@ -1981,7 +1986,7 @@ public:
                 return floatBitsToUint(w);
             }
 
-            vec2 projectPix(vec3 Pc, vec4 intr)
+            vec2 pointToPix(vec3 Pc, vec4 intr)
             {
                 float invZ = 1.0 / Pc.z;
                 return vec2(intr.x * (Pc.x * invZ) + intr.z,
@@ -2113,12 +2118,12 @@ public:
 
                 if (Pc0.z <= 1e-6 || Pc1.z <= 1e-6 || Pc2.z <= 1e-6) return;
 
-                vec2 V0 = projectPix(Pc0, intr);
-                vec2 V1 = projectPix(Pc1, intr);
-                vec2 V2 = projectPix(Pc2, intr);
+                vec2 V0 = pointToPix(Pc0, intr);
+                vec2 V1 = pointToPix(Pc1, intr);
+                vec2 V2 = pointToPix(Pc2, intr);
 
-                vec2 C0 = vec2(p) + vec2(0.5, 0.5);
-                vec2 C1 = vec2(q) + vec2(0.5, 0.5);
+                vec2 C0 = (vec2(p) + vec2(0.5, 0.5)) / vec2(sz);
+                vec2 C1 = (vec2(q) + vec2(0.5, 0.5)) / vec2(sz);
 
                 float s;
                 if (!bestCrossingEdge(V0, V1, V2, C0, C1, s)) return;
@@ -2227,17 +2232,17 @@ public:
             layout(binding=2, rgba32f) readonly  uniform image2D rastImg;      // (u,v,depth,triIdBits or float(triId1))
 
             // Output for RasterShadeBW: dyImg (RG32F), dy.x = dL/dbase
-            layout(binding=3, rg32f)   writeonly uniform image2D dyOutImg;
+            layout(binding=3, r32f)   writeonly uniform image2D dyOutImg;
 
             // SSBOs
             layout(std430, binding=0) readonly buffer VertPosBuf { float vpos[]; }; // [px,py,pz] * N
             layout(std430, binding=1) readonly buffer TriBuf     { int   tri[];  }; // [i0,i1,i2] * T
 
-            layout(std430, binding=2) buffer GradVertBuf { coherent uint gV[]; }; // [dpx,dpy,dpz] * N
+            layout(std430, binding=2) buffer GradVertBuf { coherent uint gVbits[]; }; // [dpx,dpy,dpz] * N
 
             // Pose+intr grads (10 floats), SAME layout as RasterShadeBW:
             // [dtx,dty,dtz, dωx,dωy,dωz, dfx,dfy,dcx,dcy]
-            layout(std430, binding=3) buffer GradPoseIntrBuf { coherent uint gC[]; };
+            layout(std430, binding=3) buffer GradPoseIntrBuf { coherent uint gCbits[]; };
 
             // Inputs
             uniform mat4 u_pose;   // world -> cam
@@ -2327,7 +2332,7 @@ public:
                 return (u_pose * vec4(Pw, 1.0)).xyz; // Pc = R*Pw + t
             }
 
-            vec2 projectPix(vec3 Pc, vec4 intr)
+            vec2 pointToPix(vec3 Pc, vec4 intr)
             {
                 float invZ = 1.0 / Pc.z;
                 return vec2(intr.x * (Pc.x * invZ) + intr.z,
@@ -2508,12 +2513,12 @@ public:
                 if (Pc0.z <= 1e-6 || Pc1.z <= 1e-6 || Pc2.z <= 1e-6) return;
 
                 vec4 intr = u_intr;
-                vec2 V0 = projectPix(Pc0, intr);
-                vec2 V1 = projectPix(Pc1, intr);
-                vec2 V2 = projectPix(Pc2, intr);
+                vec2 V0 = pointToPix(Pc0, intr);
+                vec2 V1 = pointToPix(Pc1, intr);
+                vec2 V2 = pointToPix(Pc2, intr);
 
-                vec2 C0 = vec2(p) + vec2(0.5, 0.5);
-                vec2 C1 = vec2(q) + vec2(0.5, 0.5);
+                vec2 C0 = (vec2(p) + vec2(0.5, 0.5)) / vec2(sz);
+                vec2 C1 = (vec2(q) + vec2(0.5, 0.5)) / vec2(sz);
 
                 float s;
                 int vidA, vidB;
@@ -2537,6 +2542,8 @@ public:
 
             void main()
             {
+                //atomicAddIntr(vec4(1.0, 2.0, 3.0, 4.0)); // test atomic intr
+
                 ivec2 p  = ivec2(gl_GlobalInvocationID.xy);
                 ivec2 sz = imageSize(rastImg);
                 if (p.x >= sz.x || p.y >= sz.y) return;
@@ -2690,8 +2697,8 @@ public:
                 const TextureGL<float> &basecolor_texture,  // R32F
                 const TextureGL<Vec4<float>> &rast_texture, // RGBA32F
                 TextureGL<float> &dy_out_texture,           // R32F: -> RasterShadeBW dyImg
-                BufferGL<float> &grad_pos_buffer,           // [dpx,dpy,dpz]...
-                BufferGL<float> &grad_pose_intr_buffer     // 10 floats: [dt,dw,dintr]
+                BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> &grad_pos_buffer,           // [dpx,dpy,dpz]...
+                BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> &grad_pose_intr_buffer     // 10 floats: [dt,dw,dintr]
     )
     {
         const int width = rast_texture.width(lvl);
