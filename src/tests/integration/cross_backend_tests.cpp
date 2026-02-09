@@ -1022,8 +1022,14 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    TextureCPU<Vec4<float>> rast_output_cpu(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
-    TextureGL<Vec4<float>> rast_output_gl(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
+    TextureGL<float> diffuse_input_gl(w_, h_, 0.0);
+    TextureGL<float> basecolor_output_gl(w_, h_, 0.0);
+    TextureGL<Vec4<float>> raster_output_gl(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
+    TextureGL<float> finalcolor_output_gl(w_, h_, 0.0);
+    TextureGL<float> dLdfinalcolor_gl(w_, h_, 1.0);
+    TextureGL<float> dLdbasecolor_gl(w_, h_, 0.0);
+
+    UploadMatToTexture(diffuse_input_gl, 0, image_src_cv_);
 
     TextureCPU<ImageType> depth_src_cpu(w_, h_, 0);
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
@@ -1033,13 +1039,19 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
 
     CreateMesh(depth_src_cpu, cam_, 32, vertex, indices, true, false, false);
 
-    MeshCPU mesh_cpu(vertex, indices, true, false, false);
     MeshGL mesh_gl(vertex, indices, true, false, false);
 
+    BufferGL<float> grad_pos_buffer(3 * vertex_.size());
+    BufferGL<float> grad_int_buffer(10);
+
+    RasterShadeFWRendererGL rasterfw_gl;
+    AntiAliasingFWRendererGL aafw_gl;
+    RasterShadeBWRendererGL rasterbw_gl;
+    AntiAliasingBWRendererGL aabw_gl;
 
     double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
 
-    for (int out_lvl = 0; out_lvl < rast_output_cpu.levels(); ++out_lvl)
+    for (int out_lvl = 0; out_lvl < basecolor_output_gl.levels(); ++out_lvl)
     {
         // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
         int in_lvl = out_lvl;
@@ -1049,23 +1061,52 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
             if (out_lvl > 3)
                 continue;
 
-            //ImageRendererCPU renderer_cpu;
-            //timer_.Start();
-            //renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
-            //acc_cpu_time += timer_.Stop();
+            // ImageRendererCPU renderer_cpu;
+            // timer_.Start();
+            // renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            // acc_cpu_time += timer_.Stop();
 
-            RasterFWRendererGL renderer_gl;
             timer_.Start();
-            renderer_gl.Render(mesh_gl, pose_transform, cam_, out_lvl, rast_output_gl);
+            rasterfw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                               diffuse_input_gl,
+                               basecolor_output_gl,
+                               raster_output_gl);
+            aafw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                           basecolor_output_gl,
+                           raster_output_gl,
+                           finalcolor_output_gl);
+
+            aabw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                           dLdfinalcolor_gl,
+                           basecolor_output_gl,
+                           raster_output_gl,
+                           dLdbasecolor_gl,
+                           grad_pos_buffer,
+                           grad_int_buffer);
+            rasterbw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                               raster_output_gl,
+                               dLdbasecolor_gl,
+                               diffuse_input_gl,
+                               grad_pos_buffer,
+                               grad_int_buffer);
+
             acc_gl_time += timer_.Stop();
         }
     }
 
-    cv::Mat cpu_rast_result = DownloadTextureToMat(rast_output_cpu, 0);
-    cv::Mat gl_rast_result = DownloadTextureToMat(rast_output_gl, 0);
+    cv::Mat gl_basecolor_result = DownloadTextureToMat(basecolor_output_gl, 0);
+    cv::Mat gl_rast_result = DownloadTextureToMat(raster_output_gl, 0);
+    cv::Mat gl_final_result = DownloadTextureToMat(finalcolor_output_gl, 0);
 
-    SaveDebugImage(cpu_rast_result, "cross_nvdiffrast_rast_cpu.png");
+    SaveDebugImage(gl_basecolor_result, "cross_nvdiffrast_basecolor_gl.png");
     SaveDebugImage(gl_rast_result, "cross_nvdiffrast_rast_gl.png");
+    SaveDebugImage(gl_final_result, "cross_nvdiffrast_final_gl.png");
+
+    auto grad_int_buffer_data = grad_int_buffer.MapRead();
+    for (int i = 0; i < 10; ++i)
+    {
+        std::cout << "grad_int_buffer[" << i << "] = " << grad_int_buffer_data[i] << "\n";
+    }
 
     std::cout << "NVDiffRast Rendering Cross-Backend Comparison:\n";
     std::cout << "  L2 Error: " << acc_l2_error << "\n";
