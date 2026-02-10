@@ -487,6 +487,158 @@ protected:
         }
     }
 
+        // Triangle rasterizer (top-left rule, perspective correct)
+    template <typename Varyings>
+    static void rasterize_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, Varyings &varyings_buffer[], RealType depth_buffer[])
+    {
+        // #pragma HLS inline
+
+        BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+
+        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
+        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
+        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
+        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
+
+        BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
+
+        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+        RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
+
+        if (area2 <= RealType(0))
+            return; // enable to cull backfaces
+
+        const RealType inv_area2 = RealType(1) / area2;
+
+        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
+        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
+        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
+
+        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
+        // Vec2<RealType> p_tl;
+        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+
+        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
+        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
+        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
+
+        // Step increments when moving +1 in X or +1 in Y
+        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
+        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
+        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
+        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
+        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
+        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
+        // for y down, the - is needed
+        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+
+    // Rasterize
+    draw_triangle_y_loop:
+        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
+        {
+#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
+
+            IntType texture_y = iy + triangle_bb.min_y_;
+            IntType tile_y = texture_y - tile_bb.min_y_;
+            IntType tile_address_base = tile_y * tile_bb.width_;
+
+            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
+            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
+            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
+
+        draw_triangle_x_loop:
+            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
+            {
+#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
+#pragma HLS loop_flatten
+                //    #pragma HLS PIPELINE II = 1
+
+#pragma HLS dependence variable = depth_buffer type = inter false
+
+                // #pragma HLS dependence variable = fragment_buffer type = inter false
+
+                IntType texture_x = ix + triangle_bb.min_x_;
+                IntType tile_x = texture_x - tile_bb.min_x_;
+                IntType tile_address = tile_address_base + tile_x;
+
+                RealType prev_depth = depth_buffer[tile_address];
+
+                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
+                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
+                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+
+                Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
+                                 RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
+
+                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+
+                // Top-left rule adjustments (include pixels on top/left edges)
+                const bool inside =
+                    (eAB > 0 || (eAB == 0 && tlAB)) &&
+                    (eBC > 0 || (eBC == 0 && tlBC)) &&
+                    (eCA > 0 || (eCA == 0 && tlCA));
+
+                if (!inside)
+                    continue;
+
+                // Baricentric weights normalized
+                const RealType b0 = eBC * inv_area2;
+                const RealType b1 = eCA * inv_area2;
+                const RealType b2 = eAB * inv_area2;
+
+                // Depth (if needed; same trick)
+                RealType depth_px = b0 * triangle.vout[0].depth +
+                                    b1 * triangle.vout[1].depth +
+                                    b2 * triangle.vout[2].depth;
+
+                // Depth test
+                if (depth_px < RealType(0) || (prev_depth >= RealType(0) && prev_depth < depth_px))
+                    continue;
+
+                // Baricentric weights normalized (perpective)
+                RealType w0 = eBC * triangle.vout[0].invW;
+                RealType w1 = eCA * triangle.vout[1].invW;
+                RealType w2 = eAB * triangle.vout[2].invW;
+
+                // Perspective: 1/w at pixel
+                const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
+
+                w0 *= inv_invW_px;
+                w1 *= inv_invW_px;
+                w2 *= inv_invW_px;
+
+                // I am not sure if I should use perspective corrected interpolation or not
+                // Comparing with ground truth, nonperspective seems to give less error
+                Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
+                                                                                      triangle.vout[0].var,
+                                                                                      triangle.vout[1].var,
+                                                                                      triangle.vout[2].var);
+
+                // fragment_buffer[tile_address] = fragment;
+                varyings_buffer[tile_address] = varying_px;
+                depth_buffer[tile_address] = depth_px;
+            }
+        }
+    }
+
+    template <typename InTextures, typename Uniforms, typename Fragment, typename Varyings>
+    static void compute_fragments_(const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[], RealType depth_buffer[])
+    {
+    }
+
     // Derived &derived_() { return *static_cast<Derived *>(this); }
     // const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
