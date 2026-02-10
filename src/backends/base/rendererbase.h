@@ -487,9 +487,9 @@ protected:
         }
     }
 
-        // Triangle rasterizer (top-left rule, perspective correct)
+    // Triangle rasterizer (top-left rule, perspective correct)
     template <typename Varyings>
-    static void rasterize_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, Varyings &varyings_buffer[], RealType depth_buffer[])
+    static void rasterize_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, Varyings varyings_buffer[], RealType depth_buffer[])
     {
         // #pragma HLS inline
 
@@ -623,9 +623,9 @@ protected:
                 // I am not sure if I should use perspective corrected interpolation or not
                 // Comparing with ground truth, nonperspective seems to give less error
                 Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
-                                                                                      triangle.vout[0].var,
-                                                                                      triangle.vout[1].var,
-                                                                                      triangle.vout[2].var);
+                                                                    triangle.vout[0].var,
+                                                                    triangle.vout[1].var,
+                                                                    triangle.vout[2].var);
 
                 // fragment_buffer[tile_address] = fragment;
                 varyings_buffer[tile_address] = varying_px;
