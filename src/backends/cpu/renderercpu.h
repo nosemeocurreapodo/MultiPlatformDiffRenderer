@@ -19,6 +19,7 @@ class RendererBaseCPU : public RendererBase<Base>
 {
 public:
     using Fragment = typename Base::Fragment;
+    using Varyings = typename Base::Varyings;
 
     template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<int> &viewport,
@@ -68,8 +69,63 @@ public:
         Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
     }
 
+    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
+    void RenderDeferred(const BoundingBox<int> &viewport,
+                        const Mesh &mesh,
+                        const Uniforms &uniforms,
+                        const InTextures &intextures,
+                        OutTextures &outtextures)
+    {
+        const int W = viewport.width_;
+        const int H = viewport.height_;
+        const std::size_t n = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
+
+        std::vector<typename Base::Samples> sample_buffer_;
+        // Resize once, reuse capacity across calls
+        fragment_buffer_.resize(n);
+        varyings_buffer_.resize(n);
+        sample_buffer_.resize(n);
+        depth_buffer_.resize(n);
+
+        // Initialize buffers
+        const Fragment nodata_frag = Base::fragment_nodata(outtextures);
+        std::fill(fragment_buffer_.begin(), fragment_buffer_.end(), nodata_frag);
+        std::fill(depth_buffer_.begin(), depth_buffer_.end(), -1.0f);
+
+        Fragment *fragment_buffer = fragment_buffer_.data();
+        Varyings *varyings_buffer = varyings_buffer_.data();
+        typename Base::Samples *sample_buffer = sample_buffer_.data();
+        float *depth_buffer = depth_buffer_.data();
+
+        auto vertex_map = mesh.vertex_buffer_.MapRead();
+        auto ebo_map = mesh.ebo_buffer_.MapRead();
+
+        // Loop over triangles
+        for (unsigned int i = 0; i + 2 < ebo_map.size(); i += 3)
+        {
+            int vertexids[3];
+            vertexids[0] = ebo_map[i + 0];
+            vertexids[1] = ebo_map[i + 1];
+            vertexids[2] = ebo_map[i + 2];
+
+            typename Base::VertexData vertexdata[3];
+            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
+            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
+            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
+
+            typename RendererBase<Base>::Triangle triangle;
+            this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+            this->rasterize_triangle_(triangle, viewport, varyings_buffer, depth_buffer);
+        }
+
+        Base::sync_intextures(intextures, viewport, uniforms, varyings_buffer, sample_buffer, uniforms);
+        this->compute_fragments_(viewport, uniforms, varyings_buffer, depth_buffer, sample_buffer, fragment_buffer);
+        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
+    }
+
 private:
     std::vector<Fragment> fragment_buffer_;
+    std::vector<Varyings> varyings_buffer_;
     std::vector<float> depth_buffer_;
 };
 

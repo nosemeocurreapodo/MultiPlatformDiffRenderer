@@ -634,9 +634,26 @@ protected:
         }
     }
 
-    template <typename InTextures, typename Uniforms, typename Fragment, typename Varyings>
-    static void compute_fragments_(const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[], RealType depth_buffer[])
+    template <typename Samples, typename Uniforms, typename Fragment, typename Varyings>
+    static void compute_fragments_(const BoundingBox<IntType> &tile_bb, const Uniforms &uniforms, const Varyings varyings_buffer[], const RealType depth_buffer[], const Samples samples[], Fragment fragment_buffer[])
     {
+        for (int y = 0; y < tile_bb.width_; ++y)
+        {
+            for (int x = 0; x < tile_bb.height_; ++x)
+            {
+                const int tile_address = (y * tile_bb.width_ + x);
+
+                if (depth_buffer[tile_address] < RealType(0))
+                    continue;
+
+                Vec4<RealType> gl_FragCoord(x, y, 0, 1);
+                Derived::fragment_shader(gl_FragCoord,
+                                         uniforms,
+                                         varyings_buffer[tile_address],
+                                         samples[tile_address],
+                                         fragment_buffer[tile_address]);
+            }
+        }
     }
 
     // Derived &derived_() { return *static_cast<Derived *>(this); }
@@ -981,6 +998,11 @@ public:
         RealType color;
     };
 
+    struct Samples
+    {
+        RealType sample;
+    };
+
     static Fragment fragment_nodata(OutTextures &textures)
     {
         // #pragma HLS inline
@@ -1061,6 +1083,52 @@ public:
         // FilterMode::Nearest);
         pix = apply_exposure(pix, uniforms.exposure);
         fragment.color = pix;
+    }
+
+    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
+                                const Uniforms &uniforms,
+                                const Varyings &in_varying,
+                                const Samples &samples,
+                                Fragment &fragment)
+    {
+#pragma HLS inline
+
+        RealType pix = samples.sample;
+
+        // AddressMode::Clamp,
+        // FilterMode::Nearest);
+        pix = apply_exposure(pix, uniforms.exposure);
+        fragment.color = pix;
+    }
+
+    static void sync_intextures(const InTextures &textures, const BoundingBox<IntType> &tex_bb, const Uniforms uniforms, const Varyings varyings_buffer[], Samples sample_buffer[])
+    {
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                // ImageType color = fragment_buffer[address].color;
+                // textures.out_texture(y, x) = color;
+
+                Vec2<RealType> texcoord = varyings_buffer[address].texcoord;
+
+                RealType pix = sample<RealType, TextureViewRead<ImageType>>(textures.in_texture,
+                                                                            texcoord(1), texcoord(0));
+                sample_buffer[address].sample = pix;
+            }
+        }
     }
 
     static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
