@@ -30,15 +30,6 @@ include_directories(
 #    ${PROJECT_SOURCE_DIR}/thirdparty
 )
 
-include(FetchContent)
-
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG release-1.11.0)
-
-FetchContent_MakeAvailable(googletest)
-
 if(COMPILE_GL AND COMPILE_GLES2)
     message(WARNING "Both GL and GLES2 are selected, plase just pick one, disabling both for nor")
     set(COMPILE_GL OFF)
@@ -171,6 +162,14 @@ if(COMPILE_DEMO)
 endif()
 
 if(COMPILE_TESTS)
+    include(FetchContent)
+
+    FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.11.0)
+
+    FetchContent_MakeAvailable(googletest)
     include(CTest)
     include(GoogleTest)
     enable_testing()
