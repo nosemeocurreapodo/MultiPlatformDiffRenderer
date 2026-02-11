@@ -40,7 +40,7 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
-#define SHOW_OPENCV
+// #define SHOW_OPENCV
 
 int main(int argc, char **argv)
 {
@@ -563,8 +563,14 @@ int main(int argc, char **argv)
         if (i % 60 == 0)
         {
             cv::putText(out_color,
-                        backend_names[backend] + "  " + output_names[toshow] + std::to_string(int(ms)) + " ms  (" + std::to_string(int(fps)) + " fps avg)",
-                        cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+                        backend_names[backend] + "  " + output_names[toshow],
+                        cv::Point(18, 32), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+            cv::putText(out_color,
+                        "process time  " + std::to_string(int(process_ms)) + " ms",
+                        cv::Point(18, 64), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
+            cv::putText(out_color,
+                        "download time  " + std::to_string(int(download_ms)) + " ms",
+                        cv::Point(18, 96), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_4);
             SaveDebugImage(out_color, "rasterizerdemo_frame_" + std::to_string(i) + ".png");
         }
 #endif
