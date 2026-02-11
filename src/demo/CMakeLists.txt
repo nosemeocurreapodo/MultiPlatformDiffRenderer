@@ -21,14 +21,13 @@ find_package(assimp REQUIRED)
 #include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR}) 
 
 add_executable(demo demo_assimp.cpp)
-target_link_libraries(demo ${OpenCV_LIBS} ${CMAKE_DL_LIBS} assimp)
 
 if(COMPILE_CPU)
   target_compile_definitions(demo PRIVATE COMPILE_CPU)
 endif()
 if(COMPILE_GL)
   target_compile_definitions(demo PRIVATE COMPILE_GL)
-  target_link_libraries(demo EGL glad)
+  target_link_libraries(demo PRIVATE glad EGL GL glad)
 endif()
 if(COMPILE_GLES2)
   target_compile_definitions(demo PRIVATE COMPILE_GLES2)
@@ -39,4 +38,5 @@ if(COMPILE_XRT)
   target_link_libraries(demo xilinxopencl rt stdc++ uuid xrt_coreutil)
 endif()
 
+target_link_libraries(demo PRIVATE ${OpenCV_LIBS} assimp ${CMAKE_DL_LIBS})
 

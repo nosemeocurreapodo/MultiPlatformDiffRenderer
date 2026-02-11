@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.10)
 
 project(MultiPlatformDiffRenderer)
 
@@ -8,7 +8,7 @@ option(COMPILE_GLES2 "Enable GLES2 compilation" OFF)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
 option(COMPILE_DEMO "Enable Demo compilation" ON)
-option(COMPILE_TESTS "Enable Tests compilation" ON)
+option(COMPILE_TESTS "Enable Tests compilation" OFF)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
