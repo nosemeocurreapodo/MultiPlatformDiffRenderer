@@ -129,6 +129,49 @@ private:
     std::vector<float> depth_buffer_;
 };
 
+class DeferredRendererCPU
+    : public RendererBaseCPU<DeferredRendererBase<TextureViewReadCPU,
+                                                  TextureViewWriteCPU>>
+{
+public:
+    using Base = DeferredRendererBase<TextureViewReadCPU,
+                                      TextureViewWriteCPU>;
+
+    DeferredRendererCPU() = default;
+    ~DeferredRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const PinholeCamera<float> &cam,
+                int lvl,
+                TextureCPU<Vec4<float>> &fpose_texture,
+                TextureCPU<Vec4<float>> &kfpose_texture,
+                TextureCPU<Vec4<float>> &bcid_texture)
+    {
+        const int W = static_cast<int>(fpose_texture.width(lvl));
+        const int H = static_cast<int>(fpose_texture.height(lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        Base::InTextures intextures{0};
+        Base::OutTextures outtextures{fpose_texture.MapWrite(lvl),
+                                      kfpose_texture.MapWrite(lvl),
+                                      bcid_texture.MapWrite(lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh,
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
+};
+
 // -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z

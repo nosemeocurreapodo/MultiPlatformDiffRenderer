@@ -156,6 +156,111 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
 }
 */
+
+// Test full Jacobian pipeline comparison
+TEST_F(CrossBackendTests, DeferredPipelineComparison)
+{
+    SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
+
+    // CPU pipeline
+    MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, false, true, false);
+    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
+    MeshGL mesh_img_gl(screen_vertex_, screen_indices_, false, true, false);
+    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+
+    TextureCPU<Vec4<float>> fpos_cpu(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec4<float>> kfpos_cpu(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec4<float>> bcid_cpu(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+
+    TextureGL<Vec4<float>> fpos_gl(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+    TextureGL<Vec4<float>> kfpos_gl(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+    TextureGL<Vec4<float>> bcid_gl(w_, h_, Vec4<float>(0.0f, 0.0f, 0.0f, 0.0f));
+
+    DeferredRendererCPU deferred_renderer_cpu;
+    DeferredRendererGL deferred_renderer_gl;
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_fpos_error = 0.0, acc_kfpos_error = 0.0, acc_bcid_error = 0.0;
+    for (int out_lvl = 0; out_lvl < fpos_cpu.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            if (in_lvl > 3)
+                continue;
+            if (out_lvl > 3)
+                continue;
+
+            timer_.Start();
+            deferred_renderer_cpu.Render(mesh_cpu,
+                                      pose_transform,
+                                      cam_,
+                                      out_lvl,
+                                      fpos_cpu, kfpos_cpu, bcid_cpu);
+            acc_cpu_time += timer_.Stop();
+
+            timer_.Start();
+            deferred_renderer_gl.Render(mesh_gl,
+                                     pose_transform,
+                                     cam_,
+                                     out_lvl,
+                                     fpos_gl, kfpos_gl, bcid_gl);
+            acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(fpos_cpu, out_lvl);
+            int valid_gl = CountValid(fpos_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
+
+            // Validate both Jtra and Jrot
+            // double jmap_error = ComputeL2ErrorVector(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            // double pids_error = ComputeL2ErrorVector(cpu_pids, gl_pids, cv::Vec3f(-1.0f, -1.0f, -1.0f));
+            // double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+
+            double fpos_error = RMSEV(fpos_cpu, fpos_gl, out_lvl);
+            double kfpos_error = RMSEV(kfpos_cpu, kfpos_gl, out_lvl);
+            double bcid_error = RMSEV(bcid_cpu, bcid_gl, out_lvl);
+
+            EXPECT_LT(fpos_error, thresholds_.cr_max_fpos_error) << "FPos cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+            EXPECT_LT(kfpos_error, thresholds_.cr_max_kfpos_error) << "KFPos cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+            EXPECT_LT(bcid_error, thresholds_.cr_max_bcid_error) << "BCID cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+                
+            acc_fpos_error = std::max(acc_fpos_error, fpos_error);
+            acc_kfpos_error = std::max(acc_kfpos_error, kfpos_error);
+            acc_bcid_error = std::max(acc_bcid_error, bcid_error);
+        }
+    }
+
+    cv::Mat cpu_fpos = DownloadTextureToMat(fpos_cpu, 0);
+    cv::Mat cpu_kfpos = DownloadTextureToMat(kfpos_cpu, 0);
+    cv::Mat cpu_bcid = DownloadTextureToMat(bcid_cpu, 0);
+
+    cv::Mat gl_fpos = DownloadTextureToMat(fpos_gl, 0);
+    cv::Mat gl_kfpos = DownloadTextureToMat(kfpos_gl, 0);
+    cv::Mat gl_bcid = DownloadTextureToMat(bcid_gl, 0);
+
+    SaveDebugImageColor(cpu_fpos, "cross_fpos_cpu.png");
+    SaveDebugImageColor(cpu_kfpos, "cross_kfpos_cpu.png");
+    SaveDebugImageColor(cpu_bcid, "cross_bcid_cpu.png");
+
+    SaveDebugImageColor(gl_fpos, "cross_fpos_gl.png");
+    SaveDebugImageColor(gl_kfpos, "cross_kfpos_gl.png");
+    SaveDebugImageColor(gl_bcid, "cross_bcid_gl.png");
+
+    std::cout << "Deferred Pipeline Cross-Backend Comparison:\n";
+    std::cout << "  fpos L2 Error: " << acc_fpos_error << "\n";
+    std::cout << "  kfpos L2 Error: " << acc_kfpos_error << "\n";
+    std::cout << "  bcid L2 Error: " << acc_bcid_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
@@ -265,7 +370,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             acc_gl_time += timer_.Stop();
 
             float error_gl;
-            reducer_gl.Render(out_lvl, input_gl, output_gl, error_gl);
+            reducer_gl.reduce(out_lvl, input_gl, output_gl, error_gl);
             float error_cpu = RMSE(input_gl, output_gl, out_lvl);
 
             int valid_cpu = CountValid(output_cpu, out_lvl);

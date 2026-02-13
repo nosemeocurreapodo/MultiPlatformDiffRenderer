@@ -209,7 +209,7 @@ protected:
 
         // Loop over triangles
     renderbase_render_triangles_loop:
-        for (IntType tri_id = 0; tri_id < total_num_triangles; tri_id ++)
+        for (IntType tri_id = 0; tri_id < total_num_triangles; tri_id++)
         {
 
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
@@ -217,9 +217,9 @@ protected:
 
             IntType vertexids[3];
 
-            vertexids[0] = ebo_buffer[tri_id*3 + 0];
-            vertexids[1] = ebo_buffer[tri_id*3 + 1];
-            vertexids[2] = ebo_buffer[tri_id*3 + 2];
+            vertexids[0] = ebo_buffer[tri_id * 3 + 0];
+            vertexids[1] = ebo_buffer[tri_id * 3 + 1];
+            vertexids[2] = ebo_buffer[tri_id * 3 + 2];
 
             typename Derived::VertexData vertexdata[3];
 
@@ -498,6 +498,8 @@ protected:
     static void rasterize_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, Varyings varyings_buffer[], RealType depth_buffer[])
     {
         // #pragma HLS inline
+
+        IntType triangle_id = triangle.id;
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -860,7 +862,7 @@ public:
     {
         Vec4<RealType> fpos;
         Vec4<RealType> kfpos;
-        Vec4<IntType> bcid;
+        Vec4<RealType> bcid;
     };
 
     static Fragment fragment_nodata(OutTextures &textures)
@@ -890,10 +892,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -952,7 +953,6 @@ public:
         fragment.fpos = f_ver;
         fragment.kfpos = kf_ver;
         fragment.bcid = Vec4<IntType>(bc(0), bc(1), ids(2), 0);
-        fragment.image = f_exp;
     }
 
     static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
@@ -1056,7 +1056,8 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
                                          const Varyings &varying_px0,
                                          const Varyings &varying_px1,
                                          const Varyings &varying_px2)
@@ -1207,10 +1208,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         // #pragma HLS inline
 
@@ -1395,10 +1395,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -1700,10 +1699,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.texcoord =
@@ -1862,10 +1860,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.f_ver =
@@ -2060,10 +2057,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -2251,10 +2247,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.pids = Vec3<IntType>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
@@ -2405,10 +2400,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -2663,10 +2657,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -2932,10 +2925,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -3178,10 +3170,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
 #pragma HLS INLINE
 
@@ -3463,10 +3454,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
         Varyings var_over_w_px;
         var_over_w_px.kf_ver =
@@ -3750,10 +3740,9 @@ public:
         return vertexdata;
     }
 
-    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
-                                         const Varyings &varying_px0,
-                                         const Varyings &varying_px1,
-                                         const Varyings &varying_px2)
+    static Varyings interpolate_varyings(IntType triangle_id,
+                                         const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0, const Varyings &varying_px1, const Varyings &varying_px2)
     {
 #pragma HLS INLINE
 

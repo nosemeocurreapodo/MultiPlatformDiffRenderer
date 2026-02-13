@@ -163,6 +163,7 @@ private:
 //   - write one entry per workgroup into SSBO
 //   - map SSBO on CPU and finalize reduction
 //
+/*
 class HGPoseReducerGL
 {
 public:
@@ -372,8 +373,8 @@ public:
 
     // Same usage style as your CPU reducer: total += compute(...)
     void reduce(int lvl,
-                const TextureGL<Vec3f> &jtra_texture,
-                const TextureGL<Vec3f> &jrot_texture,
+                const TextureGL<Vec3<float>> &jtra_texture,
+                const TextureGL<Vec3<float>> &jrot_texture,
                 const TextureGL<ImageType> &image_texture,
                 const TextureGL<ImageType> &ref_texture,
                 DenseLinearProblem<6> &total,
@@ -551,3 +552,4 @@ private:
     GLuint hg_ssbo_ = 0;     // numGroups * 7 vec4
     GLuint count_ssbo_ = 0;  // numGroups * int
 };
+*/
