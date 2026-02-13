@@ -144,6 +144,7 @@ public:
     struct Triangle
     {
         VSOut vout[3];
+        IntType id;
     };
 
     // RendererBase()
@@ -202,11 +203,13 @@ protected:
     {
         // #pragma HLS INLINE off
 
+        int total_num_triangles = ebo_buffer.size() / 3;
+
         num_triangles = 0;
 
         // Loop over triangles
     renderbase_render_triangles_loop:
-        for (IntType i = 0; i + 2 < ebo_buffer.size(); i += 3)
+        for (IntType tri_id = 0; tri_id < total_num_triangles; tri_id ++)
         {
 
 #pragma HLS loop_tripcount min = 768 max = 768 avg = 768
@@ -214,9 +217,9 @@ protected:
 
             IntType vertexids[3];
 
-            vertexids[0] = ebo_buffer[i + 0];
-            vertexids[1] = ebo_buffer[i + 1];
-            vertexids[2] = ebo_buffer[i + 2];
+            vertexids[0] = ebo_buffer[tri_id*3 + 0];
+            vertexids[1] = ebo_buffer[tri_id*3 + 1];
+            vertexids[2] = ebo_buffer[tri_id*3 + 2];
 
             typename Derived::VertexData vertexdata[3];
 
@@ -227,6 +230,8 @@ protected:
             Triangle triangle;
 
             create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
+
+            triangle.id = tri_id;
 
             // use tile binning
             // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
@@ -294,7 +299,6 @@ protected:
     static void create_triangle_(const VertexData vertexdata[], const IntType vertexids[], const BoundingBox<IntType> &viewport, const Uniforms &uniforms, Triangle &triangle)
     {
         // #pragma HLS INLINE off
-
     create_triangle_loop:
         for (int j = 0; j < 3; ++j)
         {
@@ -334,6 +338,8 @@ protected:
     static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType depth_buffer[], const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[])
     {
         // #pragma HLS inline
+
+        IntType triangle_id = triangle.id;
 
         BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
 
@@ -454,7 +460,7 @@ protected:
 
                 // I am not sure if I should use perspective corrected interpolation or not
                 // Comparing with ground truth, nonperspective seems to give less error
-                typename Derived::Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
+                typename Derived::Varyings varying_px = Derived::interpolate_varyings(triangle_id, w0, w1, w2,
                                                                                       triangle.vout[0].var,
                                                                                       triangle.vout[1].var,
                                                                                       triangle.vout[2].var);
@@ -622,7 +628,7 @@ protected:
 
                 // I am not sure if I should use perspective corrected interpolation or not
                 // Comparing with ground truth, nonperspective seems to give less error
-                Varyings varying_px = Derived::interpolate_varyings(w0, w1, w2,
+                Varyings varying_px = Derived::interpolate_varyings(triangle_id, w0, w1, w2,
                                                                     triangle.vout[0].var,
                                                                     triangle.vout[1].var,
                                                                     triangle.vout[2].var);
@@ -810,6 +816,181 @@ public:
     Fragment nodata_;
 };
 */
+
+template <template <class> class TextureViewRead,
+          template <class> class TextureViewWrite>
+class DeferredRendererBase
+{
+public:
+    DeferredRendererBase() = delete;
+    //~JMapRendererBase() = default;
+
+    struct InTextures
+    {
+        const float not_used;
+    };
+
+    struct OutTextures
+    {
+        TextureViewWrite<Vec4<float>> gbuf_fpos;
+        TextureViewWrite<Vec4<float>> gbuf_kfpos;
+        TextureViewWrite<Vec4<float>> gbuf_bcid;
+    };
+
+    struct VertexData
+    {
+        Vec3<RealType> vertex;
+    };
+
+    struct Uniforms
+    {
+        Mat4<RealType> view_matrix;
+        Mat4<RealType> pose_matrix;
+    };
+
+    struct Varyings
+    {
+        Vec3<RealType> kf_ver;
+        Vec3<RealType> f_ver;
+        Vec3<RealType> baricentric;
+        Vec3<IntType> pids;
+    };
+
+    struct Fragment
+    {
+        Vec4<RealType> fpos;
+        Vec4<RealType> kfpos;
+        Vec4<IntType> bcid;
+    };
+
+    static Fragment fragment_nodata(OutTextures &textures)
+    {
+#pragma HLS inline
+
+        Vec4<float> fpos_nodata(textures.gbuf_fpos.nodata());
+        Vec4<float> kfpos_nodata(textures.gbuf_kfpos.nodata());
+        Vec4<float> bcid_nodata(textures.gbuf_bcid.nodata());
+
+        return Fragment{Vec4<RealType>(fpos_nodata(0), fpos_nodata(1), fpos_nodata(2), fpos_nodata(3)),
+                        Vec4<RealType>(kfpos_nodata(0), kfpos_nodata(1), kfpos_nodata(2), kfpos_nodata(3)),
+                        Vec4<RealType>(bcid_nodata(0), bcid_nodata(1), bcid_nodata(2), bcid_nodata(3))};
+    }
+
+    template <class BufferView>
+    static VertexData get_vertex_data(const BufferView &vertex_buffer, const IntType vertexid)
+    {
+        VertexData vertexdata;
+
+        IntType base = vertexid * 3;
+
+        vertexdata.vertex(0) = vertex_buffer[base + 0];
+        vertexdata.vertex(1) = vertex_buffer[base + 1];
+        vertexdata.vertex(2) = vertex_buffer[base + 2];
+
+        return vertexdata;
+    }
+
+    static Varyings interpolate_varyings(const RealType w0, const RealType w1, const RealType w2,
+                                         const Varyings &varying_px0,
+                                         const Varyings &varying_px1,
+                                         const Varyings &varying_px2)
+    {
+        Varyings var_over_w_px;
+        var_over_w_px.kf_ver =
+            (w0 * varying_px0.kf_ver +
+             w1 * varying_px1.kf_ver +
+             w2 * varying_px2.kf_ver);
+        var_over_w_px.f_ver =
+            (w0 * varying_px0.f_ver +
+             w1 * varying_px1.f_ver +
+             w2 * varying_px2.f_ver);
+        var_over_w_px.baricentric = Vec3<RealType>(w0,
+                                                   w1,
+                                                   w2);
+        var_over_w_px.pids = Vec3<IntType>(varying_px0.vertexId, varying_px1.vertexId, varying_px2.vertexId);
+
+        return var_over_w_px;
+    }
+
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+    static void vertex_shader(const VertexData &vertexdata,
+                              const IntType &vertexid,
+                              const Uniforms &uniforms,
+                              Vec4<RealType> &gl_Position,
+                              Varyings &outVarying)
+    {
+        Vec4<RealType> kf_ver = Vec4<RealType>(vertexdata.vertex(0),
+                                               vertexdata.vertex(1),
+                                               vertexdata.vertex(2),
+                                               RealType(1));
+        Vec4<RealType> f_ver = uniforms.pose_matrix * kf_ver;
+        gl_Position = uniforms.view_matrix * f_ver;
+
+        outVarying.f_ver = Vec3<RealType>(f_ver(0), f_ver(1), f_ver(2));
+        outVarying.kf_ver = Vec3<RealType>(kf_ver(0), kf_ver(1), kf_ver(2));
+        outVarying.pids = Vec3<RealType>(vertexid, vertexid, vertexid);
+    }
+
+    static void fragment_shader(const Vec4<RealType> &gl_FragCoord,
+                                const Uniforms &uniforms,
+                                const Varyings &in_varying,
+                                const InTextures &intextures,
+                                Fragment &fragment)
+    {
+        IntType out_width = uniforms.out_width;
+        IntType out_height = uniforms.out_height;
+
+        Vec3<RealType> kf_ver = in_varying.kf_ver;
+        Vec3<RealType> f_ver = in_varying.f_ver;
+        Vec3<RealType> bc = in_varying.baricentric;
+        Vec3<IntType> vertexid = in_varying.pids;
+
+        Vec3<IntType> ids = Vec3<IntType>(vertexid(0), vertexid(1), vertexid(2));
+
+        fragment.fpos = f_ver;
+        fragment.kfpos = kf_ver;
+        fragment.bcid = Vec4<IntType>(bc(0), bc(1), ids(2), 0);
+        fragment.image = f_exp;
+    }
+
+    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    {
+        // #pragma HLS INLINE
+
+    depthrendererbase_sync_outtexture_y_loop:
+        for (IntType iy = 0; iy < tex_bb.height_; iy++)
+        {
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+
+        depthrendererbase_sync_outtexture_x_loop:
+            for (IntType ix = 0; ix < tex_bb.width_; ix++)
+            {
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+
+                IntType x = ix + tex_bb.min_x_;
+                IntType y = iy + tex_bb.min_y_;
+                IntType address = iy * tex_bb.width_ + ix;
+
+                Vec3<RealType> jdepth = fragment_buffer[address].jdepth;
+                Vec3<RealType> jexp = fragment_buffer[address].jexp;
+                Vec3<IntType> pids = fragment_buffer[address].pids;
+                RealType image = fragment_buffer[address].image;
+
+                Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
+                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
+
+                textures.jdepth_texture(y, x) = jdepth_out;
+                textures.jexp_texture(y, x) = jexp_out;
+                textures.pids_texture(y, x) = pids_out;
+                textures.image_texture(y, x) = image;
+            }
+        }
+    }
+};
+
 // -----------------------------------------------------------------------------
 // DepthRenderer
 //   Evout[0].screen(0)mple derived renderer that outputs a "depth" or modifies Z
@@ -1271,8 +1452,8 @@ public:
         IntType y_m = y - 1;
         IntType y_mm = y - 2;
 
-        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0 ||
-            x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
+        if (x_p >= width || x_m < 0 || y_p >= height || y_m < 0) // ||
+                                                                 //   x_pp >= width || x_mm < 0 || y_pp >= height || y_mm < 0)
         {
             //  No need to explicitly set to nodata, it is already in the background color
             return;
@@ -1283,10 +1464,10 @@ public:
         ImageType f_y_m = intextures.in_texture(y_m, x);
         ImageType f_x_p = intextures.in_texture(y, x_p);
         ImageType f_x_m = intextures.in_texture(y, x_m);
-        ImageType f_y_pp = intextures.in_texture(y_pp, x);
-        ImageType f_y_mm = intextures.in_texture(y_mm, x);
-        ImageType f_x_pp = intextures.in_texture(y, x_pp);
-        ImageType f_x_mm = intextures.in_texture(y, x_mm);
+        // ImageType f_y_pp = intextures.in_texture(y_pp, x);
+        // ImageType f_y_mm = intextures.in_texture(y_mm, x);
+        // ImageType f_x_pp = intextures.in_texture(y, x_pp);
+        // ImageType f_x_mm = intextures.in_texture(y, x_mm);
 
         // if (f_x_p == nodata || f_x_m == nodata ||
         //     f_y_p == nodata || f_y_m == nodata || f == nodata)
@@ -1296,11 +1477,11 @@ public:
         //}
 
         Vec3<RealType> out_fragment;
-        out_fragment(0) = (-RealType(f_x_pp) + RealType(8) * RealType(f_x_p) - RealType(8) * RealType(f_x_m) + RealType(f_x_mm)) / RealType(12);
-        out_fragment(1) = (-RealType(f_y_pp) + RealType(8) * RealType(f_y_p) - RealType(8) * RealType(f_y_m) + RealType(f_y_mm)) / RealType(12);
-        // out_fragment(2) = RealType(f);
-        // out_fragment(0) = (RealType(f_x_p) - RealType(f_x_m)) / RealType(2);
-        // out_fragment(1) = (RealType(f_y_p) - RealType(f_y_m)) / RealType(2);
+        // out_fragment(0) = (-RealType(f_x_pp) + RealType(8) * RealType(f_x_p) - RealType(8) * RealType(f_x_m) + RealType(f_x_mm)) / RealType(12);
+        // out_fragment(1) = (-RealType(f_y_pp) + RealType(8) * RealType(f_y_p) - RealType(8) * RealType(f_y_m) + RealType(f_y_mm)) / RealType(12);
+        //   out_fragment(2) = RealType(f);
+        out_fragment(0) = (RealType(f_x_p) - RealType(f_x_m)) / RealType(2);
+        out_fragment(1) = (RealType(f_y_p) - RealType(f_y_m)) / RealType(2);
         out_fragment(2) = RealType(0); // f; // save the projected frame for later processing
 
         // if(out_fragment.norm() < RealType(50))

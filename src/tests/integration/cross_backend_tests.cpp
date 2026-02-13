@@ -1103,7 +1103,7 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
                 {
                     float ref_val = refcolor_data[i];
                     float final_val = finalcolor_data[i];
-                    if(ref_val == refcolor_gl.nodata() || final_val == finalcolor_gl.nodata())
+                    if (ref_val == refcolor_gl.nodata() || final_val == finalcolor_gl.nodata())
                     {
                         dLdfinalcolor_data[i] = dLdfinalcolor_gl.nodata();
                         continue;
@@ -1113,7 +1113,6 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
                     dLdfinalcolor_data[i] = diff;
                 }
             }
-
 
             aabw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
                            dLdfinalcolor_gl,
@@ -1148,18 +1147,19 @@ TEST_F(CrossBackendTests, NVDiffRastComparison)
     SaveDebugImage(gl_refcolor, "cross_nvdiffrast_refcolor_gl.png");
     SaveDebugImage(gl_dLdfinalcolor, "cross_nvdiffrast_dLdfinalcolor_gl.png");
 
-    auto u2f = [](uint32_t u) {
+    auto u2f = [](uint32_t u)
+    {
         float f;
         static_assert(sizeof(float) == sizeof(uint32_t));
         std::memcpy(&f, &u, sizeof(float));
         return f;
     };
 
-    auto grad_pos_buffer_data = grad_pos_buffer.MapRead();
-    for (int i = 0; i < vertex.size(); ++i)
-    {
-        std::cout << "grad_pos_buffer[" << i << "] = " << u2f(grad_pos_buffer_data[i]) << "\n";
-    }
+    // auto grad_pos_buffer_data = grad_pos_buffer.MapRead();
+    // for (int i = 0; i < vertex.size(); ++i)
+    // {
+    //    std::cout << "grad_pos_buffer[" << i << "] = " << u2f(grad_pos_buffer_data[i]) << "\n";
+    // }
 
     auto grad_int_buffer_data = grad_int_buffer.MapRead();
     for (int i = 0; i < 10; ++i)
