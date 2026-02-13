@@ -40,7 +40,7 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
-// #define SHOW_OPENCV
+#define SHOW_OPENCV
 
 int main(int argc, char **argv)
 {
