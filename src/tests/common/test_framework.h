@@ -143,25 +143,25 @@ protected:
 
         pose_dst_ = poses_[50];
 
-        TextureCPU<float> depth_src_cpu(depth_src_cv_.cols, depth_src_cv_.rows, 0.0f);
-        UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
+        // TextureCPU<float> depth_src_cpu(depth_src_cv_.cols, depth_src_cv_.rows, 0.0f);
+        // UploadMatToTexture(depth_src_cpu, 0, depth_src_cv_);
 
-        CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_, true, false, false);
-        // float meanDepth = cv::mean(depth_src_cv_)[0];
-        // CreateFlatMesh(meanDepth * 0.5, meanDepth * 1.5, cam_, 16, vertex_, indices_, true, true, true);
+        // CreateMesh(depth_src_cpu, cam_, 24, vertex_, indices_, true, false, false);
+        //  float meanDepth = cv::mean(depth_src_cv_)[0];
+        //  CreateFlatMesh(meanDepth * 0.5, meanDepth * 1.5, cam_, 16, vertex_, indices_, true, true, true);
 
-        CreateScreenQuad(screen_vertex_, screen_indices_);
+        // CreateScreenQuad(screen_vertex_, screen_indices_);
     }
 
     cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
 
     SE3<float> pose_src_, pose_dst_;
 
-    std::vector<float> vertex_;
-    std::vector<int> indices_;
+    // std::vector<float> vertex_;
+    // std::vector<int> indices_;
 
-    std::vector<float> screen_vertex_;
-    std::vector<int> screen_indices_;
+    // std::vector<float> screen_vertex_;
+    // std::vector<int> screen_indices_;
 };
 
 // Test result reporting utilities
@@ -281,6 +281,9 @@ struct ValidationThresholds
 
     int cr_max_valid_diff = 200;
     double cr_max_mipmap_error = 0.00015;
+    double cr_max_fpos_error = 0.00015;
+    double cr_max_kfpos_error = 0.00015;
+    double cr_max_bcid_error = 0.00015;
     double cr_max_depth_error = 1.11e-6;
     double cr_max_image_error = 0.63;
     double cr_max_residual_error = 0.63;
@@ -294,21 +297,6 @@ struct ValidationThresholds
     double cr_max_jv1_error = 0.063;
     double cr_max_jv2_error = 0.063;
     double cr_max_pids_error = 0.11;
-    double max_cpu_depth_time_ms = 53.0;
-    double max_gl_depth_time_ms = 5.0;
-    double max_cpu_image_time_ms = 350.0;
-    double max_gl_image_time_ms = 5.0;
-    double max_cpu_didxy_time_ms = 700.0;
-    double max_gl_didxy_time_ms = 5.0;
-    double max_cpu_jtra_time_ms = 1800.0;
-    double max_gl_jtra_time_ms = 11.0;
-    double max_cpu_jrot_time_ms = 1800.0;
-    double max_gl_jrot_time_ms = 11.0;
-
-    // double max_l2_error = 1.0;
-    // double max_cross_backend_error = 0.5;
-    // double max_execution_time_ms = 1000.0;
-    // double max_performance_ratio = 2.0; // CPU vs GL performance ratio
 };
 
 /*

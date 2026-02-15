@@ -15,31 +15,6 @@
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
 
-static const char *common = R"GLSL(
-        float apply_exposure(float v, vec2 exposure)
-        {
-            return v * exp(exposure.x) + exposure.y;
-        }
-
-        float d_f_exp_d_f(float v, vec2 exposure)
-        {
-            return exp(exposure.x);
-        }
-
-        vec3 d_f_exp_d_exp(float v, vec2 exposure)
-        {
-            return vec3(v * exp(exposure.x), 1.0, 0.0);
-        }
-
-        vec2 pointToPix(vec3 point, float fx, float fy, float cx, float cy)
-        {
-            vec2 pix;
-            pix.x = (point.x / point.z) * fx + cx;
-            pix.y = (point.y / point.z) * fy + cy;
-            return pix;
-        }
-        )GLSL";
-
 // Deferred “varyings” pass for pose Jacobians (GLSL 4.60).
 // Uses explicit uniform locations (no glGetUniformLocation).
 //
@@ -63,7 +38,6 @@ public:
 
             out vec3 v_f_ver;
             out vec3 v_kf_ver;
-            flat out int v_vertexID;
 
             void main()
             {
@@ -72,7 +46,6 @@ public:
 
                 v_f_ver  = ver.xyz;
                 v_kf_ver = a_position;
-                v_vertexID = gl_VertexID;
             }
         )Shader";
 
@@ -84,31 +57,16 @@ public:
 
             in vec3 v_kf_ver[];
             in vec3 v_f_ver[];
-            flat in int v_vertexID[];           // from VS (Option A)
 
             out vec3 g_kf_ver;
             out vec3 g_f_ver;
-            flat out ivec3 g_triIDs;         // to FS: the 3 vertex IDs of this triangle
-            smooth out vec3  g_bc;           // perspective-correct barycentrics to FS
-            // noperspective out vec3 bc;  // uncomment for screen-space-linear barycentrics
+            flat out int g_triId;
 
-            // Option B: fetch element indices from a texture buffer that mirrors your EBO
-            // uniform usamplerBuffer uIndexBuf;  // each texel = one uint index
+            smooth out vec3  g_bc;   
 
             void main() {
-                // Build the per-triangle ID triplet
-                // Option A: use IDs passed from VS
-                ivec3 ids = ivec3(v_vertexID[0], v_vertexID[1], v_vertexID[2]);
 
-                // Option B: if using a TBO that mirrors your index buffer:
-                // uint base = 3u * uint(gl_PrimitiveIDIn);
-                // uvec3 ids = uvec3(
-                //     texelFetch(uIndexBuf, int(base+0)).x,
-                //     texelFetch(uIndexBuf, int(base+1)).x,
-                //     texelFetch(uIndexBuf, int(base+2)).x
-                // );
-
-                g_triIDs = ids;
+                g_triId = gl_PrimitiveIDIn + 1;
 
                 for (int i = 0; i < 3; ++i) {
                     g_kf_ver = v_kf_ver[i];
@@ -124,21 +82,20 @@ public:
         const char *fragment_shader = R"Shader(
             #version 460 core
 
-            layout(location = 0) out vec4 gbufPos; // f_ver.xyz + 1
-            layout(location = 1) out vec4 gbukfPos; // f_ver.xyz + 1
-            layout(location = 2) out vec4 gbuBCId; // uv.xy + mask + unused
+            layout(location = 0) out vec3 gbufPos; // f_ver.xyz + 1
+            layout(location = 1) out vec3 gbukfPos; // f_ver.xyz + 1
+            layout(location = 2) out vec3 gbuBCId; // uv.xy + mask + unused
 
             in vec3 g_kf_ver;
             in vec3 g_f_ver;
             smooth in vec3  g_bc;          // or noperspective if chosen above
-            flat   in ivec3 g_triIDs;
+            flat   in int g_triId;
 
             void main()
             {
-                gbufPos = vec4(g_f_ver, 1.0);
-                gbukfPos = vec4(g_kf_ver, 1.0);
-
-                gbufUvM = vec4(g_bc.x, g_bc.y, g_triIDs, 1);
+                gbufPos = vec3(g_f_ver);
+                gbukfPos = vec3(g_kf_ver);
+                gbuBCId = vec3(g_bc.x, g_bc.y, g_triId);
             }
         )Shader";
 
@@ -150,9 +107,9 @@ public:
                 const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int out_lvl,
-                TextureGL<Vec4<float>> &gbuf_fpos,
-                TextureGL<Vec4<float>> &gbuf_kfpos,
-                TextureGL<Vec4<float>> &gbuf_bcid)
+                TextureGL<Vec3<float>> &gbuf_fpos,
+                TextureGL<Vec3<float>> &gbuf_kfpos,
+                TextureGL<Vec3<float>> &gbuf_bcid)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
 
@@ -175,11 +132,12 @@ public:
         glViewport(0, 0, W, H);
 
         // Clear MRTs + depth
-        const Vec4<float> fpos_nd = gbuf_fpos.nodata();
-        const Vec4<float> kfpos_nd = gbuf_kfpos.nodata();
-        float clear_fpos[4] = {fpos_nd(0), fpos_nd(1), fpos_nd(2), fpos_nd(3)};
-        float clear_kfpos[4] = {kfpos_nd(0), kfpos_nd(1), kfpos_nd(2), kfpos_nd(3)};
-        float clear_uvm[4] = {0.f, 0.f, 0.f, 0.f}; // mask=0
+        const Vec3<float> fpos_nd = gbuf_fpos.nodata();
+        const Vec3<float> kfpos_nd = gbuf_kfpos.nodata();
+        const Vec3<float> bcid_nd = gbuf_bcid.nodata();
+        float clear_fpos[4] = {fpos_nd(0), fpos_nd(1), fpos_nd(2), 1.0};
+        float clear_kfpos[4] = {kfpos_nd(0), kfpos_nd(1), kfpos_nd(2), 1.0};
+        float clear_uvm[4] = {bcid_nd(0), bcid_nd(1), bcid_nd(2), 1.0};
         float clear_depth[1] = {1.0f};
 
         glClearBufferfv(GL_COLOR, 0, clear_fpos);
@@ -205,7 +163,7 @@ private:
     GLuint rbo_ = 0;
     GLuint program_ = 0;
 };
-        
+
 class DepthRendererGL
 {
 public:

@@ -40,7 +40,7 @@
 #include "backends/xrt/rendererxrt.h"
 #endif
 
-// #define SHOW_OPENCV
+#define SHOW_OPENCV
 
 int main(int argc, char **argv)
 {
@@ -66,22 +66,22 @@ int main(int argc, char **argv)
     const unsigned int height = 480;
 
     // Load mesh via Assimp
-    std::vector<float> vertex;
-    std::vector<int> indices;
-    std::vector<std::string> textures;
-    bool has_positions, has_texcoords, has_normals;
+    // std::vector<float> vertex;
+    // std::vector<int> indices;
+    // std::vector<std::string> textures;
+    // bool has_positions, has_texcoords, has_normals;
 
-    if (!LoadAssimpMesh(model_path, vertex, indices, textures, has_positions, has_texcoords, has_normals))
-    {
-        return 1;
-    }
+    // if (!LoadAssimpMesh(model_path, vertex, indices, textures, has_positions, has_texcoords, has_normals))
+    //{
+    //     return 1;
+    // }
 
-    std::cout << "Model loaded. Vertices: " << (vertex.size() / 3)
-              << "  Tris: " << (indices.size() / 3) << std::endl;
+    // std::cout << "Model loaded. Vertices: " << (vertex.size() / 3)
+    //           << "  Tris: " << (indices.size() / 3) << std::endl;
 
-    std::vector<float> screen_vertex;
-    std::vector<int> screen_indices;
-    CreateScreenQuad(screen_vertex, screen_indices);
+    // std::vector<float> screen_vertex;
+    // std::vector<int> screen_indices;
+    // CreateScreenQuad(screen_vertex, screen_indices);
 
     std::vector<std::string> backend_names;
 
@@ -135,35 +135,36 @@ int main(int argc, char **argv)
 #endif
 
     // Load texture (model diffuse or override or checkerboard)
-    cv::Mat diffuse_cv;
-    if (!textures.empty())
-    {
-        diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
-    }
+    // cv::Mat diffuse_cv;
+    // if (!textures.empty())
+    //{
+    //    diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
+    //}
     // if (diffuse.empty())
     // {
     //    diffuse = TryLoadDiffuseTexture(model_path);
     // }
-    if (diffuse_cv.empty())
-    {
-        diffuse_cv = MakeCheckerTex(1024, 1024, 32);
-    }
+    // if (diffuse_cv.empty())
+    //{
+    // diffuse_cv = MakeCheckerTex(1024, 1024, 32);
+    //}
 
     // Renderer + device resources
     const int in_lvl = 1;
     const int out_lvl = 1;
 
 #ifdef COMPILE_CPU
+
+    MeshCPU meshcpu, meshcpu_screen;
+    TextureCPU<ImageType> diffusecpu;
+
+    LoadAssimpMesh(model_path, meshcpu, diffusecpu);
+    CreateScreenQuad(meshcpu_screen);
+
     DiffRendererCPU renderercpu;
     DIDxyRendererCPU didxyrenderercpu;
 
-    MeshCPU meshcpu(vertex, indices, has_positions, has_texcoords, has_normals);
-
-    TextureCPU<ImageType> diffusecpu(diffuse_cv.cols, diffuse_cv.rows, 0);
-    UploadMatToTexture(diffusecpu, 0, diffuse_cv);
-
-    TextureCPU<Vec3<float>> didxycpu(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
-    MeshCPU meshcpu_screen(screen_vertex, screen_indices, false, true, false);
+    TextureCPU<Vec3<float>> didxycpu(diffusecpu.width(0), diffusecpu.height(0), Vec3<float>(0, 0, 0));
     didxyrenderercpu.Render(meshcpu_screen, in_lvl, in_lvl, diffusecpu, didxycpu);
 
     TextureCPU<ImageType> imagecpu(width, height, 0);
@@ -177,16 +178,17 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef COMPILE_GL
+
+    MeshGL meshgl, meshgl_screen;
+    TextureGL<ImageType> diffusegl;
+
+    LoadAssimpMesh(model_path, meshgl, diffusegl);
+    CreateScreenQuad(meshgl_screen);
+
     DiffRendererGL renderergl;
     DIDxyRendererGL didxyrenderergl;
 
-    MeshGL meshgl(vertex, indices, has_positions, has_texcoords, has_normals);
-
-    TextureGL<ImageType> diffusegl(diffuse_cv.cols, diffuse_cv.rows, 0);
-    UploadMatToTexture(diffusegl, 0, diffuse_cv);
-
-    TextureGL<Vec3<float>> didxygl(diffuse_cv.cols, diffuse_cv.rows, Vec3<float>(0, 0, 0));
-    MeshGL meshgl_screen(screen_vertex, screen_indices, false, true, false);
+    TextureGL<Vec3<float>> didxygl(diffusegl.width(0), diffusegl.height(0), Vec3<float>(0, 0, 0));
     didxyrenderergl.Render(meshgl_screen, in_lvl, in_lvl, diffusegl, didxygl);
 
     TextureGL<ImageType> imagegl(width, height, 0);
@@ -264,7 +266,7 @@ int main(int argc, char **argv)
     cv::namedWindow("Rasterizer Demo", cv::WINDOW_AUTOSIZE);
 #endif
 
-    float dist = -5.5f;
+    float dist = -1.1f;
     float fov_deg = 90.0f;
 
     float fx = 0.5f * width / std::tan(0.5f * fov_deg * float(M_PI / 180.0));
@@ -293,7 +295,7 @@ int main(int argc, char **argv)
         if (r > M_PI * 2.0f)
             i = 0;
         Eigen::Matrix3f R =
-            Eigen::AngleAxisf(r, Eigen::Vector3f::UnitY())
+            Eigen::AngleAxisf(r, Eigen::Vector3f::UnitX())
                 //     Eigen::AngleAxisf(M_PI / 2.0f, Eigen::Vector3f::UnitX())*/
                 //        /*(Eigen::AngleAxisf(0.6f * t, Eigen::Vector3f::UnitY()))*/
                 .toRotationMatrix();

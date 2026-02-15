@@ -59,8 +59,8 @@ static void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vect
 }
 
 // Screen quad for image-space rendering
-static void CreateScreenQuad(std::vector<float> &vertex,
-                             std::vector<int> &indices)
+template <typename Mesh>
+static void CreateScreenQuad(Mesh &mesh)
 {
     // vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
     //           -1.f, -1.f, 1.f, 0.f, 0.f,
@@ -68,26 +68,34 @@ static void CreateScreenQuad(std::vector<float> &vertex,
     //           -1.f, 1.f, 1.f, 0.f, 1.f,
     //           1.f, -1.f, 1.f, 1.f, 0.f,
     //           1.f, 1.f, 1.f, 1.f, 1.f};
-    vertex = {0.f, 1.f,
-              0.f, 0.f,
-              1.f, 0.f,
-              0.f, 1.f,
-              1.f, 0.f,
-              1.f, 1.f};
+    std::vector<float> vertex = {0.f, 1.f,
+                                 0.f, 0.f,
+                                 1.f, 0.f,
+                                 0.f, 1.f,
+                                 1.f, 0.f,
+                                 1.f, 1.f};
+    // std::vector<int> indices = {0, 2, 1, 0, 3, 2};
+    // std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
+    //   indices = {0, 1, 2, 0, 2, 3};
     std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
-    // indices = {0, 1, 2, 0, 2, 3};
+    std::vector<int> indices;
     BuildTriangles(uv, indices);
+    mesh = Mesh(vertex, indices, false, true, false);
 }
 
-template <class Texture>
-static void CreateMesh(const Texture &depth,
-                       PinholeCamera<float> &cam, int grid_size,
-                       std::vector<float> &vertex,
-                       std::vector<int> &indices,
-                       bool add_pos,
-                       bool add_tex,
-                       bool add_normal)
+template <class Mesh>
+static void CreateMesh(const float *depth_mm,
+                       const PinholeCamera<float> &cam,
+                       int w, int h,
+                       int grid_size,
+                       Mesh &mesh)
 {
+    std::vector<float> vertex;
+    std::vector<int> indices;
+    bool add_pos = true;
+    bool add_tex = false;
+    bool add_normal = false;
+
     std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
 
     int stride = 0;
@@ -101,10 +109,10 @@ static void CreateMesh(const Texture &depth,
     vertex.clear();
     vertex.reserve(grid_uv.size() * stride);
 
-    const int w = depth.width(0);
-    const int h = depth.height(0);
+    // const int w = depth.width(0);
+    // const int h = depth.height(0);
 
-    auto depth_mm = depth.MapRead(0);
+    // auto depth_mm = depth.MapRead(0);
 
     // UV step for the grid (neighbors)
     const float du = 5.0f / float(w - 1);
@@ -133,7 +141,8 @@ static void CreateMesh(const Texture &depth,
         else
         {
             z = depth_mm[y * w + x];
-            if (z == depth.nodata())
+            // if (z == depth.nodata())
+            if (z <= 0.0f)
             {
                 // return false;
                 //  z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
@@ -228,16 +237,21 @@ static void CreateMesh(const Texture &depth,
     }
 
     BuildTriangles(ok_uv, indices);
+
+    mesh = Mesh(vertex, indices, add_pos, add_tex, add_normal);
 }
 
+template <class Mesh>
 static void CreateFlatMesh(float min_depth, float max_depth,
-                           PinholeCamera<float> &cam, int grid_size,
-                           std::vector<float> &vertex,
-                           std::vector<int> &indices,
-                           bool add_pos,
-                           bool add_tex,
-                           bool add_normal)
+                           const PinholeCamera<float> &cam, int grid_size,
+                           Mesh &mesh)
 {
+    std::vector<float> vertex;
+    std::vector<int> indices;
+    bool add_pos = true;
+    bool add_tex = false;
+    bool add_normal = false;
+
     std::vector<Vec2<float>> grid_uv = UniformTexCoords(grid_size, grid_size, -0.0, -0.0, 1.0, 1.0);
 
     int gridsize = grid_uv.size();
@@ -284,4 +298,6 @@ static void CreateFlatMesh(float min_depth, float max_depth,
     }
 
     BuildTriangles(grid_uv, indices);
+
+    mesh = Mesh(vertex, indices, add_pos, add_tex, add_normal);
 }

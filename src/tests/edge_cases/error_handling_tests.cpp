@@ -136,7 +136,15 @@ TYPED_TEST_P(ErrorHandlingTests, ExtremeTransformationHandling)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
+    //(this->vertex_, this->indices_, true, true, true);
 
     // Test with very large scale
     SE3<float> large_scale;
@@ -173,7 +181,14 @@ TYPED_TEST_P(ErrorHandlingTests, InvalidMipmapLevels)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
 
     typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
@@ -192,7 +207,14 @@ TYPED_TEST_P(ErrorHandlingTests, TextureSizeMismatch)
     const int small_w = 64, small_h = 64;
     const int large_w = 512, large_h = 512;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
 
     typename Traits::TextureT<float> large_output(large_w, large_h, -1.0f);
 
@@ -211,7 +233,13 @@ TYPED_TEST_P(ErrorHandlingTests, CameraParameterEdgeCases)
 {
     using Traits = TypeParam;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
 
     // Create camera with extreme parameters
     PinholeCamera<float> extreme_cam;
@@ -258,7 +286,14 @@ TYPED_TEST_P(ErrorHandlingTests, MemoryPressureHandling)
 
         try
         {
-            typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, true, true, false);
+            typename Traits::MeshT mesh;
+
+            CreateMesh((float *)this->depth_src_cv_.data,
+                       this->cam_,
+                       this->depth_src_cv_.cols,
+                       this->depth_src_cv_.rows,
+                       24,
+                       mesh);
 
             typename Traits::TextureT<float> output(size, size, -1.0f);
 
@@ -294,7 +329,15 @@ TYPED_TEST_P(ErrorHandlingTests, ThreadSafetyBasics)
     // Use them sequentially (not testing true concurrency, just multiple instances)
     for (int i = 0; i < num_instances; ++i)
     {
-        typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+        typename Traits::MeshT mesh;
+        
+        CreateMesh((float *)this->depth_src_cv_.data,
+                   this->cam_,
+                   this->depth_src_cv_.cols,
+                   this->depth_src_cv_.rows,
+                   24,
+                   mesh);
+                   
         typename Traits::TextureT<float> output(this->w_, this->h_, -1.0f);
 
         ASSERT_NO_THROW(renderers[i]->Render(mesh, SE3<float>(), this->cam_, 0, output));

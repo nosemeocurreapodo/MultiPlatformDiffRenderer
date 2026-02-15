@@ -30,19 +30,24 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
     return tex;
 }
 
-bool LoadAssimpMesh(const std::string &path,
-                    std::vector<float> &vertex,
-                    std::vector<int> &indices,
-                    std::vector<std::string> &textures,
-                    bool &has_positions,
-                    bool &has_texcoords,
-                    bool &has_normals)
+template <typename Mesh, typename Texture>
+void LoadAssimpMesh(const std::string &path,
+                    Mesh &mesh_,
+                    Texture &diffuse_)
 // static bool LoadAssimpMesh(const std::string &path,
 //                            std::vector<float> &vertices,
 //                            std::vector<float> &normals,
 //                            std::vector<float> &texcoords,
 //                            std::vector<unsigned int> &indices)
 {
+    std::vector<float> vertex;
+    std::vector<int> indices;
+    bool has_positions = false;
+    bool has_texcoords = false;
+    bool has_normals = false;
+
+    std::vector<std::string> textures;
+
     Assimp::Importer imp;
     const aiScene *scene = imp.ReadFile(
         path,
@@ -62,7 +67,8 @@ bool LoadAssimpMesh(const std::string &path,
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
     {
         std::cout << "ERROR::ASSIMP:: " << imp.GetErrorString() << std::endl;
-        return false;
+        // return false;
+        throw std::runtime_error("Failed to load model: " + path);
     }
 
     vertex.clear();
@@ -71,12 +77,12 @@ bool LoadAssimpMesh(const std::string &path,
     std::string base_path = path.substr(0, path.find_last_of('/'));
 
     size_t baseVertex = 0;
-    Eigen::Vector3f minB(std::numeric_limits<float>::max(),
-                         std::numeric_limits<float>::max(),
-                         std::numeric_limits<float>::max());
-    Eigen::Vector3f maxB(-std::numeric_limits<float>::max(),
-                         -std::numeric_limits<float>::max(),
-                         -std::numeric_limits<float>::max());
+    Vec3<float> minB(std::numeric_limits<float>::max(),
+                     std::numeric_limits<float>::max(),
+                     std::numeric_limits<float>::max());
+    Vec3<float> maxB(-std::numeric_limits<float>::max(),
+                     -std::numeric_limits<float>::max(),
+                     -std::numeric_limits<float>::max());
 
     // aiNode *root = scene->mRootNode;
 
@@ -104,7 +110,7 @@ bool LoadAssimpMesh(const std::string &path,
         for (unsigned v = 0; v < mesh->mNumVertices; ++v)
         {
             aiVector3D p = mesh->mVertices[v];
-            Eigen::Vector3f vertice(p.x, p.y, p.z);
+            Vec3<float> vertice(p.x, p.y, p.z);
             // p.z = -p.z;
             // vertex.push_back(vertice);
             vertex.push_back(p.x);
@@ -157,18 +163,33 @@ bool LoadAssimpMesh(const std::string &path,
         }
     }
 
-    /*
-    Eigen::Vector3f center = 0.5f * (minB + maxB);
+    mesh_ = Mesh(vertex, indices, has_positions, has_texcoords, has_normals);
+
+    cv::Mat diffuse_cv;
+    if (!textures.empty())
+    {
+        diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
+    }
+    else
+    {
+        diffuse_cv = MakeCheckerTex(1024, 1024, 32);
+    }
+
+    diffuse_ = Texture(diffuse_cv.cols, diffuse_cv.rows, 0);
+    UploadMatToTexture(diffuse_, 0, diffuse_cv);
+
+    std::vector<Vec3<float>> points = get_vertices(mesh_);
+
+    Vec3<float> center = 0.5f * (minB + maxB);
     float radius = (maxB - center).norm();
 
-    for (size_t i = 0; i < vertices.size(); ++i)
+    for (Vec3<float> &p : points)
     {
-        vertices[i] -= center;
-        vertices[i] /= radius;
+        p -= center;
+        p /= radius;
     }
-    */
 
-    return true;
+    set_vertices(mesh_, points);
 }
 
 // Try to load the first diffuse texture in the first material.

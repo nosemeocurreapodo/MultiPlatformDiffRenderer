@@ -76,7 +76,14 @@ TYPED_TEST_P(RendererTypedTests, DepthRendererBasicFunctionality)
     using Traits = TypeParam;
     const int out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
+
     typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
 
     typename Traits::DepthRendererT renderer;
@@ -115,7 +122,13 @@ TYPED_TEST_P(RendererTypedTests, ImageRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
     typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
 
@@ -141,7 +154,13 @@ TYPED_TEST_P(RendererTypedTests, DIDxyRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh(this->screen_vertex_, this->screen_indices_, true, true, false);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
     typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> output(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
 
@@ -171,8 +190,15 @@ TYPED_TEST_P(RendererTypedTests, JPoseRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, true, true, false);
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh_img;
+    CreateScreenQuad(mesh_img);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
 
     typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -223,8 +249,15 @@ TYPED_TEST_P(RendererTypedTests, JDepthRendererBasicFunctionality)
     using Traits = TypeParam;
     const int in_lvl = 0, out_lvl = 0;
 
-    typename Traits::MeshT mesh_img(this->screen_vertex_, this->screen_indices_, true, true, false);
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh_img;
+    CreateScreenQuad(mesh_img);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
 
     typename Traits::template TextureT<ImageType> kf_tex(this->w_, this->h_, 0);
     typename Traits::template TextureT<Vec3<float>> dfdxy_tex(this->w_, this->h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -243,12 +276,12 @@ TYPED_TEST_P(RendererTypedTests, JDepthRendererBasicFunctionality)
 
     ASSERT_NO_THROW(didxy_renderer.Render(mesh_img, in_lvl, out_lvl, kf_tex, dfdxy_tex));
     ASSERT_NO_THROW(jdepth_renderer.Render(mesh,
-                                         pose_transform,
-                                         exposure,
-                                         this->cam_,
-                                         in_lvl, out_lvl,
-                                         kf_tex, dfdxy_tex,
-                                         image_tex, jdepth_tex, jexp_tex, pids_tex));
+                                           pose_transform,
+                                           exposure,
+                                           this->cam_,
+                                           in_lvl, out_lvl,
+                                           kf_tex, dfdxy_tex,
+                                           image_tex, jdepth_tex, jexp_tex, pids_tex));
 
     cv::Mat result = DownloadTextureToMat(jdepth_tex, out_lvl);
 
@@ -285,7 +318,14 @@ TYPED_TEST_P(RendererTypedTests, ErrorHandlingAndEdgeCases)
 
     ASSERT_NO_THROW(renderer.Render(empty_mesh, SE3<float>(), this->cam_, out_lvl, output));
 
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh);
+
     ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, out_lvl, output));
 
     if (this->w_ >= 4 && this->h_ >= 4)
@@ -302,7 +342,13 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
     const int iterations = 10;
     for (int i = 0; i < iterations; ++i)
     {
-        typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+        typename Traits::MeshT mesh;
+        CreateMesh((float *)this->depth_src_cv_.data,
+                   this->cam_,
+                   this->depth_src_cv_.cols,
+                   this->depth_src_cv_.rows,
+                   24,
+                   mesh);
         typename Traits::template TextureT<float> output(this->w_, this->h_, -1.0f);
         typename Traits::DepthRendererT renderer;
         ASSERT_NO_THROW(renderer.Render(mesh, SE3<float>(), this->cam_, 0, output));
@@ -314,7 +360,13 @@ TYPED_TEST_P(RendererTypedTests, ResourceManagement)
 TYPED_TEST_P(RendererTypedTests, VaryingTextureSizes)
 {
     using Traits = TypeParam;
-    typename Traits::MeshT mesh(this->vertex_, this->indices_, true, true, true);
+    typename Traits::MeshT mesh;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               32,
+               mesh);
     const std::vector<std::pair<int, int>> sizes = {{64, 64}, {128, 128}, {256, 256}};
     for (const auto &size : sizes)
     {

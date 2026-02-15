@@ -14,189 +14,19 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
-template <class Base>
-class RendererBaseCPU : public RendererBase<Base>
-{
-public:
-    using Fragment = typename Base::Fragment;
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     const InTextures &intextures,
-                     OutTextures &outtextures)
-    {
-        const int W = viewport.width_;
-        const int H = viewport.height_;
-        const std::size_t n = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-
-        // Resize once, reuse capacity across calls
-        fragment_buffer_.resize(n);
-        depth_buffer_.resize(n);
-
-        // Initialize buffers
-        const Fragment nodata_frag = Base::fragment_nodata(outtextures);
-        std::fill(fragment_buffer_.begin(), fragment_buffer_.end(), nodata_frag);
-        std::fill(depth_buffer_.begin(), depth_buffer_.end(), -1.0f);
-
-        Fragment *fragment_buffer = fragment_buffer_.data();
-        float *depth_buffer = depth_buffer_.data();
-
-        auto vertex_map = mesh.vertex_buffer_.MapRead();
-        auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-        int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
-
-        // Loop over triangles
-        for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
-        {
-            int vertexids[3];
-            vertexids[0] = ebo_map[tri_idx * 3 + 0];
-            vertexids[1] = ebo_map[tri_idx * 3 + 1];
-            vertexids[2] = ebo_map[tri_idx * 3 + 2];
-
-            typename Base::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
-
-            typename RendererBase<Base>::Triangle triangle;
-            this->create_triangle_(vertexdata, vertexids, tri_idx, viewport, uniforms, triangle);
-
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
-        }
-
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
-    }
-
-private:
-    std::vector<Fragment> fragment_buffer_;
-    std::vector<float> depth_buffer_;
-};
-
-/*
-template <class Base>
-class DeferredRendererBaseCPU : public RendererBase<DeferredRendererBase>
-{
-public:
-    using DeferredFragment = typename DeferredRendererBase::Fragment;
-    using Fragment = typename Base::Fragment;
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     const InTextures &intextures,
-                     OutTextures &outtextures)
-    {
-        const int W = viewport.width_;
-        const int H = viewport.height_;
-        const std::size_t n = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-
-        // Resize once, reuse capacity across calls
-        deferred_fragment_buffer_.resize(n);
-        depth_buffer_.resize(n);
-
-        // Initialize buffers
-        const DeferredFragment nodata_frag = DeferredRendererBase::fragment_nodata(outtextures);
-        std::fill(deferred_fragment_buffer_.begin(), deferred_fragment_buffer_.end(), nodata_frag);
-        std::fill(depth_buffer_.begin(), depth_buffer_.end(), -1.0f);
-
-        DeferredFragment *fragment_buffer = deferred_fragment_buffer_.data();
-        float *depth_buffer = depth_buffer_.data();
-
-        auto vertex_map = mesh.vertex_buffer_.MapRead();
-        auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-        int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
-
-        // Loop over triangles
-        for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
-        {
-            int vertexids[3];
-            vertexids[0] = ebo_map[tri_idx * 3 + 0];
-            vertexids[1] = ebo_map[tri_idx * 3 + 1];
-            vertexids[2] = ebo_map[tri_idx * 3 + 2];
-
-            typename DeferredRendererBase::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
-
-            typename RendererBase<DeferredRendererBase>::Triangle triangle;
-            this->create_triangle_(vertexdata, vertexids, tri_idx, viewport, uniforms, triangle);
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, deferred_fragment_buffer_);
-        }
-
-        
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
-    }
-
-private:
-    std::vector<Fragment> fragment_buffer_;
-    std::vector<DeferredFragment> deferred_fragment_buffer_;
-    std::vector<float> depth_buffer_;
-};
-*/
-
-class DeferredRendererCPU
-    : public RendererBaseCPU<DeferredRendererBase<TextureViewReadCPU,
-                                                  TextureViewWriteCPU>>
-{
-public:
-    using Base = DeferredRendererBase<TextureViewReadCPU,
-                                      TextureViewWriteCPU>;
-
-    DeferredRendererCPU() = default;
-    ~DeferredRendererCPU() = default;
-
-    void Render(const MeshCPU &mesh,
-                const SE3<float> &pose,
-                const PinholeCamera<float> &cam,
-                int lvl,
-                TextureCPU<Vec3<float>> &fpose_texture,
-                TextureCPU<Vec3<float>> &kfpose_texture,
-                TextureCPU<Vec3<float>> &bcid_texture)
-    {
-        const int W = static_cast<int>(fpose_texture.width(lvl));
-        const int H = static_cast<int>(fpose_texture.height(lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
-
-        Base::Uniforms uniforms;
-        uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
-
-        Base::InTextures intextures{0};
-        Base::OutTextures outtextures{fpose_texture.MapWrite(lvl),
-                                      kfpose_texture.MapWrite(lvl),
-                                      bcid_texture.MapWrite(lvl)};
-
-        RendererBaseCPU<Base>::RenderNaive(
-            viewport,
-            mesh,
-            uniforms,
-            intextures,
-            outtextures);
-    }
-
-private:
-};
-
-
 // -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z
 // -----------------------------------------------------------------------------
 
-class DepthRendererCPU
-    : public RendererBaseCPU<DepthRendererBase<TextureViewWriteCPU>>
+class DepthDeferredRendererCPU
+    : public DepthRendererBase<TextureViewWriteCPU>
 {
 public:
     using Base = DepthRendererBase<TextureViewWriteCPU>;
 
-    DepthRendererCPU() = default;
-    ~DepthRendererCPU() = default;
+    DepthDeferredRendererCPU() = default;
+    ~DepthDeferredRendererCPU() = default;
 
     void Render(const MeshCPU &mesh,
                 const SE3<float> &pose,
@@ -204,26 +34,19 @@ public:
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
-        Base::Uniforms uniforms;
-        uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        defrenderer.Render(mesh, pose, cam, out_lvl,
+                           gbuf_fpos, gbuf_kfpos, gbuf_bcid);
 
-        const int W = static_cast<int>(out_texture.width(out_lvl));
-        const int H = static_cast<int>(out_texture.height(out_lvl));
-        BoundingBox<int> viewport(0, W, 0, H);
 
-        Base::InTextures intextures{0};
-        Base::OutTextures outtextures{out_texture.MapWrite(out_lvl)};
-
-        RendererBaseCPU<Base>::RenderNaive(
-            viewport,
-            mesh,
-            uniforms,
-            intextures,
-            outtextures);
+        
     }
 
 private:
+    DeferredRendererCPU defrenderer;
+
+    TextureCPU<Vec3<float>> gbuf_fpos;
+    TextureCPU<Vec3<float>> gbuf_kfpos;
+    TextureCPU<Vec3<float>> gbuf_bcid;
 };
 
 // -----------------------------------------------------------------------------

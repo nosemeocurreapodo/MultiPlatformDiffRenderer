@@ -2,6 +2,31 @@
 
 #include "backends/gl/devicegl_glad.h"
 
+static const char *common = R"GLSL(
+        float apply_exposure(float v, vec2 exposure)
+        {
+            return v * exp(exposure.x) + exposure.y;
+        }
+
+        float d_f_exp_d_f(float v, vec2 exposure)
+        {
+            return exp(exposure.x);
+        }
+
+        vec3 d_f_exp_d_exp(float v, vec2 exposure)
+        {
+            return vec3(v * exp(exposure.x), 1.0, 0.0);
+        }
+
+        vec2 pointToPix(vec3 point, float fx, float fy, float cx, float cy)
+        {
+            vec2 pix;
+            pix.x = (point.x / point.z) * fx + cx;
+            pix.y = (point.y / point.z) * fy + cy;
+            return pix;
+        }
+        )GLSL";
+        
 void create_framebuffer(GLuint &fbo, GLuint &rbo)
 {
 #if defined(GL_VERSION_4_5)
