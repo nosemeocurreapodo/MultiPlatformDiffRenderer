@@ -14,6 +14,60 @@
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
 
+class ResidualRRCPU
+{
+public:
+    using Base = DeferredRendererBase<TextureViewReadCPU, TextureViewWriteCPU>;
+    using Fragment = typename Base::Fragment;
+
+    template <typename Mesh>
+    void compute(const BoundingBox<int> &viewport,
+                const Mesh &mesh,
+                const Base::Uniforms &uniforms,
+                const Base::InTextures &intextures,
+                Base::OutTextures &outtextures)
+    {
+        const int W = viewport.width_;
+        const int H = viewport.height_;
+        const std::size_t n = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
+
+        // Resize once, reuse capacity across calls
+        fragment_buffer_.resize(n);
+        depth_buffer_.resize(n);
+
+        // Initialize buffers
+        const Fragment nodata_frag = DeferredRendererBase::fragment_nodata(outtextures);
+        std::fill(fragment_buffer_.begin(), fragment_buffer_.end(), nodata_frag);
+        std::fill(depth_buffer_.begin(), depth_buffer_.end(), -1.0f);
+
+        Fragment *fragment_buffer = fragment_buffer_.data();
+        float *depth_buffer = depth_buffer_.data();
+
+        this->draw_tile_(viewport, mesh, uniforms, intextures, fragment_buffer, depth_buffer);
+
+        for (int y = 0; y < H; y++)
+        {
+            for (int x = 0; x < W; x++)
+            {
+                int idx = y * W + x;
+                if (depth_buffer[idx] < 0.0f)
+                {
+                    Fragment deffrag = fragment_buffer_[idx];
+                    Vec2<float> pix = cam.pointToPix(deffrag.pos);
+                    Base::fragment_to_output(deffrag, fragment_buffer_[idx]);
+                    fragment_buffer_[idx];
+                }
+            }
+        }
+
+        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
+    }
+
+private:
+    std::vector<Fragment> fragment_buffer_;
+    std::vector<float> depth_buffer_;
+};
+
 // -----------------------------------------------------------------------------
 // DepthRendererCPU
 //   Example derived renderer that outputs a "depth" or modifies Z
@@ -32,21 +86,14 @@ public:
                 const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int out_lvl,
+                const TextureCPU<Vec3<float>> &gbuf_fpos,
+                const TextureCPU<Vec3<float>> &gbuf_kfpos,
+                const TextureCPU<Vec3<float>> &gbuf_bcid,
                 TextureCPU<float> &out_texture)
     {
-        defrenderer.Render(mesh, pose, cam, out_lvl,
-                           gbuf_fpos, gbuf_kfpos, gbuf_bcid);
-
-
-        
     }
 
 private:
-    DeferredRendererCPU defrenderer;
-
-    TextureCPU<Vec3<float>> gbuf_fpos;
-    TextureCPU<Vec3<float>> gbuf_kfpos;
-    TextureCPU<Vec3<float>> gbuf_bcid;
 };
 
 // -----------------------------------------------------------------------------

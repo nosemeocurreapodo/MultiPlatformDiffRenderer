@@ -24,7 +24,7 @@
 template <typename T>
 T edge_func(const Vec2<T> &v0, const Vec2<T> &v1, const Vec2<T> &v2)
 {
-    // #pragma HLS INLINE
+#pragma HLS INLINE
     //   return (y1 - y0) * (px - x0) + (x0 - x1) * (py - y0);
     //    return (by - ay) * px + (ax - bx) * py + (bx * ay - ax * by);
     // Vec2<T> v10 = v1 - v0;
@@ -41,7 +41,7 @@ T edge_func(const Vec2<T> &v0, const Vec2<T> &v1, const Vec2<T> &v2)
 template <typename T>
 bool is_top_left(const Vec2<T> &v0, const Vec2<T> &v1)
 {
-    // #pragma HLS INLINE
+#pragma HLS INLINE
     //   return (v0(1) == v1(1)) ? (v1(0) < v0(0)) : (v0(1) < v1(1));
     //   for y up
     //   return (v0(1) < v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
@@ -49,770 +49,414 @@ bool is_top_left(const Vec2<T> &v0, const Vec2<T> &v1)
     return (v0(1) > v1(1)) || (v0(1) == v1(1) && v0(0) > v1(0));
 }
 
-template <class Texture>
-static void DepthRendererRef(const Texture &depth_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             Texture &out_texture)
+// Vertex shading & clip → NDC → screen
+template <typename Derived>
+struct VSOut
 {
-    out_texture.fill(out_lvl, out_texture.nodata());
+    Vec2<RealType> screen; // x,y in pixel space (float)
+    RealType depth;        // z in [0,1] if your projection is like GL_ZERO_TO_ONE
+    RealType invW;         // 1 / clip.w
+    // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
+    typename Derived::Varyings var; // original varyings (for convenience)
+};
 
-    auto depth_map = depth_texture.MapRead(out_lvl);
-    auto out_map = out_texture.MapWrite(out_lvl);
+template <typename Derived>
+struct Triangle
+{
+    VSOut<Derived> vout[3];
+    IntType id;
+};
 
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
+template <typename VertexBufferView, typename EboBufferView, typename Derived>
+static void get_triangles_(const VertexBufferView &vertex_buffer,
+                           const EboBufferView &ebo_buffer,
+                           const BoundingBox<IntType> &viewport,
+                           const BoundingBox<IntType> &tile_viewport,
+                           const typename Derived::Uniforms &uniforms,
+                           Triangle<Derived> triangles[],
+                           IntType max_num_triangles,
+                           IntType &num_triangles)
+{
+    // #pragma HLS INLINE off
+
+    int total_num_triangles = ebo_buffer.size() / 3;
+
+    num_triangles = 0;
+
+    // Loop over triangles
+renderbase_render_triangles_loop:
+    for (IntType tri_id = 0; tri_id < total_num_triangles; tri_id++)
     {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_map(y, x);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            float prev_depth = out_map(f_pix(1), f_pix(0));
-            if (prev_depth == out_texture.nodata() || (f_depth < prev_depth))
-                out_map(f_pix(1), f_pix(0)) = f_depth;
-        }
+
+#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
+        // #pragma HLS PIPELINE II = 1
+
+        IntType vertexids[3];
+
+        vertexids[0] = ebo_buffer[tri_id * 3 + 0];
+        vertexids[1] = ebo_buffer[tri_id * 3 + 1];
+        vertexids[2] = ebo_buffer[tri_id * 3 + 2];
+
+        typename Derived::VertexData vertexdata[3];
+
+        vertexdata[0] = Derived::get_vertex_data(vertex_buffer, vertexids[0]);
+        vertexdata[1] = Derived::get_vertex_data(vertex_buffer, vertexids[1]);
+        vertexdata[2] = Derived::get_vertex_data(vertex_buffer, vertexids[2]);
+
+        Triangle<Derived> triangle;
+
+        create_triangle_(vertexdata, vertexids, tri_id, viewport, uniforms, triangle);
+
+        // use tile binning
+        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+        RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
+
+        if (area2 < RealType(0))
+            continue; // enable to cull backfaces
+
+        // Triangle bounding box (float → int, clamp to viewport)
+        BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+        if (tri_bb.max_x_ < RealType(tile_viewport.min_x_) ||
+            tri_bb.min_x_ > RealType(tile_viewport.max_x_) ||
+            tri_bb.max_y_ < RealType(tile_viewport.min_y_) ||
+            tri_bb.min_y_ > RealType(tile_viewport.max_y_))
+            continue;
+
+        // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+        // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+        // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+        // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+
+        // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(tri_bb.min_x_));
+        // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
+        // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(tri_bb.min_y_));
+        // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
+
+        // if (viewport_min_x >= viewport_max_x || viewport_min_y >= viewport_max_y)
+        //     continue;
+
+        triangles[num_triangles] = triangle;
+        num_triangles++;
+        if (num_triangles >= max_num_triangles)
+            break;
     }
 }
 
-template <class DepthTexture, class ImageTexture>
-static void ImageRendererRef(const DepthTexture &depth_texture,
-                             const ImageTexture &image_texture,
-                             const SE3<float> &pose,
-                             const PinholeCamera<float> &cam,
-                             int out_lvl,
-                             ImageTexture &out_texture)
+static void create_tile_viewports_(BoundingBox<IntType> viewport_tiles[],
+                                   const BoundingBox<IntType> &viewport,
+                                   IntType num_tiles_x, IntType num_tiles_y)
 {
-    out_texture.fill(out_lvl, out_texture.nodata());
+    // #pragma HLS INLINE off
 
-    auto depth_map = depth_texture.MapRead(out_lvl);
-    auto image_map = image_texture.MapRead(out_lvl);
-    auto out_map = out_texture.MapWrite(out_lvl);
-
-    for (int y = 0; y < out_texture.height(out_lvl); y++)
+create_tile_viewport_y_loop:
+    for (int y = 0; y < num_tiles_y; y++)
     {
-        for (int x = 0; x < out_texture.width(out_lvl); x++)
-        {
-            float kf_depth = depth_map(y, x);
-            ImageType kf = image_map(y, x);
-            Vec2<float> kf_pix((float(x) + 0.5f) / out_texture.width(out_lvl), (float(y) + 0.5f) / out_texture.height(out_lvl));
-            Vec3<float> kf_ray = cam.PixToRay(kf_pix);
-            Vec3<float> kf_vec = kf_ray * kf_depth;
-            Vec3<float> f_vec = pose * kf_vec;
-            float f_depth = f_vec(2);
-            if (f_depth <= 0.0f)
-                continue;
-            Vec3<float> f_ray = f_vec / f_vec(2);
-            Vec2<float> f_pix = cam.RayToPix(f_ray);
-            if (!cam.IsPixVisible(f_pix))
-                continue;
-            f_pix(0) = min(float(round(f_pix(0) * out_texture.width(out_lvl))), float(out_texture.width(out_lvl) - 1));
-            f_pix(1) = min(float(round(f_pix(1) * out_texture.height(out_lvl))), float(out_texture.height(out_lvl) - 1));
-            out_map(f_pix(1), f_pix(0)) = kf;
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-// RendererBase
-// -----------------------------------------------------------------------------
-template <class Derived>
-class RendererBase
-{
-public:
-    // Vertex shading & clip → NDC → screen
-    struct VSOut
-    {
-        Vec2<RealType> screen; // x,y in pixel space (float)
-        RealType depth;        // z in [0,1] if your projection is like GL_ZERO_TO_ONE
-        RealType invW;         // 1 / clip.w
-        // std::tuple<Varyings...> var_over_w; // varyings multiplied by invW
-        typename Derived::Varyings var; // original varyings (for convenience)
-    };
-
-    struct Triangle
-    {
-        VSOut vout[3];
-        IntType id;
-    };
-
-    // RendererBase()
-    //{
-    //     opencv2opengl_ = linalg::Mat4<MathType>::Identity();
-    //     opencv2opengl_(1, 1) = -1.0;
-    //     opencv2opengl_(2, 2) = -1.0;
-    // };
-
-    // virtual ~RendererBase() = default;
-    //~RendererBase() = default;
-
-protected:
-    /*
-    template <class Mesh, typename VertexData, typename Uniforms>
-    static void get_vertex_data(const Mesh &mesh,
-                                VertexData *vertex_data,
-                                IntType *vertex_ids)
-    {
-        // #pragma HLS INLINE off
-
-        // Loop over triangles
-    renderbase_render_triangles_loop:
-        for (IntType i = 0; i + 2 < mesh.ebo_buffer_.size(); i += 3)
-        {
-
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-            // #pragma HLS PIPELINE II = 1
-
-            IntType vertexids[3];
-
-            IntType vertexids_0 = mesh.ebo_buffer_[i + 0];
-            IntType vertexids_1 = mesh.ebo_buffer_[i + 1];
-            IntType vertexids_2 = mesh.ebo_buffer_[i + 2];
-
-            vertex_data[i * 3 + 0] = Derived::get_vertex_data(mesh, vertexids_0);
-            vertex_data[i * 3 + 1] = Derived::get_vertex_data(mesh, vertexids_1);
-            vertex_data[i * 3 + 2] = Derived::get_vertex_data(mesh, vertexids_2);
-
-            vertex_ids[i * 3 + 0] = vertexids_0;
-            vertex_ids[i * 3 + 1] = vertexids_1;
-            vertex_ids[i * 3 + 2] = vertexids_2;
-        }
-    }
-    */
-
-    template <typename VertexBufferView, typename EboBufferView, typename Uniforms>
-    static void get_triangles_(const VertexBufferView &vertex_buffer,
-                               const EboBufferView &ebo_buffer,
-                               const BoundingBox<IntType> &viewport,
-                               const BoundingBox<IntType> &tile_viewport,
-                               const Uniforms &uniforms,
-                               Triangle triangles[],
-                               IntType max_num_triangles,
-                               IntType &num_triangles)
-    {
-        // #pragma HLS INLINE off
-
-        int total_num_triangles = ebo_buffer.size() / 3;
-
-        num_triangles = 0;
-
-        // Loop over triangles
-    renderbase_render_triangles_loop:
-        for (IntType tri_id = 0; tri_id < total_num_triangles; tri_id++)
-        {
-
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-            // #pragma HLS PIPELINE II = 1
-
-            IntType vertexids[3];
-
-            vertexids[0] = ebo_buffer[tri_id * 3 + 0];
-            vertexids[1] = ebo_buffer[tri_id * 3 + 1];
-            vertexids[2] = ebo_buffer[tri_id * 3 + 2];
-
-            typename Derived::VertexData vertexdata[3];
-
-            vertexdata[0] = Derived::get_vertex_data(vertex_buffer, vertexids[0]);
-            vertexdata[1] = Derived::get_vertex_data(vertex_buffer, vertexids[1]);
-            vertexdata[2] = Derived::get_vertex_data(vertex_buffer, vertexids[2]);
-
-            Triangle triangle;
-
-            create_triangle_(vertexdata, vertexids, tri_id, viewport, uniforms, triangle);
-
-            // use tile binning
-            // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-            RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
-
-            if (area2 < RealType(0))
-                continue; // enable to cull backfaces
-
-            // Triangle bounding box (float → int, clamp to viewport)
-            BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
-
-            if (tri_bb.max_x_ < RealType(tile_viewport.min_x_) ||
-                tri_bb.min_x_ > RealType(tile_viewport.max_x_) ||
-                tri_bb.max_y_ < RealType(tile_viewport.min_y_) ||
-                tri_bb.min_y_ > RealType(tile_viewport.max_y_))
-                continue;
-
-            // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-            // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-            // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-            // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
-
-            // IntType viewport_min_x = max(viewport.min_x_, static_cast<IntType>(tri_bb.min_x_));
-            // IntType viewport_max_x = min(viewport.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
-            // IntType viewport_min_y = max(viewport.min_y_, static_cast<IntType>(tri_bb.min_y_));
-            // IntType viewport_max_y = min(viewport.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
-
-            // if (viewport_min_x >= viewport_max_x || viewport_min_y >= viewport_max_y)
-            //     continue;
-
-            triangles[num_triangles] = triangle;
-            num_triangles++;
-            if (num_triangles >= max_num_triangles)
-                break;
-        }
-    }
-
-    static void create_tile_viewports_(BoundingBox<IntType> viewport_tiles[], const BoundingBox<IntType> &viewport, IntType num_tiles_x, IntType num_tiles_y)
-    {
-        // #pragma HLS INLINE off
-
-    create_tile_viewport_y_loop:
-        for (int y = 0; y < num_tiles_y; y++)
-        {
 #pragma HLS loop_tripcount min = 8 max = 8 avg = 8
 #pragma HLS pipeline off
 
-        create_tile_viewport_x_loop:
-            for (int x = 0; x < num_tiles_x; x++)
-            {
+    create_tile_viewport_x_loop:
+        for (int x = 0; x < num_tiles_x; x++)
+        {
 #pragma HLS loop_tripcount min = 8 max = 8 avg = 8
 #pragma HLS loop_flatten off
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * x) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * y) / RealType(num_tiles_y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+            IntType min_x_ = IntType(RealType(viewport.width_ * x) / RealType(num_tiles_x)) + viewport.min_x_;
+            IntType max_x_ = IntType(RealType(viewport.width_ * (x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
+            IntType min_y_ = IntType(RealType(viewport.height_ * y) / RealType(num_tiles_y)) + viewport.min_y_;
+            IntType max_y_ = IntType(RealType(viewport.height_ * (y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
 
-                viewport_tiles[y * num_tiles_x + x] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
-            }
+            viewport_tiles[y * num_tiles_x + x] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
         }
     }
-
-    template <typename VertexData, typename Uniforms>
-    static void create_triangle_(const VertexData vertexdata[], const IntType vertexids[], IntType triangle_id, const BoundingBox<IntType> &viewport, const Uniforms &uniforms, Triangle &triangle)
-    {
-        // #pragma HLS INLINE off
-    create_triangle_loop:
-        for (int j = 0; j < 3; ++j)
-        {
-            // #pragma HLS UNROLL
-
-            Vec4<RealType> gl_Position;
-            typename Derived::Varyings outvaryings;
-            VertexData vertexdata_ = vertexdata[j];
-            IntType vertexid_ = vertexids[j];
-            Derived::vertex_shader(vertexdata_, vertexid_, uniforms, gl_Position, outvaryings);
-
-            const RealType invW = RealType(1) / gl_Position(3);
-            const RealType ndc_x = gl_Position(0) * invW; // [-1,1]
-            const RealType ndc_y = gl_Position(1) * invW;
-            const RealType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
-
-            // #ifndef USE_VITIS
-            // assert(ndc_x >= -1 && ndc_x <= 1 && ndc_y >= -1 && ndc_y <= 1 && ndc_z >= -1 && ndc_z <= 1);
-            // #endif
-
-            VSOut vsout;
-            // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-            vsout.screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
-            vsout.screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
-            // triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
-            vsout.depth = ndc_z;
-            vsout.invW = invW;
-            vsout.var = outvaryings;
-            // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
-
-            triangle.vout[j] = vsout;
-        }
-
-        triangle.id = triangle_id;
-    }
-
-    // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename InTextures, typename Uniforms, typename Fragment>
-    static void draw_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, RealType depth_buffer[], const Uniforms &uniforms, const InTextures &intextures, Fragment fragment_buffer[])
-    {
-        // #pragma HLS inline
-
-        IntType triangle_id = triangle.id;
-
-        BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
-
-        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
-
-        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
-        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
-
-        BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
-
-        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
-
-        if (area2 <= RealType(0))
-            return; // enable to cull backfaces
-
-        const RealType inv_area2 = RealType(1) / area2;
-
-        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
-        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
-        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
-
-        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        // Vec2<RealType> p_tl;
-        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-
-        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
-        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
-        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
-
-        // Step increments when moving +1 in X or +1 in Y
-        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
-        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
-        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
-        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
-        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
-        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
-        // for y down, the - is needed
-        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
-
-    // Rasterize
-    draw_triangle_y_loop:
-        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
-        {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-
-            IntType texture_y = iy + triangle_bb.min_y_;
-            IntType tile_y = texture_y - tile_bb.min_y_;
-            IntType tile_address_base = tile_y * tile_bb.width_;
-
-            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
-
-        draw_triangle_x_loop:
-            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
-            {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-#pragma HLS loop_flatten
-                //    #pragma HLS PIPELINE II = 1
-
-#pragma HLS dependence variable = depth_buffer type = inter false
-
-                // #pragma HLS dependence variable = fragment_buffer type = inter false
-
-                IntType texture_x = ix + triangle_bb.min_x_;
-                IntType tile_x = texture_x - tile_bb.min_x_;
-                IntType tile_address = tile_address_base + tile_x;
-
-                RealType prev_depth = depth_buffer[tile_address];
-
-                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
-
-                Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
-                                 RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
-
-                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
-
-                // Top-left rule adjustments (include pixels on top/left edges)
-                const bool inside =
-                    (eAB > 0 || (eAB == 0 && tlAB)) &&
-                    (eBC > 0 || (eBC == 0 && tlBC)) &&
-                    (eCA > 0 || (eCA == 0 && tlCA));
-
-                if (!inside)
-                    continue;
-
-                // Baricentric weights normalized
-                const RealType b0 = eBC * inv_area2;
-                const RealType b1 = eCA * inv_area2;
-                const RealType b2 = eAB * inv_area2;
-                // Baricentric weights normalized (perpective)
-                RealType w0 = eBC * triangle.vout[0].invW;
-                RealType w1 = eCA * triangle.vout[1].invW;
-                RealType w2 = eAB * triangle.vout[2].invW;
-
-                // Perspective: 1/w at pixel
-                const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
-
-                w0 *= inv_invW_px;
-                w1 *= inv_invW_px;
-                w2 *= inv_invW_px;
-
-                // I am not sure if I should use perspective corrected interpolation or not
-                // Comparing with ground truth, nonperspective seems to give less error
-                typename Derived::Varyings varying_px = Derived::interpolate_varyings(triangle_id, w0, w1, w2,
-                                                                                      triangle.vout[0].var,
-                                                                                      triangle.vout[1].var,
-                                                                                      triangle.vout[2].var);
-
-                // Depth (if needed; same trick)
-                RealType depth_px = b0 * triangle.vout[0].depth +
-                                    b1 * triangle.vout[1].depth +
-                                    b2 * triangle.vout[2].depth;
-
-                // Depth test
-                if (depth_px < RealType(0) || (prev_depth >= RealType(0) && prev_depth < depth_px))
-                    continue;
-
-                Vec4<RealType> gl_FragCoord;
-                gl_FragCoord(0) = p(0);
-                gl_FragCoord(1) = p(1);
-                gl_FragCoord(2) = depth_px;
-                gl_FragCoord(3) = inv_invW_px;
-
-                // Fragment fragment;
-                Derived::fragment_shader(gl_FragCoord,
-                                         uniforms,
-                                         varying_px,
-                                         intextures,
-                                         fragment_buffer[tile_address]);
-
-                // fragment_buffer[tile_address] = fragment;
-                depth_buffer[tile_address] = depth_px;
-            }
-        }
-    }
-
-    // Triangle rasterizer (top-left rule, perspective correct)
-    template <typename Varyings>
-    static void rasterize_triangle_(const Triangle &triangle, const BoundingBox<IntType> &tile_bb, Varyings varyings_buffer[], RealType depth_buffer[])
-    {
-        // #pragma HLS inline
-
-        IntType triangle_id = triangle.id;
-
-        BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
-
-        // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-        // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-        // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-        // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
-
-        IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-        IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
-        IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-        IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
-
-        BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
-
-        // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
-        RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
-
-        if (area2 <= RealType(0))
-            return; // enable to cull backfaces
-
-        const RealType inv_area2 = RealType(1) / area2;
-
-        const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
-        const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
-        const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
-
-        // Evaluate edge functions at top-left corner of each pixel (add +0.5)
-        // Vec2<RealType> p_tl;
-        // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-        // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
-
-        // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
-        // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
-        // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
-
-        // Step increments when moving +1 in X or +1 in Y
-        // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
-        // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
-        // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
-        // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
-        // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
-        // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
-        // for y down, the - is needed
-        // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
-        // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
-        // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
-        // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
-        // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
-        // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
-
-    // Rasterize
-    draw_triangle_y_loop:
-        for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
-        {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-
-            IntType texture_y = iy + triangle_bb.min_y_;
-            IntType tile_y = texture_y - tile_bb.min_y_;
-            IntType tile_address_base = tile_y * tile_bb.width_;
-
-            // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
-            // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
-            // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
-
-        draw_triangle_x_loop:
-            for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
-            {
-#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
-#pragma HLS loop_flatten
-                //    #pragma HLS PIPELINE II = 1
-
-#pragma HLS dependence variable = depth_buffer type = inter false
-
-                // #pragma HLS dependence variable = fragment_buffer type = inter false
-
-                IntType texture_x = ix + triangle_bb.min_x_;
-                IntType tile_x = texture_x - tile_bb.min_x_;
-                IntType tile_address = tile_address_base + tile_x;
-
-                RealType prev_depth = depth_buffer[tile_address];
-
-                // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
-                // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
-                // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
-
-                Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
-                                 RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
-
-                RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
-                RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
-                RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
-
-                // Top-left rule adjustments (include pixels on top/left edges)
-                const bool inside =
-                    (eAB > 0 || (eAB == 0 && tlAB)) &&
-                    (eBC > 0 || (eBC == 0 && tlBC)) &&
-                    (eCA > 0 || (eCA == 0 && tlCA));
-
-                if (!inside)
-                    continue;
-
-                // Baricentric weights normalized
-                const RealType b0 = eBC * inv_area2;
-                const RealType b1 = eCA * inv_area2;
-                const RealType b2 = eAB * inv_area2;
-
-                // Depth (if needed; same trick)
-                RealType depth_px = b0 * triangle.vout[0].depth +
-                                    b1 * triangle.vout[1].depth +
-                                    b2 * triangle.vout[2].depth;
-
-                // Depth test
-                if (depth_px < RealType(0) || (prev_depth >= RealType(0) && prev_depth < depth_px))
-                    continue;
-
-                // Baricentric weights normalized (perpective)
-                RealType w0 = eBC * triangle.vout[0].invW;
-                RealType w1 = eCA * triangle.vout[1].invW;
-                RealType w2 = eAB * triangle.vout[2].invW;
-
-                // Perspective: 1/w at pixel
-                const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
-
-                w0 *= inv_invW_px;
-                w1 *= inv_invW_px;
-                w2 *= inv_invW_px;
-
-                // I am not sure if I should use perspective corrected interpolation or not
-                // Comparing with ground truth, nonperspective seems to give less error
-                Varyings varying_px = Derived::interpolate_varyings(triangle_id, w0, w1, w2,
-                                                                    triangle.vout[0].var,
-                                                                    triangle.vout[1].var,
-                                                                    triangle.vout[2].var);
-
-                // fragment_buffer[tile_address] = fragment;
-                varyings_buffer[tile_address] = varying_px;
-                depth_buffer[tile_address] = depth_px;
-            }
-        }
-    }
-
-    template <typename Samples, typename Uniforms, typename Fragment, typename Varyings>
-    static void compute_fragments_(const BoundingBox<IntType> &tile_bb, const Uniforms &uniforms, const Varyings varyings_buffer[], const Samples samples[], Fragment fragment_buffer[])
-    {
-        for (int y = 0; y < tile_bb.width_; ++y)
-        {
-            for (int x = 0; x < tile_bb.height_; ++x)
-            {
-                const int tile_address = (y * tile_bb.width_ + x);
-
-                Derived::fragment_shader(uniforms,
-                                         varyings_buffer[tile_address],
-                                         samples[tile_address],
-                                         fragment_buffer[tile_address]);
-            }
-        }
-    }
-
-    // Derived &derived_() { return *static_cast<Derived *>(this); }
-    // const Derived &derived_() const { return *static_cast<const Derived *>(this); }
-
-    // linalg::Mat4<MathType> opencv2opengl_;
-};
-/*
-template <typename MathType, typename OutType, template <class> class Texture>
-class GouraudRendererBase
+}
+
+template <typename Derived>
+static Triangle<Derived> create_triangle(const typename Derived::VertexData vertexdata[3],
+                                         const IntType vertexids[3],
+                                         IntType triangle_id,
+                                         const BoundingBox<IntType> &viewport,
+                                         const typename Derived::Uniforms &uniforms)
 {
-public:
-    struct InTextures
+    Triangle<Derived> triangle;
+
+    triangle.id = triangle_id;
+
+    // #pragma HLS INLINE off
+create_triangle_loop:
+    for (int j = 0; j < 3; ++j)
     {
-        const MathType notused;
-    };
+        // #pragma HLS UNROLL
 
-    struct OutTextures
-    {
-        Texture<Vec3<OutType>> &out_texture;
-    };
+        Vec4<RealType> gl_Position;
+        typename Derived::Varyings outvaryings;
+        typename Derived::VertexData vertexdata_ = vertexdata[j];
+        IntType vertexid_ = vertexids[j];
+        Derived::vertex_shader(vertexdata_,
+                               vertexid_,
+                               uniforms,
+                               gl_Position,
+                               outvaryings);
 
-    struct VertexData
-    {
-        Vec3<MathType> vertex;
-        Vec3<MathType> normal;
-    };
+        const RealType invW = RealType(1) / gl_Position(3);
+        const RealType ndc_x = gl_Position(0) * invW; // [-1,1]
+        const RealType ndc_y = gl_Position(1) * invW;
+        const RealType ndc_z = gl_Position(2) * invW; // assumed 0..1 after proj (adjust if -1..1)
 
-    struct InVaryings
-    {
-        Vec3<OutType> vColor;
-    };
+        // #ifndef USE_VITIS
+        // assert(ndc_x >= -1 && ndc_x <= 1 && ndc_y >= -1 && ndc_y <= 1 && ndc_z >= -1 && ndc_z <= 1);
+        // #endif
 
-    struct OutVaryings
-    {
-        Vec3<OutType> vColor;
-    };
+        VSOut<Derived> vsout;
+        // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
+        vsout.screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
+        vsout.screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
+        // triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
+        vsout.depth = ndc_z;
+        vsout.invW = invW;
+        vsout.var = outvaryings;
+        // vout[i].var_over_w = varyings * invW; // requires T*VaryingType
 
-    struct Fragment
-    {
-        Vec3<OutType> color;
-    };
-
-    GouraudRendererBase() = default;
-    ~GouraudRendererBase() = default;
-
-    template <class Mesh>
-    VertexData get_vertex_data(const Mesh &mesh, const unsigned int vertexid)
-    {
-        VertexData vertexdata;
-
-        vertexdata.vertex(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 0];
-        vertexdata.vertex(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 1];
-        vertexdata.vertex(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.pos_offset_ + 2];
-
-        vertexdata.normal(0) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 0];
-        vertexdata.normal(1) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 1];
-        vertexdata.normal(2) = mesh.vertex_buffer_[vertexid * mesh.stride_ + mesh.nor_offset_ + 2];
-
-        return vertexdata;
+        triangle.vout[j] = vsout;
     }
 
-    Varyings interpolate_varyings(const MathType w0, const MathType w1, const MathType w2,
-                                  const Varyings &varying_px0,
-                                  const Varyings &varying_px1,
-                                  const Varyings &varying_px2)
+    return triangle;
+}
+
+// Triangle rasterizer (top-left rule, perspective correct)
+template <typename Derived>
+static void draw_triangle(const Triangle<Derived> &triangle,
+                          const BoundingBox<IntType> &tile_bb,
+                          const typename Derived::Uniforms &uniforms,
+                          const typename Derived::InTextures &intextures,
+                          typename Derived::Fragment fragment_buffer[],
+                          RealType depth_buffer[])
+{
+    // #pragma HLS inline
+
+    IntType triangle_id = triangle.id;
+
+    BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
+
+    // IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
+    // IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
+    // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
+    // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
+
+    IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
+    IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
+    IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
+    IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
+
+    BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
+
+    // Back-face cull (optional). Keep CCW (area > 0) – adjust sign to your convention
+    RealType area2 = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen); // 2*area with sign
+
+    if (area2 <= RealType(0))
+        return; // enable to cull backfaces
+
+    const RealType inv_area2 = RealType(1) / area2;
+
+    const bool tlAB = is_top_left(triangle.vout[0].screen, triangle.vout[1].screen);
+    const bool tlBC = is_top_left(triangle.vout[1].screen, triangle.vout[2].screen);
+    const bool tlCA = is_top_left(triangle.vout[2].screen, triangle.vout[0].screen);
+
+    // Evaluate edge functions at top-left corner of each pixel (add +0.5)
+    // Vec2<RealType> p_tl;
+    // p_tl(0) = static_cast<RealType>(triangle_bb.min_x_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+    // p_tl(1) = static_cast<RealType>(triangle_bb.min_y_) + RealType(RenderConstants::PIXEL_CENTER_OFFSET);
+
+    // RealType eAB_row = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p_tl);
+    // RealType eBC_row = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p_tl);
+    // RealType eCA_row = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p_tl);
+
+    // Step increments when moving +1 in X or +1 in Y
+    // const MathType eAB_dx = (vout[0].screen(1) - vout[1].screen(1));
+    // const MathType eAB_dy = (vout[1].screen(0) - vout[0].screen(0));
+    // const MathType eBC_dx = (vout[1].screen(1) - vout[2].screen(1));
+    // const MathType eBC_dy = (vout[2].screen(0) - vout[1].screen(0));
+    // const MathType eCA_dx = (vout[2].screen(1) - vout[0].screen(1));
+    // const MathType eCA_dy = (vout[0].screen(0) - vout[2].screen(0));
+    // for y down, the - is needed
+    // const RealType eAB_dx = (triangle.vout[1].screen(1) - triangle.vout[0].screen(1));
+    // const RealType eAB_dy = (triangle.vout[0].screen(0) - triangle.vout[1].screen(0));
+    // const RealType eBC_dx = (triangle.vout[2].screen(1) - triangle.vout[1].screen(1));
+    // const RealType eBC_dy = (triangle.vout[1].screen(0) - triangle.vout[2].screen(0));
+    // const RealType eCA_dx = (triangle.vout[0].screen(1) - triangle.vout[2].screen(1));
+    // const RealType eCA_dy = (triangle.vout[2].screen(0) - triangle.vout[0].screen(0));
+
+// Rasterize
+draw_triangle_y_loop:
+    for (IntType iy = 0; iy < triangle_bb.height_; ++iy)
     {
-        // #pragma HLS inline
+#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
 
-        Varyings var_over_w_px;
-        var_over_w_px.vColor =
-            (w0 * varying_px0.vColor +
-             w1 * varying_px1.vColor +
-             w2 * varying_px2.vColor);
-        return var_over_w_px;
-    }
+        IntType texture_y = iy + triangle_bb.min_y_;
+        IntType tile_y = texture_y - tile_bb.min_y_;
+        IntType tile_address_base = tile_y * tile_bb.width_;
 
-    // -------------------------------------------------------------------------
-    // Shaders
-    // -------------------------------------------------------------------------
-    void vertex_shader(const VertexData &vertexdata,
-                       const unsigned int &vertexid,
-                       Vec4<MathType> &gl_Position,
-                       Varyings &outVarying)
-    {
-        // Transform to world space
-        Vec3<MathType> fragPos = Vec3<MathType>(uModel_ * Vec4<MathType>(vertexdata.vertex, MathType(1)));
-        Vec3<MathType> N = (uNormalMatrix_ * vertexdata.normal).normalized();
+        // const RealType eAB_row_local = RealType(iy) * eAB_dy + eAB_row;
+        // const RealType eBC_row_local = RealType(iy) * eBC_dy + eBC_row;
+        // const RealType eCA_row_local = RealType(iy) * eCA_dy + eCA_row;
 
-        // Lighting vectors
-        Vec3<MathType> L = (uLightPos_ - fragPos).normalized();
-        Vec3<MathType> V = (uViewPos_ - fragPos).normalized();
-        MathType n_dot_l = N.dot(L);
-        Vec3<MathType> R = L - MathType(2) * n_dot_l * N; // opengls reflect
-
-        // Phong reflectance model (computed per-vertex)
-        MathType NdotL = max(n_dot_l, MathType(0));
-        MathType spec = 0.0;
-        if (NdotL > 0.0)
+    draw_triangle_x_loop:
+        for (IntType ix = 0; ix < triangle_bb.width_; ++ix)
         {
-            spec = pow(max(V.dot(R), MathType(0)), uShininess_);
+#pragma HLS loop_tripcount min = 70 max = 70 avg = 70
+#pragma HLS loop_flatten
+            //    #pragma HLS PIPELINE II = 1
+
+#pragma HLS dependence variable = depth_buffer type = inter false
+
+            // #pragma HLS dependence variable = fragment_buffer type = inter false
+
+            IntType texture_x = ix + triangle_bb.min_x_;
+            IntType tile_x = texture_x - tile_bb.min_x_;
+            IntType tile_address = tile_address_base + tile_x;
+
+            RealType prev_depth = depth_buffer[tile_address];
+
+            // const RealType eAB = RealType(ix) * eAB_dx + eAB_row_local;
+            // const RealType eBC = RealType(ix) * eBC_dx + eBC_row_local;
+            // const RealType eCA = RealType(ix) * eCA_dx + eCA_row_local;
+
+            Vec2<RealType> p(RealType(texture_x) + RealType(RenderConstants::PIXEL_CENTER_OFFSET),
+                             RealType(texture_y) + RealType(RenderConstants::PIXEL_CENTER_OFFSET));
+
+            RealType eAB = edge_func(triangle.vout[0].screen, triangle.vout[1].screen, p);
+            RealType eBC = edge_func(triangle.vout[1].screen, triangle.vout[2].screen, p);
+            RealType eCA = edge_func(triangle.vout[2].screen, triangle.vout[0].screen, p);
+
+            // Top-left rule adjustments (include pixels on top/left edges)
+            const bool inside =
+                (eAB > 0 || (eAB == 0 && tlAB)) &&
+                (eBC > 0 || (eBC == 0 && tlBC)) &&
+                (eCA > 0 || (eCA == 0 && tlCA));
+
+            if (!inside)
+                continue;
+
+            // Baricentric weights normalized
+            const RealType b0 = eBC * inv_area2;
+            const RealType b1 = eCA * inv_area2;
+            const RealType b2 = eAB * inv_area2;
+            // Baricentric weights normalized (perpective)
+            RealType w0 = eBC * triangle.vout[0].invW;
+            RealType w1 = eCA * triangle.vout[1].invW;
+            RealType w2 = eAB * triangle.vout[2].invW;
+
+            // Perspective: 1/w at pixel
+            const RealType inv_invW_px = RealType(1) / (w0 + w1 + w2);
+
+            w0 *= inv_invW_px;
+            w1 *= inv_invW_px;
+            w2 *= inv_invW_px;
+
+            // I am not sure if I should use perspective corrected interpolation or not
+            // Comparing with ground truth, nonperspective seems to give less error
+            typename Derived::Varyings varying_px = Derived::interpolate_varyings(triangle_id, w0, w1, w2,
+                                                                                  triangle.vout[0].var,
+                                                                                  triangle.vout[1].var,
+                                                                                  triangle.vout[2].var);
+
+            // Depth (if needed; same trick)
+            RealType depth_px = b0 * triangle.vout[0].depth +
+                                b1 * triangle.vout[1].depth +
+                                b2 * triangle.vout[2].depth;
+
+            // Depth test
+            if (depth_px < RealType(0) || (prev_depth >= RealType(0) && prev_depth < depth_px))
+                continue;
+
+            Vec4<RealType> gl_FragCoord;
+            gl_FragCoord(0) = p(0);
+            gl_FragCoord(1) = p(1);
+            gl_FragCoord(2) = depth_px;
+            gl_FragCoord(3) = inv_invW_px;
+
+            // Fragment fragment;
+            Derived::fragment_shader(gl_FragCoord,
+                                     uniforms,
+                                     varying_px,
+                                     intextures,
+                                     fragment_buffer[tile_address]);
+
+            // fragment_buffer[tile_address] = fragment;
+            depth_buffer[tile_address] = depth_px;
         }
-
-        Vec3<MathType> ambient = uAmbientLight_ * uKa_;
-        Vec3<MathType> diffuse = uLightColor_ * uKd_ * NdotL;
-        Vec3<MathType> specular = uLightColor_ * uKs_ * spec;
-
-        outVarying.vColor = ambient + diffuse + specular;
-
-        gl_Position = uProjection_ * uView_ * Vec4<MathType>(fragPos, MathType(1));
     }
+}
 
-    void fragment_shader(const Vec4<MathType> &gl_FragCoord,
-                         const Varyings &in_varying,
-                         const InTextures &intextures,
-                         Fragment &fragment)
+template <typename Mesh, typename Derived>
+void draw_tile(const BoundingBox<IntType> &viewport,
+               const Mesh &mesh,
+               const typename Derived::Uniforms &uniforms,
+               const typename Derived::InTextures &intextures,
+               typename Derived::Fragment fragment_buffer[],
+               RealType depth_buffer[])
+{
+    auto vertex_map = mesh.vertex_buffer_.MapRead();
+    auto ebo_map = mesh.ebo_buffer_.MapRead();
+
+    int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
+
+    // Loop over triangles
+    for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
     {
-        // #pragma HLS INLINE
-        //  std::cout << "calling fragment shader " << std::endl;
-        //  if (!inside)
-        //     return;
+        int vertexids[3];
+        vertexids[0] = ebo_map[tri_idx * 3 + 0];
+        vertexids[1] = ebo_map[tri_idx * 3 + 1];
+        vertexids[2] = ebo_map[tri_idx * 3 + 2];
 
-        fragment.color = in_varying.vColor;
+        typename Derived::VertexData vertexdata[3];
+        vertexdata[0] = Derived::get_vertex_data(vertex_map, vertexids[0]);
+        vertexdata[1] = Derived::get_vertex_data(vertex_map, vertexids[1]);
+        vertexdata[2] = Derived::get_vertex_data(vertex_map, vertexids[2]);
+
+        Triangle<Derived> triangle = create_triangle<Derived>(vertexdata, vertexids, tri_idx, viewport, uniforms);
+        draw_triangle<Derived>(triangle, viewport, uniforms, intextures, fragment_buffer, depth_buffer);
     }
+}
 
-    void fragment_shader(const Vec4<MathType> &gl_FragCoord,
-                         const Varyings &in_varying,
-                         const InTextures &intextures,
-                         OutTextures &outtextures)
+template <typename Derived>
+static void sync_outtextures(typename Derived::OutTextures &textures,
+                             const BoundingBox<IntType> &tex_bb,
+                             const typename Derived::Fragment *fragment_buffer,
+                             typename Derived::Uniforms uniforms)
+{
+    // #pragma HLS INLINE
+
+depthrendererbase_sync_outtexture_y_loop:
+    for (IntType iy = 0; iy < tex_bb.height_; iy++)
     {
-        // #pragma HLS INLINE
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
-        outtextures.out_texture.set_texel_(in_varying.vColor, gl_FragCoord(1), gl_FragCoord(0), out_lvl_);
+    depthrendererbase_sync_outtexture_x_loop:
+        for (IntType ix = 0; ix < tex_bb.width_; ix++)
+        {
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+
+            IntType x = ix + tex_bb.min_x_;
+            IntType y = iy + tex_bb.min_y_;
+            IntType address = iy * tex_bb.width_ + ix;
+
+            set_outtexture(fragment_buffer[address], textures, x, y);
+
+            Vec3<RealType> fpos = fragment_buffer[address].fpos;
+            Vec3<RealType> kfpos = fragment_buffer[address].kfpos;
+            Vec3<RealType> bcid = fragment_buffer[address].bcid;
+
+            Vec3<float> fpos_out(fpos(0), fpos(1), fpos(2));
+            Vec3<float> kfpos_out(kfpos(0), kfpos(1), kfpos(2));
+            Vec3<float> bcid_out(bcid(0), bcid(1), bcid(2));
+
+            textures.gbuf_fpos(y, x) = fpos_out;
+            textures.gbuf_kfpos(y, x) = kfpos_out;
+            textures.gbuf_bcid(y, x) = bcid_out;
+        }
     }
-
-    Mat4<MathType> uModel_;        // model to world space
-    Mat4<MathType> uView_;         // world space to camera space
-    Mat4<MathType> uProjection_;   // camera space to clip space
-    Mat3<MathType> uNormalMatrix_; // transpose(inverse(mat3(uModel))) computed on CPU
-
-    Vec3<MathType> uLightPos_; // world space
-    Vec3<MathType> uViewPos_;  // camera position in world space
-
-    // Material and light
-    Vec3<MathType> uKa_;           // ambient reflectance (rgb)
-    Vec3<MathType> uKd_;           // diffuse reflectance (rgb)
-    Vec3<MathType> uKs_;           // specular reflectance (rgb)
-    MathType uShininess_;                  // specular exponent
-    Vec3<MathType> uLightColor_;   // light color/intensity (rgb)
-    Vec3<MathType> uAmbientLight_; // ambient light (rgb)
-
-    unsigned int out_lvl_;
-
-    Fragment nodata_;
-};
-*/
+}
 
 template <template <class> class TextureViewRead,
           template <class> class TextureViewWrite>
@@ -944,37 +588,19 @@ public:
         fragment.bcid = Vec3<RealType>(bc(0), bc(1), tri_id);
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> fpos = fragment.fpos;
+        Vec3<RealType> kfpos = fragment.kfpos;
+        Vec3<RealType> bcid = fragment.bcid;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> fpos_out(fpos(0), fpos(1), fpos(2));
+        Vec3<float> kfpos_out(kfpos(0), kfpos(1), kfpos(2));
+        Vec3<float> bcid_out(bcid(0), bcid(1), bcid(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> fpos = fragment_buffer[address].fpos;
-                Vec3<RealType> kfpos = fragment_buffer[address].kfpos;
-                Vec3<RealType> bcid = fragment_buffer[address].bcid;
-
-                Vec3<float> fpos_out(fpos(0), fpos(1), fpos(2));
-                Vec3<float> kfpos_out(kfpos(0), kfpos(1), kfpos(2));
-                Vec3<float> bcid_out(bcid(0), bcid(1), bcid(2));
-
-                textures.gbuf_fpos(y, x ) = fpos_out;
-                textures.gbuf_kfpos(y, x) = kfpos_out;
-                textures.gbuf_bcid(y, x) = bcid_out;
-            }
-        }
+        textures.gbuf_fpos(y, x) = fpos_out;
+        textures.gbuf_kfpos(y, x) = kfpos_out;
+        textures.gbuf_bcid(y, x) = bcid_out;
     }
 };
 
@@ -1094,28 +720,10 @@ public:
         fragment.depth = depth;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment fragment_buffer[], const Uniforms &uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                RealType depth = fragment_buffer[address].depth;
-                textures.out_texture(y, x) = depth;
-            }
-        }
+        RealType depth = fragment.depth;
+        textures.out_texture(y, x) = depth;
     }
 };
 
@@ -1247,7 +855,7 @@ public:
 
         Samples samples;
         samples.sample = sample<RealType, TextureViewRead<ImageType>>(intextures.in_texture,
-                                                                    texcoord(1), texcoord(0));
+                                                                      texcoord(1), texcoord(0));
 
         fragment_shader(uniforms, in_varying, samples, fragment);
     }
@@ -1297,28 +905,10 @@ public:
         }
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                ImageType color = fragment_buffer[address].color;
-                textures.out_texture(y, x) = color;
-            }
-        }
+        ImageType color = fragment.color;
+        textures.out_texture(y, x) = color;
     }
 };
 
@@ -1599,29 +1189,10 @@ public:
     }
     */
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> didxy = fragment_buffer[address].didxy;
-
-                textures.out_texture(y, x) = didxy;
-            }
-        }
+        Vec3<RealType> didxy = fragment.didxy;
+        textures.out_texture(y, x) = didxy;
     }
 };
 
@@ -1742,29 +1313,10 @@ public:
         fragment.didexp = out_fragment;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> didexp = fragment_buffer[address].didexp;
-
-                textures.out_texture(y, x) = didexp;
-            }
-        }
+        Vec3<RealType> didexp = fragment.didexp;
+        textures.out_texture(y, x) = didexp;
     }
 };
 
@@ -1924,35 +1476,17 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jtra = fragment.jtra;
+        Vec3<RealType> jrot = fragment.jrot;
+        Vec3<RealType> jexp = fragment.jexp;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                RealType image = fragment_buffer[address].image;
-
-                textures.jtra_texture(y, x) = jtra;
-                textures.jrot_texture(y, x) = jrot;
-                textures.jexp_texture(y, x) = jexp;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jtra_texture(y, x) = jtra;
+        textures.jrot_texture(y, x) = jrot;
+        textures.jexp_texture(y, x) = jexp;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -2132,39 +1666,21 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jtra = fragment.jtra;
+        Vec3<RealType> jrot = fragment.jrot;
+        Vec3<RealType> jtravel = fragment.jtravel;
+        Vec3<RealType> jrotvel = fragment.jrotvel;
+        Vec3<RealType> jexp = fragment.jexp;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jtravel = fragment_buffer[address].jtravel;
-                Vec3<RealType> jrotvel = fragment_buffer[address].jrotvel;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                RealType image = fragment_buffer[address].image;
-
-                textures.jtra_texture(y, x) = jtra;
-                textures.jrot_texture(y, x) = jrot;
-                textures.jtravel_texture(y, x) = jtravel;
-                textures.jrotvel_texture(y, x) = jrotvel;
-                textures.jexp_texture(y, x) = jexp;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jtra_texture(y, x) = jtra;
+        textures.jrot_texture(y, x) = jrot;
+        textures.jtravel_texture(y, x) = jtravel;
+        textures.jrotvel_texture(y, x) = jrotvel;
+        textures.jexp_texture(y, x) = jexp;
+        textures.image_texture(y, x) = image;
     }
 };
 

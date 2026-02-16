@@ -12,6 +12,7 @@
 
 #include "core/types.h"
 #include "core/mesh_helpers.h"
+#include "backends/base/renderref.h"
 
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"

@@ -20,10 +20,10 @@
 // -----------------------------------------------------------------------------
 
 template <template <class> class TextureView>
-class DepthRendererBase
+class DepthDeferredRendererBase
 {
 public:
-    DepthRendererBase() = delete;
+    DepthDeferredRendererBase() = delete;
     //~DepthRendererBase() = delete;
 
     struct InTextures

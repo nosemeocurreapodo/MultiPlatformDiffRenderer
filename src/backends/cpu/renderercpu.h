@@ -15,17 +15,17 @@
 #include "backends/cpu/meshcpu.h"
 
 template <class Base>
-class RendererBaseCPU : public RendererBase<Base>
+class RendererBaseCPU
 {
 public:
     using Fragment = typename Base::Fragment;
 
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
+    template <typename Mesh>
     void RenderNaive(const BoundingBox<int> &viewport,
                      const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     const InTextures &intextures,
-                     OutTextures &outtextures)
+                     const typename Base::Uniforms &uniforms,
+                     const typename Base::InTextures &intextures,
+                     typename Base::OutTextures &outtextures)
     {
         const int W = viewport.width_;
         const int H = viewport.height_;
@@ -43,29 +43,7 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
-        auto vertex_map = mesh.vertex_buffer_.MapRead();
-        auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-        int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
-
-        // Loop over triangles
-        for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
-        {
-            int vertexids[3];
-            vertexids[0] = ebo_map[tri_idx * 3 + 0];
-            vertexids[1] = ebo_map[tri_idx * 3 + 1];
-            vertexids[2] = ebo_map[tri_idx * 3 + 2];
-
-            typename Base::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
-
-            typename RendererBase<Base>::Triangle triangle;
-            this->create_triangle_(vertexdata, vertexids, tri_idx, viewport, uniforms, triangle);
-
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
-        }
+        draw_tile<Mesh, Base>(viewport, mesh, uniforms, intextures, fragment_buffer, depth_buffer);
 
         Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
     }
@@ -74,71 +52,6 @@ private:
     std::vector<Fragment> fragment_buffer_;
     std::vector<float> depth_buffer_;
 };
-
-/*
-template <class Base>
-class DeferredRendererBaseCPU : public RendererBase<DeferredRendererBase>
-{
-public:
-    using DeferredFragment = typename DeferredRendererBase::Fragment;
-    using Fragment = typename Base::Fragment;
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     const InTextures &intextures,
-                     OutTextures &outtextures)
-    {
-        const int W = viewport.width_;
-        const int H = viewport.height_;
-        const std::size_t n = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-
-        // Resize once, reuse capacity across calls
-        deferred_fragment_buffer_.resize(n);
-        depth_buffer_.resize(n);
-
-        // Initialize buffers
-        const DeferredFragment nodata_frag = DeferredRendererBase::fragment_nodata(outtextures);
-        std::fill(deferred_fragment_buffer_.begin(), deferred_fragment_buffer_.end(), nodata_frag);
-        std::fill(depth_buffer_.begin(), depth_buffer_.end(), -1.0f);
-
-        DeferredFragment *fragment_buffer = deferred_fragment_buffer_.data();
-        float *depth_buffer = depth_buffer_.data();
-
-        auto vertex_map = mesh.vertex_buffer_.MapRead();
-        auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-        int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
-
-        // Loop over triangles
-        for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
-        {
-            int vertexids[3];
-            vertexids[0] = ebo_map[tri_idx * 3 + 0];
-            vertexids[1] = ebo_map[tri_idx * 3 + 1];
-            vertexids[2] = ebo_map[tri_idx * 3 + 2];
-
-            typename DeferredRendererBase::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
-
-            typename RendererBase<DeferredRendererBase>::Triangle triangle;
-            this->create_triangle_(vertexdata, vertexids, tri_idx, viewport, uniforms, triangle);
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, deferred_fragment_buffer_);
-        }
-
-        
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
-    }
-
-private:
-    std::vector<Fragment> fragment_buffer_;
-    std::vector<DeferredFragment> deferred_fragment_buffer_;
-    std::vector<float> depth_buffer_;
-};
-*/
 
 class DeferredRendererCPU
     : public RendererBaseCPU<DeferredRendererBase<TextureViewReadCPU,
