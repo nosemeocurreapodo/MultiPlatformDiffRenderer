@@ -68,28 +68,10 @@ public:
         fragment.depth = depth;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment fragment_buffer[], const Uniforms &uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                RealType depth = fragment_buffer[address].depth;
-                textures.out_texture(y, x) = depth;
-            }
-        }
+        RealType depth = fragment.depth;
+        textures.out_texture(y, x) = depth;
     }
 };
 

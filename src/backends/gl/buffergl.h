@@ -1,8 +1,8 @@
 #pragma once
 #include "backends/base/mappedviewbase.h"
 #include "backends/gl/devicegl_glad.h"
-// #include <cstddef>
-// #include <utility>
+#include <cstddef>
+#include <utility>
 #include <vector>
 #include <stdexcept>
 
@@ -43,6 +43,7 @@ public:
     {
         if (n)
         {
+            glBindBuffer(Target, id_);
             glBufferSubData(Target, 0, n * sizeof(T), src);
         }
     }
@@ -117,9 +118,6 @@ public:
     std::size_t size() const noexcept { return size_; }
     GLuint id() const noexcept { return id_; }
 
-    GLuint id_ = 0;
-    std::size_t size_ = 0;
-
 private:
     std::size_t bytes() const noexcept { return size_ * sizeof(T); }
 
@@ -153,4 +151,7 @@ private:
         glBindBuffer(GL_COPY_READ_BUFFER, 0);
         glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
     }
+
+    GLuint id_ = 0;
+    std::size_t size_ = 0;
 };

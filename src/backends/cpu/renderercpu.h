@@ -45,7 +45,7 @@ public:
 
         draw_tile<Mesh, Base>(viewport, mesh, uniforms, intextures, fragment_buffer, depth_buffer);
 
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
+        sync_outtextures<Base>(outtextures, viewport, fragment_buffer, uniforms);
     }
 
 private:
@@ -95,7 +95,6 @@ public:
 
 private:
 };
-
 
 // -----------------------------------------------------------------------------
 // DepthRendererCPU

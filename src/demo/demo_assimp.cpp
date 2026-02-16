@@ -155,10 +155,11 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_CPU
 
-    MeshCPU meshcpu, meshcpu_screen;
+    MeshCPU meshcpu;
     TextureCPU<ImageType> diffusecpu;
-
     LoadAssimpMesh(model_path, meshcpu, diffusecpu);
+
+    MeshCPU meshcpu_screen;
     CreateScreenQuad(meshcpu_screen);
 
     DiffRendererCPU renderercpu;
@@ -179,10 +180,16 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_GL
 
-    MeshGL meshgl, meshgl_screen;
-    TextureGL<ImageType> diffusegl;
+    MeshGL meshgl;
+    TextureGL<ImageType> diffusegl_;
+    LoadAssimpMesh(model_path, meshgl, diffusegl_);
 
-    LoadAssimpMesh(model_path, meshgl, diffusegl);
+    cv::Mat diffuse_cv_ = MakeCheckerTex(1024, 1024, 32, 1);
+
+    TextureGL<ImageType> diffusegl(diffuse_cv_.cols, diffuse_cv_.rows, 0);
+    UploadMatToTexture(diffusegl, 0, diffuse_cv_);
+
+    MeshGL meshgl_screen;
     CreateScreenQuad(meshgl_screen);
 
     DiffRendererGL renderergl;
@@ -577,11 +584,13 @@ int main(int argc, char **argv)
         }
 #endif
 
+        /*
         if (i % 90 == 0)
         {
             toshow++;
             toshow %= output_names.size();
         }
+        */
     }
 
     // Stats

@@ -441,19 +441,7 @@ depthrendererbase_sync_outtexture_y_loop:
             IntType y = iy + tex_bb.min_y_;
             IntType address = iy * tex_bb.width_ + ix;
 
-            set_outtexture(fragment_buffer[address], textures, x, y);
-
-            Vec3<RealType> fpos = fragment_buffer[address].fpos;
-            Vec3<RealType> kfpos = fragment_buffer[address].kfpos;
-            Vec3<RealType> bcid = fragment_buffer[address].bcid;
-
-            Vec3<float> fpos_out(fpos(0), fpos(1), fpos(2));
-            Vec3<float> kfpos_out(kfpos(0), kfpos(1), kfpos(2));
-            Vec3<float> bcid_out(bcid(0), bcid(1), bcid(2));
-
-            textures.gbuf_fpos(y, x) = fpos_out;
-            textures.gbuf_kfpos(y, x) = kfpos_out;
-            textures.gbuf_bcid(y, x) = bcid_out;
+            Derived::set_outtexture(fragment_buffer[address], textures, x, y);
         }
     }
 }
@@ -1786,29 +1774,11 @@ public:
         fragment.pids = ids;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
-
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
-
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-                textures.pids_texture(y, x) = pids_out;
-            }
-        }
+        Vec3<IntType> pids = fragment.pids;
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
+        textures.pids_texture(y, x) = pids_out;
     }
 };
 
@@ -2020,39 +1990,21 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jdepth = fragment.jdepth;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jdepth = fragment_buffer[address].jdepth;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jdepth_texture(y, x) = jdepth_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jdepth_texture(y, x) = jdepth_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -2288,48 +2240,30 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jdepth = fragment.jdepth;
+        Vec3<RealType> jray0 = fragment.jray0;
+        Vec3<RealType> jray1 = fragment.jray1;
+        Vec3<RealType> jray2 = fragment.jray2;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
+        Vec3<float> jray0_out(jray0(0), jray0(1), jray0(2));
+        Vec3<float> jray1_out(jray1(0), jray1(1), jray1(2));
+        Vec3<float> jray2_out(jray2(0), jray2(1), jray2(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jdepth = fragment_buffer[address].jdepth;
-                Vec3<RealType> jray0 = fragment_buffer[address].jray0;
-                Vec3<RealType> jray1 = fragment_buffer[address].jray1;
-                Vec3<RealType> jray2 = fragment_buffer[address].jray2;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
-                Vec3<float> jray0_out(jray0(0), jray0(1), jray0(2));
-                Vec3<float> jray1_out(jray1(0), jray1(1), jray1(2));
-                Vec3<float> jray2_out(jray2(0), jray2(1), jray2(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jdepth_texture(y, x) = jdepth_out;
-                textures.jray0_texture(y, x) = jray0_out;
-                textures.jray1_texture(y, x) = jray1_out;
-                textures.jray2_texture(y, x) = jray2_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jdepth_texture(y, x) = jdepth_out;
+        textures.jray0_texture(y, x) = jray0_out;
+        textures.jray1_texture(y, x) = jray1_out;
+        textures.jray2_texture(y, x) = jray2_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -2530,45 +2464,27 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jv0 = fragment.jv0;
+        Vec3<RealType> jv1 = fragment.jv1;
+        Vec3<RealType> jv2 = fragment.jv2;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> jv0_out(jv0(0), jv0(1), jv0(2));
+        Vec3<float> jv1_out(jv1(0), jv1(1), jv1(2));
+        Vec3<float> jv2_out(jv2(0), jv2(1), jv2(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jv0 = fragment_buffer[address].jv0;
-                Vec3<RealType> jv1 = fragment_buffer[address].jv1;
-                Vec3<RealType> jv2 = fragment_buffer[address].jv2;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jv0_out(jv0(0), jv0(1), jv0(2));
-                Vec3<float> jv1_out(jv1(0), jv1(1), jv1(2));
-                Vec3<float> jv2_out(jv2(0), jv2(1), jv2(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jv0_texture(y, x) = jv0_out;
-                textures.jv1_texture(y, x) = jv1_out;
-                textures.jv2_texture(y, x) = jv2_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jv0_texture(y, x) = jv0_out;
+        textures.jv1_texture(y, x) = jv1_out;
+        textures.jv2_texture(y, x) = jv2_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -2803,45 +2719,27 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-#pragma HLS INLINE
+        Vec3<RealType> jtra = fragment.jtra;
+        Vec3<RealType> jrot = fragment.jrot;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<RealType> jdepth = fragment.jdepth;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
+        Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<RealType> jdepth = fragment_buffer[address].jdepth;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
-                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jtra_texture(y, x) = jtra_out;
-                textures.jrot_texture(y, x) = jrot_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.jdepth_texture(y, x) = jdepth_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jtra_texture(y, x) = jtra_out;
+        textures.jrot_texture(y, x) = jrot_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.jdepth_texture(y, x) = jdepth_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -3092,51 +2990,33 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
-        // #pragma HLS INLINE
+        Vec3<RealType> jtra = fragment.jtra;
+        Vec3<RealType> jrot = fragment.jrot;
+        Vec3<RealType> jtravel = fragment.jtravel;
+        Vec3<RealType> jrotvel = fragment.jrotvel;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<RealType> jdepth = fragment.jdepth;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
+        Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
+        Vec3<float> jtravel_out(jtravel(0), jtravel(1), jtravel(2));
+        Vec3<float> jrotvel_out(jrotvel(0), jrotvel(1), jrotvel(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
-
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jtravel = fragment_buffer[address].jtravel;
-                Vec3<RealType> jrotvel = fragment_buffer[address].jrotvel;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<RealType> jdepth = fragment_buffer[address].jdepth;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
-                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
-                Vec3<float> jtravel_out(jtravel(0), jtravel(1), jtravel(2));
-                Vec3<float> jrotvel_out(jrotvel(0), jrotvel(1), jrotvel(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<float> jdepth_out(jdepth(0), jdepth(1), jdepth(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jtra_texture(y, x) = jtra_out;
-                textures.jrot_texture(y, x) = jrot_out;
-                textures.jtravel_texture(y, x) = jtravel_out;
-                textures.jrotvel_texture(y, x) = jrotvel_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.jdepth_texture(y, x) = jdepth_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jtra_texture(y, x) = jtra_out;
+        textures.jrot_texture(y, x) = jrot_out;
+        textures.jtravel_texture(y, x) = jtravel_out;
+        textures.jrotvel_texture(y, x) = jrotvel_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.jdepth_texture(y, x) = jdepth_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
 
@@ -3379,44 +3259,28 @@ public:
         fragment.image = f_exp;
     }
 
-    static void sync_outtextures(OutTextures &textures, const BoundingBox<IntType> &tex_bb, const Fragment *fragment_buffer, Uniforms uniforms)
+    static void set_outtexture(const Fragment &fragment, OutTextures &textures, IntType x, IntType y)
     {
 #pragma HLS INLINE
 
-    depthrendererbase_sync_outtexture_y_loop:
-        for (IntType iy = 0; iy < tex_bb.height_; iy++)
-        {
-#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+        Vec3<RealType> jtra = fragment.jtra;
+        Vec3<RealType> jrot = fragment.jrot;
+        Vec3<RealType> jexp = fragment.jexp;
+        Vec3<RealType> jmap = fragment.jmap;
+        Vec3<IntType> pids = fragment.pids;
+        RealType image = fragment.image;
 
-        depthrendererbase_sync_outtexture_x_loop:
-            for (IntType ix = 0; ix < tex_bb.width_; ix++)
-            {
-#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+        Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
+        Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
+        Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
+        Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
+        Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
 
-                IntType x = ix + tex_bb.min_x_;
-                IntType y = iy + tex_bb.min_y_;
-                IntType address = iy * tex_bb.width_ + ix;
-
-                Vec3<RealType> jtra = fragment_buffer[address].jtra;
-                Vec3<RealType> jrot = fragment_buffer[address].jrot;
-                Vec3<RealType> jexp = fragment_buffer[address].jexp;
-                Vec3<RealType> jmap = fragment_buffer[address].jmap;
-                Vec3<IntType> pids = fragment_buffer[address].pids;
-                RealType image = fragment_buffer[address].image;
-
-                Vec3<float> jtra_out(jtra(0), jtra(1), jtra(2));
-                Vec3<float> jrot_out(jrot(0), jrot(1), jrot(2));
-                Vec3<float> jexp_out(jexp(0), jexp(1), jexp(2));
-                Vec3<float> jmap_out(jmap(0), jmap(1), jmap(2));
-                Vec3<PidType> pids_out(pids(0), pids(1), pids(2));
-
-                textures.jtra_texture(y, x) = jtra_out;
-                textures.jrot_texture(y, x) = jrot_out;
-                textures.jexp_texture(y, x) = jexp_out;
-                textures.jmap_texture(y, x) = jmap_out;
-                textures.pids_texture(y, x) = pids_out;
-                textures.image_texture(y, x) = image;
-            }
-        }
+        textures.jtra_texture(y, x) = jtra_out;
+        textures.jrot_texture(y, x) = jrot_out;
+        textures.jexp_texture(y, x) = jexp_out;
+        textures.jmap_texture(y, x) = jmap_out;
+        textures.pids_texture(y, x) = pids_out;
+        textures.image_texture(y, x) = image;
     }
 };
