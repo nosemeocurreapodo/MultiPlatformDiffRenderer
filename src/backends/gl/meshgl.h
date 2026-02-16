@@ -95,36 +95,31 @@ public:
     }
 
     // ---------- MOVE CONSTRUCTOR / ASSIGNMENT ----------
-    MeshGL(MeshGL &&o) noexcept
+    MeshGL(MeshGL &&other) noexcept
+        : vao_(0),
+          vertex_buffer_(other.vertex_buffer_),
+          ebo_buffer_(other.ebo_buffer_),
+          stride_(other.stride_),
+          pos_offset_(other.pos_offset_),
+          tex_offset_(other.tex_offset_),
+          nor_offset_(other.nor_offset_)
     {
-        destroy_vao_();
-
-        // vao_ = std::exchange(o.vao_, 0);
-        vertex_buffer_ = std::move(o.vertex_buffer_);
-        ebo_buffer_ = std::move(o.ebo_buffer_);
-
-        stride_ = o.stride_;
-        pos_offset_ = o.pos_offset_;
-        tex_offset_ = o.tex_offset_;
-        nor_offset_ = o.nor_offset_;
-
         create_vao_();
     }
 
-    MeshGL &operator=(MeshGL &&o) noexcept
+    MeshGL &operator=(MeshGL &&other) noexcept
     {
-        if (this != &o)
+        if (this != &other)
         {
             destroy_vao_();
 
-            // vao_ = std::exchange(o.vao_, 0);
-            vertex_buffer_ = std::move(o.vertex_buffer_);
-            ebo_buffer_ = std::move(o.ebo_buffer_);
+            vertex_buffer_ = other.vertex_buffer_;
+            ebo_buffer_ = other.ebo_buffer_;
 
-            stride_ = o.stride_;
-            pos_offset_ = o.pos_offset_;
-            tex_offset_ = o.tex_offset_;
-            nor_offset_ = o.nor_offset_;
+            stride_ = other.stride_;
+            pos_offset_ = other.pos_offset_;
+            tex_offset_ = other.tex_offset_;
+            nor_offset_ = other.nor_offset_;
 
             create_vao_();
         }

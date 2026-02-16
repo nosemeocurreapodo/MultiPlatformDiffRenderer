@@ -181,13 +181,8 @@ int main(int argc, char **argv)
 #ifdef COMPILE_GL
 
     MeshGL meshgl;
-    TextureGL<ImageType> diffusegl_;
-    LoadAssimpMesh(model_path, meshgl, diffusegl_);
-
-    cv::Mat diffuse_cv_ = MakeCheckerTex(1024, 1024, 32, 1);
-
-    TextureGL<ImageType> diffusegl(diffuse_cv_.cols, diffuse_cv_.rows, 0);
-    UploadMatToTexture(diffusegl, 0, diffuse_cv_);
+    TextureGL<ImageType> diffusegl;
+    LoadAssimpMesh(model_path, meshgl, diffusegl);
 
     MeshGL meshgl_screen;
     CreateScreenQuad(meshgl_screen);

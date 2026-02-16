@@ -2648,8 +2648,8 @@ public:
 
             void main()
             {
-                //float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
-                float kf = texelFetch(kf_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).x;
+                float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
+                //float kf = texelFetch(kf_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).x;
                 //vec3 d_f_d_xy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xyz;
                 vec3 d_f_d_xy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xyz;
 
