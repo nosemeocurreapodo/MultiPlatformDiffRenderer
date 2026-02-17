@@ -388,31 +388,29 @@ draw_triangle_y_loop:
     }
 }
 
-template <typename Mesh, typename Derived>
-void draw_tile(const BoundingBox<IntType> &viewport,
-               const Mesh &mesh,
-               const typename Derived::Uniforms &uniforms,
-               const typename Derived::InTextures &intextures,
-               typename Derived::Fragment fragment_buffer[],
-               RealType depth_buffer[])
+template <typename VertexBufferView, typename EboBufferView, typename Derived>
+static void draw_tile(const BoundingBox<IntType> &viewport,
+                      const VertexBufferView &vertex_buffer,
+                      const EboBufferView &ebo_buffer,
+                      const typename Derived::Uniforms &uniforms,
+                      const typename Derived::InTextures &intextures,
+                      typename Derived::Fragment fragment_buffer[],
+                      RealType depth_buffer[])
 {
-    auto vertex_map = mesh.vertex_buffer_.MapRead();
-    auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-    int total_num_triangles = static_cast<int>(ebo_map.size()) / 3;
+    IntType total_num_triangles = ebo_buffer.size() / 3;
 
     // Loop over triangles
-    for (unsigned int tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
+    for (IntType tri_idx = 0; tri_idx < total_num_triangles; tri_idx++)
     {
-        int vertexids[3];
-        vertexids[0] = ebo_map[tri_idx * 3 + 0];
-        vertexids[1] = ebo_map[tri_idx * 3 + 1];
-        vertexids[2] = ebo_map[tri_idx * 3 + 2];
+        IntType vertexids[3];
+        vertexids[0] = ebo_buffer[tri_idx * 3 + 0];
+        vertexids[1] = ebo_buffer[tri_idx * 3 + 1];
+        vertexids[2] = ebo_buffer[tri_idx * 3 + 2];
 
         typename Derived::VertexData vertexdata[3];
-        vertexdata[0] = Derived::get_vertex_data(vertex_map, vertexids[0]);
-        vertexdata[1] = Derived::get_vertex_data(vertex_map, vertexids[1]);
-        vertexdata[2] = Derived::get_vertex_data(vertex_map, vertexids[2]);
+        vertexdata[0] = Derived::get_vertex_data(vertex_buffer, vertexids[0]);
+        vertexdata[1] = Derived::get_vertex_data(vertex_buffer, vertexids[1]);
+        vertexdata[2] = Derived::get_vertex_data(vertex_buffer, vertexids[2]);
 
         Triangle<Derived> triangle = create_triangle<Derived>(vertexdata, vertexids, tri_idx, viewport, uniforms);
         draw_triangle<Derived>(triangle, viewport, uniforms, intextures, fragment_buffer, depth_buffer);
@@ -446,8 +444,7 @@ depthrendererbase_sync_outtexture_y_loop:
     }
 }
 
-template <template <class> class TextureViewRead,
-          template <class> class TextureViewWrite>
+template <template <class> class TextureViewWrite>
 class DeferredRendererBase
 {
 public:
@@ -456,7 +453,7 @@ public:
 
     struct InTextures
     {
-        const float not_used;
+        const IntType not_used;
     };
 
     struct OutTextures

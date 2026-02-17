@@ -20,9 +20,11 @@ class RendererBaseCPU
 public:
     using Fragment = typename Base::Fragment;
 
-    template <typename Mesh>
+    template <typename VertexBufferView, typename EboBufferView>
     void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
+                     // const Mesh &mesh,
+                     const VertexBufferView &vertex_buffer,
+                     const EboBufferView &ebo_buffer,
                      const typename Base::Uniforms &uniforms,
                      const typename Base::InTextures &intextures,
                      typename Base::OutTextures &outtextures)
@@ -43,7 +45,7 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
-        draw_tile<Mesh, Base>(viewport, mesh, uniforms, intextures, fragment_buffer, depth_buffer);
+        draw_tile<VertexBufferView, EboBufferView, Base>(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, fragment_buffer, depth_buffer);
 
         sync_outtextures<Base>(outtextures, viewport, fragment_buffer, uniforms);
     }
@@ -54,12 +56,10 @@ private:
 };
 
 class DeferredRendererCPU
-    : public RendererBaseCPU<DeferredRendererBase<TextureViewReadCPU,
-                                                  TextureViewWriteCPU>>
+    : public RendererBaseCPU<DeferredRendererBase<TextureViewWriteCPU>>
 {
 public:
-    using Base = DeferredRendererBase<TextureViewReadCPU,
-                                      TextureViewWriteCPU>;
+    using Base = DeferredRendererBase<TextureViewWriteCPU>;
 
     DeferredRendererCPU() = default;
     ~DeferredRendererCPU() = default;
@@ -87,7 +87,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -129,7 +130,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -180,7 +182,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -219,7 +222,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -260,7 +264,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -419,7 +424,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -483,7 +489,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -520,7 +527,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -704,7 +712,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -766,7 +775,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -827,7 +837,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -887,7 +898,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -955,7 +967,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -1014,7 +1027,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);

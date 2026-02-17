@@ -386,6 +386,7 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     TextureGL<ImageType> input_gl(w_, h_, 0);
     TextureGL<ImageType> output_gl(w_, h_, 0);
 
+    ResidualRRCPU reducer_cpu;
     ResidualReducerGL reducer_gl;
 
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
@@ -413,9 +414,13 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, input_gl, output_gl);
             acc_gl_time += timer_.Stop();
 
-            float error_gl;
-            reducer_gl.reduce(out_lvl, input_gl, output_gl, error_gl);
-            float error_cpu = RMSE(input_gl, output_gl, out_lvl);
+            float error_gl_;
+            reducer_gl.reduce(out_lvl, input_gl, output_gl, error_gl_);
+            float error_cpu_ = reducer_cpu.compute(mesh_cpu, pose_transform, cam_,
+                                                   out_lvl, input_cpu, input_cpu, 1000000.0);
+
+            float error_gl = RMSE(input_gl, output_gl, out_lvl);
+            float error_cpu = RMSE(input_cpu, output_cpu, out_lvl);
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
             int valid_gl = CountValid(output_gl, out_lvl);
