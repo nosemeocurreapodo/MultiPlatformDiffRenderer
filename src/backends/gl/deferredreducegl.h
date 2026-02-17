@@ -14,23 +14,22 @@
 #include "backends/gl/common.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
-#include "backends/gl/deferredrenderergl.h"
+#include "backends/gl/renderergl.h"
 
-class ResidualRRGL
+class ResidualReduceGL
 {
 public:
-    ResidualRRGL()
+    ResidualReduceGL()
     {
         const char *compute_shader = R"Shader(
-        // aa_fwd.comp
         #version 430
 
         layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
         // Use the correct layout() for your textures.
         // rgba8 works for GL_RGBA8; rgba16f for GL_RGBA16F, etc.
-        layout(binding = 0, rgb32f)  readonly uniform image2D kf_pos_texture;
-        layout(binding = 1, r32f)  readonly uniform sampler2D kf_texture;
+        layout(binding = 0, rgba32f)  readonly uniform image2D kf_pos_texture;
+        layout(binding = 1)  uniform sampler2D kf_texture;
         layout(binding = 2, r32f)  readonly uniform image2D f_texture;
 
         layout(std430, binding = 0) buffer PartialSums
@@ -59,24 +58,21 @@ public:
             ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
             uint  lid = gl_LocalInvocationIndex; // 0..255 within the workgroup
 
-            float v = 0.0;
-            int valid = 0;
-
-            if (gid.x < uSize.x && gid.y < uSize.y)
-            {
-                vec3 kf_pos = imageLoad(kf_texture, gid).xyz;
-                vec2 texcoord = pointToPix(kf_pos, cam.x, cam.y, cam.z, cam.w);
-                float kf = texture(image, texcoord).x;
-                //float kf = imageLoad(kf_texture, gid).x;
-                float f = imageLoad(f_texture, gid).x;
-                
-                if (a != imgA_nodata && b != imgB_nodata)
-                {
-                    v = (a - b) * (a - b);
-                    valid = 1;
-                }
-            }
-
+            if (gid.x >= uSize.x || gid.y >= uSize.y)
+                return;
+            
+            vec3 kf_pos = imageLoad(kf_pos_texture, gid).xyz;
+            vec2 texcoord = pointToPix(kf_pos, cam.x, cam.y, cam.z, cam.w);
+            float kf = texture(kf_texture, texcoord).x;
+            //float kf = imageLoad(kf_texture, gid).x;
+            float f = imageLoad(f_texture, gid).x;
+            
+            if (kf == kf_nodata || f == f_nodata)
+                return;
+            
+            float v = (kf - f) * (kf - f);
+            int valid = 1;
+        
             sdata[lid] = v;
             sdata_valid[lid] = valid;
             barrier();
@@ -109,7 +105,7 @@ public:
 
     float compute(const PinholeCamera<float> &cam,
                   int lvl,
-                  const TextureGL<Vec3<float>> gbuf_kfpos;
+                  const TextureGL<Vec3<float>> gbuf_kfpos,
                   const TextureGL<ImageType> &kf_texture,
                   const TextureGL<ImageType> &f_texture)
     {
@@ -140,7 +136,7 @@ public:
         glUseProgram(computeProgram_);
         glUniform2i(glGetUniformLocation(computeProgram_, "uSize"), width, height);
         glUniform1i(glGetUniformLocation(computeProgram_, "uNumGroupsX"), groupsX);
-        glUniform4v(glGetUniformLocation(computeProgram_, "cam"), cam_params(0), cam_params(1), cam_params(2), cam_params(3));
+        glUniform4f(glGetUniformLocation(computeProgram_, "cam"), cam_params(0), cam_params(1), cam_params(2), cam_params(3));
 
         glDispatchCompute(groupsX, groupsY, 1);
 
@@ -174,4 +170,41 @@ private:
     GLuint computeProgram_;
     GLuint error_ssbo_;
     GLuint count_ssbo_;
+};
+
+class ResidualRRGL
+{
+public:
+    ResidualRRGL()
+        : fpos_texture(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
+          kfpos_texture(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
+          bc_texture(1, 1, Vec3<float>(0.0, 0.0, 0.0))
+    {
+    }
+
+    float compute(const MeshGL &mesh,
+                  const SE3<float> &pose,
+                  const PinholeCamera<float> &cam,
+                  int lvl,
+                  const TextureGL<ImageType> &kf_texture,
+                  const TextureGL<ImageType> &f_texture,
+                  float huber_thresh)
+    {
+        if (fpos_texture.width(0) != kf_texture.width(0) || fpos_texture.height(0) != kf_texture.height(0))
+        {
+            fpos_texture = TextureGL<Vec3<float>>(kf_texture.width(0), kf_texture.height(0), Vec3<float>(0.0, 0.0, 0.0));
+            kfpos_texture = TextureGL<Vec3<float>>(kf_texture.width(0), kf_texture.height(0), Vec3<float>(0.0, 0.0, 0.0));
+            bc_texture = TextureGL<Vec3<float>>(kf_texture.width(0), kf_texture.height(0), Vec3<float>(0.0, 0.0, 0.0));
+        }
+        referred_renderer.Render(mesh, pose, cam, lvl, fpos_texture, kfpos_texture, bc_texture);
+        return residual_reduce.compute(cam, lvl, kfpos_texture, kf_texture, f_texture);
+    }
+
+private:
+    DeferredRendererGL referred_renderer;
+    ResidualReduceGL residual_reduce;
+
+    TextureGL<Vec3<float>> fpos_texture;
+    TextureGL<Vec3<float>> kfpos_texture;
+    TextureGL<Vec3<float>> bc_texture;
 };

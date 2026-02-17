@@ -31,7 +31,7 @@ static RealType residual_reduce(const BoundingBox<IntType> &viewport,
             IntType y = iy + viewport.min_y_;
             IntType address = iy * viewport.width_ + ix;
 
-            if (depth_buffer[address] <= 0.0f)
+            if (depth_buffer[address] == -1.0f)
                 continue;
 
             Fragment deffrag = fragment_buffer[address];
@@ -52,7 +52,7 @@ static RealType residual_reduce(const BoundingBox<IntType> &viewport,
             count++;
         }
     }
-    return sum / RealType(count);
+    return sqrt(sum / RealType(count));
 }
 
 template <template <class> class TextureViewRead,

@@ -24,6 +24,7 @@
 #include "backends/gl/texturegl.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/renderergl.h"
+#include "backends/gl/deferredreducegl.h"
 #include "backends/gl/reducergl.h"
 #include "backends/gl/nvdiffrastgl.h"
 #endif
