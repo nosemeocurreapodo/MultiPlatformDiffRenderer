@@ -8,23 +8,23 @@
 #include "core/types.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
-#include "backends/base/rendererbase.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
+#include "backends/base/rendererbase.h"
+#include "backends/base/renderersbase.h"
 
 template <class Base>
-class RendererBaseCPU
+class RendererBaseCPU : public RendererBase<Base>
 {
 public:
     using Fragment = typename Base::Fragment;
 
-    template <typename VertexBufferView, typename EboBufferView>
     void RenderNaive(const BoundingBox<int> &viewport,
                      // const Mesh &mesh,
-                     const VertexBufferView &vertex_buffer,
-                     const EboBufferView &ebo_buffer,
+                     const BufferViewCPU<const float> &vertex_buffer,
+                     const BufferViewCPU<const int> &ebo_buffer,
                      const typename Base::Uniforms &uniforms,
                      const typename Base::InTextures &intextures,
                      typename Base::OutTextures &outtextures)
@@ -45,9 +45,14 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
-        draw_tile<VertexBufferView, EboBufferView, Base>(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, fragment_buffer, depth_buffer);
-
-        sync_outtextures<Base>(outtextures, viewport, fragment_buffer, uniforms);
+        this->RenderTile(viewport,
+                         vertex_buffer,
+                         ebo_buffer,
+                         uniforms,
+                         intextures,
+                         outtextures,
+                         fragment_buffer,
+                         depth_buffer);
     }
 
 private:

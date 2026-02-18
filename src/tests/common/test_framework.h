@@ -17,7 +17,8 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
-#include "backends/cpu/deferredreducecpu.h"
+//#include "backends/cpu/deferredreducecpu.h"
+#include "backends/cpu/deferredrenderercpu.h"
 
 #ifdef COMPILE_GL
 #include "backends/gl/devicegl_glad.h"

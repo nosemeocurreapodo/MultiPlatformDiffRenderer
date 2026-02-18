@@ -10,13 +10,14 @@
 #include "core/boundingbox.h"
 #include "core/render_constants.h"
 #include "backends/base/rendererbase.h"
+#include "backends/base/renderersbase.h"
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/bufferhls.h"
 #include "backends/xrt/hls/meshhls.h"
 
 #include "hls_task.h"
 
-template <class Derived, class Base>
+template <class Base>
 class RendererBaseHLS
     : public RendererBase<Base>
 {
@@ -24,10 +25,12 @@ public:
     // RendererBaseHLS() = default;
     //~RendererBaseHLS() = default;
 
+    using Triangle = Triangle<Base>;
     using Fragment = typename Base::Fragment;
-    using Triangle = typename RendererBase<Base>::Triangle;
+    using Uniforms = typename Base::Uniforms;
+    using InTextures = typename Base::InTextures;
+    using OutTextures = typename Base::OutTextures;
 
-    template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<IntType> &viewport,
                      const BufferViewReadHLS<float> &vertex_buffer,
                      const BufferViewReadHLS<int> &ebo_buffer,
@@ -41,47 +44,34 @@ public:
 #pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
 #pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
 
+    renderbase_reset_loop_y:
         for (int y = viewport.min_y_; y < viewport.max_y_; y++)
         {
+#pragma HLS loop_tripcount min = MAX_HEIGHT max = MAX_HEIGHT avg = MAX_HEIGHT
+
             int base_address = y * viewport.width_;
+
+        renderbase_reset_loop_x:
             for (int x = viewport.min_x_; x < viewport.max_x_; x++)
             {
+#pragma HLS loop_tripcount min = MAX_WIDTH max = MAX_WIDTH avg = MAX_WIDTH
+
                 int address = base_address + x;
                 fragment_buffer[address] = Base::fragment_nodata(outtextures);
                 depth_buffer[address] = RealType(-1);
             }
         }
 
-    // Loop over triangles
-    renderbase_render_triangles_loop:
-        for (unsigned int i = 0; i + 2 < ebo_buffer.size(); i += 3)
-        {
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-
-            IntType vertexids[3];
-
-            vertexids[0] = ebo_buffer[i + 0];
-            vertexids[1] = ebo_buffer[i + 1];
-            vertexids[2] = ebo_buffer[i + 2];
-
-            typename Base::VertexData vertexdata[3];
-
-            vertexdata[0] = Base::get_vertex_data(vertex_buffer, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_buffer, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_buffer, vertexids[2]);
-
-            Triangle triangle;
-
-            this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
-
-            // directly write to dram
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
-        }
-
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
+        this->RenderTile(viewport,
+                         vertex_buffer,
+                         ebo_buffer,
+                         uniforms,
+                         intextures,
+                         outtextures,
+                         fragment_buffer,
+                         depth_buffer);
     }
 
-    template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff(const BoundingBox<IntType> &viewport,
                              const BufferViewReadHLS<float> &vertex_buffer,
                              const BufferViewReadHLS<int> &ebo_buffer,
@@ -93,7 +83,7 @@ public:
 #pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
 
         int num_triangles;
-        this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, MAX_NUM_TRI, num_triangles);
+        get_triangles(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, MAX_NUM_TRI, num_triangles);
 
         IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
         IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
@@ -114,13 +104,13 @@ public:
     renderbase_render_tiles_loop:
         for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+            // #pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
             for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x++)
             {
                 int tile = tile_y * NUM_TILES_X + tile_x;
-//#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
+                // #pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
 #pragma HLS dependence variable = fragment_buffer type = inter false
 #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -184,13 +174,18 @@ public:
                     depth_buffer[j] = RealType(-1);
                 }
 
-                render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms_buffer, intextures);
-                Base::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms_buffer);
+                this->RenderTile(viewport,
+                                 vertex_buffer,
+                                 ebo_buffer,
+                                 uniforms,
+                                 intextures,
+                                 outtextures,
+                                 fragment_buffer,
+                                 depth_buffer);
             }
         }
     }
 
-    template <typename Uniforms, typename InTextures, typename OutTextures>
     void RenderTiledFragBuff2(const BoundingBox<IntType> &viewport,
                               const BufferViewReadHLS<float> &vertex_buffer,
                               const BufferViewReadHLS<int> &ebo_buffer,
@@ -219,12 +214,12 @@ public:
     renderbase_render_tiles_loop:
         for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
         {
-//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
+            // #pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
 
         renderbase_render_tiles_x_loop:
             for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x++)
             {
-//#pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
+                // #pragma HLS loop_tripcount min = max_tiles_x max = max_tiles_x avg = max_tiles_x
 
                 // #pragma HLS dependence variable = fragment_buffer type = inter false
                 // #pragma HLS dependence variable = fragment_buffer type = intra false
@@ -244,12 +239,14 @@ public:
             renderbase_reset_depth_buffer_loop_y:
                 for (int y = 0; y < tile_height; y++)
                 {
-                    #pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
+#pragma HLS loop_tripcount min = MAX_TILE_HEIGHT max = MAX_TILE_HEIGHT avg = MAX_TILE_HEIGHT
 
                     int base_address = y * tile_width;
-                    for(int x = 0; x < tile_width; x++)
+
+                    renderbase_reset_depth_buffer_loop_x:
+                    for (int x = 0; x < tile_width; x++)
                     {
-                                            #pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
+#pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
 
                         int address = x + base_address;
                         fragment_buffer[address] = Base::fragment_nodata(outtextures);
@@ -265,369 +262,30 @@ public:
                 BoundingBox<IntType> viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 IntType triangle_count = 0;
 
-                this->get_triangles_(vertex_buffer, ebo_buffer, viewport, viewport_buffer, uniforms, triangle_buffer, MAX_TRI_PER_TILE, triangle_count);
+                get_triangles(vertex_buffer, ebo_buffer, viewport, viewport_buffer, uniforms, triangle_buffer, MAX_TRI_PER_TILE, triangle_count);
 
-                render_tile_(fragment_buffer, depth_buffer, triangle_buffer, triangle_count, viewport_buffer, uniforms, intextures);
-                Base::sync_outtextures(outtextures, viewport_buffer, fragment_buffer, uniforms);
-            }
-        }
-    }
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderTiledFragBuffInChannels(const BoundingBox<IntType> &viewport,
-                                       const Mesh &mesh,
-                                       const Uniforms &uniforms,
-                                       const InTextures &intextures_ch1,
-                                       const InTextures &intextures_ch2,
-                                       const InTextures &intextures_ch3,
-                                       const InTextures &intextures_ch4,
-                                       OutTextures &outtextures)
-    {
-        // typename Base::VertexData vertex_data[max_num_tri * 3];
-        // #pragma HLS BIND_STORAGE variable = vertex_data type = ram_t2p impl = uram
-
-        // this->get_vertex_data(mesh, vertex_data);
-
-        Triangle triangles[MAX_NUM_TRI];
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = triangles compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=triangles
-#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
-
-        IntType num_triangles;
-        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(MAX_NUM_TRI), num_triangles);
-
-        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
-        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
-
-        IntType triangle_count[NUM_BUFFERS];
-        Uniforms uniforms_buffer[NUM_BUFFERS];
-        BoundingBox<IntType> viewport_buffer[NUM_BUFFERS];
-        Triangle triangle_buffer[NUM_BUFFERS][MAX_TRI_PER_TILE];
-        Fragment fragment_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
-        RealType depth_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
-
-#pragma HLS array_partition variable = triangle_count complete dim = 1
-
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = uniforms_buffer compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=uniforms_buffer
-#pragma HLS array_partition variable = uniforms_buffer complete dim = 1
-
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = viewport_buffer compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=viewport_buffer
-#pragma HLS array_partition variable = viewport_buffer complete dim = 1
-
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = triangle_buffer compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=triangle_buffer
-#pragma HLS BIND_STORAGE variable = triangle_buffer type = ram_t2p impl = bram
-#pragma HLS array_partition variable = triangle_buffer complete dim = 1
-
-#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
-#pragma HLS array_partition variable = depth_buffer complete dim = 1
-        //   #pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 2
-
-        // Pack the aggregate (newer pragma)
-#pragma HLS aggregate variable = fragment_buffer compact = bit
-        // or, in some versions:
-        // #pragma HLS data_pack variable=fragment_buffer
-#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
-#pragma HLS array_partition variable = fragment_buffer complete dim = 1
-        //   #pragma HLS array_partition variable = fragment_buffer cyclic factor = 2 dim = 2
-
-    renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
-        {
-//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
-
-        renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x += NUM_BUFFERS)
-            {
-                int tile = tile_y * NUM_TILES_X + tile_x;
-#pragma HLS loop_tripcount min = NUM_TILES_X / NUM_BUFFERS max = NUM_TILES_X / NUM_BUFFERS avg = NUM_TILES_X / NUM_BUFFERS
-
-#pragma HLS dependence variable = fragment_buffer type = inter false
-#pragma HLS dependence variable = fragment_buffer type = intra false
-
-#pragma HLS dependence variable = depth_buffer type = inter false
-#pragma HLS dependence variable = depth_buffer type = intra false
-
-#pragma HLS dependence variable = triangle_buffer type = inter false
-#pragma HLS dependence variable = triangle_buffer type = intra false
-
-#pragma HLS dependence variable = viewport_buffer type = inter false
-#pragma HLS dependence variable = viewport_buffer type = intra false
-
-#pragma HLS dependence variable = uniforms_buffer type = inter false
-#pragma HLS dependence variable = uniforms_buffer type = intra false
-
-#pragma HLS dependence variable = intextures_ch1 type = inter false
-#pragma HLS dependence variable = intextures_ch1 type = intra false
-
-#pragma HLS dependence variable = intextures_ch2 type = inter false
-#pragma HLS dependence variable = intextures_ch2 type = intra false
-
-#pragma HLS dependence variable = intextures_ch3 type = inter false
-#pragma HLS dependence variable = intextures_ch3 type = intra false
-
-#pragma HLS dependence variable = intextures_ch4 type = inter false
-#pragma HLS dependence variable = intextures_ch4 type = intra false
-
-            renderbasehls_reset:
-                for (int j = 0; j < NUM_BUFFERS; j++)
-                {
-                    // viewport_buffer[j] = viewport_tiles[tile + j];
-                    IntType ttile_x = tile_x + j;
-                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-
-                    viewport_buffer[j] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
-                    triangle_count[j] = 0;
-                    uniforms_buffer[j] = uniforms;
-                }
-
-            renderbase_triangle_buffer_loop:
-                for (int j = 0; j < num_triangles; j++)
-                {
-#pragma HLS loop_tripcount min = 768 max = 768 avg = 768
-
-                    // typename RendererBase<MathType, Base>::Triangle triangle;
-                    // create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
-                    // this->get_triangles(mesh, viewport, uniforms, triangles, num_triangles);
-
-                    Triangle triangle = triangles[j];
-                    BoundingBox<RealType> tri_bb(triangle.vout[0].screen, triangle.vout[1].screen, triangle.vout[2].screen);
-
-                renderbase_triangle_tile_loop:
-                    for (int i = 0; i < NUM_BUFFERS; i++)
-                    {
-                        // IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(floor(tri_bb.min_x_)));
-                        // IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(ceil(tri_bb.max_x_)));
-                        // IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
-                        // IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
-
-                        IntType min_x = max(viewport_buffer[i].min_x_, static_cast<IntType>(tri_bb.min_x_));
-                        IntType max_x = min(viewport_buffer[i].max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
-                        IntType min_y = max(viewport_buffer[i].min_y_, static_cast<IntType>(tri_bb.min_y_));
-                        IntType max_y = min(viewport_buffer[i].max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
-
-                        if (min_x >= max_x || min_y >= max_y)
-                            continue;
-
-                        triangle_buffer[i][triangle_count[i]] = triangle;
-                        triangle_count[i] = min(IntType(triangle_count[i] + 1), IntType(MAX_TRI_PER_TILE - 1));
-                    }
-                }
-
-            renderbase_reset_depth_buffer_loop:
-                for (int j = 0; j < tile_width * tile_height; j++)
-                {
-                // #pragma HLS pipeline II = 1
-                renderbase_reset_depth_buffer_i_loop:
-                    for (int i = 0; i < NUM_BUFFERS; i++)
-                    {
-                        // #pragma HLS unroll
-                        fragment_buffer[i][j] = Base::fragment_nodata(outtextures);
-                        depth_buffer[i][j] = RealType(-1);
-                    }
-                }
-
-            renderbase_render_tile_loop:
-                for (int i = 0; i < NUM_BUFFERS; i++)
-                {
-#pragma HLS unroll
-                    if (i == 0)
-                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch1);
-                    if (i == 1)
-                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch2);
-                    if (i == 2)
-                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch3);
-                    if (i == 3)
-                        render_tile_(fragment_buffer[i], depth_buffer[i], triangle_buffer[i], triangle_count[i], viewport_buffer[i], uniforms_buffer[i], intextures_ch4);
-                }
-
-            depthrendererhls_loop:
-                for (int i = 0; i < NUM_BUFFERS; i++)
-                {
-                    Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
-                }
-            }
-        }
-    }
-
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
-    void RenderTiledFragBuffInChannels2(const BoundingBox<IntType> &viewport,
-                                        const Mesh &mesh,
-                                        const Uniforms &uniforms,
-                                        const InTextures &intextures_ch1,
-                                        const InTextures &intextures_ch2,
-                                        const InTextures &intextures_ch3,
-                                        const InTextures &intextures_ch4,
-                                        OutTextures &outtextures)
-    {
-        Triangle triangles[MAX_NUM_TRI];
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = triangles compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=triangles
-#pragma HLS BIND_STORAGE variable = triangles type = ram_t2p impl = uram
-
-        IntType num_triangles;
-        this->get_triangles_(mesh, viewport, uniforms, triangles, IntType(MAX_NUM_TRI), num_triangles);
-
-        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
-        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
-        //IntType num_tiles = num_tiles_x * num_tiles_y;
-
-        Uniforms uniforms_buffer[NUM_BUFFERS];
-        BoundingBox<IntType> viewport_buffer[NUM_BUFFERS];
-        Fragment fragment_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
-        RealType depth_buffer[NUM_BUFFERS][MAX_TILE_WIDTH * MAX_TILE_HEIGHT];
-
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = uniforms_buffer compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=uniforms_buffer
-#pragma HLS array_partition variable = uniforms_buffer complete dim = 1
-
-        // Pack the aggregate (newer pragma)
-// #pragma HLS aggregate variable = viewport_buffer compact = bit
-//  or, in some versions:
-//  #pragma HLS data_pack variable=viewport_buffer
-#pragma HLS array_partition variable = viewport_buffer complete dim = 1
-
-#pragma HLS BIND_STORAGE variable = depth_buffer type = ram_t2p impl = uram
-#pragma HLS array_partition variable = depth_buffer complete dim = 1
-        //   #pragma HLS array_partition variable = depth_buffer cyclic factor = 2 dim = 2
-
-        // Pack the aggregate (newer pragma)
-#pragma HLS aggregate variable = fragment_buffer compact = bit
-        // or, in some versions:
-        // #pragma HLS data_pack variable=fragment_buffer
-#pragma HLS BIND_STORAGE variable = fragment_buffer type = ram_t2p impl = uram
-#pragma HLS array_partition variable = fragment_buffer complete dim = 1
-        //   #pragma HLS array_partition variable = fragment_buffer cyclic factor = 2 dim = 2
-
-    renderbase_render_tiles_loop:
-        for (int tile_y = 0; tile_y < NUM_TILES_Y; tile_y++)
-        {
-//#pragma HLS loop_tripcount min = max_tiles_y max = max_tiles_y avg = max_tiles_y
-
-        renderbase_render_tiles_x_loop:
-            for (int tile_x = 0; tile_x < NUM_TILES_X; tile_x += NUM_BUFFERS)
-            {
-                int tile = tile_y * NUM_TILES_Y + tile_x;
-#pragma HLS loop_tripcount min = NUM_TILES_X / NUM_BUFFERS max = NUM_TILES_X / NUM_BUFFERS avg = NUM_TILES_X / NUM_BUFFERS
-
-#pragma HLS dependence variable = fragment_buffer type = inter false
-#pragma HLS dependence variable = fragment_buffer type = intra false
-
-#pragma HLS dependence variable = depth_buffer type = inter false
-#pragma HLS dependence variable = depth_buffer type = intra false
-
-#pragma HLS dependence variable = viewport_buffer type = inter false
-#pragma HLS dependence variable = viewport_buffer type = intra false
-
-#pragma HLS dependence variable = uniforms_buffer type = inter false
-#pragma HLS dependence variable = uniforms_buffer type = intra false
-
-                // #pragma HLS dataflow
-
-            renderbase_reset_depth_buffer_loop:
-                for (int j = 0; j < tile_width * tile_height; j++)
-                {
-                // #pragma HLS pipeline II = 1
-                renderbase_reset_depth_buffer_i_loop:
-                    for (int i = 0; i < NUM_BUFFERS; i++)
-                    {
-                        // #pragma HLS unroll
-                        fragment_buffer[i][j] = Base::fragment_nodata(outtextures);
-                        depth_buffer[i][j] = RealType(-1);
-                    }
-                }
-
-            renderbasehls_reset:
-                for (int j = 0; j < NUM_BUFFERS; j++)
-                {
-                    // viewport_buffer[j] = viewport_tiles[tile + j];
-                    IntType ttile_x = tile_x + j;
-                    IntType min_x_ = IntType(RealType(viewport.width_ * ttile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                    IntType max_x_ = IntType(RealType(viewport.width_ * (ttile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                    IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-                    IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-
-                    viewport_buffer[j] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
-                    uniforms_buffer[j] = uniforms;
-                }
-
-                hls::stream<Triangle> triangles_streams[NUM_BUFFERS];
-
-            renderbase_triangle_buffer_loop:
-                for (int j = 0; j < num_triangles; j++)
-                {
-                    for (int i = 0; i < NUM_BUFFERS; i++)
-                        triangles_streams[i].write(triangles[j]);
-                }
-
-            renderbase_triangle_tile_loop:
-                for (int i = 0; i < NUM_BUFFERS; i++)
-                {
-#pragma HLS unroll
-                    if (i == 0)
-                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch1, fragment_buffer[i]);
-                    if (i == 1)
-                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch2, fragment_buffer[i]);
-                    if (i == 2)
-                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch3, fragment_buffer[i]);
-                    if (i == 3)
-                        draw_triangle_stream_(triangles_streams[i], viewport_buffer[i], depth_buffer[i], uniforms_buffer[i], intextures_ch4, fragment_buffer[i]);
-                }
-
-            depthrendererhls_loop:
-                for (int i = 0; i < NUM_BUFFERS; i++)
-                {
-                    Base::sync_outtextures(outtextures, viewport_buffer[i], fragment_buffer[i], uniforms_buffer[i]);
-                }
+                this->RenderTile(viewport,
+                                 vertex_buffer,
+                                 ebo_buffer,
+                                 uniforms,
+                                 intextures,
+                                 outtextures,
+                                 fragment_buffer,
+                                 depth_buffer);
             }
         }
     }
 
 private:
-    template <typename Uniforms, typename InTextures, typename Fragment>
     void draw_triangle_stream_(hls::stream<Triangle> &triangles_stream, const BoundingBox<IntType> &viewport, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
     {
         Triangle triangle = triangles_stream.read();
         this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
     }
-
-    template <typename Fragment, typename Uniforms, typename InTextures>
-    void render_tile_(Fragment fragment_buffer[], RealType depth_buffer[], const Triangle triangles[], int num_triangles, const BoundingBox<IntType> &viewport_tile, const Uniforms &uniforms, const InTextures &intextures)
-    {
-        // #pragma HLS INLINE
-
-    render_tile_loop:
-        for (IntType tri = 0; tri < num_triangles; tri++)
-        {
-// #pragma HLS pipeline off
-#pragma HLS loop_tripcount min = MAX_TRI_PER_TILE max = MAX_TRI_PER_TILE avg = MAX_TRI_PER_TILE
-
-            Triangle triangle = triangles[tri];
-            this->draw_triangle_(triangle, viewport_tile, depth_buffer, uniforms, intextures, fragment_buffer);
-        }
-    }
 };
 
 class DepthRendererHLS
-    : public RendererBaseHLS<DepthRendererHLS,
-                             DepthRendererBase<TextureViewWriteHLS>>
+    : public RendererBaseHLS<DepthRendererBase<TextureViewWriteHLS>>
 {
 public:
     using Base = DepthRendererBase<TextureViewWriteHLS>;
@@ -666,7 +324,7 @@ public:
 
         uniforms.pose_matrix = pose.matrix();
         uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE,
-             RenderConstants::FAR_PLANE);
+                                                       RenderConstants::FAR_PLANE);
         // depthrenderer_opencv2opengl_loop:
         //     for (int i = 0; i < 4; i++)
         //     {
@@ -682,9 +340,8 @@ public:
         Base::OutTextures outtextures{
             TextureViewWriteHLS<float>(out_texture_data + out_texture_offset, out_texture_width, out_texture_height, out_nodata_value)};
 
-        // RendererBaseHLS<DepthRendererHLS, Base>::RenderNaive(viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
-        RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuff2(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
-        // RendererBaseHLS<DepthRendererHLS, Base>::RenderTiledFragBuffInChannels(viewport, mesh, uniforms, intextures_ch1, intextures_ch2, intextures_ch3, intextures_ch4, outtextures);
+        //RendererBaseHLS<Base>::RenderNaive(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
+        RendererBaseHLS<Base>::RenderTiledFragBuff2(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 };
 
@@ -813,8 +470,7 @@ private:
 */
 
 class ImageRendererHLS
-    : public RendererBaseHLS<ImageRendererHLS,
-                             ImageRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
+    : public RendererBaseHLS<ImageRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
     using Base = ImageRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
@@ -882,30 +538,18 @@ public:
                                                                      out_texture_height,
                                                                      out_nodata_value)};
 
-        // RendererBaseHLS<ImageRendererHLS, Base>::RenderNaive(
-        //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
-
-        RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuff2(
+        RendererBaseHLS<Base>::RenderNaive(
             viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
-        /*
-        RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuffInChannels(
-            viewport,
-            mesh,
-            uniforms,
-            intextures_ch1,
-            intextures_ch2,
-            intextures_ch3,
-            intextures_ch4,
-            outtextures);
-        */
+
+        // RendererBaseHLS<Base>::RenderTiledFragBuff2(
+        //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 
 private:
 };
 
 class DIDxyRendererHLS
-    : public RendererBaseHLS<DIDxyRendererHLS,
-                             DIDxyRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
+    : public RendererBaseHLS<DIDxyRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
     using Base = DIDxyRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
@@ -940,39 +584,27 @@ public:
 
         BoundingBox<IntType> viewport(0, out_texture_width, 0, out_texture_height);
 
-        Base::InTextures intextures_ch1{TextureViewReadHLS<ImageType>((ImageType *)in_texture_data + in_texture_offset,
-                                                                      in_texture_width,
-                                                                      in_texture_height,
-                                                                      in_nodata_value)};
+        Base::InTextures intextures{TextureViewReadHLS<ImageType>((ImageType *)in_texture_data + in_texture_offset,
+                                                                  in_texture_width,
+                                                                  in_texture_height,
+                                                                  in_nodata_value)};
         Base::OutTextures outtextures{TextureViewWriteHLS<Vec3<float>>((Vec3<float> *)out_texture_data + out_texture_offset,
                                                                        out_texture_width,
                                                                        out_texture_height,
                                                                        Vec3<float>(out_nodata_value_x, out_nodata_value_y, out_nodata_value_z))};
 
         // RendererBaseHLS<ImageRendererHLS, Base>::RenderNaive(
-        //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
+        //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
 
-        RendererBaseHLS<DIDxyRendererHLS, Base>::RenderTiledFragBuff2(
-            viewport, vertex_buffer, ebo_buffer, uniforms, intextures_ch1, outtextures);
-        /*
-        RendererBaseHLS<ImageRendererHLS, Base>::RenderTiledFragBuffInChannels(
-            viewport,
-            mesh,
-            uniforms,
-            intextures_ch1,
-            intextures_ch2,
-            intextures_ch3,
-            intextures_ch4,
-            outtextures);
-        */
+        RendererBaseHLS<Base>::RenderTiledFragBuff2(
+            viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 
 private:
 };
 
 class DiffRendererHLS
-    : public RendererBaseHLS<DiffRendererHLS,
-                             DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
+    : public RendererBaseHLS<DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>>
 {
 public:
     using Base = DiffRendererBase<TextureViewReadHLS, TextureViewWriteHLS>;
@@ -1066,7 +698,7 @@ public:
         // RendererBaseHLS<JPoseExpMapRendererHLS, Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
 
-        RendererBaseHLS<DiffRendererHLS, Base>::RenderTiledFragBuff2(
+        RendererBaseHLS<Base>::RenderTiledFragBuff2(
             viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 

@@ -18,7 +18,6 @@ static RealType residual_reduce(const BoundingBox<IntType> &viewport,
                                 const TextureViewRead<ImageType> &kf_texture,
                                 const TextureViewRead<ImageType> &f_texture,
                                 const Fragment fragment_buffer[],
-                                const RealType depth_buffer[],
                                 RealType huber_thresh)
 {
     RealType sum = 0;
@@ -31,10 +30,11 @@ static RealType residual_reduce(const BoundingBox<IntType> &viewport,
             IntType y = iy + viewport.min_y_;
             IntType address = iy * viewport.width_ + ix;
 
-            if (depth_buffer[address] == -1.0f)
+            Fragment deffrag = fragment_buffer[address];
+            Vec3<RealType> kfpos = deffrag.kfpos;
+            if (kfpos(2) <= 0.0f)
                 continue;
 
-            Fragment deffrag = fragment_buffer[address];
             Vec2<RealType> texcoord = cam.pointToPix(deffrag.kfpos);
 
             if (texcoord(0) < 0 || texcoord(0) > 1.0 || texcoord(1) < 0 || texcoord(1) > 1.0)
@@ -84,7 +84,7 @@ public:
         InTextures intextures{0};
 
         draw_tile<VertexBufferView, EboBufferView, Base>(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, fragment_buffer, depth_buffer);
-        return residual_reduce<TextureViewRead, Fragment>(viewport, cam, kf_texture, f_texture, fragment_buffer, depth_buffer, huber_thresh);
+        return residual_reduce<TextureViewRead, Fragment>(viewport, cam, kf_texture, f_texture, fragment_buffer, huber_thresh);
     }
 
 private:
