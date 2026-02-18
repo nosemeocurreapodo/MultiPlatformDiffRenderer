@@ -3,6 +3,7 @@
 #include "backends/xrt/hls/texturehls.h"
 #include "backends/xrt/hls/meshhls.h"
 #include "backends/xrt/hls/rendererhls.h"
+#include "backends/xrt/hls/deferredrendererhls.h"
 #include "core/camera.h"
 
 extern "C"
@@ -65,7 +66,7 @@ extern "C"
 #pragma HLS INTERFACE m_axi port = out_texture_data bundle = gmem5 depth = 412800
         // #pragma HLS INTERFACE m_axi port = out_texture_data offset = slave bundle = gmem2 max_read_burst_length = 256 max_write_burst_length = 256 depth = 412800
 
-        ImageRendererHLS renderer;
+        ImageDRendererHLS renderer;
         renderer.Render(vertex_buffer_data,
                         ebo_buffer_data,
                         diffuse_texture_data,

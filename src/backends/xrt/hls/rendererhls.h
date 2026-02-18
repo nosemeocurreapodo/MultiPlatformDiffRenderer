@@ -243,7 +243,7 @@ public:
 
                     int base_address = y * tile_width;
 
-                    renderbase_reset_depth_buffer_loop_x:
+                renderbase_reset_depth_buffer_loop_x:
                     for (int x = 0; x < tile_width; x++)
                     {
 #pragma HLS loop_tripcount min = MAX_TILE_WIDTH max = MAX_TILE_WIDTH avg = MAX_TILE_WIDTH
@@ -265,6 +265,7 @@ public:
                 get_triangles(vertex_buffer, ebo_buffer, viewport, viewport_buffer, uniforms, triangle_buffer, MAX_TRI_PER_TILE, triangle_count);
 
                 this->RenderTile(viewport,
+                                 viewport_buffer,
                                  vertex_buffer,
                                  ebo_buffer,
                                  uniforms,
@@ -277,11 +278,7 @@ public:
     }
 
 private:
-    void draw_triangle_stream_(hls::stream<Triangle> &triangles_stream, const BoundingBox<IntType> &viewport, RealType *depth_buffer, const Uniforms &uniforms, const InTextures &intextures, Fragment *fragment_buffer)
-    {
-        Triangle triangle = triangles_stream.read();
-        this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
-    }
+
 };
 
 class DepthRendererHLS
@@ -340,7 +337,7 @@ public:
         Base::OutTextures outtextures{
             TextureViewWriteHLS<float>(out_texture_data + out_texture_offset, out_texture_width, out_texture_height, out_nodata_value)};
 
-        //RendererBaseHLS<Base>::RenderNaive(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
+        // RendererBaseHLS<Base>::RenderNaive(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
         RendererBaseHLS<Base>::RenderTiledFragBuff2(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 };
@@ -538,11 +535,11 @@ public:
                                                                      out_texture_height,
                                                                      out_nodata_value)};
 
-        RendererBaseHLS<Base>::RenderNaive(
-            viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
-
-        // RendererBaseHLS<Base>::RenderTiledFragBuff2(
+        // RendererBaseHLS<Base>::RenderNaive(
         //     viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
+
+        RendererBaseHLS<Base>::RenderTiledFragBuff2(
+            viewport, vertex_buffer, ebo_buffer, uniforms, intextures, outtextures);
     }
 
 private:

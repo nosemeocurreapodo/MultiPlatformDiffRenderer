@@ -388,6 +388,7 @@ draw_triangle_y_loop:
 
 template <typename VertexBufferView, typename EboBufferView, typename Derived>
 static void draw_tile(const BoundingBox<IntType> &viewport,
+                      const BoundingBox<IntType> &tile_viewport,
                       const VertexBufferView &vertex_buffer,
                       const EboBufferView &ebo_buffer,
                       const typename Derived::Uniforms &uniforms,
@@ -414,7 +415,7 @@ draw_tile_triangle_loop:
         vertexdata[2] = Derived::get_vertex_data(vertex_buffer, vertexids[2]);
 
         Triangle<Derived> triangle = create_triangle<Derived>(vertexdata, vertexids, tri_idx, viewport, uniforms);
-        draw_triangle<Derived>(triangle, viewport, uniforms, intextures, fragment_buffer, depth_buffer);
+        draw_triangle<Derived>(triangle, tile_viewport, uniforms, intextures, fragment_buffer, depth_buffer);
     }
 }
 
@@ -494,6 +495,7 @@ public:
 
     template <typename VertexBufferView, typename EboBufferView>
     static void RenderTile(const BoundingBox<IntType> &viewport,
+                           const BoundingBox<IntType> &tile_viewport,
                            const VertexBufferView &vertex_buffer,
                            const EboBufferView &ebo_buffer,
                            const BaseUniforms &uniforms,
@@ -502,8 +504,8 @@ public:
                            BaseFragment fragment_buffer[],
                            RealType depth_buffer[])
     {
-        draw_tile<VertexBufferView, EboBufferView, Base>(viewport, vertex_buffer, ebo_buffer, uniforms, intextures, fragment_buffer, depth_buffer);
-        sync_outtextures<Base>(out_textures, viewport, fragment_buffer);
+        draw_tile<VertexBufferView, EboBufferView, Base>(viewport, tile_viewport, vertex_buffer, ebo_buffer, uniforms, intextures, fragment_buffer, depth_buffer);
+        sync_outtextures<Base>(out_textures, tile_viewport, fragment_buffer);
     }
 
 private:

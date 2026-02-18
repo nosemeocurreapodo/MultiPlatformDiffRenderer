@@ -240,6 +240,14 @@ public:
         return var_over_w_px;
     }
 
+    template <class DVaryings>
+    static Varyings varyings_from_deferred(DVaryings &dvaryings)
+    {
+        Varyings varyings;
+        varyings.depth = dvaryings.fpos(2);
+        return varyings;
+    }
+
     // -------------------------------------------------------------------------
     // Shaders
     // -------------------------------------------------------------------------

@@ -28,6 +28,7 @@ public:
 
     template <typename VertexBufferView, typename EboBufferView>
     static void RenderTileDeferred(const BoundingBox<IntType> &viewport,
+                                   const BoundingBox<IntType> &tile_viewport,
                                    const VertexBufferView &vertex_buffer,
                                    const EboBufferView &ebo_buffer,
                                    const BUniforms &buniforms,
@@ -46,6 +47,7 @@ public:
         draw_tile<VertexBufferView,
                   EboBufferView,
                   DBase>(viewport,
+                         tile_viewport,
                          vertex_buffer,
                          ebo_buffer,
                          duniforms,
@@ -53,13 +55,13 @@ public:
                          dfragment_buffer,
                          depth_buffer);
         draw_tile_deferred<DFragment,
-                           Base>(viewport,
+                           Base>(tile_viewport,
                                  dfragment_buffer,
                                  buniforms,
                                  bintextures,
                                  bfragment_buffer);
         sync_outtextures<Base>(bouttextures,
-                               viewport,
+                               tile_viewport,
                                bfragment_buffer);
     }
 

@@ -46,6 +46,7 @@ public:
         float *depth_buffer = depth_buffer_.data();
 
         this->RenderTile(viewport,
+                         viewport,
                          vertex_buffer,
                          ebo_buffer,
                          uniforms,
