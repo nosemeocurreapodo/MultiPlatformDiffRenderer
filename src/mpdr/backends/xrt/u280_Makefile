@@ -1,0 +1,130 @@
+#/*
+#Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+#SPDX-License-Identifier: MIT
+#*/
+
+ROOT_DIR=$(realpath $(dir $(lastword $(MAKEFILE_LIST))))
+# SRC_DIR=$(ROOT_DIR)
+
+NAME = depthrendererhls
+TOP_NAME = DepthRenderHLS
+
+
+PLATFORM_NAME=xilinx_u280_gen3x16_xdma_1_202211_1
+VERSION ?=2023.2
+
+
+
+MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformRenderer
+HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformRenderer/HLSLinearAlgebra
+
+PLATFORM=/opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/$(PLATFORM_NAME).xpfm
+
+
+
+
+BUILD_PATH=$(ROOT_DIR)/build
+PLATFORM_INFO_PATH=$(BUILD_PATH)/platforminfo.txt
+XO_PATH=$(BUILD_PATH)/xo
+XCLBIN_PATH=$(BUILD_PATH)/xclbin
+HOST_PATH=$(BUILD_PATH)/host
+PACKAGE_PATH=$(BUILD_PATH)/package
+
+#PL_EXAMPLE_PATH = $(BUILD_PATH)/Vitis_Accel_Examples/cpp_kernels/simple_vadd/
+
+CXXFLAGS += -I$(XILINX_XRT)/include -Wall -O0 -g # -std=c++17
+CXXFLAGS += -I$(HLSLINEARALGEBRA_PATH)/include
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/src
+CXXFLAGS += -I$(MULTIPLATFORMRENDERER_PATH)/tests
+# CXXFLAGS += -fmessage-length=0
+
+
+LDFLAGS += -L$(XILINX_XRT)/lib -pthread -lxilinxopencl
+LDFLAGS += -lrt -lstdc++ 
+LDFLAGS += -luuid -lxrt_coreutil
+LDFLAGS += -lopencv_core -lopencv_highgui -lopencv_imgcodecs
+
+#VPP_FLAGS += --save-temps 
+VPP_FLAGS += -I$(SRC_DIR)/../../../HLSLinearAlgebra/include
+VPP_FLAGS += -I$(SRC_DIR)/../../
+VPP_FLAGS += -DUSE_VITIS
+VPP_LDFLAGS :=
+
+TARGET := hw
+
+.PHONY: help  
+
+help:
+	@echo "Makefile usage"
+	@echo "make all 	## Generate and package application related files"
+
+all: $(BUILD_PATH) $(PLATFORM_INFO_PATH) $(XO_PATH) $(XCLBIN_PATH) $(HOST_PATH) $(PACKAGE_PATH)
+
+$(BUILD_PATH):
+	@echo "Creating build dir"
+	mkdir -p $(BUILD_PATH)
+
+$(PLATFORM_INFO_PATH):
+	@echo "Get platform info"
+	platforminfo  $(PLATFORM) > $(BUILD_PATH)/platforminfo.txt
+
+#Vitis_Accel_Examples:
+#	git clone -b 2023.1 https://github.com/Xilinx/Vitis_Accel_Examples.git $(BUILD_PATH)/Vitis_Accel_Examples
+
+# Quick command for generating vadd hw xclbin
+#vadd_hw: Vitis_Accel_Examples
+#	$(MAKE) -C $(PL_EXAMPLE_PATH) all TARGET=hw PLATFORM=$(PLATFORM) HOST_ARCH=aarch64 DEV_ARCH=zynquplus EDGE_COMMON_SW=$(COMMON_IMAGE_ZYNQMP) SYSROOT=$(SYSROOTDIR)/sysroots/cortexa72-cortexa53-xilinx-linux
+# vadd_hw generates the files for running on hardware. User needs to pick the files required by KV260, rename thr file and transfer them to the board
+# Do not use the generated sd_card.img
+#$(PL_EXAMPLE_PATH)/simple_vadd:   Vitis_Accel_Examples $(PLATFORM)  
+#	$(MAKE) -C $(PL_EXAMPLE_PATH) all TARGET=hw PLATFORM=$(PLATFORM) DEV_ARCH=zynquplus HOST_ARCH=aarch64 EDGE_COMMON_SW=$(COMMON_IMAGE_ZYNQMP) SYSROOT=$(SYSROOTDIR)/sysroots/cortexa72-cortexa53-xilinx-linux
+
+#$(PL_EXAMPLE_PATH)/simple_vadd:
+#	$(MAKE) -C src/ all SYSROOT=$(SYSROOTDIR) EDGE_COMMON_SW=$(COMMON_IMAGE_ZYNQMP) PLATFORM=$(PLATFORM)
+
+$(XO_PATH):
+	@echo "Making xo"
+	mkdir -p $(XO_PATH)
+#	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
+	cd $(XO_PATH) && v++ --jobs 6 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME) -o $(XO_PATH)/$(NAME).xo $(SRC_DIR)/$(NAME).cpp
+
+$(XCLBIN_PATH):
+	@echo "Making xclbin"
+	mkdir -p $(XCLBIN_PATH)
+#	v++ -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) --temp_dir $(XCLBIN_PATH) --log_dir $(XCLBIN_PATH) --report_dir $(XCLBIN_PATH) -o $(XCLBIN_PATH)/vadd.xclbin $(XO_PATH)/vadd.xo
+	cd $(XCLBIN_PATH) && v++ --jobs 6 -l $(VPP_FLAGS) $(VPP_LDFLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(XCLBIN_PATH)/$(NAME).xclbin $(XO_PATH)/$(NAME).xo
+
+$(HOST_PATH):
+	@echo "Making host"
+	mkdir -p $(HOST_PATH)
+	cd $(HOST_PATH) && g++ $(CXXFLAGS) -o $(HOST_PATH)/$(NAME)_host $(SRC_DIR)/$(NAME)_test_xrt.cpp $(LDFLAGS)
+
+emconfig:$(EMCONFIG_DIR)/emconfig.json
+$(EMCONFIG_DIR)/emconfig.json:
+	emconfigutil --platform $(PLATFORM) --od $(EMCONFIG_DIR)
+
+#ifeq ($(EMU_PS), X86)
+#	v++ -p $(LINK_OUTPUT) $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -o $(BUILD_DIR)/vadd.xclbin
+#endif
+
+create_json:
+	cd $(BUILD_PATH) && printf '{\n  "shell_type" : "XRT_FLAT",\n  "num_slots": "1"\n}' > shell.json
+
+$(PACKAGE_PATH): create_json
+	@echo "INFO: Packaging Completed"
+	mkdir -p $(PACKAGE_PATH)
+	cp $(BUILD_PATH)/shell.json $(PACKAGE_PATH)
+	cp $(XCLBIN_PATH)/$(NAME).xclbin $(PACKAGE_PATH)/$(NAME).bin
+	cp $(HOST_PATH)/$(NAME)_host $(PACKAGE_PATH)
+	@echo "Please  copy $(PACKAGE_PATH) to /lib/firmware/xilinx/ on target board"
+	@echo "then use xmutil to load hardware."
+	@echo "xmutil unloadapp"
+	@echo "xmutil loadapp vadd"
+	@echo "Go to /lib/firmware/xilinx/vadd directory and run application"
+	@echo "$ ./$(NAME)_host ./$(NAME).bin"
+
+clean:
+	rm -rf build
+
+ultraclean:clean
+	rm -rf Vitis_Accel_Examples

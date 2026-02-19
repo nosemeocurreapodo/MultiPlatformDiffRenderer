@@ -1,0 +1,72 @@
+===============================================================================
+Version:    v++ v2024.2 (64-bit)
+Build:      SW Build 5239630 on 2024-11-10-11:19:46
+Copyright:  Copyright 1986-2024 Xilinx, Inc. All Rights Reserved.
+Created:    Thu Jan 22 12:55:55 2026
+===============================================================================
+
+-------------------------------------------------------------------------------
+Design Name:             imagerendererhls
+Target Device:           xilinx:kv260:kv260_hardware_Platform:0.0
+Target Clock:            199.998000MHz
+Total number of kernels: 1
+-------------------------------------------------------------------------------
+
+Kernel Summary
+Kernel Name     Type  Target              OpenCL Library    Compute Units
+--------------  ----  ------------------  ----------------  -------------
+ImageRenderHLS  c     fpga0:OCL_REGION_0  imagerendererhls  1
+
+
+-------------------------------------------------------------------------------
+OpenCL Binary:     imagerendererhls
+Kernels mapped to: clc_region
+
+Timing Information (MHz)
+Compute Unit      Kernel Name     Module Name                                                                       Target Frequency  Estimated Frequency
+----------------  --------------  --------------------------------------------------------------------------------  ----------------  -------------------
+ImageRenderHLS_1  ImageRenderHLS  Render_Pipeline_se3_matrix_loop_r                                                 200               428.449005
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_renderbase_reset_depth_buffer_loop                  200               402.576508
+ImageRenderHLS_1  ImageRenderHLS  create_triangle_VertexData_Uniforms_s                                             200               289.519409
+ImageRenderHLS_1  ImageRenderHLS  get_triangles_BufferViewBase_BufferViewBase_Uniforms_s                            200               273.972595
+ImageRenderHLS_1  ImageRenderHLS  fragment_shader                                                                   200               273.972595
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_Pipeline_draw_triangle_y_loop_draw_triangle_x_loop                  200               246.609131
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_InTextures_Uniforms_Fragment_s                                      200               246.609131
+ImageRenderHLS_1  ImageRenderHLS  render_tile_Fragment_Uniforms_InTextures_s                                        200               246.609131
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_depthrendererbase_sync_outtexture_y_loop_depthrend  200               273.972595
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Uniforms_InTextures_OutTextures_s                            200               246.609131
+ImageRenderHLS_1  ImageRenderHLS  Render                                                                            200               246.609131
+ImageRenderHLS_1  ImageRenderHLS  ImageRenderHLS                                                                    200               246.609131
+
+Latency Information
+Compute Unit      Kernel Name     Module Name                                                                       Start Interval          Best (cycles)  Avg (cycles)  Worst (cycles)  Best (absolute)  Avg (absolute)  Worst (absolute)
+----------------  --------------  --------------------------------------------------------------------------------  ----------------------  -------------  ------------  --------------  ---------------  --------------  ----------------
+ImageRenderHLS_1  ImageRenderHLS  Render_Pipeline_se3_matrix_loop_r                                                 4                       5              5             5               25.000 ns        25.000 ns       25.000 ns
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_renderbase_reset_depth_buffer_loop                  4801                    4802           4802          4802            24.010 us        24.010 us       24.010 us
+ImageRenderHLS_1  ImageRenderHLS  create_triangle_VertexData_Uniforms_s                                             132                     132            132           132             0.660 us         0.660 us        0.660 us
+ImageRenderHLS_1  ImageRenderHLS  get_triangles_BufferViewBase_BufferViewBase_Uniforms_s                            242695 ~ 249800         242695         247400        249800          1.213 ms         1.237 ms        1.249 ms
+ImageRenderHLS_1  ImageRenderHLS  fragment_shader                                                                   1                       148            148           148             0.740 us         0.740 us        0.740 us
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_Pipeline_draw_triangle_y_loop_draw_triangle_x_loop                  740010                  740011         740011        740011          3.700 ms         3.700 ms        3.700 ms
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_InTextures_Uniforms_Fragment_s                                      23 ~ 740050             23             370037        740050          0.115 us         1.850 ms        3.700 ms
+ImageRenderHLS_1  ImageRenderHLS  render_tile_Fragment_Uniforms_InTextures_s                                        6913 ~ 189453825        6913           94730497      189453825       34.565 us        0.474 sec       0.947 sec
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_depthrendererbase_sync_outtexture_y_loop_depthrend  4801                    4874           4874          4874            24.370 us        24.370 us       24.370 us
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Uniforms_InTextures_OutTextures_s                            16289080 ~ 12141346168  16289080       6078899576    12141346168     81.445 ms        30.394 sec      60.707 sec
+ImageRenderHLS_1  ImageRenderHLS  Render                                                                            16289117 ~ 12141346205  16289117       6078899613    12141346205     81.446 ms        30.394 sec      60.707 sec
+ImageRenderHLS_1  ImageRenderHLS  ImageRenderHLS                                                                    16289120 ~ 12141346208  16289119       6078899615    12141346207     81.446 ms        30.394 sec      60.707 sec
+
+Area Information
+Compute Unit      Kernel Name     Module Name                                                                       FF     LUT    DSP  BRAM  URAM
+----------------  --------------  --------------------------------------------------------------------------------  -----  -----  ---  ----  ----
+ImageRenderHLS_1  ImageRenderHLS  Render_Pipeline_se3_matrix_loop_r                                                 74     330    0    0     0
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_renderbase_reset_depth_buffer_loop                  15     67     0    0     0
+ImageRenderHLS_1  ImageRenderHLS  create_triangle_VertexData_Uniforms_s                                             13348  9346   0    0     0
+ImageRenderHLS_1  ImageRenderHLS  get_triangles_BufferViewBase_BufferViewBase_Uniforms_s                            15485  13162  0    0     0
+ImageRenderHLS_1  ImageRenderHLS  fragment_shader                                                                   10579  8301   0    0     0
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_Pipeline_draw_triangle_y_loop_draw_triangle_x_loop                  11695  10381  0    0     0
+ImageRenderHLS_1  ImageRenderHLS  draw_triangle_InTextures_Uniforms_Fragment_s                                      12869  15330  0    0     0
+ImageRenderHLS_1  ImageRenderHLS  render_tile_Fragment_Uniforms_InTextures_s                                        13578  15555  0    0     0
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Pipeline_depthrendererbase_sync_outtexture_y_loop_depthrend  772    748    0    0     0
+ImageRenderHLS_1  ImageRenderHLS  RenderTiledFragBuff2_Uniforms_InTextures_OutTextures_s                            31280  36447  0    49    0
+ImageRenderHLS_1  ImageRenderHLS  Render                                                                            36335  41082  0    49    0
+ImageRenderHLS_1  ImageRenderHLS  ImageRenderHLS                                                                    40710  45483  0    55    0
+-------------------------------------------------------------------------------

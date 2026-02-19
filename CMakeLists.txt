@@ -158,7 +158,7 @@ if(COMPILE_XRT)
 endif()
 
 if(COMPILE_DEMO)
-    add_subdirectory(src/demo)
+    add_subdirectory(demo)
 endif()
 
 if(COMPILE_TESTS)
@@ -167,11 +167,11 @@ if(COMPILE_TESTS)
     FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG release-1.11.0)
+    GIT_TAG v1.17.0)
 
     FetchContent_MakeAvailable(googletest)
     include(CTest)
     include(GoogleTest)
     enable_testing()
-    add_subdirectory(src/tests)
+    add_subdirectory(tests)
 endif()

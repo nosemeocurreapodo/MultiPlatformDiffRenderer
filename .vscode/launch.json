@@ -106,7 +106,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/src/demo/demo",
             "args": [
-                "${workspaceFolder}/src/tests/data/planet/planet.obj",
+                //"${workspaceFolder}/src/tests/data/planet/planet.obj",
+                "${workspaceFolder}/src/tests/data/Cama/model.glb",
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

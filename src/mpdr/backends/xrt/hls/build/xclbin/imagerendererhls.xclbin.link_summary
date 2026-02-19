@@ -1,0 +1,1427 @@
+<ENTRY>
+{
+ "thisFile": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin.link_summary",
+ "connectId": "",
+ "serverToken": "",
+ "timestamp": "0"
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_CmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:47 2026",
+ "timestampMillis": "1769081507147",
+ "buildStep": {
+  "cmdId": "adf1cd54-4bfc-4437-9ab0-6ac88d91df63",
+  "name": "v++",
+  "logFile": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/link.steps.log",
+  "commandLine": "/tools/Xilinx/Vitis/2024.2/bin/unwrapped/lnx64.o/v++  --vivado.prop \"run.__KERNEL__.{STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS}={-directive sdx_optimization_effort_high}\" --advanced.misc \"report=type report_timing_summary name impl_report_timing_summary_route_design_summary steps {route_design} runs {impl_1} options {-max_paths 10}\" --advanced.misc \"report=type report_timing_summary name impl_report_timing_summary_post_route_phys_opt_design_summary steps {post_route_phys_opt_design} runs {impl_1} options {-max_paths 10}\" --jobs 4 -l -I/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/../../../../HLSLinearAlgebra/include -I/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/../../../ -DUSE_VITIS -t hw --platform /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm -o /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xo/imagerendererhls.xo ",
+  "args": [
+   "--jobs",
+   "4",
+   "-l",
+   "-I/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/../../../../HLSLinearAlgebra/include",
+   "-I/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/../../../",
+   "-DUSE_VITIS",
+   "-t",
+   "hw",
+   "--platform",
+   "/home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm",
+   "-o",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xo/imagerendererhls.xo"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:47 2026",
+ "timestampMillis": "1769081507147",
+ "status": {
+  "cmdId": "adf1cd54-4bfc-4437-9ab0-6ac88d91df63",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_FlowMetaData",
+ "dateTimestamp": "Thu Jan 22 12:31:49 2026",
+ "timestampMillis": "1769081509338",
+ "buildSummary": {
+  "hardwarePlatform": "kv260_custom.xpfm",
+  "hardwareDsa": "kv260_hardware_platform.xsa",
+  "platformDirectory": "/home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom",
+  "runtime": "OpenCL",
+  "systemConfig": "Linux",
+  "flow": "BF_LINK",
+  "target": "TT_HW",
+  "binaryContainer": {
+   "base": {
+    "type": "BT_UKNOWN",
+    "name": "imagerendererhls",
+    "file": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin",
+    "reports": [],
+    "uuid": ""
+   },
+   "kernels": []
+  },
+  "kernels": [
+   {
+    "base": {
+     "type": "KERNEL",
+     "name": "ImageRenderHLS",
+     "file": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xo/imagerendererhls.xo",
+     "reports": [],
+     "uuid": ""
+    },
+    "sources": [
+     "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xo/ImageRenderHLS/ImageRenderHLS/cpu_sources/rendererhls_kernels.cpp"
+    ],
+    "psSources": [],
+    "cuNames": [
+     "ImageRenderHLS_1"
+    ],
+    "type": "HLS",
+    "frequency": 0,
+    "freqUnits": ""
+   }
+  ],
+  "toolVersion": "Vitis V++ Compiler Release 2024.2. SW Build 5239630 on 2024-11-10-11:19:46"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:49 2026",
+ "timestampMillis": "1769081509414",
+ "buildStep": {
+  "cmdId": "ed4621b0-2213-432e-960a-9157f9efb03b",
+  "name": "system_link",
+  "logFile": "",
+  "commandLine": "system_link --xo /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xo/imagerendererhls.xo --xpfm /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm --target hw --output_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int --temp_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/sys_link",
+  "args": [
+   "--xo",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xo/imagerendererhls.xo",
+   "--xpfm",
+   "/home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm",
+   "--target",
+   "hw",
+   "--output_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int",
+   "--temp_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/sys_link"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:49 2026",
+ "timestampMillis": "1769081509414",
+ "status": {
+  "cmdId": "ed4621b0-2213-432e-960a-9157f9efb03b",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:55 2026",
+ "timestampMillis": "1769081515348",
+ "status": {
+  "cmdId": "ed4621b0-2213-432e-960a-9157f9efb03b",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:55 2026",
+ "timestampMillis": "1769081515351",
+ "buildStep": {
+  "cmdId": "33bb6ae2-e17a-4473-abb7-a4663ccbad81",
+  "name": "cf2sw",
+  "logFile": "",
+  "commandLine": "cf2sw -sdsl /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/sdsl.dat -rtd /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/cf2sw.rtd -nofilter /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/cf2sw_full.rtd -xclbin /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.xml -o /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.1.xml",
+  "args": [
+   "-sdsl",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/sdsl.dat",
+   "-rtd",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/cf2sw.rtd",
+   "-nofilter",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/cf2sw_full.rtd",
+   "-xclbin",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.xml",
+   "-o",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.1.xml"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:55 2026",
+ "timestampMillis": "1769081515351",
+ "status": {
+  "cmdId": "33bb6ae2-e17a-4473-abb7-a4663ccbad81",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517180",
+ "status": {
+  "cmdId": "33bb6ae2-e17a-4473-abb7-a4663ccbad81",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517182",
+ "buildStep": {
+  "cmdId": "66f7e11b-2acb-4d83-9b2c-e41800cc4ab4",
+  "name": "rtd2_system_diagram",
+  "logFile": "",
+  "commandLine": "rtd2SystemDiagram",
+  "args": [],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517183",
+ "status": {
+  "cmdId": "66f7e11b-2acb-4d83-9b2c-e41800cc4ab4",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517302",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/systemDiagramModel.json",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "SYSTEM_DIAGRAM",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517303",
+ "status": {
+  "cmdId": "66f7e11b-2acb-4d83-9b2c-e41800cc4ab4",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517304",
+ "buildStep": {
+  "cmdId": "de4a9629-5db5-4852-a1ab-e6a2343b1dff",
+  "name": "vpl",
+  "logFile": "",
+  "commandLine": "vpl -t hw -f /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm --remote_ip_cache /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/.ipcache --output_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int --log_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/logs/link --report_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link --config /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/vplConfig.ini -k /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/kernel_info.dat --webtalk_flag Vitis --temp_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link --no-info --iprepo /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xo/ip_repo/xilinx_com_hls_ImageRenderHLS_1_0 --messageDb /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/run_link/vpl.pb /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/dr.bd.tcl",
+  "args": [
+   "-t",
+   "hw",
+   "-f",
+   "/home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm",
+   "--remote_ip_cache",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/.ipcache",
+   "--output_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int",
+   "--log_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/logs/link",
+   "--report_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link",
+   "--config",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/vplConfig.ini",
+   "-k",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/kernel_info.dat",
+   "--webtalk_flag",
+   "Vitis",
+   "--temp_dir",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link",
+   "--no-info",
+   "--iprepo",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xo/ip_repo/xilinx_com_hls_ImageRenderHLS_1_0",
+   "--messageDb",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/run_link/vpl.pb",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/dr.bd.tcl"
+  ],
+  "iniFiles": [
+   {
+    "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/vplConfig.ini",
+    "content": "[advanced]\nmisc=report=type report_timing_summary name impl_report_timing_summary_route_design_summary steps {route_design} runs {impl_1} options {-max_paths 10}\nmisc=report=type report_timing_summary name impl_report_timing_summary_post_route_phys_opt_design_summary steps {post_route_phys_opt_design} runs {impl_1} options {-max_paths 10}\nparam=compiler.enablePerformanceTrace=1\nparam=compiler.vppCurrentWorkingDir=/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin\nmisc=BinaryName=imagerendererhls\n\n[connectivity]\nnk=ImageRenderHLS:1:ImageRenderHLS_1\n\n[vivado]\nprop=run.__KERNEL__.{STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS}={-directive sdx_optimization_effort_high}\nsynth.jobs=4\n\n"
+   }
+  ],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:57 2026",
+ "timestampMillis": "1769081517305",
+ "status": {
+  "cmdId": "de4a9629-5db5-4852-a1ab-e6a2343b1dff",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_CmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:58 2026",
+ "timestampMillis": "1769081518722",
+ "buildStep": {
+  "cmdId": "79009921-f3ff-4878-a15c-0ecb431d4374",
+  "name": "vpl",
+  "logFile": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/link.steps.log",
+  "commandLine": "/tools/Xilinx/Vitis/2024.2/bin/unwrapped/lnx64.o/vpl -t hw -f /home/emanuel/workspace/visual_odometry_vitis/platform/kv260/step2_pfm/build/platform/kv260_custom/export/kv260_custom/kv260_custom.xpfm --remote_ip_cache /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/.ipcache --output_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int --log_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/logs/link --report_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link --config /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/vplConfig.ini -k /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/kernel_info.dat --webtalk_flag Vitis --temp_dir /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link --no-info --iprepo /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xo/ip_repo/xilinx_com_hls_ImageRenderHLS_1_0 --messageDb /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/run_link/vpl.pb /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/dr.bd.tcl ",
+  "args": [],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/run_link"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:58 2026",
+ "timestampMillis": "1769081518722",
+ "status": {
+  "cmdId": "79009921-f3ff-4878-a15c-0ecb431d4374",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_VivadoProject",
+ "dateTimestamp": "Thu Jan 22 12:31:59 2026",
+ "timestampMillis": "1769081519125",
+ "vivadoProject": {
+  "openDir": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl",
+  "openScript": "openprj.tcl",
+  "relativeProject": "prj/prj.xpr"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:31:59 2026",
+ "timestampMillis": "1769081519126",
+ "buildStep": {
+  "cmdId": "2f370121-2155-469e-8978-c92b1c043524",
+  "name": "vivado",
+  "logFile": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl/vivado.log",
+  "commandLine": "vivado -log vivado.log -applog -m64 -messageDb vivado.pb -mode batch -source vpl.tcl -notrace",
+  "args": [
+   "-log",
+   "vivado.log",
+   "-applog",
+   " -m64",
+   "-messageDb",
+   "vivado.pb",
+   "-mode",
+   "batch",
+   "-source",
+   "vpl.tcl",
+   "-notrace"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/run_link"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:31:59 2026",
+ "timestampMillis": "1769081519126",
+ "status": {
+  "cmdId": "2f370121-2155-469e-8978-c92b1c043524",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:32:46 2026",
+ "timestampMillis": "1769081566761",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/automation_summary_pre_synthesis.txt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "VITIS_DESIGN_FLOW",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_CmdStep",
+ "dateTimestamp": "Thu Jan 22 12:44:26 2026",
+ "timestampMillis": "1769082266845",
+ "buildStep": {
+  "cmdId": "cd02eb5a-1c81-4cd4-aeb4-ed2e05cc4ef7",
+  "name": "vivado.impl",
+  "logFile": "",
+  "commandLine": "",
+  "args": [],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:44:26 2026",
+ "timestampMillis": "1769082266845",
+ "status": {
+  "cmdId": "cd02eb5a-1c81-4cd4-aeb4-ed2e05cc4ef7",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_CmdStep",
+ "dateTimestamp": "Thu Jan 22 12:44:26 2026",
+ "timestampMillis": "1769082266846",
+ "buildStep": {
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936",
+  "name": "vivado.impl.impl_1",
+  "logFile": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl/prj/prj.runs/impl_1/runme.log",
+  "commandLine": "",
+  "args": [],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl/prj/prj.runs/impl_1"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:44:26 2026",
+ "timestampMillis": "1769082266846",
+ "status": {
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:06 2026",
+ "timestampMillis": "1769082906508",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/vivado/vpl/prj/prj.runs/impl_1/system_diagram.json",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "SYSTEM_DIAGRAM_PLUS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:14 2026",
+ "timestampMillis": "1769082914254",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/kernel_service.json",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "KERNEL_SERVICE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:14 2026",
+ "timestampMillis": "1769082914255",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/kernel_service.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "KERNEL_SERVICE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952849",
+ "status": {
+  "cmdId": "2f370121-2155-469e-8978-c92b1c043524",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952870",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_synthed.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_UTILIZATION_SYNTHESIS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952871",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_routed.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_UTILIZATION_ROUTE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952872",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_synthed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_UTILIZATION_SYNTHESIS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952872",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_placed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "KERNEL_UTILIZATION_PLACEMENT",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952873",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_placed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_UTILIZATION_PLACEMENT",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952874",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_placed.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_UTILIZATION_PLACEMENT",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952875",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_slr_util_routed.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_SLR_UTIL_ROUTED",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952876",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_slr_util_placed.pb",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_SLR_UTIL_PLACED",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952877",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_synthed.xutil",
+  "name": "",
+  "fileType": "XUTIL",
+  "reportType": "KERNEL_UTILIZATION_SYNTHESIS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952877",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_routed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "KERNEL_UTILIZATION_ROUTE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952878",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_routed.xutil",
+  "name": "",
+  "fileType": "XUTIL",
+  "reportType": "KERNEL_UTILIZATION_ROUTE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952878",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_slr_util_routed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_SLR_UTIL_ROUTED",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952878",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_placed.xutil",
+  "name": "",
+  "fileType": "XUTIL",
+  "reportType": "KERNEL_UTILIZATION_PLACEMENT",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952879",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_slr_util_placed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_SLR_UTIL_PLACED",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952879",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_kernel_util_synthed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "KERNEL_UTILIZATION_SYNTHESIS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952879",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_full_util_routed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_UTILIZATION_ROUTE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952884",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_zynq_ultra_ps_e_0_0_synth_1_system_zynq_ultra_ps_e_0_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952885",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_clk_wiz_0_0_synth_1_system_clk_wiz_0_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952886",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_proc_sys_reset_1_0_synth_1_system_proc_sys_reset_1_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952887",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_proc_sys_reset_2_0_synth_1_system_proc_sys_reset_2_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952887",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_proc_sys_reset_3_0_synth_1_system_proc_sys_reset_3_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952888",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_intc_0_0_synth_1_system_axi_intc_0_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952888",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_s00_regslice_0_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_s00_regslice_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952889",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_m00_data_fifo_0_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_m00_data_fifo_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952889",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_ps8_0_axi_periph_upgraded_ipi_imp_xbar_0_synth_1_system_ps8_0_axi_periph_upgraded_ipi_imp_xbar_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952890",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_ImageRenderHLS_1_0_synth_1_system_ImageRenderHLS_1_0_utilization_synth.rpt",
+  "name": "ImageRenderHLS",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952890",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_auto_us_df_3_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_auto_us_df_3_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952891",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_ps8_0_axi_periph_imp_auto_pc_0_synth_1_system_ps8_0_axi_periph_imp_auto_pc_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952892",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_auto_us_df_5_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_auto_us_df_5_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952892",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_m00_regslice_0_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_m00_regslice_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952893",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_s05_regslice_0_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_imp_s05_regslice_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952893",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_ps8_0_axi_periph_imp_m01_regslice_0_synth_1_system_ps8_0_axi_periph_imp_m01_regslice_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952894",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/syn/system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_upgraded_ipi_imp_xbar_0_synth_1_system_axi_ic_zynq_ultra_ps_e_0_S_AXI_HP2_FPD_upgraded_ipi_imp_xbar_0_utilization_synth.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_UTILIZATION",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952895",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_system_diagram.json",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "SYSTEM_DIAGRAM_PLUS",
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952896",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_system_wrapper_timing_summary_routed.rpt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_REPORT_TIMING_SUMMARY",
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952896",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_system_wrapper_timing_summary_routed.rpx",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_REPORT_TIMING_SUMMARY",
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952896",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/imp/impl_1_system_wrapper_timing_summary_routed.rpv",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_REPORT_TIMING_SUMMARY_CONCISE",
+  "cmdId": "bd04caed-4a0c-482f-b54f-b3562606d936"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952930",
+ "status": {
+  "cmdId": "79009921-f3ff-4878-a15c-0ecb431d4374",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952968",
+ "status": {
+  "cmdId": "de4a9629-5db5-4852-a1ab-e6a2343b1dff",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952972",
+ "buildStep": {
+  "cmdId": "e8c14cc4-9dd3-448f-95ae-81039de0220e",
+  "name": "rtdgen",
+  "logFile": "",
+  "commandLine": "rtdgen",
+  "args": [],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952972",
+ "status": {
+  "cmdId": "e8c14cc4-9dd3-448f-95ae-81039de0220e",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952975",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls_xml.rtd",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "XCLBIN_INFO",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952976",
+ "buildStep": {
+  "cmdId": "44009fda-2467-4c32-b781-755d143c1ef2",
+  "name": "cf2sw",
+  "logFile": "",
+  "commandLine": "cf2sw -a /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/address_map.xml -sdsl /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/sdsl.dat -xclbin /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.xml -rtd /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.rtd -o /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.xml",
+  "args": [
+   "-a",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/address_map.xml",
+   "-sdsl",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/sdsl.dat",
+   "-xclbin",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/xclbin_orig.xml",
+   "-rtd",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.rtd",
+   "-o",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.xml"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:52 2026",
+ "timestampMillis": "1769082952977",
+ "status": {
+  "cmdId": "44009fda-2467-4c32-b781-755d143c1ef2",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954990",
+ "status": {
+  "cmdId": "44009fda-2467-4c32-b781-755d143c1ef2",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954991",
+ "buildStep": {
+  "cmdId": "607938e9-4a67-4e13-a864-dc0b2c6dea71",
+  "name": "rtdgen",
+  "logFile": "",
+  "commandLine": "writeSystemDiagram",
+  "args": [
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.rtd",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/systemDiagramModelSlrBaseAddress.json"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954992",
+ "status": {
+  "cmdId": "607938e9-4a67-4e13-a864-dc0b2c6dea71",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954994",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/systemDiagramModelSlrBaseAddress.json",
+  "name": "",
+  "fileType": "JSON",
+  "reportType": "SYSTEM_DIAGRAM_PLUS",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954994",
+ "status": {
+  "cmdId": "607938e9-4a67-4e13-a864-dc0b2c6dea71",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954995",
+ "buildStep": {
+  "cmdId": "eadb6049-a2bd-4a40-8c92-b2d606b7589b",
+  "name": "rtdgen",
+  "logFile": "",
+  "commandLine": "writeAutomationSummary",
+  "args": [
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/automation_summary.txt"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954995",
+ "status": {
+  "cmdId": "eadb6049-a2bd-4a40-8c92-b2d606b7589b",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954996",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/automation_summary.txt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "VITIS_DESIGN_FLOW",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954997",
+ "status": {
+  "cmdId": "eadb6049-a2bd-4a40-8c92-b2d606b7589b",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954997",
+ "status": {
+  "cmdId": "e8c14cc4-9dd3-448f-95ae-81039de0220e",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:54 2026",
+ "timestampMillis": "1769082954999",
+ "buildStep": {
+  "cmdId": "5e28f46d-94b8-45c5-94cc-de0dcbcbfcbc",
+  "name": "xclbinutil",
+  "logFile": "",
+  "commandLine": "xclbinutil --add-section BITSTREAM:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/system.bit --force --target hw --key-value SYS:dfx_enable:false --add-section :JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.rtd --add-section CLOCK_FREQ_TOPOLOGY:JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls_xml.rtd --add-section BUILD_METADATA:JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls_build.rtd --add-section EMBEDDED_METADATA:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.xml --add-section SYSTEM_METADATA:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/systemDiagramModelSlrBaseAddress.json --key-value SYS:PlatformVBNV:xilinx_kv260_kv260_hardware_Platform_0_0 --output /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin",
+  "args": [
+   "--add-section",
+   "BITSTREAM:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/system.bit",
+   "--force",
+   "--target",
+   "hw",
+   "--key-value",
+   "SYS:dfx_enable:false",
+   "--add-section",
+   ":JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.rtd",
+   "--add-section",
+   "CLOCK_FREQ_TOPOLOGY:JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls_xml.rtd",
+   "--add-section",
+   "BUILD_METADATA:JSON:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls_build.rtd",
+   "--add-section",
+   "EMBEDDED_METADATA:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/imagerendererhls.xml",
+   "--add-section",
+   "SYSTEM_METADATA:RAW:/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/link/int/systemDiagramModelSlrBaseAddress.json",
+   "--key-value",
+   "SYS:PlatformVBNV:xilinx_kv260_kv260_hardware_Platform_0_0",
+   "--output",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955000",
+ "status": {
+  "cmdId": "5e28f46d-94b8-45c5-94cc-de0dcbcbfcbc",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955099",
+ "status": {
+  "cmdId": "5e28f46d-94b8-45c5-94cc-de0dcbcbfcbc",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_SubCmdStep",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955102",
+ "buildStep": {
+  "cmdId": "804ce317-1498-41a7-871f-34f11157fa19",
+  "name": "xclbinutilinfo",
+  "logFile": "",
+  "commandLine": "xclbinutil --quiet --force --info /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin.info --input /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin",
+  "args": [
+   "--quiet",
+   "--force",
+   "--info",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin.info",
+   "--input",
+   "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/imagerendererhls.xclbin"
+  ],
+  "iniFiles": [],
+  "cwd": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955102",
+ "status": {
+  "cmdId": "804ce317-1498-41a7-871f-34f11157fa19",
+  "state": "CS_RUNNING"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955242",
+ "status": {
+  "cmdId": "804ce317-1498-41a7-871f-34f11157fa19",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955293",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/system_estimate_imagerendererhls.xtxt",
+  "name": "",
+  "fileType": "TEXT",
+  "reportType": "GLOBAL_SYSTEM_ESTIMATE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955381",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/logs/optraceViewer.html",
+  "name": "",
+  "fileType": "HTML",
+  "reportType": "OPERATION_TRACE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Status",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955382",
+ "status": {
+  "cmdId": "adf1cd54-4bfc-4437-9ab0-6ac88d91df63",
+  "state": "CS_PASSED"
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955406",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/reports/link/v++_link_imagerendererhls_guidance.html",
+  "name": "",
+  "fileType": "HTML",
+  "reportType": "GLOBAL_RULECHECK_GUIDANCE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
+<ENTRY>
+{
+ "type": "ET_Report",
+ "dateTimestamp": "Thu Jan 22 12:55:55 2026",
+ "timestampMillis": "1769082955407",
+ "report": {
+  "path": "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/backends/xrt/hls/build/xclbin/_x/v++_link_imagerendererhls_guidance.pb3",
+  "name": "",
+  "fileType": "BINARY_PROTOBUF",
+  "reportType": "GLOBAL_RULECHECK_GUIDANCE",
+  "cmdId": ""
+ }
+}
+</ENTRY>
