@@ -156,6 +156,26 @@ inline bool InitEGL()
 
         m_data->egl_display = display;
     }
+};
+
+// Internal attempt for a specific API.
+// Returns true on success; on failure it leaves resources in a valid Destroy()-able state.
+inline bool InitEGLTry(EGLInternalData2 &out,
+                       EGLInternalData2::API api,
+                       int width,
+                       int height,
+                       int renderDevice,
+                       int glMajor,
+                       int glMinor,
+                       int glesClientVersion /*3 or 2*/)
+{
+    out.Destroy();
+
+    out.m_windowWidth = width;
+    out.m_windowHeight = height;
+    out.m_renderDevice = renderDevice;
+    out.m_api = api;
+    out.m_glesClientVersion = (api == EGLInternalData2::API::OpenGLES) ? glesClientVersion : 0;
 
     if (m_data->egl_display == EGL_NO_DISPLAY)
     {
@@ -246,6 +266,7 @@ inline bool InitEGL()
     {
         std::fprintf(stderr, "Failed to make context current (eglError=%#x)\n", eglGetError());
         return false;
+#endif
     }
 
     // Load GL functions
@@ -253,6 +274,14 @@ inline bool InitEGL()
     {
         std::fprintf(stderr, "Failed to load GL with glad.\n");
         return false;
+
+    std::fprintf(stderr, "Desktop OpenGL init failed — attempting OpenGL ES fallback...\n");
+
+    // 2) Try GLES3
+    if (InitEGLTry(out, EGLInternalData2::API::OpenGLES,
+                   width, height, renderDevice, glMajor, glMinor, /*glesClientVersion*/ 3))
+    {
+        return true;
     }
 
     // Print what you *actually* got
@@ -262,5 +291,12 @@ inline bool InitEGL()
     // Your existing helper (if it prints useful extra info)
     PrintEGLAndGLInfo(m_data->egl_display, m_data->egl_context);
 
-    return true;
+    // 3) Try GLES2
+    if (InitEGLTry(out, EGLInternalData2::API::OpenGLES,
+                   width, height, renderDevice, glMajor, glMinor, /*glesClientVersion*/ 2))
+    {
+        return true;
+    }
+
+    return false;
 }
