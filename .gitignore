@@ -3,8 +3,7 @@
 /HLSLinearAlgebra
 /build
 /install
-/src/demo/build
-/src/backends/xrt/build
-/src/backends/xrt/hls/build
+/src/mpdr/backends/xrt/build
+/src/mpdr/backends/xrt/hls/build
 /.devcontainer/packages
 .cache
