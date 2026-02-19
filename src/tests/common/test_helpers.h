@@ -8,15 +8,7 @@ inline void SaveDebugImage(const cv::Mat &image, const std::string &filename)
 {
     cv::Mat normalized;
     cv::normalize(image, normalized, 0, 255, cv::NORM_MINMAX);
-    normalized.convertTo(normalized, CV_8UC1);
-    cv::imwrite(filename, normalized);
-}
-
-inline void SaveDebugImageColor(const cv::Mat &image, const std::string &filename)
-{
-    cv::Mat normalized;
-    cv::normalize(image, normalized, 0, 255, cv::NORM_MINMAX);
-    normalized.convertTo(normalized, CV_8UC3);
+    normalized.convertTo(normalized, CV_8U);
     cv::imwrite(filename, normalized);
 }
 

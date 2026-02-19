@@ -9,6 +9,14 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
+    MeshCPU()
+    {
+        stride_ = 0;
+        pos_offset_ = -1;
+        tex_offset_ = -1;
+        nor_offset_ = -1;
+    };
+
     MeshCPU(const std::vector<float> &vertex,
             const std::vector<int> &indices,
             bool has_position,

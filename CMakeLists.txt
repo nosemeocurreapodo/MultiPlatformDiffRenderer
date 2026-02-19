@@ -8,7 +8,7 @@ option(COMPILE_GLES2 "Enable GLES2 compilation" OFF)
 option(COMPILE_HLS "Enable HLS synthesis" OFF)
 option(COMPILE_XRT "Enable XRT compilation" OFF)
 option(COMPILE_DEMO "Enable Demo compilation" ON)
-option(COMPILE_TESTS "Enable Tests compilation" OFF)
+option(COMPILE_TESTS "Enable Tests compilation" ON)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)

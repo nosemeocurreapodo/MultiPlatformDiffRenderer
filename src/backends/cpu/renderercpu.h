@@ -8,11 +8,12 @@
 #include "core/types.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
-#include "backends/base/rendererbase.h"
 #include "backends/cpu/devicecpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/meshcpu.h"
+#include "backends/base/rendererbase.h"
+#include "backends/base/renderersbase.h"
 
 template <class Base>
 class RendererBaseCPU : public RendererBase<Base>
@@ -20,12 +21,13 @@ class RendererBaseCPU : public RendererBase<Base>
 public:
     using Fragment = typename Base::Fragment;
 
-    template <typename Mesh, typename Uniforms, typename InTextures, typename OutTextures>
     void RenderNaive(const BoundingBox<int> &viewport,
-                     const Mesh &mesh,
-                     const Uniforms &uniforms,
-                     const InTextures &intextures,
-                     OutTextures &outtextures)
+                     // const Mesh &mesh,
+                     const BufferViewCPU<const float> &vertex_buffer,
+                     const BufferViewCPU<const int> &ebo_buffer,
+                     const typename Base::Uniforms &uniforms,
+                     const typename Base::InTextures &intextures,
+                     typename Base::OutTextures &outtextures)
     {
         const int W = viewport.width_;
         const int H = viewport.height_;
@@ -43,34 +45,62 @@ public:
         Fragment *fragment_buffer = fragment_buffer_.data();
         float *depth_buffer = depth_buffer_.data();
 
-        auto vertex_map = mesh.vertex_buffer_.MapRead();
-        auto ebo_map = mesh.ebo_buffer_.MapRead();
-
-        // Loop over triangles
-        for (unsigned int i = 0; i + 2 < ebo_map.size(); i += 3)
-        {
-            int vertexids[3];
-            vertexids[0] = ebo_map[i + 0];
-            vertexids[1] = ebo_map[i + 1];
-            vertexids[2] = ebo_map[i + 2];
-
-            typename Base::VertexData vertexdata[3];
-            vertexdata[0] = Base::get_vertex_data(vertex_map, vertexids[0]);
-            vertexdata[1] = Base::get_vertex_data(vertex_map, vertexids[1]);
-            vertexdata[2] = Base::get_vertex_data(vertex_map, vertexids[2]);
-
-            typename RendererBase<Base>::Triangle triangle;
-            this->create_triangle_(vertexdata, vertexids, viewport, uniforms, triangle);
-
-            this->draw_triangle_(triangle, viewport, depth_buffer, uniforms, intextures, fragment_buffer);
-        }
-
-        Base::sync_outtextures(outtextures, viewport, fragment_buffer, uniforms);
+        this->RenderTile(viewport,
+                         viewport,
+                         vertex_buffer,
+                         ebo_buffer,
+                         uniforms,
+                         intextures,
+                         outtextures,
+                         fragment_buffer,
+                         depth_buffer);
     }
 
 private:
     std::vector<Fragment> fragment_buffer_;
     std::vector<float> depth_buffer_;
+};
+
+class DeferredRendererCPU
+    : public RendererBaseCPU<DeferredRendererBase<TextureViewWriteCPU>>
+{
+public:
+    using Base = DeferredRendererBase<TextureViewWriteCPU>;
+
+    DeferredRendererCPU() = default;
+    ~DeferredRendererCPU() = default;
+
+    void Render(const MeshCPU &mesh,
+                const SE3<float> &pose,
+                const PinholeCamera<float> &cam,
+                int lvl,
+                TextureCPU<Vec3<float>> &fpose_texture,
+                TextureCPU<Vec3<float>> &kfpose_texture,
+                TextureCPU<Vec3<float>> &bcid_texture)
+    {
+        const int W = static_cast<int>(fpose_texture.width(lvl));
+        const int H = static_cast<int>(fpose_texture.height(lvl));
+        BoundingBox<int> viewport(0, W, 0, H);
+
+        Base::Uniforms uniforms;
+        uniforms.pose_matrix = pose.matrix();
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+
+        Base::InTextures intextures{0};
+        Base::OutTextures outtextures{fpose_texture.MapWrite(lvl),
+                                      kfpose_texture.MapWrite(lvl),
+                                      bcid_texture.MapWrite(lvl)};
+
+        RendererBaseCPU<Base>::RenderNaive(
+            viewport,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
+            uniforms,
+            intextures,
+            outtextures);
+    }
+
+private:
 };
 
 // -----------------------------------------------------------------------------
@@ -93,13 +123,9 @@ public:
                 int out_lvl,
                 TextureCPU<float> &out_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         const int W = static_cast<int>(out_texture.width(out_lvl));
         const int H = static_cast<int>(out_texture.height(out_lvl));
@@ -110,7 +136,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -144,13 +171,9 @@ public:
                 const TextureCPU<ImageType> &diffuse_texture,
                 TextureCPU<ImageType> &out_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.in_lvl = in_lvl;
         uniforms.out_lvl = out_lvl;
@@ -165,7 +188,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -204,7 +228,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -245,7 +270,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -381,10 +407,6 @@ public:
                 TextureCPU<Vec3<float>> &jrot_texture,
                 TextureCPU<Vec3<float>> &jexp_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -393,7 +415,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.out_width = W;
@@ -408,7 +430,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -445,10 +468,6 @@ public:
                 TextureCPU<Vec3<float>> &jrotvel_texture,
                 TextureCPU<Vec3<float>> &jexp_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -457,7 +476,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.exposure = exposure;
@@ -476,7 +495,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -500,24 +520,21 @@ public:
                 int out_lvl,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(pids_texture.width(out_lvl));
         const int H = static_cast<int>(pids_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
 
         Base::Uniforms uniforms;
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
         Base::InTextures intextures{0};
         Base::OutTextures outtextures{pids_texture.MapWrite(out_lvl)};
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -678,10 +695,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -690,7 +703,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.out_width = W;
         uniforms.out_height = H;
@@ -705,7 +718,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -741,10 +755,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -753,7 +763,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.out_width = W;
         uniforms.out_height = H;
@@ -771,7 +781,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -806,10 +817,6 @@ public:
                 TextureCPU<Vec3<float>> &jexp_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -818,7 +825,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.inv_rot_matrix = pose.so3().matrix().transpose();
         uniforms.camera = cam;
         uniforms.out_width = W;
@@ -836,7 +843,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -871,10 +879,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -883,7 +887,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.exposure = exposure;
         uniforms.out_width = W;
@@ -900,7 +904,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -939,10 +944,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -951,7 +952,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.camera = cam;
         uniforms.vel_matrix = vel;
         uniforms.readout_time = readout_time;
@@ -972,7 +973,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);
@@ -1007,10 +1009,6 @@ public:
                 TextureCPU<Vec3<float>> &jdepth_texture,
                 TextureCPU<Vec3<PidType>> &pids_texture)
     {
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
-
         const int W = static_cast<int>(image_texture.width(out_lvl));
         const int H = static_cast<int>(image_texture.height(out_lvl));
         BoundingBox<int> viewport(0, W, 0, H);
@@ -1019,7 +1017,7 @@ public:
         uniforms.fx = cam.GetParams()(0);
         uniforms.fy = cam.GetParams()(1);
         uniforms.pose_matrix = pose.matrix();
-        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl;
+        uniforms.view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         uniforms.exposure = exposure;
         uniforms.out_width = W;
         uniforms.out_height = H;
@@ -1035,7 +1033,8 @@ public:
 
         RendererBaseCPU<Base>::RenderNaive(
             viewport,
-            mesh,
+            mesh.vertex_buffer_.MapRead(),
+            mesh.ebo_buffer_.MapRead(),
             uniforms,
             intextures,
             outtextures);

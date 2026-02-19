@@ -7,6 +7,7 @@
 // #include "core/types.h"
 #include "core/camera.h"
 #include "core/mesh_helpers.h"
+#include "backends/cpu/meshcpu.h"
 #include <ap_int.h>
 
 extern "C"
@@ -47,7 +48,6 @@ int main()
     linalg::Vec2<float> exposure(0.0f, 0.0f);
 
     TextureCPU<ImageType> image_src_cpu(w, h, 0);
-    TextureCPU<float> depth_src_cpu(w, h, 0);
     TextureCPU<ImageType> image_dst_cpu(w, h, 0);
 
     cv::Mat image_src_cv = cv::imread(image_files[0], cv::IMREAD_GRAYSCALE);
@@ -62,18 +62,25 @@ int main()
     depth_dst_cv = depth_dst_cv / depth_factor;
     linalg::SE3<float> pose_dst = poses[50];
 
-    UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
     UploadMatToTexture(image_src_cpu, 0, image_src_cv);
     UploadMatToTexture(image_dst_cpu, 0, image_dst_cv);
 
-    std::vector<float> vertex;
-    std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, false, false);
+    MeshCPU mesh_cpu;
+
+    CreateMesh((float *)depth_src_cv.data,
+               cam,
+               depth_src_cv.cols,
+               depth_src_cv.rows,
+               24,
+               mesh_cpu);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int in_lvl = 2;
     unsigned int out_lvl = 0;
+
+    auto vertex_buff_map = mesh_cpu.vertex_buffer_.MapWrite();
+    auto ebo_buff_map = mesh_cpu.ebo_buffer_.MapWrite();
 
     auto diffuse_map = image_src_cpu.MapWrite(0);
     Level diffuse_lvl = image_src_cpu.level(in_lvl);
@@ -83,13 +90,13 @@ int main()
     Level image_out_lvl = image_out_cpu.level(out_lvl);
 
     ImageRenderHLS(
-        vertex.data(),
-        indices.data(),
+        vertex_buff_map.data(),
+        ebo_buff_map.data(),
         (ImageType *)diffuse_map.data(),
         (ImageType *)image_out_map.data(),
         diffuse_lvl.offset,
         image_out_lvl.offset,
-        vertex.size(), indices.size(),
+        vertex_buff_map.size(), ebo_buff_map.size(),
         image_src_cpu.width(in_lvl), image_src_cpu.height(in_lvl), 0,
         image_out_cpu.width(out_lvl), image_out_cpu.height(out_lvl), 0,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),

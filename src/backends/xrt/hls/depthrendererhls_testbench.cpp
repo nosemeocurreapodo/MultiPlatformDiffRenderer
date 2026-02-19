@@ -7,6 +7,7 @@
 #include "tests/common/test_helpers.h"
 #include "core/mesh_helpers.h"
 #include "core/camera.h"
+#include "backends/cpu/meshcpu.h"
 
 extern "C"
 {
@@ -52,35 +53,31 @@ int main()
     UploadMatToTexture(depth_dst_cpu, 0, depth_dst_cv);
     linalg::SE3<float> pose_dst = poses[50];
 
-    // std::vector<Eigen::Vector3f> vertices, normals;
-    // std::vector<Eigen::Vector2f> texcoords;
-    // std::vector<unsigned int> indices;
-    // CreateMesh(depth_src_cpu, cam, 32, vertices, texcoords, normals, indices);
-
-    std::vector<float> vertex;
-    std::vector<int> indices;
-
-    CreateMesh(depth_src_cpu, cam, 32,
-               vertex,
-               indices,
-               true,
-               false,
-               false);
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)depth_src_cv.data,
+               cam,
+               depth_src_cv.cols,
+               depth_src_cv.rows,
+               24,
+               mesh_cpu);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int lvl = 1;
+
+    auto vertex_buff_map = mesh_cpu.vertex_buffer_.MapWrite();
+    auto ebo_buff_map = mesh_cpu.ebo_buffer_.MapWrite();
 
     TextureCPU<float> depth_out_cpu(w, h, 0.0f);
     auto depth_map = depth_out_cpu.MapWrite(0);
     Level level = depth_out_cpu.level(lvl);
 
     DepthRenderHLS(
-        vertex.data(),
-        indices.data(),
+        vertex_buff_map.data(),
+        ebo_buff_map.data(),
         depth_map.data(),
         level.offset,
-        vertex.size(), indices.size(),
+        vertex_buff_map.size(), ebo_buff_map.size(),
         depth_out_cpu.width(lvl), depth_out_cpu.height(lvl), 0.0f,
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),
         pose.translation()(0), pose.translation()(1), pose.translation()(2),

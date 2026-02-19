@@ -51,3 +51,9 @@ inline T exp(T a)
 {
     return std::exp(a);
 }
+
+template <typename T>
+inline T fabs(T a)
+{
+    return std::fabs(a);
+}

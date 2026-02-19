@@ -11,206 +11,167 @@
 #include "core/types.h"
 #include "core/camera.h"
 #include "core/boundingbox.h"
-#include "backends/gl/devicegl_glad.h"
+#include "backends/gl/common.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/texturegl.h"
 
-class BaseRendererGL
+// Deferred “varyings” pass for pose Jacobians (GLSL 4.60).
+// Uses explicit uniform locations (no glGetUniformLocation).
+//
+// Outputs (two MRTs):
+//   - gbufPos : vec4(f_ver.xyz, 1)
+//   - gbufUvM : vec4(uv.xy, mask, 0)   mask=1 for covered pixels
+//
+class DeferredRendererGL
 {
 public:
-    BaseRendererGL()
-    {
-#if defined(GL_VERSION_4_5)
-        if (GLAD_GL_VERSION_4_5)
-        {
-            glCreateFramebuffers(1, &fbo_);
-        }
-        else
-#endif
-        {
-            glGenFramebuffers(1, &fbo_);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-        glGenRenderbuffers(1, &rbo_);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo_);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1280, 1280); // use a single renderbuffer object for both a depth AND stencil buffer.
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        opencv2opengl_ = Mat4<float>::Identity();
-        opencv2opengl_(1, 1) = -1.0;
-        opencv2opengl_(2, 2) = -1.0; // flip Z; (1,1) was already +1
-    }
-
-    // move-only RAII
-    BaseRendererGL(BaseRendererGL &&o) noexcept { *this = std::move(o); }
-    BaseRendererGL &operator=(BaseRendererGL &&o) noexcept
-    {
-        if (this != &o)
-        {
-            destroy_();
-            fbo_ = std::exchange(o.fbo_, 0);
-            program_ = std::exchange(o.program_, 0);
-        }
-        return *this;
-    }
-    BaseRendererGL(const BaseRendererGL &) = delete;
-    BaseRendererGL &operator=(const BaseRendererGL &) = delete;
-
-    virtual ~BaseRendererGL() { destroy_(); }
-
-protected:
-    // Derived classes call this once after constructing to compile & link
-    void CompileShaders(const char *vs, const char *fs)
-    {
-        GLuint vsId = compile_shader_(GL_VERTEX_SHADER, vs);
-        GLuint fsId = compile_shader_(GL_FRAGMENT_SHADER, fs);
-
-        program_ = glCreateProgram();
-        glAttachShader(program_, vsId);
-        glAttachShader(program_, fsId);
-        glLinkProgram(program_);
-        glDeleteShader(vsId);
-        glDeleteShader(fsId);
-
-        GLint ok = GL_FALSE;
-        glGetProgramiv(program_, GL_LINK_STATUS, &ok);
-        if (!ok)
-        {
-            char log[2048];
-            glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
-            glDeleteProgram(program_);
-            program_ = 0;
-            throw RendererExceptions::OpenGLException("shader program linking", 0);
-        }
-    }
-
-    void CompileShaders(const char *vs, const char *gs, const char *fs)
-    {
-        GLuint vsId = compile_shader_(GL_VERTEX_SHADER, vs);
-        GLuint gsId = compile_shader_(GL_GEOMETRY_SHADER, gs);
-        GLuint fsId = compile_shader_(GL_FRAGMENT_SHADER, fs);
-
-        program_ = glCreateProgram();
-        glAttachShader(program_, vsId);
-        glAttachShader(program_, gsId);
-        glAttachShader(program_, fsId);
-        glLinkProgram(program_);
-        glDeleteShader(vsId);
-        glDeleteShader(gsId);
-        glDeleteShader(fsId);
-
-        GLint ok = GL_FALSE;
-        glGetProgramiv(program_, GL_LINK_STATUS, &ok);
-        if (!ok)
-        {
-            char log[2048];
-            glGetProgramInfoLog(program_, sizeof(log), nullptr, log);
-            glDeleteProgram(program_);
-            program_ = 0;
-            throw RendererExceptions::OpenGLException("shader program linking", 0);
-        }
-    }
-
-    void check_framebuffer()
-    {
-        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
-        {
-            throw RendererExceptions::OpenGLException("framebuffer setup", status);
-        }
-    }
-
-    void save_state()
-    {
-        GLint prevFbo = 0, prevProg = 0, prevViewport[4];
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
-        glGetIntegerv(GL_CURRENT_PROGRAM, &prevProg);
-        glGetIntegerv(GL_VIEWPORT, prevViewport);
-    }
-
-    void restore_state()
-    {
-        glUseProgram(prevProg_);
-        glBindFramebuffer(GL_FRAMEBUFFER, prevFbo_);
-        glViewport(prevViewport_[0], prevViewport_[1], prevViewport_[2], prevViewport_[3]);
-    }
-
-    GLuint program_ = 0;
-    GLuint fbo_ = 0;
-    GLuint rbo_;
-
-    GLint prevFbo_ = 0, prevProg_ = 0, prevViewport_[4];
-
-    Mat4<float> opencv2opengl_;
-
-private:
-    static GLuint compile_shader_(GLenum type, const char *src)
-    {
-        static const char *common = R"GLSL(
-        #version 330 core
-
-        float apply_exposure(float v, vec2 exposure)
-        {
-            return v * exp(exposure.x) + exposure.y;
-        }
-
-        float d_f_exp_d_f(float v, vec2 exposure)
-        {
-            return exp(exposure.x);
-        }
-
-        vec3 d_f_exp_d_exp(float v, vec2 exposure)
-        {
-            return vec3(v * exp(exposure.x), 1.0, 0.0);
-        }
-
-        vec2 pointToPix(vec3 point, float fx, float fy, float cx, float cy)
-        {
-            vec2 pix;
-            pix.x = (point.x / point.z) * fx + cx;
-            pix.y = (point.y / point.z) * fy + cy;
-            return pix;
-        }
-        )GLSL";
-
-        const char *parts[] = {common, src};
-
-        GLuint id = glCreateShader(type);
-        glShaderSource(id, 2, parts, nullptr);
-        glCompileShader(id);
-        GLint ok = GL_FALSE;
-        glGetShaderiv(id, GL_COMPILE_STATUS, &ok);
-        if (!ok)
-        {
-            char log[2048];
-            glGetShaderInfoLog(id, sizeof(log), nullptr, log);
-            std::string shader_type = (type == GL_VERTEX_SHADER ? "Vertex" : "Fragment");
-            glDeleteShader(id);
-            std::cout << log << std::endl;
-            throw RendererExceptions::OpenGLException(shader_type + " shader compilation", ok);
-        }
-        return id;
-    }
-
-    void destroy_()
-    {
-        if (program_)
-            glDeleteProgram(program_);
-        if (fbo_)
-            glDeleteFramebuffers(1, &fbo_);
-        program_ = 0;
-        fbo_ = 0;
-    }
-};
-
-class DepthRendererGL : public BaseRendererGL
-{
-public:
-    DepthRendererGL() : BaseRendererGL()
+    DeferredRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 460 core
+
+            layout (location = 0) in vec3 a_position;
+
+            // Explicit uniform locations
+            layout(location = 0) uniform mat4 view_matrix;
+            layout(location = 4) uniform mat4 pose_matrix;
+
+            out vec3 v_f_ver;
+            out vec3 v_kf_ver;
+
+            void main()
+            {
+                vec4 ver = pose_matrix * vec4(a_position, 1.0);
+                gl_Position = view_matrix * ver;
+
+                v_f_ver  = ver.xyz;
+                v_kf_ver = a_position;
+            }
+        )Shader";
+
+        const char *geometry_shader = R"Shader(
+            #version 460 core
+
+            layout(triangles) in;
+            layout(triangle_strip, max_vertices = 3) out;
+
+            in vec3 v_kf_ver[];
+            in vec3 v_f_ver[];
+
+            out vec3 g_kf_ver;
+            out vec3 g_f_ver;
+            flat out int g_triId;
+
+            smooth out vec3  g_bc;   
+
+            void main() {
+
+                g_triId = gl_PrimitiveIDIn + 1;
+
+                for (int i = 0; i < 3; ++i) {
+                    g_kf_ver = v_kf_ver[i];
+                    g_f_ver = v_f_ver[i];
+                    g_bc     = vec3(i == 0, i == 1, i == 2);
+                    gl_Position = gl_in[i].gl_Position;
+                    EmitVertex();
+                }
+                EndPrimitive();
+            }
+            )Shader";
+
+        const char *fragment_shader = R"Shader(
+            #version 460 core
+
+            layout(location = 0) out vec3 gbufPos; // f_ver.xyz + 1
+            layout(location = 1) out vec3 gbukfPos; // f_ver.xyz + 1
+            layout(location = 2) out vec3 gbuBCId; // uv.xy + mask + unused
+
+            in vec3 g_kf_ver;
+            in vec3 g_f_ver;
+            smooth in vec3  g_bc;          // or noperspective if chosen above
+            flat   in int g_triId;
+
+            void main()
+            {
+                gbufPos = vec3(g_f_ver);
+                gbukfPos = vec3(g_kf_ver);
+                gbuBCId = vec3(g_bc.x, g_bc.y, g_triId);
+            }
+        )Shader";
+
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
+    }
+
+    void Render(const MeshGL &mesh,
+                const SE3<float> &pose,
+                const PinholeCamera<float> &cam,
+                int out_lvl,
+                TextureGL<Vec3<float>> &gbuf_fpos,
+                TextureGL<Vec3<float>> &gbuf_kfpos,
+                TextureGL<Vec3<float>> &gbuf_bcid)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gbuf_fpos.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, gbuf_kfpos.id(), out_lvl);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, gbuf_bcid.id(), out_lvl);
+
+        const GLenum bufs[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+        glDrawBuffers(3, bufs);
+
+        check_framebuffer();
+
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CW);
+
+        const GLsizei W = static_cast<GLsizei>(gbuf_fpos.width(out_lvl));
+        const GLsizei H = static_cast<GLsizei>(gbuf_fpos.height(out_lvl));
+        glViewport(0, 0, W, H);
+
+        // Clear MRTs + depth
+        const Vec3<float> fpos_nd = gbuf_fpos.nodata();
+        const Vec3<float> kfpos_nd = gbuf_kfpos.nodata();
+        const Vec3<float> bcid_nd = gbuf_bcid.nodata();
+        float clear_fpos[4] = {fpos_nd(0), fpos_nd(1), fpos_nd(2), 1.0};
+        float clear_kfpos[4] = {kfpos_nd(0), kfpos_nd(1), kfpos_nd(2), 1.0};
+        float clear_uvm[4] = {bcid_nd(0), bcid_nd(1), bcid_nd(2), 1.0};
+        float clear_depth[1] = {1.0f};
+
+        glClearBufferfv(GL_COLOR, 0, clear_fpos);
+        glClearBufferfv(GL_COLOR, 1, clear_kfpos);
+        glClearBufferfv(GL_COLOR, 2, clear_uvm);
+        glClearBufferfv(GL_DEPTH, 0, clear_depth);
+
+        glUseProgram(program_);
+
+        const Mat4<float> view_matrix =
+            cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
+        const Mat4<float> pose_matrix = pose.matrix();
+
+        // mat4 occupies 4 consecutive locations each
+        glUniformMatrix4fv(/*location=*/0, 1, GL_FALSE, view_matrix.data());
+        glUniformMatrix4fv(/*location=*/4, 1, GL_FALSE, pose_matrix.data());
+
+        mesh.draw();
+    }
+
+private:
+    GLuint fbo_ = 0;
+    GLuint rbo_ = 0;
+    GLuint program_ = 0;
+};
+
+class DepthRendererGL
+{
+public:
+    DepthRendererGL()
+    {
+        const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
             
             out float depth;
@@ -226,6 +187,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out float a_output;
 
             in float depth;
@@ -240,7 +203,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, nullptr, fragment_shader);
 
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
@@ -258,7 +222,7 @@ public:
         ErrorHandling::ValidateTextureDimensions(depth_texture.width(out_lvl), depth_texture.height(out_lvl), out_lvl);
         ErrorHandling::ValidateCameraParameters(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
 
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, depth_texture.id(), out_lvl);
@@ -290,8 +254,7 @@ public:
         glUseProgram(program_);
 
         const Mat4<float> pose_matrix = pose.matrix();
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                        opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         // const Mat4<float> t_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * pose.matrix();
 
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
@@ -301,22 +264,27 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
     GLint pose_matrix_loc_ = -1;
     GLint view_matrix_loc_ = -1;
     GLint near_plane_loc_ = -1;
     GLint far_plane_loc_ = -1;
 };
 
-class PidsRendererGL : public BaseRendererGL
+class PidsRendererGL
 {
 public:
-    PidsRendererGL() : BaseRendererGL()
+    PidsRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
 
@@ -333,6 +301,8 @@ public:
             )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -355,6 +325,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 pids_output;
 
             flat in ivec3 triIDs;
@@ -365,7 +337,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -377,7 +350,7 @@ public:
                 int out_lvl,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, pids_texture.id(), out_lvl);
@@ -407,7 +380,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -415,20 +388,25 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 };
 
-class ImageRendererGL : public BaseRendererGL
+class ImageRendererGL
 {
 public:
-    ImageRendererGL() : BaseRendererGL()
+    ImageRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
             
@@ -445,6 +423,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out float a_output;
             
             in vec3 kf_ver;
@@ -479,7 +459,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, nullptr, fragment_shader, common);
 
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
@@ -504,7 +485,7 @@ public:
                 const TextureGL<ImageType> &diffuse_texture,
                 TextureGL<ImageType> &out_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
@@ -551,8 +532,7 @@ public:
         glUseProgram(program_);
 
         const Mat4<float> pose_matrix = pose.matrix();
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                        opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         glUniformMatrix4fv(pose_matrix_loc_, 1, GL_FALSE, pose_matrix.data());
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
 
@@ -567,10 +547,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint pose_matrix_loc_ = -1;
     GLint view_matrix_loc_ = -1;
 
@@ -585,12 +569,14 @@ private:
     GLint cy_loc_;
 };
 
-class DIDxyRendererGL : public BaseRendererGL
+class DIDxyRendererGL
 {
 public:
-    DIDxyRendererGL() : BaseRendererGL()
+    DIDxyRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec2 a_texcoord;
             
             out vec2 texcoord;
@@ -603,6 +589,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 a_output;
             in vec2 texcoord;
 
@@ -649,7 +637,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, nullptr, fragment_shader);
 
         image_loc_ = glGetUniformLocation(program_, "image");
         image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
@@ -662,7 +651,7 @@ public:
                 const TextureGL<ImageType> &in_texture,
                 TextureGL<Vec3<float>> &out_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
@@ -712,21 +701,27 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint image_loc_;
     GLint image_nodata_loc_;
     GLint image_lvl_loc_;
 };
 
-class DIDexpRendererGL : public BaseRendererGL
+class DIDexpRendererGL
 {
 public:
-    DIDexpRendererGL() : BaseRendererGL()
+    DIDexpRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec2 a_texcoord;
             
             out vec2 texcoord;
@@ -739,6 +734,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 a_output;
             in vec2 texcoord;
 
@@ -761,7 +758,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, nullptr, fragment_shader);
 
         image_loc_ = glGetUniformLocation(program_, "image");
         image_nodata_loc_ = glGetUniformLocation(program_, "image_nodata");
@@ -776,7 +774,7 @@ public:
                 const TextureGL<ImageType> &in_texture,
                 TextureGL<Vec3<float>> &out_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture.id(), out_lvl);
@@ -827,22 +825,28 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint image_loc_;
     GLint image_nodata_loc_;
     GLint image_lvl_loc_;
     GLint exposure_loc_;
 };
 
-class JPoseExpRendererGL : public BaseRendererGL
+class JPoseExpRendererGL
 {
 public:
-    JPoseExpRendererGL() : BaseRendererGL()
+    JPoseExpRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
             
             uniform mat4 view_matrix;
@@ -860,6 +864,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 jtra_output;
             layout(location = 1) out vec3 jrot_output;
             layout(location = 2) out vec3 jexp_output;
@@ -925,7 +931,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, nullptr, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -963,7 +970,7 @@ public:
                 TextureGL<Vec3<float>> &jrot_texture,
                 TextureGL<Vec3<float>> &jexp_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
@@ -1045,7 +1052,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -1072,10 +1079,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 
@@ -1099,12 +1110,14 @@ private:
     GLint exposure_loc_ = -1;
 };
 
-class JDepthExpRendererGL : public BaseRendererGL
+class JDepthExpRendererGL
 {
 public:
-    JDepthExpRendererGL() : BaseRendererGL()
+    JDepthExpRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
 
             uniform mat4 view_matrix;
@@ -1127,6 +1140,8 @@ public:
             )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -1177,6 +1192,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 jmap_output;
             layout(location = 1) out vec3 jexp_output;
             layout(location = 2) out vec3 pids_output;
@@ -1262,7 +1279,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -1300,7 +1318,7 @@ public:
                 TextureGL<Vec3<float>> &jexp_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jdepth_texture.id(), out_lvl);
@@ -1384,7 +1402,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -1411,10 +1429,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 
@@ -1438,12 +1460,14 @@ private:
     GLint exposure_loc_ = -1;
 };
 
-class JRayDepthExpRendererGL : public BaseRendererGL
+class JRayDepthExpRendererGL
 {
 public:
-    JRayDepthExpRendererGL() : BaseRendererGL()
+    JRayDepthExpRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
 
             uniform mat4 view_matrix;
@@ -1474,6 +1498,8 @@ public:
         )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -1514,6 +1540,8 @@ public:
         )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             // Geometry Jacobians (per-triangle, per-vertex, packed by component)
             layout(location = 0) out vec3 j_depth_012; // dI/dd0, dI/dd1, dI/dd2
             layout(location = 1) out vec3 j_rayx_012;  // dI/dr0.x, dI/dr1.x, dI/dr2.x
@@ -1602,7 +1630,8 @@ public:
             }
         )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -1643,7 +1672,7 @@ public:
                 TextureGL<Vec3<float>> &jexp_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jdepth_texture.id(), out_lvl);
@@ -1727,7 +1756,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -1754,10 +1783,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 
@@ -1781,12 +1814,14 @@ private:
     GLint exposure_loc_ = -1;
 };
 
-class JVertexExpRendererGL : public BaseRendererGL
+class JVertexExpRendererGL
 {
 public:
-    JVertexExpRendererGL() : BaseRendererGL()
+    JVertexExpRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
 
             uniform mat4 view_matrix;
@@ -1807,6 +1842,8 @@ public:
         )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -1835,6 +1872,8 @@ public:
         )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             // Per-vertex XYZ Jacobians (keyframe vertex coordinates)
             layout(location = 0) out vec3 j_v0_xyz;
             layout(location = 1) out vec3 j_v1_xyz;
@@ -1908,7 +1947,8 @@ public:
             }
         )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -1948,7 +1988,7 @@ public:
                 TextureGL<Vec3<float>> &jexp_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jv0_texture.id(), out_lvl);
@@ -2049,7 +2089,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) * opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -2076,10 +2116,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 
@@ -2103,12 +2147,14 @@ private:
     GLint exposure_loc_ = -1;
 };
 
-class JPoseExpDepthRendererGL : public BaseRendererGL
+class JPoseExpDepthRendererGL
 {
 public:
-    JPoseExpDepthRendererGL() : BaseRendererGL()
+    JPoseExpDepthRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
 
             uniform mat4 view_matrix;
@@ -2131,6 +2177,8 @@ public:
             )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -2181,6 +2229,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 jtra_output;
             layout(location = 1) out vec3 jrot_output;
             layout(location = 2) out vec3 jexp_output;
@@ -2269,7 +2319,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -2309,7 +2360,7 @@ public:
                 TextureGL<Vec3<float>> &jdepth_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
@@ -2411,8 +2462,7 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                        opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -2439,10 +2489,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 
@@ -2466,12 +2520,14 @@ private:
     GLint exposure_loc_ = -1;
 };
 
-class DiffRendererGL : public BaseRendererGL
+class DiffRendererGL
 {
 public:
-    DiffRendererGL() : BaseRendererGL()
+    DiffRendererGL()
     {
         const char *vertex_shader = R"Shader(
+            #version 330 core
+
             layout (location = 0) in vec3 a_position;
             layout (location = 1) in vec2 a_texcoord;
 
@@ -2497,6 +2553,8 @@ public:
             )Shader";
 
         const char *geometry_shader = R"Shader(
+            #version 330 core
+
             layout(triangles) in;
             layout(triangle_strip, max_vertices = 3) out;
 
@@ -2550,6 +2608,8 @@ public:
             )Shader";
 
         const char *fragment_shader = R"Shader(
+            #version 330 core
+
             layout(location = 0) out vec3 jtra_output;
             layout(location = 1) out vec3 jrot_output;
             layout(location = 2) out vec3 jexp_output;
@@ -2589,7 +2649,8 @@ public:
             void main()
             {
                 float kf = textureLod(kf_image, texcoord, float(in_lvl)).r;
-                // vec2 d_f_d_xy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xy;
+                //float kf = texelFetch(kf_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).x;
+                //vec3 d_f_d_xy = texelFetch(dfdxy_image, ivec2(gl_FragCoord.x, gl_FragCoord.y), out_lvl).xyz;
                 vec3 d_f_d_xy = textureLod(dfdxy_image, texcoord, float(in_lvl)).xyz;
 
                 //if (kf == kf_image_nodata || f == f_image_nodata || dfdxy.xy == dfdxy_image_nodata.xy)
@@ -2629,7 +2690,8 @@ public:
             }
             )Shader";
 
-        CompileShaders(vertex_shader, geometry_shader, fragment_shader);
+        create_framebuffer(fbo_, rbo_);
+        program_ = create_program(vertex_shader, geometry_shader, fragment_shader, common);
 
         view_matrix_loc_ = glGetUniformLocation(program_, "view_matrix");
         pose_matrix_loc_ = glGetUniformLocation(program_, "pose_matrix");
@@ -2669,7 +2731,7 @@ public:
                 TextureGL<Vec3<float>> &jmap_texture,
                 TextureGL<Vec3<PidType>> &pids_texture)
     {
-        save_state();
+        // save_state();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, jtra_texture.id(), out_lvl);
@@ -2771,8 +2833,8 @@ public:
 
         glUseProgram(program_);
 
-        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE, RenderConstants::FAR_PLANE) *
-                                        opencv2opengl_;
+        const Mat4<float> view_matrix = cam.GetProjectiveMatrix(RenderConstants::NEAR_PLANE,
+                                                                RenderConstants::FAR_PLANE);
         const Mat4<float> pose_matrix = pose.matrix();
 
         glUniformMatrix4fv(view_matrix_loc_, 1, GL_FALSE, view_matrix.data());
@@ -2799,10 +2861,14 @@ public:
 
         mesh.draw();
 
-        restore_state();
+        // restore_state();
     }
 
 private:
+    GLuint fbo_;
+    GLuint rbo_;
+    GLuint program_;
+
     GLint view_matrix_loc_ = -1;
     GLint pose_matrix_loc_ = -1;
 

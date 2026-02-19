@@ -156,13 +156,147 @@ TEST_F(CrossBackendTests, GouraudRenderingComparison)
     //  TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
 }
 */
+
+// Test full Jacobian pipeline comparison
+TEST_F(CrossBackendTests, DeferredPipelineComparison)
+{
+    SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+    Vec2<float> exposure(0.0, 0.0);
+
+    // CPU pipeline
+    MeshCPU mesh_img_cpu;
+    CreateScreenQuad(mesh_img_cpu);
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+    MeshGL mesh_img_gl;
+    CreateScreenQuad(mesh_img_gl);
+    MeshGL mesh_gl;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
+
+    TextureCPU<Vec3<float>> fpos_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> kfpos_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureCPU<Vec3<float>> bcid_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+
+    TextureGL<Vec3<float>> fpos_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> kfpos_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+    TextureGL<Vec3<float>> bcid_gl(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
+
+    DeferredRendererCPU deferred_renderer_cpu;
+    DeferredRendererGL deferred_renderer_gl;
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_fpos_error = 0.0, acc_kfpos_error = 0.0, acc_bcid_error = 0.0;
+    for (int out_lvl = 0; out_lvl < fpos_cpu.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < kf_gl.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            if (in_lvl > 3)
+                continue;
+            if (out_lvl > 3)
+                continue;
+
+            timer_.Start();
+            deferred_renderer_cpu.Render(mesh_cpu,
+                                         pose_transform,
+                                         cam_,
+                                         out_lvl,
+                                         fpos_cpu, kfpos_cpu, bcid_cpu);
+            acc_cpu_time += timer_.Stop();
+
+            timer_.Start();
+            deferred_renderer_gl.Render(mesh_gl,
+                                        pose_transform,
+                                        cam_,
+                                        out_lvl,
+                                        fpos_gl, kfpos_gl, bcid_gl);
+            acc_gl_time += timer_.Stop();
+
+            int valid_cpu = CountValid(fpos_cpu, out_lvl);
+            int valid_gl = CountValid(fpos_gl, out_lvl);
+            int valid_diff = std::abs(valid_cpu - valid_gl);
+
+            EXPECT_LT(valid_diff, thresholds_.cr_max_valid_diff) << "Cross-backend validation failed with valid diff: " << valid_diff << " cpu: " << valid_cpu << " gl: " << valid_gl << " in lvl " << in_lvl << " out lvl " << out_lvl;
+
+            // Validate both Jtra and Jrot
+            // double jmap_error = ComputeL2ErrorVector(cpu_jmap, gl_jmap, cv::Vec3f(0.0f, 0.0f, 0.0f));
+            // double pids_error = ComputeL2ErrorVector(cpu_pids, gl_pids, cv::Vec3f(-1.0f, -1.0f, -1.0f));
+            // double r_error = ComputeL2ErrorScalar(cpu_r, gl_r, 0.0f);
+
+            double fpos_error = RMSEV(fpos_cpu, fpos_gl, out_lvl);
+            double kfpos_error = RMSEV(kfpos_cpu, kfpos_gl, out_lvl);
+            double bcid_error = RMSEV(bcid_cpu, bcid_gl, out_lvl);
+
+            EXPECT_LT(fpos_error, thresholds_.cr_max_fpos_error) << "FPos cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+            EXPECT_LT(kfpos_error, thresholds_.cr_max_kfpos_error) << "KFPos cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+            EXPECT_LT(bcid_error, thresholds_.cr_max_bcid_error) << "BCID cross-backend error too high" << " in lvl " << in_lvl << " out lvl " << out_lvl;
+
+            acc_fpos_error = std::max(acc_fpos_error, fpos_error);
+            acc_kfpos_error = std::max(acc_kfpos_error, kfpos_error);
+            acc_bcid_error = std::max(acc_bcid_error, bcid_error);
+        }
+    }
+
+    cv::Mat cpu_fpos = DownloadTextureToMat(fpos_cpu, 0);
+    cv::Mat cpu_kfpos = DownloadTextureToMat(kfpos_cpu, 0);
+    cv::Mat cpu_bcid = DownloadTextureToMat(bcid_cpu, 0);
+
+    cv::Mat gl_fpos = DownloadTextureToMat(fpos_gl, 0);
+    cv::Mat gl_kfpos = DownloadTextureToMat(kfpos_gl, 0);
+    cv::Mat gl_bcid = DownloadTextureToMat(bcid_gl, 0);
+
+    SaveDebugImage(cpu_fpos, "cross_deferred_fpos_cpu.png");
+    SaveDebugImage(cpu_kfpos, "cross_deferred_kfpos_cpu.png");
+    SaveDebugImage(cpu_bcid, "cross_deferred_bcid_cpu.png");
+
+    SaveDebugImage(gl_fpos, "cross_deferred_fpos_gl.png");
+    SaveDebugImage(gl_kfpos, "cross_deferred_kfpos_gl.png");
+    SaveDebugImage(gl_bcid, "cross_deferred_bcid_gl.png");
+
+    std::cout << "Deferred Pipeline Cross-Backend Comparison:\n";
+    std::cout << "  fpos L2 Error: " << acc_fpos_error << "\n";
+    std::cout << "  kfpos L2 Error: " << acc_kfpos_error << "\n";
+    std::cout << "  bcid L2 Error: " << acc_bcid_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
 // Compare CPU vs GL depth rendering
 TEST_F(CrossBackendTests, DepthRenderingComparison)
 {
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
 
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_cpu;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+
+    MeshGL mesh_gl;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<float> output_cpu(w_, h_, 0.0f);
     TextureGL<float> output_gl(w_, h_, 0.0f);
@@ -228,14 +362,36 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
     SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
     Vec2<float> exposure(0.0, 0.0);
 
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_cpu;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+
+    MeshGL mesh_gl;
+
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<ImageType> input_cpu(w_, h_, 0);
     TextureCPU<ImageType> output_cpu(w_, h_, 0);
 
     TextureGL<ImageType> input_gl(w_, h_, 0);
     TextureGL<ImageType> output_gl(w_, h_, 0);
+
+    //ResidualRRCPU residualrr_cpu;
+    //ResidualRRGL residualrr_gl;
+    //ImageDRCPU imagedr_cpu;
+    //ResidualReducerGL reducer_gl;
+    ImageDRendererCPU renderer_cpu;
+    ImageRendererGL renderer_gl;
 
     UploadMatToTexture(input_cpu, 0, image_src_cv_);
     UploadMatToTexture(input_gl, 0, image_src_cv_);
@@ -252,15 +408,23 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
             if (out_lvl > 3)
                 continue;
 
-            ImageRendererCPU renderer_cpu;
             timer_.Start();
             renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            //imagedr_cpu.Render(mesh_cpu, pose_transform, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
             acc_cpu_time += timer_.Stop();
 
-            ImageRendererGL renderer_gl;
             timer_.Start();
             renderer_gl.Render(mesh_gl, pose_transform, exposure, cam_, in_lvl, out_lvl, input_gl, output_gl);
             acc_gl_time += timer_.Stop();
+
+            //float error_gl_ = residualrr_gl.compute(mesh_gl, pose_transform, cam_,
+            //                                       out_lvl, input_gl, input_gl, 100000000000.0);
+            //reducer_gl.reduce(out_lvl, input_gl, output_gl, error_gl_);
+            //float error_cpu_ = residualrr_cpu.compute(mesh_cpu, pose_transform, cam_,
+            //                                       out_lvl, input_cpu, input_cpu, 100000000000.0);
+
+            float error_gl = RMSE(input_gl, output_gl, out_lvl);
+            float error_cpu = RMSE(input_cpu, output_cpu, out_lvl);
 
             int valid_cpu = CountValid(output_cpu, out_lvl);
             int valid_gl = CountValid(output_gl, out_lvl);
@@ -300,8 +464,10 @@ TEST_F(CrossBackendTests, ImageRenderingComparison)
 // Compare CPU vs GL gradient computation
 TEST_F(CrossBackendTests, GradientComputationComparison)
 {
-    MeshCPU mesh_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(screen_vertex_, screen_indices_, false, true, false);
+    MeshCPU mesh_cpu;
+    CreateScreenQuad(mesh_cpu);
+    MeshGL mesh_gl;
+    CreateScreenQuad(mesh_gl);
 
     TextureCPU<ImageType> input_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> output_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -350,8 +516,8 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
     cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
     cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
-    SaveDebugImageColor(cpu_result, "cross_gradient_cpu.png");
-    SaveDebugImageColor(gl_result, "cross_gradient_gl.png");
+    SaveDebugImage(cpu_result, "cross_gradient_cpu.png");
+    SaveDebugImage(gl_result, "cross_gradient_gl.png");
 
     // cv::Mat diff_image;
     // cv::absdiff(cpu_result, gl_result, diff_image);
@@ -371,8 +537,10 @@ TEST_F(CrossBackendTests, GradientComputationComparison)
 // Compare CPU vs GL gradient computation
 TEST_F(CrossBackendTests, DIDexpComputationComparison)
 {
-    MeshCPU mesh_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(screen_vertex_, screen_indices_, false, true, false);
+    MeshCPU mesh_cpu;
+    CreateScreenQuad(mesh_cpu);
+    MeshGL mesh_gl;
+    CreateScreenQuad(mesh_gl);
 
     Vec2<float> exposure(0.0, 0.0);
 
@@ -423,8 +591,8 @@ TEST_F(CrossBackendTests, DIDexpComputationComparison)
     cv::Mat cpu_result = DownloadTextureToMat(output_cpu, 0);
     cv::Mat gl_result = DownloadTextureToMat(output_gl, 0);
 
-    SaveDebugImageColor(cpu_result, "cross_didexp_cpu.png");
-    SaveDebugImageColor(gl_result, "cross_didexp_gl.png");
+    SaveDebugImage(cpu_result, "cross_didexp_cpu.png");
+    SaveDebugImage(gl_result, "cross_didexp_gl.png");
 
     // cv::Mat diff_image;
     // cv::absdiff(cpu_result, gl_result, diff_image);
@@ -448,10 +616,25 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_img_gl(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_img_cpu;
+    CreateScreenQuad(mesh_img_cpu);
+    MeshGL mesh_img_gl;
+    CreateScreenQuad(mesh_img_gl);
+
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+    MeshGL mesh_gl;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -550,14 +733,14 @@ TEST_F(CrossBackendTests, JPosePipelineComparison)
     cv::Mat gl_jexp = DownloadTextureToMat(jexp_gl, 0);
     cv::Mat gl_image = DownloadTextureToMat(image_gl, 0);
 
-    SaveDebugImageColor(cpu_jtra, "cross_jpose_jtra_cpu.png");
-    SaveDebugImageColor(gl_jtra, "cross_jpose_jtra_gl.png");
-    SaveDebugImageColor(cpu_jrot, "cross_jpose_jrot_cpu.png");
-    SaveDebugImageColor(gl_jrot, "cross_jpose_jrot_gl.png");
-    SaveDebugImageColor(cpu_jexp, "cross_jpose_jexp_cpu.png");
-    SaveDebugImageColor(gl_jexp, "cross_jpose_jexp_gl.png");
-    SaveDebugImageColor(cpu_image, "cross_jpose_image_cpu.png");
-    SaveDebugImageColor(gl_image, "cross_jpose_image_gl.png");
+    SaveDebugImage(cpu_jtra, "cross_jpose_jtra_cpu.png");
+    SaveDebugImage(gl_jtra, "cross_jpose_jtra_gl.png");
+    SaveDebugImage(cpu_jrot, "cross_jpose_jrot_cpu.png");
+    SaveDebugImage(gl_jrot, "cross_jpose_jrot_gl.png");
+    SaveDebugImage(cpu_jexp, "cross_jpose_jexp_cpu.png");
+    SaveDebugImage(gl_jexp, "cross_jpose_jexp_gl.png");
+    SaveDebugImage(cpu_image, "cross_jpose_image_cpu.png");
+    SaveDebugImage(gl_image, "cross_jpose_image_gl.png");
 
     std::cout << "Jacobian Pipeline Cross-Backend Comparison:\n";
     std::cout << "  Jtra L2 Error: " << acc_jtra_error << "\n";
@@ -580,10 +763,24 @@ TEST_F(CrossBackendTests, JDepthPipelineComparison)
     Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_img_gl(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_img_cpu;
+    CreateScreenQuad(mesh_img_cpu);
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+    MeshGL mesh_img_gl;
+    CreateScreenQuad(mesh_img_gl);
+    MeshGL mesh_gl;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -681,14 +878,14 @@ TEST_F(CrossBackendTests, JDepthPipelineComparison)
     cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 0);
     cv::Mat gl_r = DownloadTextureToMat(image_gl, 0);
 
-    SaveDebugImageColor(cpu_jdepth, "cross_jdepth_jdepth_cpu.png");
-    SaveDebugImageColor(gl_jdepth, "cross_jdepth_jdepth_gl.png");
-    SaveDebugImageColor(cpu_jexp, "cross_jdepth_jexp_cpu.png");
-    SaveDebugImageColor(gl_jexp, "cross_jdepth_jexp_gl.png");
-    SaveDebugImageColor(cpu_pids, "cross_jdepth_pids_cpu.png");
-    SaveDebugImageColor(gl_pids, "cross_jdepth_pids_gl.png");
-    SaveDebugImageColor(cpu_r, "cross_jdepth_image_cpu.png");
-    SaveDebugImageColor(gl_r, "cross_jdepth_image_gl.png");
+    SaveDebugImage(cpu_jdepth, "cross_jdepth_jdepth_cpu.png");
+    SaveDebugImage(gl_jdepth, "cross_jdepth_jdepth_gl.png");
+    SaveDebugImage(cpu_jexp, "cross_jdepth_jexp_cpu.png");
+    SaveDebugImage(gl_jexp, "cross_jdepth_jexp_gl.png");
+    SaveDebugImage(cpu_pids, "cross_jdepth_pids_cpu.png");
+    SaveDebugImage(gl_pids, "cross_jdepth_pids_gl.png");
+    SaveDebugImage(cpu_r, "cross_jdepth_image_cpu.png");
+    SaveDebugImage(gl_r, "cross_jdepth_image_gl.png");
 
     std::cout << "JMap Pipeline Cross-Backend Comparison:\n";
     std::cout << "  Jdepth L2 Error: " << acc_jdepth_error << "\n";
@@ -711,10 +908,24 @@ TEST_F(CrossBackendTests, JVertexPipelineComparison)
     Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_img_gl(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_img_cpu;
+    CreateScreenQuad(mesh_img_cpu);
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+    MeshGL mesh_img_gl;
+    CreateScreenQuad(mesh_img_gl);
+    MeshGL mesh_gl;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -829,18 +1040,18 @@ TEST_F(CrossBackendTests, JVertexPipelineComparison)
     cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 0);
     cv::Mat gl_image = DownloadTextureToMat(image_gl, 0);
 
-    SaveDebugImageColor(cpu_jv0, "cross_jvertex_jv0_cpu.png");
-    SaveDebugImageColor(gl_jv0, "cross_jvertex_jv0_gl.png");
-    SaveDebugImageColor(cpu_jv1, "cross_jvertex_jv1_cpu.png");
-    SaveDebugImageColor(gl_jv1, "cross_jvertex_jv1_gl.png");
-    SaveDebugImageColor(cpu_jv2, "cross_jvertex_jv2_cpu.png");
-    SaveDebugImageColor(gl_jv2, "cross_jvertex_jv2_gl.png");
-    SaveDebugImageColor(cpu_jexp, "cross_jvertex_jexp_cpu.png");
-    SaveDebugImageColor(gl_jexp, "cross_jvertex_jexp_gl.png");
-    SaveDebugImageColor(cpu_pids, "cross_jvertex_pids_cpu.png");
-    SaveDebugImageColor(gl_pids, "cross_jvertex_pids_gl.png");
-    SaveDebugImageColor(cpu_image, "cross_jvertex_image_cpu.png");
-    SaveDebugImageColor(gl_image, "cross_jvertex_image_gl.png");
+    SaveDebugImage(cpu_jv0, "cross_jvertex_jv0_cpu.png");
+    SaveDebugImage(gl_jv0, "cross_jvertex_jv0_gl.png");
+    SaveDebugImage(cpu_jv1, "cross_jvertex_jv1_cpu.png");
+    SaveDebugImage(gl_jv1, "cross_jvertex_jv1_gl.png");
+    SaveDebugImage(cpu_jv2, "cross_jvertex_jv2_cpu.png");
+    SaveDebugImage(gl_jv2, "cross_jvertex_jv2_gl.png");
+    SaveDebugImage(cpu_jexp, "cross_jvertex_jexp_cpu.png");
+    SaveDebugImage(gl_jexp, "cross_jvertex_jexp_gl.png");
+    SaveDebugImage(cpu_pids, "cross_jvertex_pids_cpu.png");
+    SaveDebugImage(gl_pids, "cross_jvertex_pids_gl.png");
+    SaveDebugImage(cpu_image, "cross_jvertex_image_cpu.png");
+    SaveDebugImage(gl_image, "cross_jvertex_image_gl.png");
 
     std::cout << "JVertex Pipeline Cross-Backend Comparison:\n";
     std::cout << "  Jexp L2 Error: " << acc_jexp_error << "\n";
@@ -865,10 +1076,24 @@ TEST_F(CrossBackendTests, JPoseDepthPipelineComparison)
     Vec2<float> exposure(0.0, 0.0);
 
     // CPU pipeline
-    MeshCPU mesh_img_cpu(screen_vertex_, screen_indices_, false, true, false);
-    MeshCPU mesh_cpu(vertex_, indices_, true, false, false);
-    MeshGL mesh_img_gl(screen_vertex_, screen_indices_, false, true, false);
-    MeshGL mesh_gl(vertex_, indices_, true, false, false);
+    MeshCPU mesh_img_cpu;
+    CreateScreenQuad(mesh_img_cpu);
+    MeshCPU mesh_cpu;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_cpu);
+    MeshGL mesh_img_gl;
+    CreateScreenQuad(mesh_img_gl);
+    MeshGL mesh_gl;
+    CreateMesh((float *)this->depth_src_cv_.data,
+               this->cam_,
+               this->depth_src_cv_.cols,
+               this->depth_src_cv_.rows,
+               24,
+               mesh_gl);
 
     TextureCPU<ImageType> kf_cpu(w_, h_, 0);
     TextureCPU<Vec3<float>> dfdxy_cpu(w_, h_, Vec3<float>(0.0f, 0.0f, 0.0f));
@@ -981,17 +1206,17 @@ TEST_F(CrossBackendTests, JPoseDepthPipelineComparison)
     cv::Mat gl_pids = DownloadTextureToMat(pids_gl, 0);
     cv::Mat gl_image = DownloadTextureToMat(image_gl, 0);
 
-    SaveDebugImageColor(cpu_jtra, "cross_jposemap_jtra_cpu.png");
-    SaveDebugImageColor(cpu_jrot, "cross_jposemap_jrot_cpu.png");
-    SaveDebugImageColor(cpu_jexp, "cross_jposemap_jexp_cpu.png");
-    SaveDebugImageColor(cpu_jdepth, "cross_jposemap_jmap_cpu.png");
-    SaveDebugImageColor(cpu_pids, "cross_jposemap_pids_cpu.png");
+    SaveDebugImage(cpu_jtra, "cross_jposemap_jtra_cpu.png");
+    SaveDebugImage(cpu_jrot, "cross_jposemap_jrot_cpu.png");
+    SaveDebugImage(cpu_jexp, "cross_jposemap_jexp_cpu.png");
+    SaveDebugImage(cpu_jdepth, "cross_jposemap_jmap_cpu.png");
+    SaveDebugImage(cpu_pids, "cross_jposemap_pids_cpu.png");
 
-    SaveDebugImageColor(gl_jtra, "cross_jposemap_jtra_gl.png");
-    SaveDebugImageColor(gl_jrot, "cross_jposemap_jrot_gl.png");
-    SaveDebugImageColor(gl_jexp, "cross_jposemap_jexp_gl.png");
-    SaveDebugImageColor(gl_jdepth, "cross_jposemap_jmap_gl.png");
-    SaveDebugImageColor(gl_pids, "cross_jposemap_pids_gl.png");
+    SaveDebugImage(gl_jtra, "cross_jposemap_jtra_gl.png");
+    SaveDebugImage(gl_jrot, "cross_jposemap_jrot_gl.png");
+    SaveDebugImage(gl_jexp, "cross_jposemap_jexp_gl.png");
+    SaveDebugImage(gl_jdepth, "cross_jposemap_jmap_gl.png");
+    SaveDebugImage(gl_pids, "cross_jposemap_pids_gl.png");
     // SaveDebugImageColor(cpu_r, "cross_r_cpu.png");
     // SaveDebugImageColor(gl_r, "cross_r_gl.png");
 
@@ -1009,6 +1234,168 @@ TEST_F(CrossBackendTests, JPoseDepthPipelineComparison)
     // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
     // EXPECT_LT(cpu_time, thresholds_.max_cpu_jrot_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
     // EXPECT_LT(gl_time, thresholds_.max_gl_jrot_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
+}
+
+// Compare CPU vs GL image rendering
+TEST_F(CrossBackendTests, NVDiffRastComparison)
+{
+    SE3<float> pose_transform = pose_dst_ * pose_src_.inverse();
+
+    TextureGL<float> diffuse_gl(w_, h_, 0.0);
+    TextureGL<float> basecolor_gl(w_, h_, 0.0);
+    TextureGL<Vec4<float>> raster_gl(w_, h_, Vec4<float>(0.0, 0.0, 0.0, 0.0));
+    TextureGL<float> finalcolor_gl(w_, h_, 0.0);
+    TextureGL<float> refcolor_gl(w_, h_, 0.0);
+
+    TextureGL<float> dLdfinalcolor_gl(w_, h_, 0.0);
+    TextureGL<float> dLdbasecolor_gl(w_, h_, 0.0);
+
+    UploadMatToTexture(diffuse_gl, 0, image_src_cv_);
+    UploadMatToTexture(refcolor_gl, 0, image_dst_cv_);
+
+    MeshGL mesh_gl;
+
+    CreateMesh((float *)depth_src_cv_.data,
+               cam_,
+               depth_src_cv_.cols,
+               depth_src_cv_.rows,
+               32,
+               mesh_gl);
+
+    BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> grad_pos_buffer(mesh_gl.vertex_count());
+    BufferGL<unsigned int, GL_SHADER_STORAGE_BUFFER, GL_DYNAMIC_DRAW> grad_int_buffer(10);
+
+    {
+        auto grad_pos_buffer_data = grad_pos_buffer.MapWrite();
+        for (size_t i = 0; i < mesh_gl.vertex_count(); ++i)
+        {
+            grad_pos_buffer_data[i] = 0;
+        }
+
+        auto grad_int_buffer_data = grad_int_buffer.MapWrite();
+        for (size_t i = 0; i < 10; ++i)
+        {
+            grad_int_buffer_data[i] = 0;
+        }
+    }
+
+    RasterShadeFWRendererGL rasterfw_gl;
+    AntiAliasingFWRendererGL aafw_gl;
+    RasterShadeBWRendererGL rasterbw_gl;
+    AntiAliasingBWRendererGL aabw_gl;
+
+    double acc_cpu_time = 0.0, acc_gl_time = 0.0, acc_l2_error = 0.0;
+
+    for (int out_lvl = 0; out_lvl < basecolor_gl.levels(); ++out_lvl)
+    {
+        // for (int in_lvl = 0; in_lvl < input_cpu.levels(); ++in_lvl)
+        int in_lvl = out_lvl;
+        {
+            if (in_lvl > 3)
+                continue;
+            if (out_lvl > 3)
+                continue;
+
+            // ImageRendererCPU renderer_cpu;
+            // timer_.Start();
+            // renderer_cpu.Render(mesh_cpu, pose_transform, exposure, cam_, in_lvl, out_lvl, input_cpu, output_cpu);
+            // acc_cpu_time += timer_.Stop();
+
+            timer_.Start();
+
+            rasterfw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                               diffuse_gl,
+                               basecolor_gl,
+                               raster_gl);
+
+            aafw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                           basecolor_gl,
+                           raster_gl,
+                           finalcolor_gl);
+
+            {
+                auto refcolor_data = refcolor_gl.MapRead(out_lvl);
+                auto finalcolor_data = finalcolor_gl.MapRead(out_lvl);
+                auto dLdfinalcolor_data = dLdfinalcolor_gl.MapWrite(out_lvl);
+                for (int i = 0; i < refcolor_gl.width(out_lvl) * refcolor_gl.height(out_lvl); ++i)
+                {
+                    float ref_val = refcolor_data[i];
+                    float final_val = finalcolor_data[i];
+                    if (ref_val == refcolor_gl.nodata() || final_val == finalcolor_gl.nodata())
+                    {
+                        dLdfinalcolor_data[i] = dLdfinalcolor_gl.nodata();
+                        continue;
+                    }
+                    float diff = ref_val - final_val;
+                    acc_l2_error += diff * diff;
+                    dLdfinalcolor_data[i] = diff;
+                }
+            }
+
+            aabw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                           dLdfinalcolor_gl,
+                           basecolor_gl,
+                           raster_gl,
+                           dLdbasecolor_gl,
+                           grad_pos_buffer,
+                           grad_int_buffer);
+
+            rasterbw_gl.Render(mesh_gl, pose_transform, cam_, out_lvl,
+                               raster_gl,
+                               dLdbasecolor_gl,
+                               diffuse_gl,
+                               grad_pos_buffer,
+                               grad_int_buffer);
+
+            acc_gl_time += timer_.Stop();
+        }
+    }
+
+    cv::Mat gl_basecolor_result = DownloadTextureToMat(basecolor_gl, 0);
+    cv::Mat gl_rast_result = DownloadTextureToMat(raster_gl, 0);
+    cv::Mat gl_final_result = DownloadTextureToMat(finalcolor_gl, 0);
+    cv::Mat gl_dLdbasecolor_result = DownloadTextureToMat(dLdbasecolor_gl, 0);
+    cv::Mat gl_refcolor = DownloadTextureToMat(refcolor_gl, 0);
+    cv::Mat gl_dLdfinalcolor = DownloadTextureToMat(dLdfinalcolor_gl, 0);
+
+    SaveDebugImage(gl_basecolor_result, "cross_nvdiffrast_basecolor_gl.png");
+    SaveDebugImage(gl_rast_result, "cross_nvdiffrast_rast_gl.png");
+    SaveDebugImage(gl_final_result, "cross_nvdiffrast_final_gl.png");
+    SaveDebugImage(gl_dLdbasecolor_result, "cross_nvdiffrast_dLdbasecolor_gl.png");
+    SaveDebugImage(gl_refcolor, "cross_nvdiffrast_refcolor_gl.png");
+    SaveDebugImage(gl_dLdfinalcolor, "cross_nvdiffrast_dLdfinalcolor_gl.png");
+
+    auto u2f = [](uint32_t u)
+    {
+        float f;
+        static_assert(sizeof(float) == sizeof(uint32_t));
+        std::memcpy(&f, &u, sizeof(float));
+        return f;
+    };
+
+    // auto grad_pos_buffer_data = grad_pos_buffer.MapRead();
+    // for (int i = 0; i < vertex.size(); ++i)
+    // {
+    //    std::cout << "grad_pos_buffer[" << i << "] = " << u2f(grad_pos_buffer_data[i]) << "\n";
+    // }
+
+    auto grad_int_buffer_data = grad_int_buffer.MapRead();
+    for (int i = 0; i < 10; ++i)
+    {
+        std::cout << "grad_int_buffer[" << i << "] = " << u2f(grad_int_buffer_data[i]) << "\n";
+    }
+
+    std::cout << "NVDiffRast Rendering Cross-Backend Comparison:\n";
+    std::cout << "  L2 Error: " << acc_l2_error << "\n";
+    std::cout << "  CPU Time: " << acc_cpu_time << " ms\n";
+    std::cout << "  GL Time:  " << acc_gl_time << " ms\n";
+    std::cout << "  Speedup:  " << (acc_cpu_time / acc_gl_time) << "x\n";
+
+    // Cross-backend validation
+    // TestValidator::ValidateCrossBackend(cpu_result, gl_result, thresholds_);
+    // TestValidator::ValidatePerformance(cpu_time, gl_time, thresholds_);
+    // EXPECT_LT(cpu_time, thresholds_.max_cpu_image_time_ms) << "CPU execution time exceeded threshold: " << cpu_time << "ms";
+    // EXPECT_LT(gl_time, thresholds_.max_gl_image_time_ms) << "GL execution time exceeded threshold: " << gl_time << "ms";
 }
 
 /*
