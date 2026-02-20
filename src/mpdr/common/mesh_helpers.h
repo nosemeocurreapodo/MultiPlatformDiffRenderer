@@ -1,7 +1,7 @@
 #pragma once
 
 // #include "core/types.h"
-#include <Eigen/Core>
+//#include <Eigen/Core>
 #include "mpdr/common/render_constants.h"
 #include "mpdr/common/camera.h"
 #include "mpdr/common/delaunaytriangulation.h"
