@@ -105,7 +105,7 @@ template <typename T>
 class TextureGL
 {
 public:
-    TextureGL() = default;
+    // TextureGL() = default;
 
     TextureGL(int width, int height, T nodata_value)
     {

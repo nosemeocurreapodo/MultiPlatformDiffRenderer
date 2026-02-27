@@ -7,19 +7,22 @@
 class MeshGL
 {
 public:
-    MeshGL()
-    {
-        stride_ = 0;
-        pos_offset_ = -1;
-        tex_offset_ = -1;
-        nor_offset_ = -1;
-    };
+    // MeshGL()
+    //{
+    //     stride_ = 0;
+    //     pos_offset_ = -1;
+    //     tex_offset_ = -1;
+    //     nor_offset_ = -1;
+    // };
 
     MeshGL(const std::vector<float> &vertex,
            const std::vector<int> &indices,
            bool has_position,
            bool has_texcoord,
            bool has_normal)
+        : vertex_buffer_(vertex.size(), vertex.data()),
+          ebo_buffer_(indices.size(), indices.data())
+
     {
         stride_ = 0;
 
@@ -52,9 +55,6 @@ public:
         {
             nor_offset_ = -1;
         }
-
-        vertex_buffer_ = BufferGL<float, GL_ARRAY_BUFFER, GL_STATIC_DRAW>(vertex.size(), vertex.data());
-        ebo_buffer_ = BufferGL<int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>(indices.size(), indices.data());
 
         create_vao_();
     }

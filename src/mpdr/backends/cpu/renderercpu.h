@@ -549,7 +549,7 @@ public:
     JDepthFDRendererCPU() = default;
     ~JDepthFDRendererCPU() = default;
 
-    void Render(const MeshCPU &mesh,
+    void Render(MeshCPU &mesh,
                 const SE3<float> &pose,
                 const PinholeCamera<float> &cam,
                 int in_lvl,
@@ -581,8 +581,7 @@ public:
         pids_renderer.Render(mesh, pose, cam, out_lvl, pids_texture);
 
         std::vector<Vec3<float>> vertices = get_vertices(mesh);
-
-        MeshCPU mesh_delta(mesh);
+        //MeshCPU mesh_delta(mesh);
 
         float delta = 1e-3;
 
@@ -603,9 +602,9 @@ public:
 
             vertices[i] = vertex_p;
 
-            set_vertices(mesh_delta, vertices);
+            set_vertices(mesh, vertices);
 
-            image_renderer.Render(mesh_delta,
+            image_renderer.Render(mesh,
                                   pose,
                                   Vec2<float>(0.0, 0.0),
                                   cam,
@@ -614,18 +613,18 @@ public:
 
             vertices[i] = vertex_m;
 
-            set_vertices(mesh_delta, vertices);
+            set_vertices(mesh, vertices);
 
-            image_renderer.Render(mesh_delta,
+            image_renderer.Render(mesh,
                                   pose,
                                   Vec2<float>(0.0, 0.0),
                                   cam,
                                   in_lvl, out_lvl,
                                   kf_texture, image_2);
 
-            vertices[i] = vertex;
+            //vertices[i] = vertex;
 
-            set_vertices(mesh_delta, vertices);
+            set_vertices(mesh, vertices);
 
             for (int y = 0; y < image_1_view.height(); y++)
             {

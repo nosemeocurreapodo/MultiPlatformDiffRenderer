@@ -9,19 +9,21 @@ public:
     // using index_type = std::uint32_t;
     //  using size_type = std::size_t;
 
-    MeshCPU()
-    {
-        stride_ = 0;
-        pos_offset_ = -1;
-        tex_offset_ = -1;
-        nor_offset_ = -1;
-    };
+    //MeshCPU()
+    //{
+    //    stride_ = 0;
+    //    pos_offset_ = -1;
+    //    tex_offset_ = -1;
+    //    nor_offset_ = -1;
+    //};
 
     MeshCPU(const std::vector<float> &vertex,
             const std::vector<int> &indices,
             bool has_position,
             bool has_texcoord,
             bool has_normal)
+            :vertex_buffer_(vertex.size(), vertex.data()),
+            ebo_buffer_(indices.size(), indices.data())
     {
         stride_ = 0;
 
@@ -54,14 +56,11 @@ public:
         {
             nor_offset_ = -1;
         }
-
-        vertex_buffer_ = BufferCPU<float>(vertex.size(), vertex.data());
-        ebo_buffer_ = BufferCPU<int>(indices.size(), indices.data());
     }
 
     // Copy/move
-    MeshCPU(const MeshCPU &) = default;
-    MeshCPU &operator=(const MeshCPU &) = default;
+    MeshCPU(const MeshCPU &) = delete;
+    MeshCPU &operator=(const MeshCPU &) = delete;
     MeshCPU(MeshCPU &&) noexcept = default;
     MeshCPU &operator=(MeshCPU &&) noexcept = default;
     ~MeshCPU() = default;

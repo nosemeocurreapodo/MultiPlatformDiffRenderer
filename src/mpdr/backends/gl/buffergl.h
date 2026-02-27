@@ -30,7 +30,7 @@ template <typename T, GLenum Target = GL_ARRAY_BUFFER, GLenum Usage = GL_STATIC_
 class BufferGL
 {
 public:
-    BufferGL() = default;
+    // BufferGL() = default;
 
     explicit BufferGL(std::size_t n) : size_(n)
     {

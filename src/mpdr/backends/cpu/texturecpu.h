@@ -33,7 +33,7 @@ public:
     // using size_type = UInt;
 
     // Default-construct an empty texture. Safe to assign later.
-    TextureCPU() = default;
+    // TextureCPU() = default;
 
     // Create empty pyramid filled with nodata
     TextureCPU(unsigned int w, unsigned int h, T nodata)
@@ -89,6 +89,7 @@ public:
         }
     }
 
+    /*
     TextureCPU(const TextureCPU &other) : TextureCPU(other.width(0), other.height(0), other.nodata())
     {
         std::copy_n(other.data_.get(), other.total_size_, data_.get());
@@ -103,10 +104,11 @@ public:
         }
         return *this;
     }
+    */
 
     // Rule of 5
-    // TextureCPU(const TextureCPU &) = default;
-    // TextureCPU &operator=(const TextureCPU &) = default;
+    TextureCPU(const TextureCPU &) = delete;
+    TextureCPU &operator=(const TextureCPU &) = delete;
     TextureCPU(TextureCPU &&) noexcept = default;
     TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;
@@ -123,7 +125,7 @@ public:
     {
         return GetOpenCVFormat<T>();
     }
-    
+
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant

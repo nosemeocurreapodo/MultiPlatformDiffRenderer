@@ -60,7 +60,7 @@ static void BuildTriangles(const std::vector<Vec2<float>> &tex_coords, std::vect
 
 // Screen quad for image-space rendering
 template <typename Mesh>
-static void CreateScreenQuad(Mesh &mesh)
+static Mesh CreateScreenQuad()
 {
     // vertex = {-1.f, 1.f, 1.f, 0.f, 1.f,
     //           -1.f, -1.f, 1.f, 0.f, 0.f,
@@ -80,15 +80,14 @@ static void CreateScreenQuad(Mesh &mesh)
     std::vector<Vec2<float>> uv = {{0.f, 1.f}, {0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {1.f, 0.f}, {1.f, 1.f}};
     std::vector<int> indices;
     BuildTriangles(uv, indices);
-    mesh = Mesh(vertex, indices, false, true, false);
+    return Mesh(vertex, indices, false, true, false);
 }
 
 template <class Mesh>
-static void CreateMesh(const float *depth_mm,
+static Mesh CreateMesh(const float *depth_mm,
                        const PinholeCamera<float> &cam,
                        int w, int h,
-                       int grid_size,
-                       Mesh &mesh)
+                       int grid_size)
 {
     std::vector<float> vertex;
     std::vector<int> indices;
@@ -238,13 +237,12 @@ static void CreateMesh(const float *depth_mm,
 
     BuildTriangles(ok_uv, indices);
 
-    mesh = Mesh(vertex, indices, add_pos, add_tex, add_normal);
+    return Mesh(vertex, indices, add_pos, add_tex, add_normal);
 }
 
 template <class Mesh>
-static void CreateFlatMesh(float min_depth, float max_depth,
-                           const PinholeCamera<float> &cam, int grid_size,
-                           Mesh &mesh)
+static Mesh CreateFlatMesh(float min_depth, float max_depth,
+                           const PinholeCamera<float> &cam, int grid_size)
 {
     std::vector<float> vertex;
     std::vector<int> indices;
@@ -299,5 +297,5 @@ static void CreateFlatMesh(float min_depth, float max_depth,
 
     BuildTriangles(grid_uv, indices);
 
-    mesh = Mesh(vertex, indices, add_pos, add_tex, add_normal);
+    return Mesh(vertex, indices, add_pos, add_tex, add_normal);
 }

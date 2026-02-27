@@ -25,7 +25,7 @@ public:
     // using value_type = T;
     // using size_type = std::size_t;
 
-    BufferCPU() = default;
+    // BufferCPU() = default;
 
     explicit BufferCPU(std::size_t n)
         : data_(n ? std::make_unique<T[]>(n) : nullptr), size_(n) {}
@@ -38,6 +38,7 @@ public:
 
     explicit BufferCPU(const std::vector<T> &v) : BufferCPU(v.size(), v.data()) {}
 
+    /*
     // Copy (deep) via copy-and-swap
     BufferCPU(const BufferCPU &other) : BufferCPU(other.size_)
     {
@@ -53,7 +54,10 @@ public:
         }
         return *this;
     }
+    */
 
+    BufferCPU(const BufferCPU &) = delete;
+    BufferCPU &operator=(const BufferCPU &) = delete;
     // Move (nothrow)
     BufferCPU(BufferCPU &&) noexcept = default;
     BufferCPU &operator=(BufferCPU &&) noexcept = default;
