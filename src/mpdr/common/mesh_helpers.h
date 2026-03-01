@@ -87,7 +87,8 @@ template <class Mesh>
 static Mesh CreateMesh(const float *depth_mm,
                        const PinholeCamera<float> &cam,
                        int w, int h,
-                       int grid_size)
+                       int grid_size,
+                       float mean_depth)
 {
     std::vector<float> vertex;
     std::vector<int> indices;
@@ -135,7 +136,7 @@ static Mesh CreateMesh(const float *depth_mm,
         if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
         {
             // return false;
-            z = 1.0f;
+            z = mean_depth;
         }
         else
         {
@@ -145,7 +146,7 @@ static Mesh CreateMesh(const float *depth_mm,
             {
                 // return false;
                 //  z = (RenderConstants::FAR_PLANE - RenderConstants::NEAR_PLANE) / 2.0;
-                z = 1.0f;
+                z = mean_depth;
             }
         }
 

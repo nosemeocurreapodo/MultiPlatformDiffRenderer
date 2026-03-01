@@ -58,7 +58,7 @@ public:
 
     BufferCPU(const BufferCPU &) = delete;
     BufferCPU &operator=(const BufferCPU &) = delete;
-    // Move (nothrow)
+    //  Move (nothrow)
     BufferCPU(BufferCPU &&) noexcept = default;
     BufferCPU &operator=(BufferCPU &&) noexcept = default;
 

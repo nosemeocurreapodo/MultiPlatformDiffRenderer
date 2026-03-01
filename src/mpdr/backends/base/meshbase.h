@@ -125,6 +125,17 @@ static std::vector<Vec2<int>> get_edges(const Mesh &mesh)
 }
 
 template <class Mesh>
+float mean_depth(const Mesh &mesh)
+{
+    std::vector<float> depths = get_depths(mesh);
+    int size = depths.size();
+    float mean = 0.0;
+    for (int i = 0; i < size; i++)
+        mean += depths[i];
+    return mean / size;
+}
+
+template <class Mesh>
 static void set_depths(Mesh &mesh, const std::vector<float> &depths)
 {
     auto vertex_map = mesh.vertex_buffer_.MapWrite();

@@ -89,7 +89,6 @@ public:
         }
     }
 
-    /*
     TextureCPU(const TextureCPU &other) : TextureCPU(other.width(0), other.height(0), other.nodata())
     {
         std::copy_n(other.data_.get(), other.total_size_, data_.get());
@@ -104,11 +103,10 @@ public:
         }
         return *this;
     }
-    */
-
+    
     // Rule of 5
-    TextureCPU(const TextureCPU &) = delete;
-    TextureCPU &operator=(const TextureCPU &) = delete;
+    //TextureCPU(const TextureCPU &) = delete;
+    //TextureCPU &operator=(const TextureCPU &) = delete;
     TextureCPU(TextureCPU &&) noexcept = default;
     TextureCPU &operator=(TextureCPU &&) noexcept = default;
     ~TextureCPU() = default;

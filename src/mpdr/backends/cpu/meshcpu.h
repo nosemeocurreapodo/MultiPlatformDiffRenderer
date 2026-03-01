@@ -22,8 +22,8 @@ public:
             bool has_position,
             bool has_texcoord,
             bool has_normal)
-            :vertex_buffer_(vertex.size(), vertex.data()),
-            ebo_buffer_(indices.size(), indices.data())
+        : vertex_buffer_(vertex.size(), vertex.data()),
+          ebo_buffer_(indices.size(), indices.data())
     {
         stride_ = 0;
 
@@ -97,7 +97,7 @@ public:
 
     BufferCPU<float> vertex_buffer_;
     BufferCPU<int> ebo_buffer_;
-    
+
     int stride_;
     int pos_offset_;
     int tex_offset_;
