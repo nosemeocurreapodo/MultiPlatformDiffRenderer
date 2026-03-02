@@ -30,10 +30,8 @@ cv::Mat MakeCheckerTex(int w = 512, int h = 512, int checker = 32, int channels 
     return tex;
 }
 
-template <typename Mesh, typename Texture>
-void LoadAssimpMesh(const std::string &path,
-                    Mesh &mesh_,
-                    Texture &diffuse_)
+template <typename Mesh>
+Mesh LoadAssimpMesh(const std::string &path)
 // static bool LoadAssimpMesh(const std::string &path,
 //                            std::vector<float> &vertices,
 //                            std::vector<float> &normals,
@@ -150,35 +148,11 @@ void LoadAssimpMesh(const std::string &path,
             indices.push_back(static_cast<unsigned>(baseVertex) + face.mIndices[2]);
         }
         baseVertex += mesh->mNumVertices;
-
-        // materials
-        aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
-
-        for (unsigned int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); i++)
-        {
-            aiString str;
-            material->GetTexture(aiTextureType_DIFFUSE, 0, &str);
-            textures.push_back(base_path + "/" + str.C_Str());
-            // std::cout << str.C_Str() << std::endl;
-        }
     }
 
-    mesh_ = Mesh(vertex, indices, has_positions, has_texcoords, has_normals);
+    Mesh mesh(vertex, indices, has_positions, has_texcoords, has_normals);
 
-    cv::Mat diffuse_cv;
-    if (!textures.empty())
-    {
-        diffuse_cv = cv::imread(textures[0], cv::IMREAD_GRAYSCALE);
-    }
-    else
-    {
-        diffuse_cv = MakeCheckerTex(1024, 1024, 32);
-    }
-
-    diffuse_ = Texture(diffuse_cv.cols, diffuse_cv.rows, 0);
-    UploadMatToTexture(diffuse_, 0, diffuse_cv);
-
-    std::vector<Vec3<float>> points = get_vertices(mesh_);
+    std::vector<Vec3<float>> points = get_vertices(mesh);
 
     Vec3<float> center = 0.5f * (minB + maxB);
     float radius = (maxB - center).norm();
@@ -189,7 +163,9 @@ void LoadAssimpMesh(const std::string &path,
         p /= radius;
     }
 
-    set_vertices(mesh_, points);
+    set_vertices(mesh, points);
+
+    return mesh;
 }
 
 // Try to load the first diffuse texture in the first material.
@@ -201,14 +177,15 @@ cv::Mat TryLoadDiffuseTexture(const std::string &modelPath)
     if (!scene || !scene->HasMaterials())
         return cv::Mat();
 
-    const aiMaterial *mat0 = scene->mMaterials[0];
+    const aiMesh *mesh = scene->mMeshes[0];
+    const aiMaterial *mat0 = scene->mMaterials[mesh->mMaterialIndex];
     aiString rel;
     if (AI_SUCCESS == mat0->GetTexture(aiTextureType_DIFFUSE, 0, &rel))
     {
         // Resolve relative path
         std::string baseDir = modelPath.substr(0, modelPath.find_last_of("/\\"));
         std::string texPath = baseDir.empty() ? rel.C_Str() : (baseDir + "/" + std::string(rel.C_Str()));
-        cv::Mat tex = cv::imread(texPath, cv::IMREAD_COLOR);
+        cv::Mat tex = cv::imread(texPath, cv::IMREAD_GRAYSCALE);
         if (!tex.empty())
             return tex;
     }

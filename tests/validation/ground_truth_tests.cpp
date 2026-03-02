@@ -62,14 +62,14 @@ TYPED_TEST_SUITE_P(GroundTruthTests);
 TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> ground_truth(this->w_, this->h_, 0.0f);
@@ -125,14 +125,14 @@ TYPED_TEST_P(GroundTruthTests, DepthGroundTruthValidation)
 TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
@@ -196,14 +196,14 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceValidation)
 TYPED_TEST_P(GroundTruthTests, DepthReferenceGTValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<float> output(this->w_, this->h_, 0.0f);
@@ -261,14 +261,14 @@ TYPED_TEST_P(GroundTruthTests, DepthReferenceGTValidation)
 TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<ImageType> input(this->w_, this->h_, 0);
     typename Traits::template TextureT<ImageType> output(this->w_, this->h_, 0);
@@ -326,14 +326,14 @@ TYPED_TEST_P(GroundTruthTests, ImageGroundTruthValidation)
 TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -397,19 +397,18 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceValidation)
     // std::cout << "Depth Rendering: " << duration << "ms\n";}
 }
 
-
 // Test image renderer against ground truth
 TYPED_TEST_P(GroundTruthTests, ImageReferenceGTValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -473,14 +472,14 @@ TYPED_TEST_P(GroundTruthTests, ImageReferenceGTValidation)
 TYPED_TEST_P(GroundTruthTests, ImageValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
     typename Traits::template TextureT<float> input_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> input_image(this->w_, this->h_, 0);
@@ -538,33 +537,35 @@ TYPED_TEST_P(GroundTruthTests, ImageValidation)
 TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
 
-    typename Traits::MeshT mesh_sceen;
-    CreateScreenQuad(mesh_sceen);
+    Mesh mesh_sceen = CreateScreenQuad<Mesh>();
 
     typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> kf_image(this->w_, this->h_, 0);
-    typename Traits::template TextureT<Vec3<float>> kf_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<ImageType> f_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<Vec3<float>> f_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
 
     typename Traits::template TextureT<Vec3<float>> reference_jtra(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> reference_jrot(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
-    typename Traits::template TextureT<ImageType> reference_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> reference_res(this->w_, this->h_, 0);
 
     typename Traits::template TextureT<Vec3<float>> output_jtra(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> output_jrot(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> output_jexp(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
-    typename Traits::template TextureT<ImageType> output_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> output_res(this->w_, this->h_, 0);
 
     UploadMatToTexture(kf_depth, 0, this->depth_src_cv_);
     UploadMatToTexture(kf_image, 0, this->image_src_cv_);
+
+    UploadMatToTexture(f_image, 0, this->image_dst_cv_);
 
     typename Traits::DIDxyRendererT didxy_renderer;
     typename Traits::JPoseExpRendererT jpose_renderer;
@@ -576,9 +577,9 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     // didxy_renderer.Render(mesh_sceen, 0, 0, kf_image, kf_didxy);
     // kf_didxy.generate_mipmaps(0);
 
-    for (int lvl = 0; lvl < output_jtra.levels(); lvl++)
+    for (int lvl = 0; lvl < f_image.levels(); lvl++)
     {
-        didxy_renderer.Render(mesh_sceen, lvl, lvl, kf_image, kf_didxy);
+        didxy_renderer.Render(mesh_sceen, lvl, lvl, f_image, f_didxy);
     }
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -598,9 +599,9 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
                               exposure,
                               this->cam_,
                               lvl, lvl,
-                              kf_image, kf_didxy,
-                              output_image, output_jtra, output_jrot, output_jexp);
-        jposefd_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, kf_didxy, reference_image, reference_jtra, reference_jrot);
+                              kf_image, f_image, f_didxy,
+                              output_jtra, output_jrot, output_jexp, output_res);
+        jposefd_renderer.Render(mesh, pose_transform, this->cam_, lvl, lvl, kf_image, f_image, f_didxy, reference_jtra, reference_jrot, reference_res);
 
         // Performance validation
         double duration = timer.Stop();
@@ -608,12 +609,12 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 
         double rmse_jtra = RMSEV(output_jtra, reference_jtra, lvl);
         double rmse_jrot = RMSEV(output_jrot, reference_jrot, lvl);
-        double rmse_image = RMSE(output_image, reference_image, lvl);
+        double rmse_res = RMSE(output_res, reference_res, lvl);
 
         std::cout << "JPoseReference RMSE " << lvl << " " << rmse_jtra << " " << rmse_jrot << std::endl;
         EXPECT_LT(rmse_jtra, this->thresholds_.ref_max_jtra_error) << "RMSE error: " << rmse_jtra;
         EXPECT_LT(rmse_jrot, this->thresholds_.ref_max_jrot_error) << "RMSE error: " << rmse_jrot;
-        EXPECT_LT(rmse_image, this->thresholds_.ref_max_image_error) << "RMSE error: " << rmse_image;
+        EXPECT_LT(rmse_res, this->thresholds_.ref_max_residual_error) << "RMSE error: " << rmse_res;
     }
 
     cv::Mat result_jtra = DownloadTextureToMat(output_jtra, lvl);
@@ -622,8 +623,8 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
     cv::Mat result_jrot = DownloadTextureToMat(output_jrot, lvl);
     cv::Mat ref_jrot = DownloadTextureToMat(reference_jrot, lvl);
 
-    cv::Mat result_r = DownloadTextureToMat(output_image, lvl);
-    cv::Mat ref_r = DownloadTextureToMat(reference_image, lvl);
+    cv::Mat result_r = DownloadTextureToMat(output_res, lvl);
+    cv::Mat ref_r = DownloadTextureToMat(reference_res, lvl);
 
     // cv::Mat mask = (result != 0.0f);
     cv::Mat diff_jtra = result_jtra - ref_jtra;
@@ -664,32 +665,33 @@ TYPED_TEST_P(GroundTruthTests, JPoseReferenceValidation)
 TYPED_TEST_P(GroundTruthTests, JDepthReferenceValidation)
 {
     using Traits = TypeParam;
+    using Mesh = typename Traits::MeshT;
 
-    typename Traits::MeshT mesh;
-    CreateMesh((float *)this->depth_src_cv_.data,
-               this->cam_,
-               this->depth_src_cv_.cols,
-               this->depth_src_cv_.rows,
-               24,
-               mesh);
-    typename Traits::MeshT mesh_sceen;
-    CreateScreenQuad(mesh_sceen);
+    Mesh mesh = CreateMesh<Mesh>((float *)this->depth_src_cv_.data,
+                                 this->cam_,
+                                 this->depth_src_cv_.cols,
+                                 this->depth_src_cv_.rows,
+                                 24,
+                                 1.0);
+    Mesh mesh_sceen = CreateScreenQuad<Mesh>();
 
     typename Traits::template TextureT<float> kf_depth(this->w_, this->h_, 0.0f);
     typename Traits::template TextureT<ImageType> kf_image(this->w_, this->h_, 0);
-    typename Traits::template TextureT<Vec3<float>> kf_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
+    typename Traits::template TextureT<ImageType> f_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<Vec3<float>> f_didxy(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
 
     typename Traits::template TextureT<Vec3<float>> reference_jdepth(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<PidType>> reference_pids(this->w_, this->h_, Vec3<PidType>(-1, -1, -1));
-    typename Traits::template TextureT<ImageType> reference_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> reference_res(this->w_, this->h_, 0);
 
     typename Traits::template TextureT<Vec3<float>> output_jdepth(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<float>> output_jexp(this->w_, this->h_, Vec3<float>(0.0, 0.0, 0.0));
     typename Traits::template TextureT<Vec3<PidType>> output_pids(this->w_, this->h_, Vec3<PidType>(-1, -1, -1));
-    typename Traits::template TextureT<ImageType> output_image(this->w_, this->h_, 0);
+    typename Traits::template TextureT<ImageType> output_res(this->w_, this->h_, 0);
 
     UploadMatToTexture(kf_depth, 0, this->depth_src_cv_);
     UploadMatToTexture(kf_image, 0, this->image_src_cv_);
+    UploadMatToTexture(f_image, 0, this->image_dst_cv_);
 
     typename Traits::ImageRendererT image_renderer;
     typename Traits::DIDxyRendererT didxy_renderer;
@@ -702,9 +704,9 @@ TYPED_TEST_P(GroundTruthTests, JDepthReferenceValidation)
     // didxy_renderer.Render(mesh_sceen, 0, 0, kf_image, kf_didxy);
     // kf_didxy.generate_mipmaps(0);
 
-    for (int lvl = 0; lvl < output_image.levels(); lvl++)
+    for (int lvl = 0; lvl < f_image.levels(); lvl++)
     {
-        didxy_renderer.Render(mesh_sceen, lvl, lvl, kf_image, kf_didxy);
+        didxy_renderer.Render(mesh_sceen, lvl, lvl, f_image, f_didxy);
     }
 
     SE3<float> pose_transform = this->pose_dst_ * this->pose_src_.inverse();
@@ -727,14 +729,14 @@ TYPED_TEST_P(GroundTruthTests, JDepthReferenceValidation)
                              exposure,
                              this->cam_,
                              lvl, lvl,
-                             kf_image, kf_didxy,
-                             output_image, output_jdepth, output_jexp, output_pids);
+                             kf_image, f_image, f_didxy,
+                             output_jdepth, output_jexp, output_pids, output_res);
         jmapfd_renderer.Render(mesh,
                                pose_transform,
                                this->cam_,
                                lvl, lvl,
-                               kf_image, kf_didxy,
-                               reference_image, reference_jdepth, reference_pids);
+                               kf_image, f_image, f_didxy,
+                               reference_jdepth, reference_pids, reference_res);
 
         // Performance validation
         double duration = timer.Stop();

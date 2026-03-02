@@ -104,10 +104,10 @@
             "name": "(gdb) Launch Renderer Demo",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/src/demo/demo",
+            "program": "${workspaceFolder}/build/demo/demo",
             "args": [
-                //"${workspaceFolder}/src/tests/data/planet/planet.obj",
-                "${workspaceFolder}/src/tests/data/Cama/model.glb",
+                "${workspaceFolder}/tests/data/planet/planet.obj",
+                //"${workspaceFolder}/tests/data/Cama/model.glb",
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

@@ -13,7 +13,7 @@ target_include_directories(cross_backend_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/thirdparty
     ${OpenCV_INCLUDE_DIRS}
 )
-target_compile_definitions(cross_backend_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/src/tests/data")
+target_compile_definitions(cross_backend_tests PRIVATE TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
 
 # Add GL support conditionally
 if(COMPILE_GL)

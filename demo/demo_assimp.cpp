@@ -155,12 +155,11 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_CPU
 
-    MeshCPU meshcpu;
-    TextureCPU<ImageType> diffusecpu;
-    LoadAssimpMesh(model_path, meshcpu, diffusecpu);
-
-    MeshCPU meshcpu_screen;
-    CreateScreenQuad(meshcpu_screen);
+    MeshCPU meshcpu = LoadAssimpMesh<MeshCPU>(model_path);
+    cv::Mat diffusecpu_mat = TryLoadDiffuseTexture(model_path);
+    TextureCPU<ImageType> diffusecpu(diffusecpu_mat.cols, diffusecpu_mat.rows, 0);
+    UploadMatToTexture(diffusecpu, 0, diffusecpu_mat);
+    MeshCPU meshcpu_screen = CreateScreenQuad<MeshCPU>();
 
     DiffRendererCPU renderercpu;
     DIDxyRendererCPU didxyrenderercpu;
@@ -180,12 +179,11 @@ int main(int argc, char **argv)
 
 #ifdef COMPILE_GL
 
-    MeshGL meshgl;
-    TextureGL<ImageType> diffusegl;
-    LoadAssimpMesh(model_path, meshgl, diffusegl);
-
-    MeshGL meshgl_screen;
-    CreateScreenQuad(meshgl_screen);
+    MeshGL meshgl = LoadAssimpMesh<MeshGL>(model_path);
+    cv::Mat diffusegl_mat = TryLoadDiffuseTexture(model_path);
+    TextureGL<ImageType> diffusegl(diffusegl_mat.cols, diffusegl_mat.rows, 0);
+    UploadMatToTexture(diffusegl, 0, diffusegl_mat);
+    MeshGL meshgl_screen = CreateScreenQuad<MeshGL>();
 
     DiffRendererGL renderergl;
     DIDxyRendererGL didxyrenderergl;
