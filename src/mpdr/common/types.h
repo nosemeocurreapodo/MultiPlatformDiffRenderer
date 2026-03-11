@@ -1,7 +1,7 @@
 #pragma once
 
 // #ifdef USE_EIGEN
-#if 0
+#if 1
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

@@ -307,7 +307,7 @@ int main(int argc, char **argv)
         view_e_.block<3, 1>(0, 3) = -R * camPos;
         view_e_.row(3) = Eigen::Vector4f(0, 0, 0, 1);
 
-        Mat4<float> v_ = EigenToLinalg(view_e_);
+        Mat4<float> v_ = view_e_; // EigenToLinalg(view_e_);
 
         SE3<float> transform(v_);
 

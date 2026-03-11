@@ -209,7 +209,7 @@ public:
                                                                      /* add others if needed */ 1);
         const GLsizeiptr bytes = GLsizeiptr(w) * GLsizeiptr(h) * compSize * comps;
 
-        static_assert(std::is_trivially_copyable<T>::value, "T must be POD-like");
+        //static_assert(std::is_trivially_copyable<T>::value, "T must be POD-like");
 
         GLuint pbo = 0;
         glGenBuffers(1, &pbo);
