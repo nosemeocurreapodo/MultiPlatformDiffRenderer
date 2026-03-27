@@ -85,8 +85,8 @@ public:
         int num_triangles;
         get_triangles(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, MAX_NUM_TRI, num_triangles);
 
-        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
-        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
+        IntType tile_width = IntType(RealType(ceil(RealType(viewport.width_) / RealType(NUM_TILES_X))));
+        IntType tile_height = IntType(RealType(ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y))));
 
         IntType triangle_count;
         Uniforms uniforms_buffer;
@@ -133,10 +133,10 @@ public:
 #pragma HLS dependence variable = outtextures type = inter false
 #pragma HLS dependence variable = outtextures type = intra false
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                IntType min_x_ = (viewport.width_ * tile_x) / NUM_TILES_X + viewport.min_x_;
+                IntType max_x_ = (viewport.width_ * (tile_x + 1)) / NUM_TILES_X + viewport.min_x_;
+                IntType min_y_ = (viewport.height_ * tile_y) / NUM_TILES_Y + viewport.min_y_;
+                IntType max_y_ = (viewport.height_ * (tile_y + 1)) / NUM_TILES_Y + viewport.min_y_;
 
                 viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 triangle_count = 0;
@@ -156,9 +156,9 @@ public:
                     // IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
                     IntType min_x = max(viewport_buffer.min_x_, static_cast<IntType>(tri_bb.min_x_));
-                    IntType max_x = min(viewport_buffer.max_x_, static_cast<IntType>(tri_bb.max_x_ + 1));
+                    IntType max_x = min(viewport_buffer.max_x_, static_cast<IntType>(RealType(tri_bb.max_x_ + RealType(1))));
                     IntType min_y = max(viewport_buffer.min_y_, static_cast<IntType>(tri_bb.min_y_));
-                    IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(tri_bb.max_y_ + 1));
+                    IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(RealType(tri_bb.max_y_ + RealType(1))));
 
                     if (min_x >= max_x || min_y >= max_y)
                         continue;
@@ -193,8 +193,8 @@ public:
                               const InTextures &intextures,
                               OutTextures &outtextures)
     {
-        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
-        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
+        IntType tile_width = IntType(RealType(ceil(RealType(viewport.width_) / RealType(NUM_TILES_X))));
+        IntType tile_height = IntType(RealType(ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y))));
         // IntType num_tiles = num_tiles_x * num_tiles_y;
 
         Triangle triangle_buffer[MAX_TRI_PER_TILE];
@@ -254,10 +254,10 @@ public:
                     }
                 }
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                IntType min_x_ = (viewport.width_ * tile_x) / NUM_TILES_X + viewport.min_x_;
+                IntType max_x_ = (viewport.width_ * (tile_x + 1)) / NUM_TILES_X + viewport.min_x_;
+                IntType min_y_ = (viewport.height_ * tile_y) / NUM_TILES_Y + viewport.min_y_;
+                IntType max_y_ = (viewport.height_ * (tile_y + 1)) / NUM_TILES_Y + viewport.min_y_;
 
                 BoundingBox<IntType> viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 IntType triangle_count = 0;
@@ -278,7 +278,6 @@ public:
     }
 
 private:
-
 };
 
 class DepthRendererHLS

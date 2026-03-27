@@ -1,12 +1,13 @@
 #pragma once
 
 #include <utility>
+#include <mpdr/common/types.h>
 
 template <class T, class Releaser>
 class BufferViewBase
 {
 public:
-    BufferViewBase(T *p, std::size_t n, Releaser r = {}) noexcept
+    BufferViewBase(T *p, IntType n, Releaser r = {}) noexcept
         //    : ptr_(p), n_(n), rel_(std::move(r)) {}
         : ptr_(p), n_(n), rel_(r)
     {
@@ -18,10 +19,10 @@ public:
     ~BufferViewBase() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
-    std::size_t size() const noexcept { return n_; }
+    IntType size() const noexcept { return n_; }
     T *begin() const noexcept { return ptr_; }
     T *end() const noexcept { return ptr_ + n_; }
-    T &operator[](std::size_t i) const noexcept
+    T &operator[](IntType i) const noexcept
     {
         assert(i < n_);
         return ptr_[i];
@@ -29,14 +30,14 @@ public:
 
 private:
     T *ptr_{};
-    std::size_t n_{};
+    IntType n_{};
     Releaser rel_{};
 };
 
 struct Level
 {
-    unsigned int offset; // element offset in storage_
-    int w, h;
+    IntType offset; // element offset in storage_
+    IntType w, h;
     // optional: UInt pitch; // elements per row if you pad rows
 };
 
@@ -46,7 +47,7 @@ class TextureViewBase
 public:
     //TextureViewBase() noexcept = default;
 
-    TextureViewBase(T *p, std::size_t width, std::size_t height, T nodata, Releaser r = {}) noexcept
+    TextureViewBase(T *p, IntType width, IntType height, T nodata, Releaser r = {}) noexcept
         : ptr_(p),
           width_(width),
           height_(height),
@@ -92,21 +93,21 @@ public:
     T *begin() const noexcept { return ptr_; }
     T *end() const noexcept { return ptr_ + width_ * height_; }
 
-    T &operator[](std::size_t i) const noexcept
+    T &operator[](IntType i) const noexcept
     {
         assert(i < width_ * height_);
         return ptr_[i];
     }
 
-    T &operator()(std::size_t y, std::size_t x) const noexcept
+    T &operator()(IntType y, IntType x) const noexcept
     {
         assert(y < height_ && x < width_);
         return ptr_[y * width_ + x];
     }
 
-    std::size_t size() const noexcept { return width_ * height_; }
-    std::size_t width() const noexcept { return width_; }
-    std::size_t height() const noexcept { return height_; }
+    IntType size() const noexcept { return width_ * height_; }
+    IntType width() const noexcept { return width_; }
+    IntType height() const noexcept { return height_; }
     const T &nodata() const noexcept { return nodata_; }
 
 private:
@@ -126,8 +127,8 @@ private:
     }
 
     T *ptr_{};
-    std::size_t width_{};
-    std::size_t height_{};
+    IntType width_{};
+    IntType height_{};
     T nodata_{};
     Releaser rel_{};
     bool owns_{false};

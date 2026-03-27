@@ -3,7 +3,8 @@
 #include "mpdr/backends/xrt/hls/bufferhls.h"
 #include "mpdr/backends/base/mappedviewbase.h"
 #include "mpdr/common/boundingbox.h"
-#include <ap_int.h>
+// #include <ap_int.h>
+#include "mpdr/common/types.h"
 
 struct TextureHLSNoopReleaser
 {
@@ -22,7 +23,7 @@ class TextureRAM
 public:
     TextureRAM() = default;
 
-    TextureRAM(unsigned int w, unsigned int h, T nodata, T *base)
+    TextureRAM(IntType w, IntType h, T nodata, T *base)
         : nodata_(nodata)
     {
         build_pyramid_(w, h);
@@ -46,21 +47,21 @@ public:
     ~TextureRAM() = default;
 
     // Introspection
-    unsigned int width(unsigned int lvl) const { return levels_[lvl].w; }
-    unsigned int height(unsigned int lvl) const { return levels_[lvl].h; }
-    unsigned int levels() const { return n_levels_; }
+    IntType width(IntType lvl) const { return levels_[lvl].w; }
+    IntType height(IntType lvl) const { return levels_[lvl].h; }
+    IntType levels() const { return n_levels_; }
     Level level(int lvl) const { return levels_[lvl]; }
-    unsigned int size() const { return total_size_; }
-    unsigned int type_size() const { return sizeof(T); };
+    IntType size() const { return total_size_; }
+    IntType type_size() const { return sizeof(T); };
     T nodata() const { return nodata_; }
 
     // Fill a level with a constant
-    void fill(unsigned int lvl, const T &v)
+    void fill(IntType lvl, const T &v)
     {
-        int base_address = levels_[lvl].offset;
+        IntType base_address = levels_[lvl].offset;
 
     texturehls_fill_loop:
-        for (int i = 0; i < width(lvl) * height(lvl); i++)
+        for (IntType i = 0; i < width(lvl) * height(lvl); i++)
         {
 #pragma HLS loop_tripcount min = 307200 max = 307200 avg = 307200
 
@@ -69,7 +70,7 @@ public:
     }
 
     // Read/Write a single texel (bounds-checked in debug)
-    T texel_(unsigned int y, unsigned int x, unsigned int lvl) const
+    T texel_(IntType y, IntType x, IntType lvl) const
     {
 #pragma HLS inline
         // #ifndef __SYNTHESIS__
@@ -78,7 +79,7 @@ public:
         return storage_[levels_[lvl].offset + y * levels_[lvl].w + x];
     }
 
-    void set_texel_(const T &v, unsigned int y, unsigned int x, unsigned int lvl)
+    void set_texel_(const T &v, IntType y, IntType x, IntType lvl)
     {
 #pragma HLS inline
         // #ifndef __SYNTHESIS__
@@ -91,8 +92,7 @@ public:
     // const T *data(unsigned int lvl) const noexcept { return &storage_[levels_[lvl].offset]; }
 
 private:
-
-    void build_pyramid_(unsigned int w, unsigned int h)
+    void build_pyramid_(IntType w, IntType h)
     {
         if (w == 0 || h == 0)
             return;
@@ -123,9 +123,9 @@ private:
         }
     }
 
-    unsigned int total_size_;
+    IntType total_size_;
     Level levels_[15];
-    unsigned int n_levels_;
+    IntType n_levels_;
     T *storage_;
     T nodata_;
 };

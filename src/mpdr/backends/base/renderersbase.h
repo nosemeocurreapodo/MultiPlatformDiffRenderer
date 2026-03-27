@@ -1627,9 +1627,9 @@ public:
         Vec3<RealType> j_depth_012(j_d0, j_d1, j_d2);
 
         // Ray jacobians: bc_i * d_i * dI/dk  (component-wise)
-        Vec3<RealType> j_r0 = bc(0) * kf_depth_0 * dI_d_kf;
-        Vec3<RealType> j_r1 = bc(1) * kf_depth_1 * dI_d_kf;
-        Vec3<RealType> j_r2 = bc(2) * kf_depth_2 * dI_d_kf;
+        Vec3<RealType> j_r0 = RealType(bc(0) * kf_depth_0) * dI_d_kf;
+        Vec3<RealType> j_r1 = RealType(bc(1) * kf_depth_1) * dI_d_kf;
+        Vec3<RealType> j_r2 = RealType(bc(2) * kf_depth_2) * dI_d_kf;
 
         // Vec3<RealType> j_rayx_012(j_r0.x, j_r1.x, j_r2.x);
         // Vec3<RealType> j_rayy_012(j_r0.y, j_r1.y, j_r2.y);

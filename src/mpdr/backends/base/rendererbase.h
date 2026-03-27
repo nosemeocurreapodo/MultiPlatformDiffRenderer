@@ -85,10 +85,10 @@ create_tile_viewport_y_loop:
 #pragma HLS loop_tripcount min = 8 max = 8 avg = 8
 #pragma HLS loop_flatten off
 
-            IntType min_x_ = IntType(RealType(viewport.width_ * x) / RealType(num_tiles_x)) + viewport.min_x_;
-            IntType max_x_ = IntType(RealType(viewport.width_ * (x + 1)) / RealType(num_tiles_x)) + viewport.min_x_;
-            IntType min_y_ = IntType(RealType(viewport.height_ * y) / RealType(num_tiles_y)) + viewport.min_y_;
-            IntType max_y_ = IntType(RealType(viewport.height_ * (y + 1)) / RealType(num_tiles_y)) + viewport.min_y_;
+            IntType min_x_ = ((viewport.width_ * x) / num_tiles_x) + viewport.min_x_;
+            IntType max_x_ = ((viewport.width_ * (x + 1)) / num_tiles_x) + viewport.min_x_;
+            IntType min_y_ = ((viewport.height_ * y) / num_tiles_y) + viewport.min_y_;
+            IntType max_y_ = ((viewport.height_ * (y + 1)) / num_tiles_y) + viewport.min_y_;
 
             viewport_tiles[y * num_tiles_x + x] = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
         }
@@ -133,8 +133,8 @@ create_triangle_loop:
 
         VSOut<Derived> vsout;
         // pixel-space (don’t clamp here) — match GL rasterization (remove +1/-0.5 adjustment)
-        vsout.screen(0) = RealType(0.5) * (ndc_x + RealType(1)) * viewport.width_ + viewport.min_x_;
-        vsout.screen(1) = RealType(0.5) * (ndc_y + RealType(1)) * viewport.height_ + viewport.min_y_;
+        vsout.screen(0) = RealType(RealType(0.5) * (ndc_x + RealType(1))) * (RealType)viewport.width_ + (RealType)viewport.min_x_;
+        vsout.screen(1) = RealType(RealType(0.5) * (ndc_y + RealType(1))) * (RealType)viewport.height_ + (RealType)viewport.min_y_;
         // triangle.vout[j].depth = RealType(0.5) * (ndc_z + RealType(1));
         vsout.depth = ndc_z;
         vsout.invW = invW;
@@ -242,9 +242,9 @@ static void draw_triangle(const Triangle<Derived> &triangle,
     // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
     IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-    IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(tri_bb.max_x_ + RealType(1)));
+    IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(RealType(tri_bb.max_x_ + RealType(1))));
     IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-    IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(tri_bb.max_y_ + RealType(1)));
+    IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(RealType(tri_bb.max_y_ + RealType(1))));
 
     BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
 
@@ -328,9 +328,9 @@ draw_triangle_y_loop:
 
             // Top-left rule adjustments (include pixels on top/left edges)
             const bool inside =
-                (eAB > 0 || (eAB == 0 && tlAB)) &&
-                (eBC > 0 || (eBC == 0 && tlBC)) &&
-                (eCA > 0 || (eCA == 0 && tlCA));
+                (eAB > RealType(0) || (eAB == RealType(0) && tlAB)) &&
+                (eBC > RealType(0) || (eBC == RealType(0) && tlBC)) &&
+                (eCA > RealType(0) || (eCA == RealType(0) && tlCA));
 
             if (!inside)
                 continue;

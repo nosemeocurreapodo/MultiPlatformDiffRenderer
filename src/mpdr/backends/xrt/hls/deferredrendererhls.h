@@ -92,8 +92,8 @@ public:
                               const BInTextures &intextures,
                               BOutTextures &outtextures)
     {
-        IntType tile_width = IntType(ceil(RealType(viewport.width_) / NUM_TILES_X));
-        IntType tile_height = IntType(ceil(RealType(viewport.height_) / NUM_TILES_Y));
+        IntType tile_width = viewport.width_ / NUM_TILES_X;
+        IntType tile_height = viewport.height_ / NUM_TILES_Y;
         // IntType num_tiles = num_tiles_x * num_tiles_y;
 
         Triangle triangle_buffer[MAX_TRI_PER_TILE];
@@ -162,10 +162,10 @@ public:
                     }
                 }
 
-                IntType min_x_ = IntType(RealType(viewport.width_ * tile_x) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType max_x_ = IntType(RealType(viewport.width_ * (tile_x + 1)) / RealType(NUM_TILES_X)) + viewport.min_x_;
-                IntType min_y_ = IntType(RealType(viewport.height_ * tile_y) / RealType(NUM_TILES_Y)) + viewport.min_y_;
-                IntType max_y_ = IntType(RealType(viewport.height_ * (tile_y + 1)) / RealType(NUM_TILES_Y)) + viewport.min_y_;
+                IntType min_x_ = (viewport.width_ * tile_x) / NUM_TILES_X + viewport.min_x_;
+                IntType max_x_ = (viewport.width_ * (tile_x + 1)) / NUM_TILES_X + viewport.min_x_;
+                IntType min_y_ = (viewport.height_ * tile_y) / NUM_TILES_Y + viewport.min_y_;
+                IntType max_y_ = (viewport.height_ * (tile_y + 1)) / NUM_TILES_Y + viewport.min_y_;
 
                 BoundingBox<IntType> viewport_buffer = BoundingBox<IntType>(min_x_, max_x_, min_y_, max_y_);
                 IntType triangle_count = 0;

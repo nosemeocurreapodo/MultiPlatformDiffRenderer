@@ -90,9 +90,9 @@ public:
         projmat(3, 2) = -T(1);
         projmat(3, 3) = T(0);
 
-        Mat4<float> opencv2opengl = Mat4<float>::Identity();
-        opencv2opengl(1, 1) = -1.0;
-        opencv2opengl(2, 2) = -1.0;
+        Mat4<T> opencv2opengl = Mat4<T>::Identity();
+        opencv2opengl(1, 1) = T(-1.0);
+        opencv2opengl(2, 2) = T(-1.0);
 
         projmat = projmat * opencv2opengl;
         /*

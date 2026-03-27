@@ -41,7 +41,7 @@ T wrap(T t, AddressMode addr)
         // mirror every [0,1], 0..1..0..
         T ip = floor(t);
         T f = t - ip;
-        bool odd = static_cast<long>(ip) & 1L;
+        bool odd = static_cast<int>(ip) & 1L;
         return odd ? (T(T(1) - f)) : f;
     }
     }
