@@ -1,8 +1,8 @@
 #pragma once
 
-#include "backends/xrt/hls/bufferhls.h"
-#include "backends/base/mappedviewbase.h"
-#include "core/boundingbox.h"
+#include "mpdr/backends/xrt/hls/bufferhls.h"
+#include "mpdr/backends/base/mappedviewbase.h"
+#include "mpdr/common/boundingbox.h"
 #include <ap_int.h>
 
 struct TextureHLSNoopReleaser

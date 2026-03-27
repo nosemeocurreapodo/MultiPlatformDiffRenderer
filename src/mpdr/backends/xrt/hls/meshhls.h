@@ -1,9 +1,9 @@
 #pragma once
 
 // #include "core/types.h"
-#include "backends/xrt/hls/bufferhls.h"
-#include "backends/xrt/hls/texturehls.h"
-#include "backends/xrt/hls/math_common.h"
+#include "mpdr/backends/xrt/hls/bufferhls.h"
+#include "mpdr/backends/xrt/hls/texturehls.h"
+#include "mpdr/backends/xrt/hls/math_common.h"
 
 class MeshHLS
 {

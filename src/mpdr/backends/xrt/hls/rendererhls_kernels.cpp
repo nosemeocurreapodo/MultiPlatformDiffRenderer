@@ -1,10 +1,10 @@
-#include "backends/xrt/hls/math_common.h"
-#include "backends/xrt/hls/bufferhls.h"
-#include "backends/xrt/hls/texturehls.h"
-#include "backends/xrt/hls/meshhls.h"
-#include "backends/xrt/hls/rendererhls.h"
-#include "backends/xrt/hls/deferredrendererhls.h"
-#include "core/camera.h"
+#include "mpdr/backends/xrt/hls/math_common.h"
+#include "mpdr/backends/xrt/hls/bufferhls.h"
+#include "mpdr/backends/xrt/hls/texturehls.h"
+#include "mpdr/backends/xrt/hls/meshhls.h"
+#include "mpdr/backends/xrt/hls/rendererhls.h"
+#include "mpdr/backends/xrt/hls/deferredrendererhls.h"
+#include "mpdr/common/camera.h"
 
 extern "C"
 {

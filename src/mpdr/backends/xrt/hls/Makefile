@@ -18,11 +18,11 @@ TOP_NAME_2 = DIDxyRenderHLS
 PLATFORMS_PATH ?= /home/emanuel/workspace/visual_odometry_vitis/platform
 PLATFORM_NAME=kv260
 
-MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../../../
-HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../../../../HLSLinearAlgebra
+#MULTIPLATFORMRENDERER_PATH= $(ROOT_DIR)/../../../../src
+#HLSLINEARALGEBRA_PATH= $(ROOT_DIR)/../../../../HLSLinearAlgebra
 
-#MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/src
-#HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/MultiPlatformDiffRenderer/HLSLinearAlgebra
+MULTIPLATFORMRENDERER_PATH= /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src
+HLSLINEARALGEBRA_PATH= /home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/HLSLinearAlgebra
 
 PLATFORM= $(PLATFORMS_PATH)/$(PLATFORM_NAME)/step2_pfm/build/platform/$(PLATFORM_NAME)_custom/export/$(PLATFORM_NAME)_custom/$(PLATFORM_NAME)_custom.xpfm
 
@@ -61,9 +61,9 @@ $(XO_PATH):
 	@echo "Making xo"
 	mkdir -p $(XO_PATH)
 #	v++ -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k vadd --temp_dir $(XO_PATH) --log_dir $(XO_PATH) --report_dir $(XO_PATH) -o $(XO_PATH)/vadd.xo $(ROOT_DIR)/src/vadd.cpp
-	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_1) -o $(XO_PATH)/$(NAME_1).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
+	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_1) -o $(XO_PATH)/$(NAME_1).xo $(MULTIPLATFORMRENDERER_PATH)/mpdr/backends/xrt/hls/rendererhls_kernels.cpp
 # --freqhz=100MHz
-	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_2) -o $(XO_PATH)/$(NAME_2).xo $(MULTIPLATFORMRENDERER_PATH)/backends/xrt/hls/rendererhls_kernels.cpp
+	cd $(XO_PATH) && v++ --jobs 4 -c $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) -k $(TOP_NAME_2) -o $(XO_PATH)/$(NAME_2).xo $(MULTIPLATFORMRENDERER_PATH)/mpdr/backends/xrt/hls/rendererhls_kernels.cpp
 
 $(XCLBIN_PATH):
 	@echo "Making xclbin"

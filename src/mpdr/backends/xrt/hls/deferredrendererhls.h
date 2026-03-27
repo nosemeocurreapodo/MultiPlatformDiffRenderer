@@ -4,17 +4,17 @@
 // #include <cmath>
 // #include <cstdint>
 // #include "core/types.h"
-#include "backends/xrt/hls/math_common.h"
+#include "mpdr/backends/xrt/hls/math_common.h"
 #include "linalg/linalg.h"
-#include "core/camera.h"
-#include "core/boundingbox.h"
-#include "core/render_constants.h"
-#include "backends/base/rendererbase.h"
-#include "backends/base/deferredrendererbase.h"
-#include "backends/base/renderersbase.h"
-#include "backends/xrt/hls/texturehls.h"
-#include "backends/xrt/hls/bufferhls.h"
-#include "backends/xrt/hls/meshhls.h"
+#include "mpdr/common/camera.h"
+#include "mpdr/common/boundingbox.h"
+#include "mpdr/common/render_constants.h"
+#include "mpdr/backends/base/rendererbase.h"
+#include "mpdr/backends/base/deferredrendererbase.h"
+#include "mpdr/backends/base/renderersbase.h"
+#include "mpdr/backends/xrt/hls/texturehls.h"
+#include "mpdr/backends/xrt/hls/bufferhls.h"
+#include "mpdr/backends/xrt/hls/meshhls.h"
 
 #include "hls_task.h"
 

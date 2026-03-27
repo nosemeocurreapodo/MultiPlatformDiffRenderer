@@ -1,7 +1,7 @@
 #pragma once
 
 // #ifdef USE_EIGEN
-#if 1
+#if 0
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -72,16 +72,18 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "hls_math.h"
 #include "ap_int.h"
 #include "ap_fixed.h"
+#include "hls_numerics/FloatX.h"
 // using ImageType = float;
 using ImageType = float;
-using RealType = float;
-//using RealType = half;
-//   using RealType = Posit<16, 1>;
+// using RealType = float;
+//  using RealType = half;
+using RealType = FloatX<32, 8>;
+// using RealType = Posit<16, 1>;
 // using RealType = ap_fixed<32, 16>;
 // using RealType = ap_float<16, 8>;
- using IntType = int;
-//  using IntType = short int;
-//using IntType = ap_int<16>;
+using IntType = int;
+// using IntType = short int;
+// using IntType = ap_int<16>;
 using PidType = float;
 #else
 using ImageType = float;
