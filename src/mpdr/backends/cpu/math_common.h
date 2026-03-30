@@ -47,7 +47,7 @@ inline T fmod(T a, T b)
 }
 
 template <typename T>
-inline T exp(T a)
+inline T fexp(T a)
 {
     return std::exp(a);
 }

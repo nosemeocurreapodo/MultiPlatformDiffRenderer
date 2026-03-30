@@ -107,12 +107,12 @@ class TextureGL
 public:
     // TextureGL() = default;
 
-    TextureGL(int width, int height, T nodata_value)
+    TextureGL(unsigned int width, unsigned int height, T nodata_value)
     {
         init_(width, height, nodata_value, /*data=*/nullptr);
     }
 
-    TextureGL(int width, int height, T nodata_value, const T *data)
+    TextureGL(unsigned int width, unsigned int height, T nodata_value, const T *data)
     {
         init_(width, height, nodata_value, data);
     }
@@ -229,10 +229,10 @@ public:
     }
 
     // Info
-    std::size_t width(int lvl) const { return static_cast<std::size_t>(widths_[lvl]); }
-    std::size_t height(int lvl) const { return static_cast<std::size_t>(heights_[lvl]); }
-    std::size_t levels() const { return static_cast<std::size_t>(widths_.size()); }
-    std::size_t type_size() const { return sizeof(T); };
+    unsigned int width(int lvl) const { return static_cast<unsigned int>(widths_[lvl]); }
+    unsigned int height(int lvl) const { return static_cast<unsigned int>(heights_[lvl]); }
+    unsigned int levels() const { return static_cast<unsigned int>(widths_.size()); }
+    unsigned int type_size() const { return sizeof(T); };
     // std::type_index get_type_index() const { return GetTypeIndex<T>(); };
     int getOpenCVType() const
     {
@@ -341,7 +341,7 @@ private:
     }
 
     GLuint tex_ = 0;
-    std::vector<std::size_t> widths_, heights_;
+    std::vector<unsigned int> widths_, heights_;
     GLint internal_{};
     GLenum format_{};
     GLenum T_{};

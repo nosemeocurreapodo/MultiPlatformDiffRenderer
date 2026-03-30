@@ -14,6 +14,7 @@
 using ImageType = float;
 using RealType = float;
 using IntType = int;
+using UIntType = unsigned int;
 using PidType = float;
 
 template <typename T>
@@ -84,11 +85,13 @@ using RealType = FloatX<32, 8>;
 using IntType = int;
 // using IntType = short int;
 // using IntType = ap_int<16>;
+using UIntType = unsigned int;
 using PidType = float;
 #else
 using ImageType = float;
 using RealType = float;
 using IntType = int;
+using UIntType = unsigned int;
 using PidType = float;
 #include "linalg/ldlt_solverx_lapack.h"
 #endif

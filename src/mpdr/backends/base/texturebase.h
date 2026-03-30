@@ -1,9 +1,10 @@
 #pragma once
 
+#include "mpdr/common/types.h"
+
 #ifdef USE_VITIS
 #include "mpdr/backends/xrt/hls/math_common.h"
 #else
-#include "mpdr/common/types.h"
 #include "mpdr/backends/cpu/math_common.h"
 #endif
 
@@ -164,7 +165,7 @@ V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
 template <typename T>
 T apply_exposure(const T &v, const Vec2<T> &exposure)
 {
-    return v * exp(exposure(0)) + exposure(1);
+    return v;// * fexp(exposure(0)) + exposure(1);
 }
 
 template <typename T>
@@ -176,7 +177,7 @@ T d_f_exp_d_f(const T &v, const Vec2<T> &exposure)
 template <typename T>
 Vec3<T> d_f_exp_d_exp(const T &v, const Vec2<T> &exposure)
 {
-    return Vec3<T>(v * exp(exposure(0)), T(1), T(0));
+    return Vec3<T>(v/* * fexp(exposure(0))*/, T(1), T(0));
 }
 
 template <class T, template <class> class Tex>

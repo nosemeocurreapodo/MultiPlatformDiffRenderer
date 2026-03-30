@@ -7,7 +7,7 @@ template <class T, class Releaser>
 class BufferViewBase
 {
 public:
-    BufferViewBase(T *p, IntType n, Releaser r = {}) noexcept
+    BufferViewBase(T *p, UIntType n, Releaser r = {}) noexcept
         //    : ptr_(p), n_(n), rel_(std::move(r)) {}
         : ptr_(p), n_(n), rel_(r)
     {
@@ -19,10 +19,10 @@ public:
     ~BufferViewBase() { rel_(); }
 
     T *data() const noexcept { return ptr_; }
-    IntType size() const noexcept { return n_; }
+    UIntType size() const noexcept { return n_; }
     T *begin() const noexcept { return ptr_; }
     T *end() const noexcept { return ptr_ + n_; }
-    T &operator[](IntType i) const noexcept
+    T &operator[](UIntType i) const noexcept
     {
         assert(i < n_);
         return ptr_[i];
@@ -30,14 +30,14 @@ public:
 
 private:
     T *ptr_{};
-    IntType n_{};
+    UIntType n_{};
     Releaser rel_{};
 };
 
 struct Level
 {
-    IntType offset; // element offset in storage_
-    IntType w, h;
+    UIntType offset; // element offset in storage_
+    UIntType w, h;
     // optional: UInt pitch; // elements per row if you pad rows
 };
 
@@ -47,7 +47,7 @@ class TextureViewBase
 public:
     //TextureViewBase() noexcept = default;
 
-    TextureViewBase(T *p, IntType width, IntType height, T nodata, Releaser r = {}) noexcept
+    TextureViewBase(T *p, UIntType width, UIntType height, T nodata, Releaser r = {}) noexcept
         : ptr_(p),
           width_(width),
           height_(height),
@@ -93,21 +93,21 @@ public:
     T *begin() const noexcept { return ptr_; }
     T *end() const noexcept { return ptr_ + width_ * height_; }
 
-    T &operator[](IntType i) const noexcept
+    T &operator[](UIntType i) const noexcept
     {
         assert(i < width_ * height_);
         return ptr_[i];
     }
 
-    T &operator()(IntType y, IntType x) const noexcept
+    T &operator()(UIntType y, UIntType x) const noexcept
     {
         assert(y < height_ && x < width_);
         return ptr_[y * width_ + x];
     }
 
-    IntType size() const noexcept { return width_ * height_; }
-    IntType width() const noexcept { return width_; }
-    IntType height() const noexcept { return height_; }
+    UIntType size() const noexcept { return width_ * height_; }
+    UIntType width() const noexcept { return width_; }
+    UIntType height() const noexcept { return height_; }
     const T &nodata() const noexcept { return nodata_; }
 
 private:
@@ -127,8 +127,8 @@ private:
     }
 
     T *ptr_{};
-    IntType width_{};
-    IntType height_{};
+    UIntType width_{};
+    UIntType height_{};
     T nodata_{};
     Releaser rel_{};
     bool owns_{false};
