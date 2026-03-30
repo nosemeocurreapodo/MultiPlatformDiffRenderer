@@ -76,9 +76,9 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "hls_numerics/FloatX.h"
 // using ImageType = float;
 using ImageType = float;
-// using RealType = float;
+using RealType = float;
 //  using RealType = half;
-using RealType = FloatX<32, 8>;
+// using RealType = FloatX<32, 8>;
 // using RealType = Posit<16, 1>;
 // using RealType = ap_fixed<32, 16>;
 // using RealType = ap_float<16, 8>;
@@ -142,3 +142,10 @@ using LDLTx_LAPACK = linalg::LDLT_LAPACK<T>;
 #endif
 
 #endif
+
+template <typename T>
+inline T clamp(T a, T _min, T _max)
+{
+    // return hls::clamp(a, _min, _max);
+    return min(max(a, _min), _max);
+}

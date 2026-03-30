@@ -2,7 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
-
+/*
 template <typename T>
 inline T min(T a, T b)
 {
@@ -57,3 +57,4 @@ inline T fabs(T a)
 {
     return std::fabs(a);
 }
+*/

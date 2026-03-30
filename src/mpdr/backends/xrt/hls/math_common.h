@@ -3,7 +3,7 @@
 // #include "hls_math.h"
 // #include "ap_int.h"
 // #include "ap_fixed.h"
-//#include "mpdr/common/types.h"
+// #include "mpdr/common/types.h"
 
 #define NUM_BUFFERS 4
 
@@ -19,7 +19,7 @@
 // taken from the planet dataset
 #define MAX_NUM_TRI 4096 // 768;
 #define MAX_TRI_PER_TILE 4 * MAX_NUM_TRI / (NUM_TILES_X * NUM_TILES_Y)
-
+/*
 template <typename T>
 inline T min(T a, T b)
 {
@@ -40,7 +40,7 @@ inline T clamp(T a, T _min, T _max)
     // return hls::clamp(a, _min, _max);
     return min(max(a, _min), _max);
 }
-/*
+
 inline RealType floor(RealType a)
 {
     // return hls::floor(a);
