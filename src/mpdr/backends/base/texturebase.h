@@ -32,7 +32,7 @@ T wrap(T t, AddressMode addr)
     case AddressMode::Repeat:
     {
         // wrap to [0,1)
-        T r = fmod(t, T(1));
+        T r = mod(t, T(1));
         if (r < T(0))
             r += T(1);
         return r;
@@ -62,8 +62,8 @@ T nearest(const TexView &tex, RealType y, RealType x)
     const IntType w = tex.width() - 1;
     const IntType h = tex.height() - 1;
 
-    const IntType xf = IntType(lround(x));
-    const IntType yf = IntType(lround(y));
+    const IntType xf = round(x);
+    const IntType yf = round(y);
     const IntType x0 = max(min(xf, w), IntType(0));
     const IntType y0 = max(min(yf, h), IntType(0));
 
@@ -80,8 +80,12 @@ T bilinear(const TexView &tex, RealType y, RealType x)
 
     const RealType xf = floor(x);
     const RealType yf = floor(y);
-    const IntType x0 = static_cast<IntType>(xf < RealType(0) ? RealType(0) : xf);
-    const IntType y0 = static_cast<IntType>(yf < RealType(0) ? RealType(0) : yf);
+    IntType x0 = xf;
+    if(x0 < 0)
+        x0 = 0;
+    IntType y0 = yf;
+    if(y0 < 0)
+        y0 = 0;
     const IntType x1 = min(x0 + 1, w - 1);
     const IntType y1 = min(y0 + 1, h - 1);
 
@@ -165,7 +169,7 @@ V<T> compute_didxy(const Tex &tex, int y, int x, unsigned int lvl)
 template <typename T>
 T apply_exposure(const T &v, const Vec2<T> &exposure)
 {
-    return v;// * fexp(exposure(0)) + exposure(1);
+    return v * exp(exposure(0)) + exposure(1);
 }
 
 template <typename T>
@@ -177,7 +181,7 @@ T d_f_exp_d_f(const T &v, const Vec2<T> &exposure)
 template <typename T>
 Vec3<T> d_f_exp_d_exp(const T &v, const Vec2<T> &exposure)
 {
-    return Vec3<T>(v/* * fexp(exposure(0))*/, T(1), T(0));
+    return Vec3<T>(v * exp(exposure(0)), T(1), T(0));
 }
 
 template <class T, template <class> class Tex>

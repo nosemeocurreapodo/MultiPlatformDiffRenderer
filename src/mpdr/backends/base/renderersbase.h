@@ -726,8 +726,8 @@ public:
 
         // IntType x = IntType(in_varying.texcoord(0) * RealType(width - 1));
         // IntType y = IntType(in_varying.texcoord(1) * RealType(height - 1));
-        IntType x = IntType(gl_FragCoord(0));
-        IntType y = IntType(gl_FragCoord(1));
+        IntType x = gl_FragCoord(0);
+        IntType y = gl_FragCoord(1);
         IntType x_p = x + 1;
         IntType x_pp = x + 2;
         IntType x_m = x - 1;

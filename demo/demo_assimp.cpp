@@ -5,11 +5,16 @@
 #include <algorithm>
 #include <cmath>
 
+// #define USE_EIGEN
+
 #include "mpdr/common/helpers.h"
 #include "mpdr/common/mesh_helpers.h"
 #include "mpdr/common/types.h"
-#include "linalg/converters.h"
 #include "model.h"
+
+#ifndef USE_EIGEN
+#include "linalg/converters.h"
+#endif
 
 #ifdef COMPILE_CPU
 // #include "backends/cpu/devicecpu.h"
@@ -307,7 +312,11 @@ int main(int argc, char **argv)
         view_e_.block<3, 1>(0, 3) = -R * camPos;
         view_e_.row(3) = Eigen::Vector4f(0, 0, 0, 1);
 
+#ifdef USE_EIGEN
+        Mat4<float> v_ = view_e_;
+#else
         Mat4<float> v_ = EigenToLinalg(view_e_);
+#endif
 
         SE3<float> transform(v_);
 

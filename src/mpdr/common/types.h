@@ -1,7 +1,6 @@
 #pragma once
 
-// #ifdef USE_EIGEN
-#if 0
+#ifdef USE_EIGEN
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -10,6 +9,18 @@
 #include <unsupported/Eigen/MatrixFunctions>
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
+
+template <typename T>
+inline T max(const T &a, const T &b)
+{
+    return a > b ? a : b;
+}
+
+template <typename T>
+inline T min(const T &a, const T &b)
+{
+    return a < b ? a : b;
+}
 
 using ImageType = float;
 using RealType = float;
@@ -73,19 +84,23 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "hls_math.h"
 #include "ap_int.h"
 #include "ap_fixed.h"
+#include "hls_numerics/Float.h"
+#include "hls_numerics/FixedX.h"
 #include "hls_numerics/FloatX.h"
 // using ImageType = float;
 using ImageType = float;
-using RealType = float;
-//  using RealType = half;
-// using RealType = FloatX<32, 8>;
+// using RealType = float;
+//    using RealType = half;
+using RealType = FloatX<32, 8>;
+// using RealType = FixedX<32, 16>;
 // using RealType = Posit<16, 1>;
 // using RealType = ap_fixed<32, 16>;
 // using RealType = ap_float<16, 8>;
-using IntType = int;
+// using IntType = int;
 // using IntType = short int;
-// using IntType = ap_int<16>;
-using UIntType = unsigned int;
+using IntType = ap_int<16>;
+// using UIntType = unsigned int;
+using UIntType = ap_uint<16>;
 using PidType = float;
 #else
 using ImageType = float;
@@ -94,6 +109,13 @@ using IntType = int;
 using UIntType = unsigned int;
 using PidType = float;
 #include "linalg/ldlt_solverx_lapack.h"
+
+template <typename T>
+T mod(const T &a, const T &b)
+{
+    return fmod(a, b);
+}
+
 #endif
 
 template <typename T>
@@ -142,10 +164,3 @@ using LDLTx_LAPACK = linalg::LDLT_LAPACK<T>;
 #endif
 
 #endif
-
-template <typename T>
-inline T clamp(T a, T _min, T _max)
-{
-    // return hls::clamp(a, _min, _max);
-    return min(max(a, _min), _max);
-}

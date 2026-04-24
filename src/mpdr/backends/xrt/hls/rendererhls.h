@@ -85,8 +85,8 @@ public:
         int num_triangles;
         get_triangles(vertex_buffer, ebo_buffer, viewport, viewport, uniforms, triangles, MAX_NUM_TRI, num_triangles);
 
-        IntType tile_width = IntType(RealType(ceil(RealType(viewport.width_) / RealType(NUM_TILES_X))));
-        IntType tile_height = IntType(RealType(ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y))));
+        IntType tile_width = ceil(RealType(viewport.width_) / RealType(NUM_TILES_X));
+        IntType tile_height = ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y));
 
         IntType triangle_count;
         Uniforms uniforms_buffer;
@@ -155,10 +155,10 @@ public:
                     // IntType min_y = max(viewport_buffer.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
                     // IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
-                    IntType min_x = max(viewport_buffer.min_x_, static_cast<IntType>(tri_bb.min_x_));
-                    IntType max_x = min(viewport_buffer.max_x_, static_cast<IntType>(RealType(tri_bb.max_x_ + RealType(1))));
-                    IntType min_y = max(viewport_buffer.min_y_, static_cast<IntType>(tri_bb.min_y_));
-                    IntType max_y = min(viewport_buffer.max_y_, static_cast<IntType>(RealType(tri_bb.max_y_ + RealType(1))));
+                    IntType min_x = max<IntType>(viewport_buffer.min_x_, tri_bb.min_x_);
+                    IntType max_x = min<IntType>(viewport_buffer.max_x_, tri_bb.max_x_ + RealType(1));
+                    IntType min_y = max<IntType>(viewport_buffer.min_y_, tri_bb.min_y_);
+                    IntType max_y = min<IntType>(viewport_buffer.max_y_, tri_bb.max_y_ + RealType(1));
 
                     if (min_x >= max_x || min_y >= max_y)
                         continue;
@@ -193,8 +193,8 @@ public:
                               const InTextures &intextures,
                               OutTextures &outtextures)
     {
-        IntType tile_width = IntType(RealType(ceil(RealType(viewport.width_) / RealType(NUM_TILES_X))));
-        IntType tile_height = IntType(RealType(ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y))));
+        IntType tile_width = ceil(RealType(viewport.width_) / RealType(NUM_TILES_X));
+        IntType tile_height = ceil(RealType(viewport.height_) / RealType(NUM_TILES_Y));
         // IntType num_tiles = num_tiles_x * num_tiles_y;
 
         Triangle triangle_buffer[MAX_TRI_PER_TILE];

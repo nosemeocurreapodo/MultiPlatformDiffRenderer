@@ -1,13 +1,13 @@
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/tests/data"
 
 #include "tests/common/loaddataset.h"
-#include "tests/common/test_helpers.h"
-#include "core/mesh_helpers.h"
-#include "core/camera.h"
-#include "backends/cpu/meshcpu.h"
+#include "mpdr/common/helpers.h"
+#include "mpdr/common/mesh_helpers.h"
+#include "mpdr/common/camera.h"
+#include "mpdr/backends/cpu/meshcpu.h"
 
 extern "C"
 {
@@ -53,13 +53,12 @@ int main()
     UploadMatToTexture(depth_dst_cpu, 0, depth_dst_cv);
     linalg::SE3<float> pose_dst = poses[50];
 
-    MeshCPU mesh_cpu;
-    CreateMesh((float *)depth_src_cv.data,
+    MeshCPU mesh_cpu = CreateMesh<MeshCPU>((float *)depth_src_cv.data,
                cam,
                depth_src_cv.cols,
                depth_src_cv.rows,
                24,
-               mesh_cpu);
+               10.0);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 

@@ -241,10 +241,10 @@ static void draw_triangle(const Triangle<Derived> &triangle,
     // IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(floor(tri_bb.min_y_)));
     // IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(ceil(tri_bb.max_y_)));
 
-    IntType min_x = max(tile_bb.min_x_, static_cast<IntType>(tri_bb.min_x_));
-    IntType max_x = min(tile_bb.max_x_, static_cast<IntType>(RealType(tri_bb.max_x_ + RealType(1))));
-    IntType min_y = max(tile_bb.min_y_, static_cast<IntType>(tri_bb.min_y_));
-    IntType max_y = min(tile_bb.max_y_, static_cast<IntType>(RealType(tri_bb.max_y_ + RealType(1))));
+    IntType min_x = max<IntType>(tile_bb.min_x_, tri_bb.min_x_);
+    IntType max_x = min<IntType>(tile_bb.max_x_, tri_bb.max_x_ + RealType(1));
+    IntType min_y = max<IntType>(tile_bb.min_y_, tri_bb.min_y_);
+    IntType max_y = min<IntType>(tile_bb.max_y_, tri_bb.max_y_ + RealType(1));
 
     BoundingBox<IntType> triangle_bb(min_x, max_x, min_y, max_y);
 
