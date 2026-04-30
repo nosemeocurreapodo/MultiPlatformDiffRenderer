@@ -2683,7 +2683,7 @@ public:
                 vec3 rray = mat3(pose_matrix) * a_position/a_position.z;
                 gl_Position = view_matrix * ver;
                 v_kf_ver = a_position;
-                v_texcoord = a_texcoord;
+                v_texcoord = a_position.xy; //a_texcoord;
                 v_f_ver = ver.xyz;
                 v_kf_ray = rray.xyz;
                 v_vertexID = gl_VertexID;

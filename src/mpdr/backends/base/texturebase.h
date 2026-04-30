@@ -32,7 +32,7 @@ T wrap(T t, AddressMode addr)
     case AddressMode::Repeat:
     {
         // wrap to [0,1)
-        T r = mod(t, T(1));
+        T r = fmod(t, T(1));
         if (r < T(0))
             r += T(1);
         return r;

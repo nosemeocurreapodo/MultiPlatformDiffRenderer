@@ -1,12 +1,13 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/tests/data"
 
 #include "tests/common/loaddataset.h"
-#include "tests/common/test_helpers.h"
+#include "mpdr/common/helpers.h"
 // #include "core/types.h"
-#include "core/camera.h"
-#include "core/mesh_helpers.h"
+#include "mpdr/common/camera.h"
+#include "mpdr/common/mesh_helpers.h"
+#include "mpdr/backends/cpu/meshcpu.h"
 #include <ap_int.h>
 
 extern "C"
@@ -51,7 +52,7 @@ int main()
     linalg::Vec2<float> exposure(0.0f, 0.0f);
 
     TextureCPU<ImageType> image_src_cpu(w, h, 0);
-    TextureCPU<Vec3<float>> didxy_src_cpu(w, h, Vec3<float>(1, 1, 1));
+    TextureCPU<Vec3<float>> didxy_src_cpu(w, h, Vec3<float>(0, 0, 0));
     TextureCPU<float> depth_src_cpu(w, h, 0);
     // TextureCPU<ImageType> image_dst_cpu(w, h, 0);
 
@@ -70,9 +71,12 @@ int main()
     UploadMatToTexture(depth_src_cpu, 0, depth_src_cv);
     UploadMatToTexture(image_src_cpu, 0, image_src_cv);
 
-    std::vector<float> vertex;
-    std::vector<int> indices;
-    CreateMesh(depth_src_cpu, cam, 32, vertex, indices, true, true, false);
+    MeshCPU mesh_cpu = CreateMesh<MeshCPU>((float *)depth_src_cv.data,
+                                           cam,
+                                           depth_src_cv.cols,
+                                           depth_src_cv.rows,
+                                           24,
+                                           10.0);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
@@ -82,6 +86,9 @@ int main()
     auto kf_map = image_src_cpu.MapWrite(0);
     auto didxy_map = didxy_src_cpu.MapWrite(0);
     int in_offset = image_src_cpu.level(in_lvl).offset;
+
+    auto vertex_buff_map = mesh_cpu.vertex_buffer_.MapWrite();
+    auto ebo_buff_map = mesh_cpu.ebo_buffer_.MapWrite();
 
     TextureCPU<ImageType> image_texture_cpu(w, h, 0);
     TextureCPU<Vec3<float>> jtra_texture_cpu(w, h, Vec3<float>(0, 0, 0));
@@ -99,8 +106,8 @@ int main()
     int out_offset = image_texture_cpu.level(out_lvl).offset;
 
     DiffRenderHLS(
-        vertex.data(),
-        indices.data(),
+        vertex_buff_map.data(),
+        ebo_buff_map.data(),
         (ap_uint<8> *)kf_map.data(),
         (ap_uint<8> *)didxy_map.data(),
         (ap_uint<8> *)image_map.data(),
@@ -110,7 +117,7 @@ int main()
         (ap_uint<8> *)jmap_map.data(),
         (ap_uint<8> *)pids_map.data(),
         in_offset, out_offset,
-        vertex.size(), indices.size(),
+        vertex_buff_map.size(), ebo_buff_map.size(),
         image_src_cpu.width(in_lvl), image_src_cpu.height(in_lvl),
         image_texture_cpu.width(out_lvl), image_texture_cpu.height(out_lvl),
         pose.so3().unit_quaternion().x(), pose.so3().unit_quaternion().y(), pose.so3().unit_quaternion().z(), pose.so3().unit_quaternion().w(),

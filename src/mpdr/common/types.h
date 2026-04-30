@@ -88,21 +88,24 @@ using LDLTx_LAPACK = Eigen::LDLT<Eigen::MatrixX<T>>;
 #include "hls_numerics/Float.h"
 #include "hls_numerics/FixedX.h"
 #include "hls_numerics/FloatX.h"
+#include "hls_numerics/Posit.h"
+#include "hls_numerics/wap_fixed.h"
 #include "hls_numerics/wap_float.h"
 // using ImageType = float;
 using ImageType = float;
-using RealType = float;
-//    using RealType = half;
+//using RealType = float;
+//using RealType = half;
 //using RealType = FloatX<32, 8>;
-// using RealType = FixedX<32, 16>;
+//using RealType = FixedX<32, 16>;
 // using RealType = Posit<16, 1>;
 //using RealType = ap_fixed<32, 16>;
-//using RealType = wap_float<32, 8>;
-// using IntType = int;
+using RealType = wap_float<16, 5>;
+//using RealType = wap_fixed<32, 16>;
+using IntType = int;
 // using IntType = short int;
-using IntType = ap_int<16>;
-// using UIntType = unsigned int;
-using UIntType = ap_uint<16>;
+//using IntType = ap_int<16>;
+using UIntType = unsigned int;
+//using UIntType = ap_uint<16>;
 using PidType = float;
 #else
 using ImageType = float;

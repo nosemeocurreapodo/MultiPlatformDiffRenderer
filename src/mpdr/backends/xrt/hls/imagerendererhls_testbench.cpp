@@ -1,13 +1,13 @@
 #include <opencv2/opencv.hpp>
 
-#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/src/tests/data"
+#define TEST_DATA_DIR "/home/emanuel/workspace/mesh_vo/MultiPlatformDiffRenderer/tests/data"
 
 #include "tests/common/loaddataset.h"
-#include "tests/common/test_helpers.h"
+#include "mpdr/common/helpers.h"
 // #include "core/types.h"
-#include "core/camera.h"
-#include "core/mesh_helpers.h"
-#include "backends/cpu/meshcpu.h"
+#include "mpdr/common/camera.h"
+#include "mpdr/common/mesh_helpers.h"
+#include "mpdr/backends/cpu/meshcpu.h"
 #include <ap_int.h>
 
 extern "C"
@@ -65,19 +65,17 @@ int main()
     UploadMatToTexture(image_src_cpu, 0, image_src_cv);
     UploadMatToTexture(image_dst_cpu, 0, image_dst_cv);
 
-    MeshCPU mesh_cpu;
-
-    CreateMesh((float *)depth_src_cv.data,
-               cam,
-               depth_src_cv.cols,
-               depth_src_cv.rows,
-               24,
-               mesh_cpu);
+    MeshCPU mesh_cpu = CreateMesh<MeshCPU>((float *)depth_src_cv.data,
+                                           cam,
+                                           depth_src_cv.cols,
+                                           depth_src_cv.rows,
+                                           24,
+                                           10.0);
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
     unsigned int in_lvl = 2;
-    unsigned int out_lvl = 0;
+    unsigned int out_lvl = 2;
 
     auto vertex_buff_map = mesh_cpu.vertex_buffer_.MapWrite();
     auto ebo_buff_map = mesh_cpu.ebo_buffer_.MapWrite();
