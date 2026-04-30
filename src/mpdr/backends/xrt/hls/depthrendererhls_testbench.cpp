@@ -62,7 +62,7 @@ int main()
 
     linalg::SE3<float> pose = pose_dst * pose_src.inverse();
 
-    unsigned int lvl = 1;
+    unsigned int lvl = 2;
 
     auto vertex_buff_map = mesh_cpu.vertex_buffer_.MapWrite();
     auto ebo_buff_map = mesh_cpu.ebo_buffer_.MapWrite();
